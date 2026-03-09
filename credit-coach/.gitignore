@@ -48,6 +48,7 @@ artifacts/*
 !artifacts/.gitkeep
 data/*
 !data/.gitkeep
+!data/sample/
 
 # Geliştirme notları
 docs/tmp/
