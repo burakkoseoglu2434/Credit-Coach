@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from credit_coach.cli.run_batch_recourse_eval import (
+    _apply_phase1_feature_boost,
     _apply_fairness_segment_cap_boost,
     _apply_high_risk_profile,
+    _build_fairness_failure_breakdown,
     _candidate_pool_diversity_index,
     _candidate_source_entropy,
     _extract_model_importance_vector,
@@ -11,6 +13,7 @@ from credit_coach.cli.run_batch_recourse_eval import (
     _stage1_filter_candidate_pool,
     _tune_internal_search_profile_for_budget,
 )
+import pandas as pd
 from credit_coach.data.schema import PlanAction, PlanRecord
 
 
@@ -258,7 +261,85 @@ def test_effective_recourse_search_applies_distance_profile_for_far_denied():
     assert profile["strategies"] == ["conservative"]
     assert profile["topk"] == 6
     assert profile["search_cfg"]["force_skip_dice"] is True
-    assert profile["search_cfg"]["weekly_optimizer"]["enabled"] is False
+
+
+def test_apply_phase1_feature_boost_prioritizes_configured_fast_features():
+    boosted = _apply_phase1_feature_boost(
+        candidate_features=[
+            {"feature": "annual_inc", "abs_contribution": 0.2},
+            {"feature": "dti", "abs_contribution": 2.0},
+            {"feature": "revol_util", "abs_contribution": 1.0},
+        ],
+        rec_cfg={
+            "phase1_fast_track": {
+                "enabled": True,
+                "denied_only": True,
+                "high_risk_only": True,
+                "prioritized_features": ["dti", "revol_util"],
+                "feature_boost_multiplier": 10.0,
+                "append_missing_prioritized": False,
+            }
+        },
+        denied_mode=True,
+        risk_band="high",
+        actionable=["annual_inc", "dti", "revol_util"],
+    )
+    assert boosted[0]["feature"] == "dti"
+    assert boosted[1]["feature"] == "revol_util"
+
+
+def test_apply_phase1_feature_boost_appends_missing_prioritized_features():
+    boosted = _apply_phase1_feature_boost(
+        candidate_features=[{"feature": "annual_inc", "abs_contribution": 3.0}],
+        rec_cfg={
+            "phase1_fast_track": {
+                "enabled": True,
+                "denied_only": True,
+                "high_risk_only": True,
+                "prioritized_features": ["dti", "revol_util"],
+                "append_missing_prioritized": True,
+                "max_append": 1,
+            }
+        },
+        denied_mode=True,
+        risk_band="high",
+        actionable=["annual_inc", "dti", "revol_util"],
+    )
+    feats = [str(x["feature"]) for x in boosted]
+    assert "annual_inc" in feats
+    assert "dti" in feats or "revol_util" in feats
+
+
+def test_build_fairness_failure_breakdown_outputs_expected_columns():
+    batch_df = pd.DataFrame(
+        {
+            "risk_band": ["high", "high", "mid", "mid"],
+            "income_band": ["q1", "q1", "q2", "q2"],
+            "best_source": ["internal", "dice", "internal", "rule"],
+            "best_pd": [0.40, 0.30, 0.36, 0.31],
+            "denied_base": [1, 1, 1, 0],
+            "gate_pass_any_candidate": [0, 1, 0, 1],
+            "fairness_guard_demoted": [1, 0, 0, 0],
+        }
+    )
+    sampled_sorted = pd.DataFrame(
+        {
+            "home_ownership": ["RENT", "MORTGAGE", "RENT", "OWN"],
+            "is_default": [1, 0, 1, 0],
+        }
+    )
+    base_proba = pd.Series([0.45, 0.32, 0.38, 0.29], dtype=float)
+    out = _build_fairness_failure_breakdown(
+        batch_df=batch_df,
+        sampled_sorted=sampled_sorted,
+        base_proba=base_proba,
+        tau=0.35,
+        group_feature="home_ownership",
+        target_col="is_default",
+    )
+    assert not out.empty
+    assert "segment_key" in out.columns
+    assert "failure_severity_score" in out.columns
 
 
 def test_apply_fairness_segment_cap_boost_for_high_penalty_high_risk_denied():

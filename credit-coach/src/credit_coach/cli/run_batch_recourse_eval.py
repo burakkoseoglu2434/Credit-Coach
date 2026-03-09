@@ -543,6 +543,90 @@ def _local_reason_candidates(
     return weighted[:topk]
 
 
+def _apply_phase1_feature_boost(
+    *,
+    candidate_features: list[dict[str, Any]] | list[str],
+    rec_cfg: dict[str, Any],
+    denied_mode: bool,
+    risk_band: str,
+    actionable: list[str],
+) -> list[dict[str, Any]]:
+    cfg = (
+        rec_cfg.get("phase1_fast_track", {})
+        if isinstance(rec_cfg.get("phase1_fast_track", {}), dict)
+        else {}
+    )
+    if not bool(cfg.get("enabled", False)):
+        return [
+            {"feature": str(x), "abs_contribution": 0.0}
+            if isinstance(x, str)
+            else {"feature": str(x.get("feature", "")), "abs_contribution": float(x.get("abs_contribution", 0.0))}
+            for x in candidate_features
+        ]
+    if bool(cfg.get("denied_only", True)) and not bool(denied_mode):
+        return [
+            {"feature": str(x), "abs_contribution": 0.0}
+            if isinstance(x, str)
+            else {"feature": str(x.get("feature", "")), "abs_contribution": float(x.get("abs_contribution", 0.0))}
+            for x in candidate_features
+        ]
+    if bool(cfg.get("high_risk_only", True)) and str(risk_band).strip().lower() != "high":
+        return [
+            {"feature": str(x), "abs_contribution": 0.0}
+            if isinstance(x, str)
+            else {"feature": str(x.get("feature", "")), "abs_contribution": float(x.get("abs_contribution", 0.0))}
+            for x in candidate_features
+        ]
+
+    prioritized_raw = cfg.get("prioritized_features", [])
+    prioritized = [str(v).strip() for v in prioritized_raw if str(v).strip()] if isinstance(prioritized_raw, list) else []
+    if not prioritized:
+        return [
+            {"feature": str(x), "abs_contribution": 0.0}
+            if isinstance(x, str)
+            else {"feature": str(x.get("feature", "")), "abs_contribution": float(x.get("abs_contribution", 0.0))}
+            for x in candidate_features
+        ]
+    prioritized_set = set(prioritized)
+    actionable_set = set(actionable)
+    boost = max(1.0, float(cfg.get("feature_boost_multiplier", 1.35)))
+    score_floor = max(0.0, float(cfg.get("min_score_floor", 1.0e-9)))
+    append_missing = bool(cfg.get("append_missing_prioritized", True))
+    max_append = max(0, int(cfg.get("max_append", 2)))
+
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in candidate_features:
+        if isinstance(item, str):
+            feat = str(item).strip()
+            score = 0.0
+        elif isinstance(item, dict):
+            feat = str(item.get("feature", "")).strip()
+            score = float(item.get("abs_contribution", item.get("weight", 0.0)) or 0.0)
+        else:
+            continue
+        if not feat or feat in seen or feat not in actionable_set:
+            continue
+        seen.add(feat)
+        if feat in prioritized_set:
+            score = max(score_floor, score) * boost
+        normalized.append({"feature": feat, "abs_contribution": float(score)})
+
+    if append_missing and max_append > 0:
+        appended = 0
+        for feat in prioritized:
+            if appended >= max_append:
+                break
+            if feat in seen or feat not in actionable_set:
+                continue
+            normalized.append({"feature": feat, "abs_contribution": float(score_floor * boost)})
+            seen.add(feat)
+            appended += 1
+
+    normalized.sort(key=lambda t: float(t.get("abs_contribution", 0.0)), reverse=True)
+    return normalized
+
+
 def _normalize_risk_band_reservation(raw: Any) -> dict[str, float]:
     default = {"high": 0.5, "mid": 0.25, "near": 0.25}
     if not isinstance(raw, dict):
@@ -1499,6 +1583,139 @@ def _build_denied_diagnostics(
         ),
     }
     return gate_breakdown, source_breakdown, income_lift, risk_lift, metrics
+
+
+def _build_fairness_failure_breakdown(
+    *,
+    batch_df: pd.DataFrame,
+    sampled_sorted: pd.DataFrame,
+    base_proba: pd.Series,
+    tau: float,
+    group_feature: str,
+    target_col: str,
+) -> pd.DataFrame:
+    if batch_df.empty or sampled_sorted.empty:
+        return pd.DataFrame(
+            columns=[
+                "segment_key",
+                "group_bucket",
+                "risk_band",
+                "income_band",
+                "best_source",
+                "n_rows",
+                "denied_rows",
+                "approval_rate_before",
+                "approval_rate_after",
+                "approval_rate_delta",
+                "tpr_before",
+                "tpr_after",
+                "tpr_delta",
+                "fpr_before",
+                "fpr_after",
+                "fpr_delta",
+                "recourse_success_rate",
+                "fairness_guard_demoted_rate",
+                "failure_severity_score",
+            ]
+        )
+    if group_feature not in sampled_sorted.columns or target_col not in sampled_sorted.columns:
+        return pd.DataFrame(
+            columns=[
+                "segment_key",
+                "group_bucket",
+                "risk_band",
+                "income_band",
+                "best_source",
+                "n_rows",
+                "denied_rows",
+                "approval_rate_before",
+                "approval_rate_after",
+                "approval_rate_delta",
+                "tpr_before",
+                "tpr_after",
+                "tpr_delta",
+                "fpr_before",
+                "fpr_after",
+                "fpr_delta",
+                "recourse_success_rate",
+                "fairness_guard_demoted_rate",
+                "failure_severity_score",
+            ]
+        )
+
+    df = pd.DataFrame(
+        {
+            "group_bucket": _build_group_bucket(sampled_sorted[group_feature]).astype(str).fillna("unknown").values,
+            "risk_band": batch_df.get("risk_band", pd.Series(["unknown"] * len(batch_df))).astype(str).values,
+            "income_band": batch_df.get("income_band", pd.Series(["unknown"] * len(batch_df))).astype(str).values,
+            "best_source": batch_df.get("best_source", pd.Series(["unknown"] * len(batch_df))).astype(str).values,
+            "y_true": pd.to_numeric(sampled_sorted[target_col], errors="coerce").fillna(0).astype(int).values,
+            "denied_base": batch_df.get("denied_base", pd.Series([0] * len(batch_df))).astype(int).values,
+            "gate_pass_any_candidate": batch_df.get("gate_pass_any_candidate", pd.Series([0] * len(batch_df))).astype(int).values,
+            "fairness_guard_demoted": batch_df.get("fairness_guard_demoted", pd.Series([0] * len(batch_df))).astype(int).values,
+            "before_pred_default": (base_proba.astype(float).to_numpy(dtype=float) > float(tau)).astype(int),
+            "after_pred_default": (batch_df["best_pd"].astype(float).to_numpy(dtype=float) > float(tau)).astype(int),
+        }
+    )
+
+    rows: list[dict[str, Any]] = []
+    group_cols = ["group_bucket", "risk_band", "income_band", "best_source"]
+    for keys, g in df.groupby(group_cols, dropna=False):
+        y_true = g["y_true"].astype(int)
+        before_pred = g["before_pred_default"].astype(int)
+        after_pred = g["after_pred_default"].astype(int)
+        before_approve = (before_pred == 0).astype(int)
+        after_approve = (after_pred == 0).astype(int)
+        pos_mask = y_true == 1
+        neg_mask = y_true != 1
+
+        tpr_before = float(before_pred[pos_mask].mean()) if bool(pos_mask.any()) else np.nan
+        tpr_after = float(after_pred[pos_mask].mean()) if bool(pos_mask.any()) else np.nan
+        fpr_before = float(before_pred[neg_mask].mean()) if bool(neg_mask.any()) else np.nan
+        fpr_after = float(after_pred[neg_mask].mean()) if bool(neg_mask.any()) else np.nan
+        approval_before = float(before_approve.mean()) if len(g) > 0 else 0.0
+        approval_after = float(after_approve.mean()) if len(g) > 0 else 0.0
+        recourse_success = (
+            float(g.loc[g["denied_base"] == 1, "gate_pass_any_candidate"].mean())
+            if int((g["denied_base"] == 1).sum()) > 0
+            else 0.0
+        )
+        demoted_rate = float(g["fairness_guard_demoted"].mean()) if "fairness_guard_demoted" in g.columns else 0.0
+        tpr_delta = float(tpr_after - tpr_before) if pd.notna(tpr_before) and pd.notna(tpr_after) else 0.0
+        fpr_delta = float(fpr_after - fpr_before) if pd.notna(fpr_before) and pd.notna(fpr_after) else 0.0
+        approval_delta = float(approval_after - approval_before)
+        severity = float(abs(tpr_delta) + abs(fpr_delta) + abs(approval_delta))
+
+        row = {
+            "segment_key": "|".join([str(v) for v in keys]),
+            "group_bucket": str(keys[0]),
+            "risk_band": str(keys[1]),
+            "income_band": str(keys[2]),
+            "best_source": str(keys[3]),
+            "n_rows": int(len(g)),
+            "denied_rows": int((g["denied_base"] == 1).sum()),
+            "approval_rate_before": approval_before,
+            "approval_rate_after": approval_after,
+            "approval_rate_delta": approval_delta,
+            "tpr_before": float(tpr_before) if pd.notna(tpr_before) else np.nan,
+            "tpr_after": float(tpr_after) if pd.notna(tpr_after) else np.nan,
+            "tpr_delta": tpr_delta,
+            "fpr_before": float(fpr_before) if pd.notna(fpr_before) else np.nan,
+            "fpr_after": float(fpr_after) if pd.notna(fpr_after) else np.nan,
+            "fpr_delta": fpr_delta,
+            "recourse_success_rate": recourse_success,
+            "fairness_guard_demoted_rate": demoted_rate,
+            "failure_severity_score": severity,
+        }
+        rows.append(row)
+
+    out = pd.DataFrame(rows)
+    if out.empty:
+        return out
+    return out.sort_values(
+        ["failure_severity_score", "n_rows", "segment_key"],
+        ascending=[False, False, True],
+    ).reset_index(drop=True)
 
 
 def _equalized_odds_gap_with_rates(
@@ -2620,6 +2837,13 @@ def main() -> None:
             out["cap_multiplier_total"] = float(segment_context.get("cap_multiplier", 1.0))
             search_cfg_patch = search_profile.get("search_cfg", {}) if isinstance(search_profile.get("search_cfg", {}), dict) else {}
             search_cfg_patch = dict(search_cfg_patch)
+            phase1_fast_cfg = (
+                rec_cfg.get("phase1_fast_track", {})
+                if isinstance(rec_cfg.get("phase1_fast_track", {}), dict)
+                else {}
+            )
+            if phase1_fast_cfg:
+                search_cfg_patch["phase1_fast_track"] = dict(phase1_fast_cfg)
             fairness_group_value = row.get(fairness_group_col) if fairness_group_col in row.index else None
             out["fairness_group"] = _safe_str(fairness_group_value, "")
             fairness_penalty = lookup_group_penalty(fairness_group_value, group_penalties) if fairness_group_col in row.index else 0.0
@@ -2690,6 +2914,13 @@ def main() -> None:
             )
             if not local_candidate_features:
                 local_candidate_features = list(actionable)
+            local_candidate_features = _apply_phase1_feature_boost(
+                candidate_features=local_candidate_features,
+                rec_cfg=rec_cfg,
+                denied_mode=deny_mode,
+                risk_band=str(segment_context.get("risk_band", "")),
+                actionable=actionable,
+            )
 
             search_cfg = search_profile.get("search_cfg", {}) if isinstance(search_profile.get("search_cfg", {}), dict) else {}
             time_budget_ms = int(search_cfg.get("time_budget_ms", 0))
@@ -2725,6 +2956,7 @@ def main() -> None:
                 fairness_penalty=fairness_penalty,
                 feasibility_profile=feasibility_internal_profile,
                 segment_context=segment_context,
+                base_pd=base_pd_i,
                 deadline_ts=deadline_ts,
                 runtime_diag=runtime_diag,
             )
@@ -3829,6 +4061,21 @@ def main() -> None:
     stress_compare["equalized_odds_gap_delta"] = stress_compare["equalized_odds_gap_after"] - stress_compare["equalized_odds_gap_before"]
     stress_out = run_ctx.tables_dir / "batch_fairness_stress_compare.csv"
     stress_compare.to_csv(stress_out, index=False)
+    fairness_failure_breakdown = _build_fairness_failure_breakdown(
+        batch_df=batch_df,
+        sampled_sorted=sampled_sorted,
+        base_proba=base_proba,
+        tau=tau,
+        group_feature=args.group_feature,
+        target_col=target_col,
+    )
+    fairness_failure_breakdown_out = run_ctx.tables_dir / "fairness_failure_breakdown.csv"
+    fairness_failure_breakdown.to_csv(fairness_failure_breakdown_out, index=False)
+    fairness_worst_segment = (
+        fairness_failure_breakdown.iloc[0]
+        if not fairness_failure_breakdown.empty
+        else pd.Series(dtype=object)
+    )
 
     summary = {
         "model_version": manifest.get("model_version"),
@@ -4004,6 +4251,11 @@ def main() -> None:
             float(fairness_multi_compare["equalized_odds_gap_delta"].astype(float).max())
             if not fairness_multi_compare.empty
             else 0.0
+        ),
+        "fairness_failure_worst_segment_key": _safe_str(fairness_worst_segment.get("segment_key", "")),
+        "fairness_failure_worst_segment_size": _safe_int(fairness_worst_segment.get("n_rows", 0)),
+        "fairness_failure_worst_segment_score": _safe_float(
+            fairness_worst_segment.get("failure_severity_score", 0.0)
         ),
         "fairness_segment_coverage_rate": (
             float(fairness_multi_compare["segment_coverage_rate_after"].astype(float).min())

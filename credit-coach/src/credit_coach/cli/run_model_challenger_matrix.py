@@ -164,8 +164,11 @@ def _aggregate_variant_metrics(df: pd.DataFrame) -> pd.DataFrame:
         "denied_high_risk_lift",
         "high_risk_reachability_rate",
         "denied_reliability_violation_rate",
+        "fairness_approval_gap_delta",
         "fairness_approval_gap_after",
+        "fairness_equalized_odds_gap_delta",
         "fairness_equalized_odds_gap_after",
+        "high_stress_approval_gap_after",
         "recourse_success_gap",
         "latency_p95_ms",
         "latency_p99_ms",
@@ -223,8 +226,10 @@ def _gate_violation_score(row: pd.Series, thresholds: dict[str, Any]) -> tuple[f
     _min_violation("mean_denied_to_approved_lift", "min_denied_to_approved_lift")
     _min_violation("mean_denied_high_risk_lift", "min_denied_high_risk_lift")
     _max_violation("mean_denied_reliability_violation_rate", "max_denied_reliability_violation_rate")
+    _max_violation("mean_fairness_approval_gap_delta", "max_approval_gap_delta")
+    _max_violation("mean_fairness_equalized_odds_gap_delta", "max_equalized_odds_gap_delta")
     _max_violation("mean_fairness_approval_gap_after", "max_fairness_gap")
-    _max_violation("mean_fairness_equalized_odds_gap_after", "max_fairness_gap")
+    _max_violation("mean_high_stress_approval_gap_after", "max_high_stress_fairness_gap")
     _max_violation("mean_recourse_success_gap", "max_recourse_success_gap")
     _max_violation("mean_latency_p95_ms", "max_p95_latency_ms")
     _max_violation("mean_latency_p99_ms", "max_p99_latency_ms")
@@ -405,8 +410,21 @@ def main() -> None:
                 "denied_high_risk_lift": float(batch_metrics.get("denied_high_risk_lift", 0.0)),
                 "high_risk_reachability_rate": float(batch_metrics.get("high_risk_reachability_rate", 0.0)),
                 "denied_reliability_violation_rate": float(batch_metrics.get("denied_reliability_violation_rate", 0.0)),
+                "fairness_approval_gap_before": float(batch_metrics.get("fairness_approval_gap_before", 0.0)),
                 "fairness_approval_gap_after": float(batch_metrics.get("fairness_approval_gap_after", 0.0)),
+                "fairness_approval_gap_delta": float(
+                    batch_metrics.get("fairness_approval_gap_after", 0.0)
+                    - batch_metrics.get("fairness_approval_gap_before", 0.0)
+                ),
+                "fairness_equalized_odds_gap_before": float(
+                    batch_metrics.get("fairness_equalized_odds_gap_before", 0.0)
+                ),
                 "fairness_equalized_odds_gap_after": float(batch_metrics.get("fairness_equalized_odds_gap_after", 0.0)),
+                "fairness_equalized_odds_gap_delta": float(
+                    batch_metrics.get("fairness_equalized_odds_gap_after", 0.0)
+                    - batch_metrics.get("fairness_equalized_odds_gap_before", 0.0)
+                ),
+                "high_stress_approval_gap_after": float(batch_metrics.get("high_stress_approval_gap_after", 0.0)),
                 "recourse_success_gap": float(batch_metrics.get("recourse_success_gap", 0.0)),
                 "latency_p95_ms": eff_p95,
                 "latency_p99_ms": eff_p99,

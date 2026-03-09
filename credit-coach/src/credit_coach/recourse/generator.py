@@ -81,6 +81,32 @@ def _week_window_for_month(month: int) -> tuple[int, int]:
     return start, end
 
 
+def _phase1_fast_track_context(
+    *,
+    phase1_cfg: dict[str, Any] | None,
+    denied_mode: bool,
+    segment_context: dict[str, Any] | None,
+) -> tuple[bool, set[str], float, bool]:
+    phase1_cfg = phase1_cfg or {}
+    enabled = bool(phase1_cfg.get("enabled", False))
+    if not enabled:
+        return False, set(), 1.0, False
+    if bool(phase1_cfg.get("denied_only", True)) and not bool(denied_mode):
+        return False, set(), 1.0, False
+    risk_band = str((segment_context or {}).get("risk_band", "")).strip().lower()
+    if bool(phase1_cfg.get("high_risk_only", True)) and risk_band != "high":
+        return False, set(), 1.0, False
+    prioritized_raw = phase1_cfg.get("prioritized_features", [])
+    prioritized = {
+        str(v).strip()
+        for v in prioritized_raw
+        if str(v).strip()
+    } if isinstance(prioritized_raw, list) else set()
+    step_multiplier = max(1.0, _safe_float(phase1_cfg.get("step_multiplier", 1.4), 1.4))
+    force_phase1_month = bool(phase1_cfg.get("force_phase1_month", True))
+    return True, prioritized, float(step_multiplier), bool(force_phase1_month)
+
+
 def _clip_target(spec, target: float) -> float:
     out = float(target)
     if spec.min_val is not None:
@@ -242,6 +268,8 @@ def _build_actions(
     adaptive_cfg: dict[str, Any] | None = None,
     feasibility_profile: dict[str, Any] | None = None,
     segment_context: dict[str, Any] | None = None,
+    phase1_cfg: dict[str, Any] | None = None,
+    denied_mode: bool = False,
     min_abs_delta: float = 1e-9,
     deadline_ts: float | None = None,
     runtime_diag: dict[str, Any] | None = None,
@@ -252,6 +280,11 @@ def _build_actions(
     can_adapt = adaptive_enabled and model is not None and feature_cols is not None and len(selected_features) > 0
     s_scale = _strategy_scale(strategy)
     h_scale = _horizon_scale(horizon_months)
+    phase1_enabled, phase1_prioritized, phase1_step_multiplier, force_phase1_month = _phase1_fast_track_context(
+        phase1_cfg=phase1_cfg,
+        denied_mode=bool(denied_mode),
+        segment_context=segment_context,
+    )
 
     baseline_pd = None
     sensitivity: dict[str, float] = {}
@@ -278,6 +311,8 @@ def _build_actions(
         current = float(row[feat])
         base_step = float(spec.step)
         step = base_step * s_scale * h_scale
+        if phase1_enabled and feat in phase1_prioritized:
+            step *= float(phase1_step_multiplier)
         target = _target_from_step(spec, current, step)
 
         if can_adapt and baseline_pd is not None:
@@ -309,6 +344,8 @@ def _build_actions(
         if abs(float(delta)) <= float(min_abs_delta):
             continue
         action_month = max(1, min(horizon_months, spec.time_months))
+        if phase1_enabled and force_phase1_month and feat in phase1_prioritized:
+            action_month = 1
         week_start, week_end = _week_window_for_month(action_month)
         actions.append(
             PlanAction(
@@ -412,6 +449,7 @@ def _normalize_denied_weights(raw: dict | None) -> dict[str, float]:
         "cost": 0.03,
         "sparsity": 0.02,
         "nominal_margin": 0.20,
+        "short_term": 0.15,
     }
     out: dict[str, float] = {}
     for k, v in defaults.items():
@@ -442,9 +480,60 @@ def _segment_adjusted_denied_weights(
     return out
 
 
+def _short_term_progress_signal(
+    *,
+    actions: list[PlanAction],
+    base_pd: float | None,
+    predicted_pd: float,
+    denied_cfg: dict,
+    segment_context: dict[str, Any] | None,
+    denied_mode: bool,
+) -> float:
+    short_term_cfg = (
+        denied_cfg.get("short_term", {})
+        if isinstance(denied_cfg.get("short_term", {}), dict)
+        else {}
+    )
+    if not bool(short_term_cfg.get("enabled", False)):
+        return 0.0
+    if bool(short_term_cfg.get("denied_only", True)) and not bool(denied_mode):
+        return 0.0
+    if base_pd is None:
+        return 0.0
+    if not actions:
+        return 0.0
+
+    phase1_cutoff_month = max(1, int(_safe_float(short_term_cfg.get("phase1_cutoff_month", 1), 1)))
+    phase2_cutoff_month = max(phase1_cutoff_month, int(_safe_float(short_term_cfg.get("phase2_cutoff_month", 3), 3)))
+    phase1_share_weight = max(0.0, _safe_float(short_term_cfg.get("phase1_share_weight", 1.0), 1.0))
+    phase2_share_weight = max(0.0, _safe_float(short_term_cfg.get("phase2_share_weight", 0.35), 0.35))
+    base_reduction_weight = max(0.0, _safe_float(short_term_cfg.get("base_reduction_weight", 0.25), 0.25))
+    high_risk_multiplier = max(1.0, _safe_float(short_term_cfg.get("high_risk_multiplier", 1.15), 1.15))
+    min_phase1_actions = max(0, int(_safe_float(short_term_cfg.get("min_phase1_actions", 1), 1)))
+
+    months = [max(1, int(_safe_float(getattr(a, "time_months", 1), 1))) for a in actions]
+    total = float(max(1, len(months)))
+    phase1_count = int(sum(1 for m in months if m <= phase1_cutoff_month))
+    phase2_count = int(sum(1 for m in months if m <= phase2_cutoff_month))
+    phase1_share = float(phase1_count / total)
+    phase2_share = float(phase2_count / total)
+    pd_reduction = max(0.0, float(base_pd) - float(predicted_pd))
+
+    timing_signal = (phase1_share_weight * phase1_share) + (phase2_share_weight * phase2_share)
+    signal = (pd_reduction * base_reduction_weight) + timing_signal
+    if phase1_count < min_phase1_actions:
+        signal -= float(min_phase1_actions - phase1_count)
+
+    risk_band = str((segment_context or {}).get("risk_band", "")).strip().lower()
+    if denied_mode and risk_band == "high":
+        signal *= float(high_risk_multiplier)
+    return float(signal)
+
+
 def _score_plan_denied_objective(
     *,
     predicted_pd: float,
+    base_pd: float | None,
     tau: float,
     ci_high: float,
     reliability: float,
@@ -458,6 +547,8 @@ def _score_plan_denied_objective(
     fairness_weight: float,
     denied_cfg: dict,
     segment_context: dict[str, Any] | None = None,
+    actions: list[PlanAction] | None = None,
+    denied_mode: bool = False,
 ) -> float:
     weights = _segment_adjusted_denied_weights(
         denied_cfg=denied_cfg,
@@ -484,6 +575,15 @@ def _score_plan_denied_objective(
 
     nominal_margin = max(0.0, float(tau) - float(predicted_pd))
     bonus = float(weights["nominal_margin"]) * nominal_margin
+    short_term_signal = _short_term_progress_signal(
+        actions=list(actions or []),
+        base_pd=base_pd,
+        predicted_pd=predicted_pd,
+        denied_cfg=denied_cfg,
+        segment_context=segment_context,
+        denied_mode=bool(denied_mode),
+    )
+    bonus += float(weights["short_term"]) * short_term_signal
     fairness_pen = max(0.0, float(fairness_penalty)) * max(0.0, float(fairness_weight))
     return float((bonus * 100.0) - ((violation_loss + operational_loss) * penalty_scale) - causal_pen - fairness_pen)
 
@@ -690,6 +790,7 @@ def _build_actions_weekly(
     adaptive_cfg: dict[str, Any] | None = None,
     feasibility_profile: dict[str, Any] | None = None,
     segment_context: dict[str, Any] | None = None,
+    phase1_cfg: dict[str, Any] | None = None,
     weekly_cfg: dict[str, Any] | None = None,
     denied_mode: bool = False,
     robust_cfg: dict | None = None,
@@ -712,6 +813,11 @@ def _build_actions_weekly(
     optimize_for_gate = bool(weekly_cfg.get("optimize_for_gate", True)) and bool(denied_mode)
 
     can_adapt = bool(adaptive_cfg.get("enabled", False))
+    phase1_enabled, phase1_prioritized, phase1_step_multiplier, force_phase1_month = _phase1_fast_track_context(
+        phase1_cfg=phase1_cfg,
+        denied_mode=bool(denied_mode),
+        segment_context=segment_context,
+    )
     baseline_pd = float(
         predict_proba_pd(model, calibrator, pd.DataFrame([row[feature_cols].values], columns=feature_cols))[0]
     )
@@ -765,6 +871,8 @@ def _build_actions_weekly(
             spec = get_action_spec(feat)
             current = float(work_row[feat])
             step = float(spec.step) * s_scale * h_scale * weekly_step_scale * float(sensitivity.get(feat, 1.0))
+            if phase1_enabled and feat in phase1_prioritized:
+                step *= float(phase1_step_multiplier)
             target = _target_from_step(spec, current, step)
             target = apply_target_feasibility(
                 feature_name=feat,
@@ -833,6 +941,8 @@ def _build_actions_weekly(
         if abs(final_target - current) <= float(min_abs_delta):
             continue
         action_month = max(1, min(horizon_months, spec.time_months))
+        if phase1_enabled and force_phase1_month and feat in phase1_prioritized:
+            action_month = 1
         week_start, week_end = _week_window_for_month(action_month)
         actions.append(
             PlanAction(
@@ -862,6 +972,8 @@ def _build_actions_weekly(
             adaptive_cfg=adaptive_cfg,
             feasibility_profile=feasibility_profile,
             segment_context=segment_context,
+            phase1_cfg=phase1_cfg,
+            denied_mode=bool(denied_mode),
             min_abs_delta=min_abs_delta,
             deadline_ts=deadline_ts,
             runtime_diag=runtime_diag,
@@ -889,6 +1001,7 @@ def generate_plan_record(
     fairness_penalty: float = 0.0,
     feasibility_profile: dict[str, Any] | None = None,
     segment_context: dict[str, Any] | None = None,
+    base_pd: float | None = None,
     deadline_ts: float | None = None,
     runtime_diag: dict[str, Any] | None = None,
 ) -> PlanRecord:
@@ -909,6 +1022,7 @@ def generate_plan_record(
     min_abs_delta = max(0.0, _safe_float(search_cfg.get("min_abs_action_delta", 1e-6), 1e-6))
     adaptive_cfg = search_cfg.get("adaptive_steps", {}) if isinstance(search_cfg.get("adaptive_steps", {}), dict) else {}
     weekly_cfg = search_cfg.get("weekly_optimizer", {}) if isinstance(search_cfg.get("weekly_optimizer", {}), dict) else {}
+    phase1_cfg = search_cfg.get("phase1_fast_track", {}) if isinstance(search_cfg.get("phase1_fast_track", {}), dict) else {}
     denied_mode = bool(search_cfg.get("denied_mode", False))
     use_weekly = bool(weekly_cfg.get("enabled", False)) and (not bool(weekly_cfg.get("only_denied", True)) or denied_mode)
     target_pd = get_target_pd(strategy, cfg.tau)
@@ -929,6 +1043,7 @@ def generate_plan_record(
             adaptive_cfg=adaptive_cfg,
             feasibility_profile=feasibility_profile,
             segment_context=segment_context,
+            phase1_cfg=phase1_cfg,
             weekly_cfg=weekly_cfg,
             denied_mode=denied_mode,
             robust_cfg=robust_cfg,
@@ -952,6 +1067,8 @@ def generate_plan_record(
             adaptive_cfg=adaptive_cfg,
             feasibility_profile=feasibility_profile,
             segment_context=segment_context,
+            phase1_cfg=phase1_cfg,
+            denied_mode=bool(denied_mode),
             min_abs_delta=min_abs_delta,
             deadline_ts=deadline_ts,
             runtime_diag=runtime_diag,
@@ -964,6 +1081,11 @@ def generate_plan_record(
     x_prime = _apply_actions(row, actions)
     x_input = pd.DataFrame([x_prime[feature_cols].values], columns=feature_cols)
     pred_pd = float(predict_proba_pd(model, calibrator, x_input)[0])
+    row_base_pd = (
+        float(base_pd)
+        if base_pd is not None
+        else float(predict_proba_pd(model, calibrator, pd.DataFrame([row[feature_cols].values], columns=feature_cols))[0])
+    )
 
     action_dicts = [a.model_dump() for a in actions]
     cpen = causal_penalty(action_dicts, graph, penalty_weight=cfg.causal_weight) if graph else 0.0
@@ -1041,6 +1163,7 @@ def generate_plan_record(
         if denied_obj_enabled:
             robust_score = _score_plan_denied_objective(
                 predicted_pd=pred_pd,
+                base_pd=row_base_pd,
                 tau=cfg.tau,
                 ci_high=ci_high_obj,
                 reliability=reliability,
@@ -1054,6 +1177,8 @@ def generate_plan_record(
                 fairness_weight=fairness_weight,
                 denied_cfg=denied_obj_cfg,
                 segment_context=segment_context,
+                actions=actions,
+                denied_mode=bool(denied_mode),
             )
         else:
             weights = _normalize_robust_weights(robust_cfg.get("weights", {}))
@@ -1118,6 +1243,7 @@ def generate_nine_plans(
     fairness_penalty: float = 0.0,
     feasibility_profile: dict[str, Any] | None = None,
     segment_context: dict[str, Any] | None = None,
+    base_pd: float | None = None,
     deadline_ts: float | None = None,
     runtime_diag: dict[str, Any] | None = None,
 ) -> list[PlanRecord]:
@@ -1153,6 +1279,7 @@ def generate_nine_plans(
                     fairness_penalty=fairness_penalty,
                     feasibility_profile=feasibility_profile,
                     segment_context=segment_context,
+                    base_pd=base_pd,
                     deadline_ts=deadline_ts,
                     runtime_diag=runtime_diag,
                 )

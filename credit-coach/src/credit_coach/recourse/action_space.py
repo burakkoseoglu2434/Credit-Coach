@@ -79,13 +79,13 @@ ACTION_SPACE: dict[str, ActionSpec] = {
         feature_name="verification_status", actionable=True, direction="increase", step=1.0, cost_weight=0.05, time_months=1
     ),
     "dti": ActionSpec(
-        feature_name="dti", actionable=True, direction="decrease", min_val=0.0, step=1.0, cost_weight=0.6, time_months=3
+        feature_name="dti", actionable=True, direction="decrease", min_val=0.0, step=1.0, cost_weight=0.6, time_months=1
     ),
     "revol_bal": ActionSpec(
-        feature_name="revol_bal", actionable=True, direction="decrease", min_val=0.0, step=500.0, cost_weight=0.7, time_months=3
+        feature_name="revol_bal", actionable=True, direction="decrease", min_val=0.0, step=500.0, cost_weight=0.7, time_months=1
     ),
     "revol_util": ActionSpec(
-        feature_name="revol_util", actionable=True, direction="decrease", min_val=0.0, step=2.0, cost_weight=0.5, time_months=3
+        feature_name="revol_util", actionable=True, direction="decrease", min_val=0.0, step=2.0, cost_weight=0.5, time_months=1
     ),
     "fico_range_low": ActionSpec(
         feature_name="fico_range_low", actionable=True, direction="increase", step=5.0, cost_weight=0.2, time_months=6

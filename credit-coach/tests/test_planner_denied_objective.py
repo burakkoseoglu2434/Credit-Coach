@@ -13,6 +13,7 @@ def _mk_plan(
     predicted_pd: float,
     robust_score: float,
     status: str = "NEEDS_REVIEW",
+    time_months: int = 3,
 ) -> PlanRecord:
     p = PlanRecord(
         plan_id=plan_id,
@@ -26,7 +27,7 @@ def _mk_plan(
                 current_value=30.0,
                 target_value=28.0,
                 delta=-2.0,
-                time_months=3,
+                time_months=int(time_months),
                 estimated_cost_usd=50.0,
             )
         ],
@@ -261,3 +262,50 @@ def test_choose_best_plan_prefers_non_rejected_when_available():
         denied_objective_cfg={"enabled": True},
     )
     assert best.plan_id == "p_needs_review"
+
+
+def test_choose_best_plan_denied_mode_prefers_phase1_when_short_term_enabled():
+    slower = _mk_plan(
+        "p_slow",
+        ci_high=0.40,
+        reliability=0.72,
+        worst_margin=-0.03,
+        predicted_pd=0.31,
+        robust_score=10.0,
+        time_months=3,
+    )
+    faster = _mk_plan(
+        "p_fast",
+        ci_high=0.40,
+        reliability=0.72,
+        worst_margin=-0.03,
+        predicted_pd=0.31,
+        robust_score=10.0,
+        time_months=1,
+    )
+
+    best = choose_best_plan(
+        [slower, faster],
+        tau=0.35,
+        min_reliability=0.70,
+        min_worst_risk_margin=-0.05,
+        denied_mode=True,
+        denied_objective_cfg={
+            "enabled": True,
+            "weights": {
+                "ci": 0.5,
+                "reliability": 0.3,
+                "worst_margin": 0.2,
+                "cost": 0.0,
+                "sparsity": 0.0,
+                "nominal_margin": 0.2,
+                "short_term": 0.8,
+            },
+            "short_term": {
+                "enabled": True,
+                "phase1_cutoff_month": 1,
+                "phase2_cutoff_month": 3,
+            },
+        },
+    )
+    assert best.plan_id == "p_fast"

@@ -26,6 +26,32 @@ def _plan_cost(plan: PlanRecord) -> float:
     return float(total)
 
 
+def _short_term_action_signal(plan: PlanRecord, short_term_cfg: dict | None) -> float:
+    short_term_cfg = short_term_cfg or {}
+    if not bool(short_term_cfg.get("enabled", False)):
+        return 0.0
+    actions = list(plan.actions)
+    if not actions:
+        return 0.0
+    phase1_cutoff_month = max(1, int(_safe_float(short_term_cfg.get("phase1_cutoff_month", 1), 1)))
+    phase2_cutoff_month = max(phase1_cutoff_month, int(_safe_float(short_term_cfg.get("phase2_cutoff_month", 3), 3)))
+    phase1_share_weight = max(0.0, _safe_float(short_term_cfg.get("phase1_share_weight", 1.0), 1.0))
+    phase2_share_weight = max(0.0, _safe_float(short_term_cfg.get("phase2_share_weight", 0.35), 0.35))
+    min_phase1_actions = max(0, int(_safe_float(short_term_cfg.get("min_phase1_actions", 1), 1)))
+
+    action_months = [max(1, int(_safe_float(getattr(a, "time_months", 1), 1))) for a in actions]
+    total = float(max(1, len(action_months)))
+    phase1_count = int(sum(1 for m in action_months if m <= phase1_cutoff_month))
+    phase2_count = int(sum(1 for m in action_months if m <= phase2_cutoff_month))
+    phase1_share = float(phase1_count / total)
+    phase2_share = float(phase2_count / total)
+
+    scarcity_penalty = 0.0
+    if phase1_count < int(min_phase1_actions):
+        scarcity_penalty = float(min_phase1_actions - phase1_count)
+    return float((phase1_share_weight * phase1_share) + (phase2_share_weight * phase2_share) - scarcity_penalty)
+
+
 def _status_priority(status: str | None) -> int:
     key = str(status or "").strip().upper()
     return int(_STATUS_PRIORITY.get(key, 4))
@@ -149,6 +175,7 @@ def _normalize_denied_weights(raw: dict | None) -> dict[str, float]:
         "nominal_margin": 0.20,
         "reliability_margin_bonus": 0.20,
         "worst_margin_bonus": 0.10,
+        "short_term": 0.15,
     }
     return {k: max(0.0, _safe_float(raw.get(k, v), v)) for k, v in defaults.items()}
 
@@ -164,6 +191,7 @@ def _normalize_high_risk_weights(raw: dict | None) -> dict[str, float]:
         "worst_margin": 0.20,
         "cost": 0.03,
         "sparsity": 0.02,
+        "short_term": 0.20,
     }
     return {k: max(0.0, _safe_float(raw.get(k, v), v)) for k, v in defaults.items()}
 
@@ -178,6 +206,12 @@ def _denied_priority_score(
 ) -> float:
     denied_objective_cfg = denied_objective_cfg or {}
     weights = _normalize_denied_weights(denied_objective_cfg.get("weights", {}))
+    short_term_signal = _short_term_action_signal(
+        plan,
+        denied_objective_cfg.get("short_term", {})
+        if isinstance(denied_objective_cfg.get("short_term", {}), dict)
+        else {},
+    )
     squared = bool(denied_objective_cfg.get("squared_violation", True))
     exponent = 2 if squared else 1
     penalty_scale = max(0.0, _safe_float(denied_objective_cfg.get("penalty_scale", 140.0), 140.0))
@@ -206,6 +240,7 @@ def _denied_priority_score(
     if min_worst_risk_margin is not None and plan.robust_worst_risk_margin is not None:
         worst_margin = max(0.0, float(plan.robust_worst_risk_margin) - float(min_worst_risk_margin))
     bonus += (weights["reliability_margin_bonus"] * rel_margin) + (weights["worst_margin_bonus"] * worst_margin)
+    bonus += weights["short_term"] * short_term_signal
     pass_bonus = 10.0 if plan.status == "APPROVED" else 0.0
     return float(pass_bonus + (bonus * 100.0) - (loss * penalty_scale))
 
@@ -221,6 +256,12 @@ def _high_risk_priority_score(
 ) -> float:
     high_risk_objective_cfg = high_risk_objective_cfg or {}
     weights = _normalize_high_risk_weights(high_risk_objective_cfg.get("weights", {}))
+    short_term_signal = _short_term_action_signal(
+        plan,
+        high_risk_objective_cfg.get("short_term", {})
+        if isinstance(high_risk_objective_cfg.get("short_term", {}), dict)
+        else {},
+    )
     penalty_scale = max(0.0, _safe_float(high_risk_objective_cfg.get("penalty_scale", 80.0), 80.0))
     hard_gate = bool(high_risk_objective_cfg.get("hard_gate", True))
     hard_violation_penalty = max(0.0, _safe_float(high_risk_objective_cfg.get("hard_violation_penalty", 120.0), 120.0))
@@ -264,6 +305,7 @@ def _high_risk_priority_score(
     score = (
         (weights["pd_improvement"] * pd_improvement * 100.0)
         + (weights["gate_pass"] * gate_pass * 100.0)
+        + (weights["short_term"] * short_term_signal * 100.0)
         - (weights["residual_pd"] * residual_pd * 100.0)
         - (penalty_scale * violation)
         - cost_pen
