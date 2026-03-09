@@ -1,0 +1,33 @@
+# governance.yaml — Risk iştahı ve deployment kapı eşikleri
+
+# Model kalite kapıları — challenger bunları geçmeden deploy edilemez
+gates:
+  min_auc: 0.75                # AUC minimum kabul seviyesi
+  max_ece: 0.05                # Expected Calibration Error maksimumu
+  max_fairness_gap: 0.10       # Grup bazlı maliyet farkı maksimumu
+  min_avg_risk_margin: 0.02    # Ortalama (tau - CI_high) minimum
+  min_reliability: 0.70        # Şok senaryolarında min güvenilirlik skoru
+  psi_threshold: 0.20          # PSI > 0.20 → model incelemeye alınır
+  required_approvers: [model_owner, risk, compliance, ops]
+  required_artifact_hashes: [model_hash, config_hash, data_hash, evidence_hash]
+  require_rollback_drill: true
+
+# Recourse kalite
+recourse_gates:
+  min_approval_rate: 0.60      # Üretilen planların %60'ı APPROVED olmalı
+  max_avg_cost: 5000           # Ortalama finansal maliyet maksimumu (USD)
+
+# Audit
+audit:
+  log_all_decisions: true
+  immutable_audit: true        # Audit kayıtları değiştirilemez
+  retention_days: 365
+
+approvals:
+  model_owner: true
+  risk: true
+  compliance: true
+  ops: true
+
+rollback:
+  drill_passed: true

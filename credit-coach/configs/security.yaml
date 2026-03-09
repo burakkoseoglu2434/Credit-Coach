@@ -1,0 +1,30 @@
+# security.yaml - API auth + rate limit policy
+
+auth:
+  # Keep disabled in production. For local demos only.
+  allow_insecure_local_demo: false
+
+  # Preferred key policy format.
+  # keys:
+  #   - key_id: current
+  #     token: "replace-with-secret"
+  #     status: active         # active | next | retired
+  #     expires_at: "2026-12-31T23:59:59Z"
+  #     grace_until: "2027-01-31T23:59:59Z"
+  keys: []
+  # Optional endpoint -> required scopes mapping.
+  # endpoint_scopes:
+  #   /score/demo: [score:read]
+  endpoint_scopes: {}
+
+rate_limit:
+  enabled: true
+  default_limit: 60
+  default_window_seconds: 60
+
+  # Endpoint-specific override
+  endpoints:
+    /score/demo:
+      enabled: true
+      limit: 30
+      window_seconds: 60

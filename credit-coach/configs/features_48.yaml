@@ -1,0 +1,67 @@
+# ============================================================
+# features_48.yaml — Feature Lock (TEK KAYNAK)
+# Bu dosya pipeline'ın TEK gerçeğidir.
+# CSV dosyasında toplam 48 kolon var (47 feature + target).
+# ============================================================
+
+features:
+  - loan_amnt
+  - funded_amnt
+  - term
+  - int_rate
+  - installment
+  - grade
+  - sub_grade
+  - purpose
+  - application_type
+  - annual_inc
+  - emp_title
+  - emp_length
+  - home_ownership
+  - verification_status
+  - addr_state
+  - zip_code
+  - dti
+  - revol_bal
+  - revol_util
+  - fico_range_low
+  - fico_range_high
+  - last_fico_range_low
+  - last_fico_range_high
+  - earliest_cr_line
+  - issue_d
+  - open_acc
+  - total_acc
+  - total_rev_hi_lim
+  - tot_cur_bal
+  - tot_coll_amt
+  - mort_acc
+  - total_bal_ex_mort
+  - total_bc_limit
+  - delinq_2yrs
+  - inq_last_6mths
+  - pub_rec
+  - pub_rec_bankruptcies
+  - acc_now_delinq
+  - delinq_amnt
+  - collections_12_mths_ex_med
+  - chargeoff_within_12_mths
+  - tax_liens
+  - tot_hi_cred_lim
+  - initial_list_status
+  - acc_open_past_24mths
+  - debt_settlement_flag
+  - disbursement_method
+
+target:
+  name: target
+  positive_label: 1      # 1 = temerrüt (Charged Off / Default)
+  negative_label: 0      # 0 = iyi ödeme (Fully Paid)
+
+id_columns: []
+time_column: null
+
+rules:
+  fail_on_missing: true
+  drop_extra_columns: true
+  min_rows: 1000

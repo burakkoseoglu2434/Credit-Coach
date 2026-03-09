@@ -1,0 +1,23 @@
+# retraining.yaml — Model yenileme ve champion-challenger yapılandırması
+
+cadence:
+  schedule: weekly             # "weekly" | "monthly"
+  day_of_week: monday
+  hour: 2                      # 02:00 UTC
+
+data_window:
+  rolling_months: 12           # Son 12 ayın verisi kullanılır
+  min_samples: 5000            # Bu kadardan az ise retrain yapma
+
+drift_detection:
+  psi_trigger: 0.2             # PSI > 0.2 → drift uyarısı → retrain aday
+  psi_bins: 10
+
+champion_challenger:
+  # Challenger, champion'ı geçmek için bu metrikleri sağlamalı
+  min_auc_improvement: 0.005   # AUC en az 0.5% iyileşmeli
+  max_ece_regression: 0.01     # Kalibrasyon 1% daha kötü olamaz
+  max_fairness_gap_increase: 0.02  # Fairness gap 2% artamaz
+
+rollback:
+  keep_n_versions: 3           # Son 3 model versiyonu saklanır

@@ -1,0 +1,19 @@
+# causality.yaml — ReX (causal discovery) yapılandırması
+
+algorithm: pc                  # "pc" | "notears" | "rex"
+                               # Hafta 1-5 arası: PC algoritması (causal-learn)
+                               # ReX adapter: aynı interface, değiştirilebilir backend
+
+penalty_weight: 0.3            # w_causal — plan skoru içindeki causal ceza ağırlığı
+
+graph:
+  output_path: artifacts/models/causal_graph.json
+  min_edge_weight: 0.1         # Zayıf kenarları filtrele
+
+pc_params:
+  alpha: 0.05                  # Bağımsızlık testi anlamlılık seviyesi
+  ci_test: fisherz             # Fisher-Z bağımsızlık testi
+  max_cond_vars: 3
+
+# MVP notu: ReX kütüphanesi yoksa PC/NOTEARS kullanılır,
+# fakat tüm dosya ve API isimleri "rex_" önekiyle korunur.

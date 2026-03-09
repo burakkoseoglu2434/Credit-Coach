@@ -1,0 +1,33 @@
+# kpi_contract.yaml — release smoke ve KPI takip esikleri
+
+version: "1.0"
+updated_at: "2026-03-07"
+
+thresholds:
+  min_denied_to_approved_lift: 0.09
+  min_denied_high_risk_lift: 0.03
+  min_denied_gate_pass_rate: 0.08
+  max_denied_reliability_violation_rate: 0.40
+  max_approval_gap_delta: 0.01
+  max_equalized_odds_gap_delta: 0.01
+  max_p95_latency_ms: 500.0
+  max_p99_latency_ms: 2000.0
+  max_error_rate: 0.005
+  min_last_k_validity: 0.70
+  min_last_k_safe_rate: 0.60
+  min_last_k_avg_risk_margin: 0.00
+  max_fairness_gap: 0.10
+  max_high_stress_fairness_gap: 0.10
+  max_recourse_success_gap: 0.10
+  max_recourse_cost_gap: 500.0
+  min_trajectory_gate_pass_rate_4w: 0.03
+  min_trajectory_gate_pass_rate_12w: 0.06
+  min_trajectory_gate_pass_rate_24w: 0.09
+  min_trajectory_partial_progress_rate: 0.20
+  max_trajectory_median_time_to_gate_pass_days: 168.0
+  min_approval_rate: 0.60
+  max_psi: 0.25
+  min_avg_reliability: 0.70
+  require_telemetry_enabled: true
+  min_telemetry_success_rate: 0.99
+  max_telemetry_ingest_lag_s: 60.0

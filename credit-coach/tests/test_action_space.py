@@ -1,0 +1,182 @@
+"""
+tests/test_action_space.py
+==========================
+Hafta 1 — Action space bütünlük testleri.
+
+Test Senaryoları
+---------------
+1. test_action_space_has_48_entries       : Her feature için tanım var mı?
+2. test_all_keys_are_strings              : Key'ler string mi?
+3. test_actionable_flag_exists            : Her spec'te actionable alanı var mı?
+4. test_some_features_are_actionable      : En az 1 actionable feature var mı?
+5. test_some_features_are_immutable       : En az 1 immutable feature var mı?
+6. test_direction_valid_values            : direction değerleri geçerli mi?
+7. test_cost_weight_range                 : cost_weight 0-1 arasında mı?
+8. test_time_months_positive              : time_months >= 1 mi?
+9. test_coverage_against_48_yaml          : ACTION_SPACE, features_48.yaml'ı karşılıyor mu?
+10. test_get_actionable_features           : Yardımcı fonksiyon çalışıyor mu?
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from credit_coach.recourse.action_space import (
+    ACTION_SPACE,
+    ActionSpec,
+    estimate_action_cost_usd,
+    get_actionable_features,
+    get_action_spec,
+    validate_action_space_coverage,
+)
+
+VALID_DIRECTIONS = {"decrease", "increase", "any"}
+
+
+class TestActionSpaceStructure:
+    """ACTION_SPACE dict'inin yapısal bütünlüğünü doğrular."""
+
+    def test_action_space_has_48_entries(self, feature_list_48: list[str]) -> None:
+        """Her 48 feature için bir ActionSpec tanımı olmalı."""
+        for feature in feature_list_48:
+            assert feature in ACTION_SPACE, (
+                f"ACTION_SPACE'te '{feature}' tanımı eksik. "
+                "action_space.py güncellenmeli."
+            )
+
+    def test_all_keys_are_strings(self) -> None:
+        """ACTION_SPACE key'leri string olmalı."""
+        for key in ACTION_SPACE:
+            assert isinstance(key, str), f"Key string değil: {key!r}"
+
+    def test_all_values_are_action_spec(self) -> None:
+        """ACTION_SPACE değerleri ActionSpec instance'ı olmalı."""
+        for name, spec in ACTION_SPACE.items():
+            assert isinstance(spec, ActionSpec), (
+                f"'{name}' için ActionSpec bekleniyor, {type(spec)} bulundu."
+            )
+
+    def test_feature_name_matches_key(self) -> None:
+        """spec.feature_name, dict key'i ile eşleşmeli."""
+        for key, spec in ACTION_SPACE.items():
+            assert spec.feature_name == key, (
+                f"Tutarsızlık: key='{key}' ama spec.feature_name='{spec.feature_name}'"
+            )
+
+
+class TestActionableFlags:
+    """Actionable/immutable ayrımının mantıksal bütünlüğünü test eder."""
+
+    def test_some_features_are_actionable(self) -> None:
+        """En az 10 actionable feature olmalı."""
+        actionable = get_actionable_features()
+        assert len(actionable) >= 10, (
+            f"Çok az actionable feature: {len(actionable)}. En az 10 bekleniyor."
+        )
+
+    def test_some_features_are_immutable(self) -> None:
+        """En az 5 immutable feature olmalı (loan_amnt, term, vb.)."""
+        immutable = [name for name, spec in ACTION_SPACE.items() if not spec.actionable]
+        assert len(immutable) >= 5, (
+            f"Çok az immutable feature: {len(immutable)}."
+        )
+
+    def test_known_immutable_features(self) -> None:
+        """Bilinen immutable feature'lar actionable=False olmalı."""
+        # loan_amnt kasitli olarak actionable: urun/policy recourse ile
+        # daha dusuk basvuru tutarina yonlendirme destekleniyor.
+        known_immutable = ["funded_amnt", "term", "grade", "issue_d_year", "policy_code"]
+        for feature in known_immutable:
+            if feature in ACTION_SPACE:
+                assert not ACTION_SPACE[feature].actionable, (
+                    f"'{feature}' immutable olmalı ama actionable=True!"
+                )
+
+    def test_known_actionable_features(self) -> None:
+        """Bilinen actionable feature'lar actionable=True olmalı."""
+        known_actionable = ["dti", "annual_inc", "revol_util", "revol_bal"]
+        for feature in known_actionable:
+            if feature in ACTION_SPACE:
+                assert ACTION_SPACE[feature].actionable, (
+                    f"'{feature}' actionable olmalı ama actionable=False!"
+                )
+
+
+class TestActionSpecValues:
+    """Her ActionSpec'in değer aralıklarını kontrol eder."""
+
+    def test_direction_valid_values(self) -> None:
+        """direction yalnızca 'decrease', 'increase', 'any' olabilir."""
+        for name, spec in ACTION_SPACE.items():
+            assert spec.direction in VALID_DIRECTIONS, (
+                f"'{name}': geçersiz direction='{spec.direction}'. "
+                f"Geçerli: {VALID_DIRECTIONS}"
+            )
+
+    def test_cost_weight_range(self) -> None:
+        """cost_weight 0.0–1.0 arasında olmalı."""
+        for name, spec in ACTION_SPACE.items():
+            assert 0.0 <= spec.cost_weight <= 1.0, (
+                f"'{name}': cost_weight={spec.cost_weight} aralık dışı [0, 1]."
+            )
+
+    def test_time_months_positive(self) -> None:
+        """time_months >= 1 olmalı."""
+        for name, spec in ACTION_SPACE.items():
+            if spec.actionable:
+                assert spec.time_months >= 1, (
+                    f"'{name}': time_months={spec.time_months} geçersiz (min 1)."
+                )
+
+    def test_step_positive(self) -> None:
+        """step > 0 olmalı."""
+        for name, spec in ACTION_SPACE.items():
+            assert spec.step > 0, f"'{name}': step={spec.step} sıfır veya negatif."
+
+    def test_min_max_consistency(self) -> None:
+        """min_val varsa max_val'dan küçük olmalı."""
+        for name, spec in ACTION_SPACE.items():
+            if spec.min_val is not None and spec.max_val is not None:
+                assert spec.min_val < spec.max_val, (
+                    f"'{name}': min_val={spec.min_val} >= max_val={spec.max_val}"
+                )
+
+
+class TestHelperFunctions:
+    """Yardımcı fonksiyonları test eder."""
+
+    def test_get_actionable_features_returns_list(self) -> None:
+        """get_actionable_features() list döndürmeli."""
+        result = get_actionable_features()
+        assert isinstance(result, list)
+
+    def test_get_actionable_features_all_actionable(self) -> None:
+        """Dönen liste sadece actionable feature'lar içermeli."""
+        result = get_actionable_features()
+        for name in result:
+            assert ACTION_SPACE[name].actionable, f"'{name}' actionable değil!"
+
+    def test_get_action_spec_known_feature(self) -> None:
+        """Bilinen feature için get_action_spec() ActionSpec döndürmeli."""
+        spec = get_action_spec("dti")
+        assert isinstance(spec, ActionSpec)
+        assert spec.feature_name == "dti"
+
+    def test_get_action_spec_unknown_raises(self) -> None:
+        """Bilinmeyen feature → KeyError."""
+        with pytest.raises(KeyError):
+            get_action_spec("this_feature_does_not_exist_xyz")
+
+    def test_validate_coverage_no_missing(self, feature_list_48: list[str]) -> None:
+        """features_48.yaml listesi ACTION_SPACE tarafından tam kapsanmalı."""
+        missing = validate_action_space_coverage(feature_list_48)
+        assert not missing, (
+            f"ACTION_SPACE'te şu feature'lar eksik: {missing}"
+        )
+
+    def test_estimate_action_cost_usd_is_scale_normalized(self) -> None:
+        """Ayni relatif degisim farkli olceklerde benzer maliyet uretmeli."""
+        spec = get_action_spec("annual_inc")
+        c_small = estimate_action_cost_usd(10_000.0, 12_000.0, spec)
+        c_large = estimate_action_cost_usd(100_000.0, 120_000.0, spec)
+        assert abs(c_small - c_large) < 1e-6

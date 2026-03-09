@@ -1,0 +1,138 @@
+# recourse_feasibility.yaml
+# Feature-level uygulanabilirlik kontrati (plan basina, horizon-uyumlu).
+
+enabled: true
+version: "1.0"
+
+defaults:
+  max_relative_change: 0.40
+  max_abs_increase_per_month: 5000.0
+  max_abs_decrease_per_month: 5000.0
+  min_target: 0.0
+
+features:
+  loan_amnt:
+    max_relative_change: 0.30
+    max_abs_decrease_per_month: 2000.0
+    max_abs_decrease: 10000.0
+    min_target: 500.0
+
+  int_rate:
+    max_relative_change: 0.30
+    max_abs_decrease_per_month: 1.0
+    max_abs_decrease: 5.0
+    min_target: 0.0
+
+  installment:
+    max_relative_change: 0.35
+    max_abs_decrease_per_month: 120.0
+    max_abs_decrease: 500.0
+    min_target: 0.0
+
+  annual_inc:
+    max_relative_change: 0.50
+    max_abs_increase_per_month: 4000.0
+    max_abs_increase: 50000.0
+
+  verification_status:
+    round_to_int: true
+    min_target: 0.0
+    max_target: 2.0
+    max_abs_increase: 1.0
+    max_abs_decrease: 1.0
+
+  dti:
+    max_relative_change: 0.50
+    max_abs_decrease_per_month: 2.0
+    max_abs_decrease: 12.0
+    max_target: 60.0
+
+  revol_bal:
+    max_relative_change: 0.45
+    max_abs_decrease_per_month: 2500.0
+    max_abs_decrease: 15000.0
+
+  revol_util:
+    max_relative_change: 0.50
+    max_abs_decrease_per_month: 4.0
+    max_abs_decrease: 25.0
+    max_target: 100.0
+
+  fico_range_low:
+    max_relative_change: 0.08
+    max_abs_increase: 40.0
+    max_abs_decrease: 20.0
+    max_target: 850.0
+    round_to_int: true
+
+  fico_range_high:
+    max_relative_change: 0.08
+    max_abs_increase: 40.0
+    max_abs_decrease: 20.0
+    max_target: 850.0
+    round_to_int: true
+
+  last_fico_range_low:
+    freeze_if_current_below: 300.0
+    max_relative_change: 0.10
+    max_abs_increase: 45.0
+    max_abs_decrease: 25.0
+    max_target: 850.0
+    round_to_int: true
+
+  last_fico_range_high:
+    freeze_if_current_below: 300.0
+    max_relative_change: 0.10
+    max_abs_increase: 45.0
+    max_abs_decrease: 25.0
+    max_target: 850.0
+    round_to_int: true
+
+  tot_cur_bal:
+    max_relative_change: 0.40
+    max_abs_decrease_per_month: 2500.0
+    max_abs_decrease: 15000.0
+
+  total_rev_hi_lim:
+    max_relative_change: 0.50
+    max_abs_increase_per_month: 3000.0
+    max_abs_increase: 30000.0
+
+  total_bal_ex_mort:
+    max_relative_change: 0.40
+    max_abs_decrease_per_month: 2500.0
+    max_abs_decrease: 15000.0
+
+  total_bc_limit:
+    max_relative_change: 0.45
+    max_abs_increase_per_month: 2500.0
+    max_abs_increase: 25000.0
+
+  tot_hi_cred_lim:
+    max_relative_change: 0.45
+    max_abs_increase_per_month: 3000.0
+    max_abs_increase: 30000.0
+
+  tot_coll_amt:
+    max_relative_change: 0.70
+    max_abs_decrease_per_month: 2000.0
+    max_abs_decrease: 12000.0
+
+  acc_now_delinq:
+    round_to_int: true
+    min_target: 0.0
+    max_target: 1.0
+    max_abs_increase: 0.0
+    max_abs_decrease: 1.0
+
+  delinq_amnt:
+    max_relative_change: 0.70
+    max_abs_decrease_per_month: 2000.0
+    max_abs_decrease: 12000.0
+
+  collections_12_mths_ex_med:
+    round_to_int: true
+    min_target: 0.0
+    max_target: 20.0
+    max_abs_increase: 0.0
+    max_abs_decrease: 2.0

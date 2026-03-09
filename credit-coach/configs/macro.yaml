@@ -1,0 +1,41 @@
+# macro.yaml — Makro ekonomik modül yapılandırması
+
+# Makro değişken listesi (şimdilik mock CSV'den okunur)
+macro_features:
+  - interest_rate          # Merkez bankası faiz oranı (%)
+  - unemployment_rate      # İşsizlik oranı (%)
+  - gdp_growth             # GSYİH büyüme oranı (%)
+  - inflation_rate         # Enflasyon oranı (%)
+  - credit_spread          # Kredi spread endeksi
+
+# MSI = Makro Stres İndeksi katsayıları (ağırlıklı ortlama)
+stress_index_weights:
+  interest_rate: 0.30
+  unemployment_rate: 0.35
+  gdp_growth: -0.20          # Negatif: büyüme arttıkça stres azalır
+  inflation_rate: 0.10
+  credit_spread: 0.05
+
+# MSI > 0.7 → yüksek stres → alpha 0.05'ten 0.01'e sıkışır
+stress_threshold: 0.7
+
+# Şok senaryoları
+shock_scenarios:
+  - name: interest_rate_plus_2
+    changes:
+      interest_rate: +2.0
+  - name: interest_rate_plus_5
+    changes:
+      interest_rate: +5.0
+  - name: unemployment_plus_3
+    changes:
+      unemployment_rate: +3.0
+  - name: combined_stress
+    changes:
+      interest_rate: +3.0
+      unemployment_rate: +2.0
+      gdp_growth: -2.0
+
+# Eşik kayması: yüksek streste tau'yu aşağı çek
+event_impact:
+  threshold_shift_per_msi_unit: -0.02   # her 0.1 MSI için tau 0.002 azalır

@@ -1,0 +1,34 @@
+# default.yaml — Genel pipeline yapılandırması
+# Tüm modüller bu dosyayı temel alır; modül-spesifik YAML'ler override eder.
+
+project:
+  name: credit-coach
+  version: "0.1.0"
+
+paths:
+  raw_data: data/raw/
+  processed_data: data/processed/
+  splits: data/splits/
+  artifacts: artifacts/
+  configs: configs/
+  raw_csv: data/lending club/lending_club_48_features_20251026_114053.csv
+
+logging:
+  level: INFO
+  format: "%(asctime)s | %(name)s | %(levelname)s | %(message)s"
+
+database:
+  url: "sqlite:///./credit_coach_state.db"
+
+features_config: configs/features_48.yaml
+
+prepare_data:
+  test_size: 0.2
+  random_state: 42
+  sample_rows: 50000
+  out_of_time: false
+
+split_protocol:
+  out_of_time: false
+  time_column: issue_d
+  random_state: 42

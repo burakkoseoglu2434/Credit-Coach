@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+.env
+
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs and databases
+logs/
+*.log
+credit_coach_state.db
+
+# macOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+
+# Artifacts and Data 
+# (Yapay zeka modelleri ve büyük veriler Github'a basılmaz)
+artifacts/*
+!artifacts/.gitkeep
+data/*
+!data/.gitkeep
+
+# Geliştirme notları
+docs/tmp/

@@ -1,0 +1,263 @@
+from __future__ import annotations
+
+from credit_coach.coaching.planner import choose_best_plan
+from credit_coach.data.schema import PlanAction, PlanRecord
+
+
+def _mk_plan(
+    plan_id: str,
+    *,
+    ci_high: float,
+    reliability: float,
+    worst_margin: float,
+    predicted_pd: float,
+    robust_score: float,
+    status: str = "NEEDS_REVIEW",
+) -> PlanRecord:
+    p = PlanRecord(
+        plan_id=plan_id,
+        customer_id="c1",
+        run_id="r1",
+        horizon_months=6,
+        strategy="balanced",
+        actions=[
+            PlanAction(
+                feature_name="dti",
+                current_value=30.0,
+                target_value=28.0,
+                delta=-2.0,
+                time_months=3,
+                estimated_cost_usd=50.0,
+            )
+        ],
+        predicted_pd=predicted_pd,
+        robust_score=robust_score,
+        score=robust_score,
+        status=status,
+    )
+    p.ci_high = ci_high
+    p.reliability = reliability
+    p.robust_worst_risk_margin = worst_margin
+    return p
+
+
+def test_choose_best_plan_denied_mode_prefers_lower_gate_violations():
+    better_gate = _mk_plan(
+        "p_better_gate",
+        ci_high=0.36,
+        reliability=0.68,
+        worst_margin=-0.08,
+        predicted_pd=0.34,
+        robust_score=5.0,
+    )
+    higher_raw_score = _mk_plan(
+        "p_higher_raw_score",
+        ci_high=0.45,
+        reliability=0.40,
+        worst_margin=-0.20,
+        predicted_pd=0.30,
+        robust_score=999.0,
+    )
+
+    best = choose_best_plan(
+        [higher_raw_score, better_gate],
+        tau=0.35,
+        min_reliability=0.70,
+        min_worst_risk_margin=-0.05,
+        denied_mode=True,
+        denied_objective_cfg={
+            "enabled": True,
+            "penalty_scale": 120.0,
+            "squared_violation": True,
+            "weights": {
+                "ci": 0.5,
+                "reliability": 0.3,
+                "worst_margin": 0.2,
+                "cost": 0.0,
+                "sparsity": 0.0,
+                "nominal_margin": 0.0,
+            },
+        },
+    )
+    assert best.plan_id == "p_better_gate"
+
+
+def test_choose_best_plan_denied_mode_still_prioritizes_approved():
+    approved = _mk_plan(
+        "p_approved",
+        ci_high=0.30,
+        reliability=0.80,
+        worst_margin=0.01,
+        predicted_pd=0.29,
+        robust_score=1.0,
+        status="APPROVED",
+    )
+    needs_review = _mk_plan(
+        "p_review",
+        ci_high=0.33,
+        reliability=0.78,
+        worst_margin=-0.01,
+        predicted_pd=0.30,
+        robust_score=100.0,
+        status="NEEDS_REVIEW",
+    )
+
+    best = choose_best_plan(
+        [needs_review, approved],
+        tau=0.35,
+        min_reliability=0.70,
+        min_worst_risk_margin=-0.05,
+        denied_mode=True,
+        denied_objective_cfg={"enabled": True},
+    )
+    assert best.plan_id == "p_approved"
+
+
+def test_choose_best_plan_high_risk_objective_prefers_larger_pd_improvement():
+    weaker = _mk_plan(
+        "p_weaker",
+        ci_high=0.92,
+        reliability=0.10,
+        worst_margin=-0.70,
+        predicted_pd=0.84,
+        robust_score=99.0,
+        status="NEEDS_REVIEW",
+    )
+    stronger = _mk_plan(
+        "p_stronger",
+        ci_high=0.70,
+        reliability=0.20,
+        worst_margin=-0.50,
+        predicted_pd=0.58,
+        robust_score=1.0,
+        status="NEEDS_REVIEW",
+    )
+
+    best = choose_best_plan(
+        [weaker, stronger],
+        base_pd=0.90,
+        tau=0.35,
+        min_reliability=0.60,
+        min_worst_risk_margin=-0.10,
+        denied_mode=True,
+        segment_context={"risk_band": "high"},
+        denied_objective_cfg={
+            "enabled": True,
+            "high_risk_objective": {
+                "enabled": True,
+                "penalty_scale": 80.0,
+                "weights": {
+                    "pd_improvement": 0.65,
+                    "gate_pass": 0.10,
+                    "residual_pd": 0.25,
+                },
+            },
+        },
+    )
+    assert best.plan_id == "p_stronger"
+
+
+def test_choose_best_plan_high_risk_objective_works_without_denied_mode_flag():
+    weaker = _mk_plan(
+        "p_weaker",
+        ci_high=0.95,
+        reliability=0.10,
+        worst_margin=-0.80,
+        predicted_pd=0.90,
+        robust_score=20.0,
+        status="NEEDS_REVIEW",
+    )
+    stronger = _mk_plan(
+        "p_stronger",
+        ci_high=0.80,
+        reliability=0.15,
+        worst_margin=-0.60,
+        predicted_pd=0.70,
+        robust_score=1.0,
+        status="NEEDS_REVIEW",
+    )
+    best = choose_best_plan(
+        [weaker, stronger],
+        base_pd=0.95,
+        tau=0.35,
+        min_reliability=0.60,
+        min_worst_risk_margin=-0.10,
+        denied_mode=False,
+        segment_context={"risk_band": "high"},
+        denied_objective_cfg={
+            "enabled": True,
+            "high_risk_objective": {"enabled": True},
+        },
+    )
+    assert best.plan_id == "p_stronger"
+
+
+def test_choose_best_plan_high_risk_objective_penalizes_missing_gate_fields():
+    missing = _mk_plan(
+        "p_missing",
+        ci_high=0.40,
+        reliability=0.70,
+        worst_margin=-0.05,
+        predicted_pd=0.30,
+        robust_score=500.0,
+        status="NEEDS_REVIEW",
+    )
+    missing.ci_high = None
+    missing.reliability = None
+    missing.robust_worst_risk_margin = None
+
+    complete = _mk_plan(
+        "p_complete",
+        ci_high=0.42,
+        reliability=0.65,
+        worst_margin=-0.08,
+        predicted_pd=0.33,
+        robust_score=1.0,
+        status="NEEDS_REVIEW",
+    )
+
+    best = choose_best_plan(
+        [missing, complete],
+        base_pd=0.90,
+        tau=0.35,
+        min_reliability=0.60,
+        min_worst_risk_margin=-0.10,
+        denied_mode=True,
+        segment_context={"risk_band": "high"},
+        denied_objective_cfg={
+            "enabled": True,
+            "high_risk_objective": {"enabled": True},
+        },
+    )
+    assert best.plan_id == "p_complete"
+
+
+def test_choose_best_plan_prefers_non_rejected_when_available():
+    rejected = _mk_plan(
+        "p_rejected",
+        ci_high=0.20,
+        reliability=0.95,
+        worst_margin=0.10,
+        predicted_pd=0.20,
+        robust_score=999.0,
+        status="REJECTED",
+    )
+    needs_review = _mk_plan(
+        "p_needs_review",
+        ci_high=0.42,
+        reliability=0.65,
+        worst_margin=-0.08,
+        predicted_pd=0.34,
+        robust_score=1.0,
+        status="NEEDS_REVIEW",
+    )
+
+    best = choose_best_plan(
+        [rejected, needs_review],
+        tau=0.35,
+        min_reliability=0.60,
+        min_worst_risk_margin=-0.10,
+        denied_mode=True,
+        denied_objective_cfg={"enabled": True},
+    )
+    assert best.plan_id == "p_needs_review"
