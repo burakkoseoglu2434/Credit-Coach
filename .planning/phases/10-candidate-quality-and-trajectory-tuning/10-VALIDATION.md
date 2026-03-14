@@ -63,8 +63,9 @@ created: 2026-03-15
 
 One human scan is still useful after execution:
 
-- confirm generator and policy impact summaries remain concise and do not turn into a second acceptance contract
-- confirm high-risk fast-track reporting is readable enough for milestone review without duplicating Phase 11 release-pack scope
+- confirm generator and policy impact summaries remain comparative, concise, and do not turn into a second acceptance contract
+- confirm high-risk fast-track reporting clearly distinguishes strong evidence from diagnostic-only outcomes
+- confirm the derived review keeps the locked Phase 10 sections and still reads like a decision explanation rather than a dashboard
 
 All candidate-quality behavior itself should remain automatically verified.
 

@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 Phase: 10 of 11 (Candidate Quality and Trajectory Tuning)
 Plan: 0 of 3 in current phase
 Status: Planned
-Last activity: 2026-03-15 - Phase 10 planned with candidate-quality instrumentation, bounded high-risk tuning, and generator-impact diagnostics
+Last activity: 2026-03-15 - Phase 10 replanned after context capture with canonical candidate-quality, high-risk tuning, and comparative impact contracts
 
 Progress: [████████░░] 82%
 
@@ -50,8 +50,10 @@ Recent decisions affecting current work:
 - Phase 9: KPI hardening will proceed in the order shared semantics -> frozen model provenance -> repeated-evidence acceptance
 - Phase 9 context: canonical runner contract is `kpi_contract_snapshot.json`, explicit freeze is fail-closed, degraded evidence is never acceptance-eligible, and milestone acceptance is derived from repeated seeded evidence
 - Phase 9 complete: smoke, suite, and challenger now emit or consume canonical KPI contract snapshots and milestone acceptance artifacts
-- Phase 10 planning assumption: roadmap requirements, Phase 9 evidence artifacts, and existing batch candidate/high-risk metrics are authoritative inputs because no dedicated `10-CONTEXT.md` was captured
-- Phase 10: candidate-quality work will proceed in the order instrumentation -> bounded high-risk tuning -> generator and policy impact diagnostics
+- Phase 10 context: canonical candidate-quality fields are diversity, entropy, and `best_source_*_rate` over the `denied` population, with `high_risk_denied` as companion evidence
+- Phase 10 context: high-risk tuning is promotion evidence only, uses `denied_high_risk_lift` as the primary success metric, and requires `high_risk_profile_applied_rate >= 0.05` to count as non-anecdotal
+- Phase 10 context: generator and policy impact remains comparative rather than causal, uses the control variant as the primary baseline, and the derived review must stay explanation-first
+- Phase 10 replanning: candidate-quality work will proceed in the order instrumentation -> bounded high-risk tuning -> comparative generator and policy impact diagnostics
 
 ### Pending Todos
 
@@ -64,6 +66,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15 10:45
-Stopped at: Phase 10 planning complete; next step is execute plans 10-01 through 10-03 under the v1.1 milestone
+Last session: 2026-03-15 13:05
+Stopped at: Phase 10 replanning complete; next step is execute the replanned 10-01 through 10-03 under the v1.1 milestone
 Resume file: None
