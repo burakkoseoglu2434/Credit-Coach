@@ -11,6 +11,7 @@ import pandas as pd
 from credit_coach.ops.kpi_contract import (
     ALL_KPI_THRESHOLD_KEYS,
     apply_kpi_thresholds_to_args,
+    build_kpi_contract_snapshot,
     build_kpi_snapshot,
     extract_kpi_thresholds,
     load_kpi_thresholds,
@@ -38,6 +39,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--fairness_stress_csv", type=str, default="")
     p.add_argument("--telemetry_json", type=str, default="")
     p.add_argument("--phase_scale_aggregate_json", type=str, default="")
+    p.add_argument("--milestone_acceptance_json", type=str, default="")
     p.add_argument("--min_denied_to_approved_lift", type=float, default=None)
     p.add_argument("--min_denied_high_risk_lift", type=float, default=None)
     p.add_argument("--min_denied_gate_pass_rate", type=float, default=None)
@@ -462,14 +464,80 @@ def build_smoke_release_summary(
     batch_fairness_change_df: pd.DataFrame,
     thresholds: dict[str, float | bool],
     phase_scale_aggregate: dict[str, Any] | None = None,
+    milestone_acceptance_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    if isinstance(milestone_acceptance_summary, dict) and str(milestone_acceptance_summary.get("release_decision", "")).strip():
+        decision = str(milestone_acceptance_summary.get("release_decision", "NO_GO"))
+        acceptance_eligible = bool(milestone_acceptance_summary.get("acceptance_eligible", False))
+        broad_rollout_allowed = bool(milestone_acceptance_summary.get("broad_rollout_allowed", decision == "GO"))
+        if not acceptance_eligible:
+            broad_rollout_allowed = False
+        return {
+            "release_decision": decision,
+            "decision_reason": str(milestone_acceptance_summary.get("decision_reason", "")),
+            "smoke_pass": bool(milestone_acceptance_summary.get("smoke_pass", decision == "GO")),
+            "pilot_eligible": bool(milestone_acceptance_summary.get("pilot_eligible", decision == "LIMITED_GO")),
+            "broad_rollout_allowed": broad_rollout_allowed,
+            "evidence_level": str(milestone_acceptance_summary.get("evidence_level", "seeded_suite")),
+            "evidence_status": str(milestone_acceptance_summary.get("evidence_status", "complete")),
+            "acceptance_eligible": acceptance_eligible,
+            "degraded_reason": str(milestone_acceptance_summary.get("degraded_reason", "")),
+            "missing_artifacts": list(milestone_acceptance_summary.get("missing_artifacts", [])),
+            "fallback_source": "",
+            "lift_pass": bool(milestone_acceptance_summary.get("lift_pass", False)),
+            "reliability_pass": bool(milestone_acceptance_summary.get("reliability_pass", False)),
+            "fairness_seed_pass_count": int(milestone_acceptance_summary.get("fairness_seed_pass_count", 0)),
+            "fairness_seed_total": int(milestone_acceptance_summary.get("seed_count", 0)),
+            "primary_fairness_metric": str(milestone_acceptance_summary.get("primary_fairness_metric", "")),
+            "worst_fairness_gap": float(milestone_acceptance_summary.get("worst_primary_fairness_gap", 0.0)),
+            "dominant_fail_segment_key": str(milestone_acceptance_summary.get("dominant_fail_segment_key", "")),
+            "dominant_fail_candidate_source": str(milestone_acceptance_summary.get("dominant_fail_candidate_source", "")),
+            "model_version": str(milestone_acceptance_summary.get("model_version", "")),
+            "model_freeze_mode": str(milestone_acceptance_summary.get("model_freeze_mode", "")),
+        }
+
     if isinstance(phase_scale_aggregate, dict) and int(phase_scale_aggregate.get("fairness_seed_total", 0)) > 0:
         metrics = dict(phase_scale_aggregate)
+        release_payload = evaluate_release_decision(metrics, thresholds)
+        acceptance_eligible = bool(str(metrics.get("model_freeze_mode", "")).strip() != "implicit_latest")
+        evidence_status = "complete" if acceptance_eligible else "degraded"
+        degraded_reason = "" if acceptance_eligible else "implicit_latest_model_freeze"
+        broad_rollout_allowed = bool(release_payload.get("broad_rollout_allowed", False))
+        if not acceptance_eligible:
+            broad_rollout_allowed = False
+        return {
+            "release_decision": str(release_payload["decision"]),
+            "decision_reason": str(release_payload.get("decision_reason", "")),
+            "smoke_pass": bool(release_payload["smoke_pass"]),
+            "pilot_eligible": bool(release_payload["pilot_eligible"]),
+            "broad_rollout_allowed": broad_rollout_allowed,
+            "evidence_level": "seeded_suite",
+            "evidence_status": evidence_status,
+            "acceptance_eligible": acceptance_eligible,
+            "degraded_reason": degraded_reason,
+            "missing_artifacts": [],
+            "fallback_source": "",
+            **metrics,
+        }
     else:
         fair_row = batch_fairness_change_df.iloc[0].to_dict() if not batch_fairness_change_df.empty else {}
         snapshot = evaluate_seed_kpi_contract(batch_summary, fair_row, thresholds)
         metrics = aggregate_release_metrics([snapshot], thresholds=thresholds)
-    return evaluate_release_decision(metrics, thresholds)
+        release_payload = evaluate_release_decision(metrics, thresholds)
+        return {
+            "release_decision": str(release_payload["decision"]),
+            "decision_reason": str(release_payload.get("decision_reason", "")),
+            "smoke_pass": bool(release_payload["smoke_pass"]),
+            "pilot_eligible": bool(release_payload["pilot_eligible"]),
+            "broad_rollout_allowed": False,
+            "evidence_level": "single_run_fallback",
+            "evidence_status": "degraded",
+            "acceptance_eligible": False,
+            "degraded_reason": "missing_repeated_seeded_evidence",
+            "missing_artifacts": ["milestone_acceptance_summary.json", "phase_scale_aggregate.json"],
+            "fallback_source": "batch_summary_json",
+            **metrics,
+        }
 
 
 def main() -> None:
@@ -514,6 +582,7 @@ def main() -> None:
         hint="telemetry export report",
     )
     phase_scale_aggregate_path = _resolve_optional_path(args.phase_scale_aggregate_json)
+    milestone_acceptance_path = _resolve_optional_path(args.milestone_acceptance_json)
 
     batch_summary = json.loads(batch_summary_path.read_text(encoding="utf-8"))
     batch_fairness_change_df = pd.read_csv(batch_fairness_change_path)
@@ -525,6 +594,11 @@ def main() -> None:
     phase_scale_aggregate = (
         json.loads(phase_scale_aggregate_path.read_text(encoding="utf-8"))
         if phase_scale_aggregate_path is not None
+        else {}
+    )
+    milestone_acceptance_summary = (
+        json.loads(milestone_acceptance_path.read_text(encoding="utf-8"))
+        if milestone_acceptance_path is not None
         else {}
     )
     audit_ok, audit_issues = verify_audit_chain()
@@ -539,6 +613,7 @@ def main() -> None:
             "fairness_csv": str(fairness_path),
             "fairness_stress_csv": str(fairness_stress_path),
             "telemetry_json": str(telemetry_path),
+            "milestone_acceptance_json": str(milestone_acceptance_path) if milestone_acceptance_path is not None else "",
             "thresholds": resolved_thresholds,
         },
         base_artifact_dir="artifacts/runs",
@@ -560,14 +635,16 @@ def main() -> None:
     out_csv = run_ctx.tables_dir / "production_smoke_report.csv"
     out_json = run_ctx.tables_dir / "production_smoke_report.json"
     out_kpi_snapshot = run_ctx.tables_dir / "kpi_snapshot.json"
+    out_contract_snapshot = run_ctx.tables_dir / "kpi_contract_snapshot.json"
     gate_df.to_csv(out_csv, index=False)
-    release_payload = build_smoke_release_summary(
+    release_summary = build_smoke_release_summary(
         batch_summary=batch_summary,
         batch_fairness_change_df=batch_fairness_change_df,
         thresholds=resolved_thresholds,
         phase_scale_aggregate=phase_scale_aggregate,
+        milestone_acceptance_summary=milestone_acceptance_summary,
     )
-    overall_status = str(release_payload["release_decision"])
+    overall_status = str(release_summary["release_decision"])
     kpi_snapshot = _kpi_snapshot_from_rows(
         gate_rows=rows,
         args=args,
@@ -579,13 +656,46 @@ def main() -> None:
         current=kpi_snapshot,
         previous=previous_snapshot,
     )
+    supporting_artifacts = {
+        "production_smoke_report_csv": "tables/production_smoke_report.csv",
+        "kpi_snapshot_json": "tables/kpi_snapshot.json",
+        "batch_summary_json": str(batch_summary_path),
+        "batch_fairness_change_csv": str(batch_fairness_change_path),
+    }
+    if phase_scale_aggregate_path is not None:
+        supporting_artifacts["phase_scale_aggregate_json"] = str(phase_scale_aggregate_path)
+    if milestone_acceptance_path is not None:
+        supporting_artifacts["milestone_acceptance_summary_json"] = str(milestone_acceptance_path)
+
+    contract_snapshot = build_kpi_contract_snapshot(
+        runner_type="smoke",
+        release_payload={
+            "decision": str(release_summary["release_decision"]),
+            "decision_reason": str(release_summary.get("decision_reason", "")),
+            "smoke_pass": bool(release_summary.get("smoke_pass", False)),
+            "pilot_eligible": bool(release_summary.get("pilot_eligible", False)),
+            "broad_rollout_allowed": bool(release_summary.get("broad_rollout_allowed", False)),
+        },
+        aggregate_metrics=release_summary,
+        evidence_level=str(release_summary.get("evidence_level", "single_run_fallback")),
+        acceptance_eligible=bool(release_summary.get("acceptance_eligible", False)),
+        supporting_artifacts=supporting_artifacts,
+        model_version=str(release_summary.get("model_version", batch_summary.get("model_version", ""))),
+        model_freeze_mode=str(release_summary.get("model_freeze_mode", batch_summary.get("model_freeze_mode", ""))),
+        evidence_status=str(release_summary.get("evidence_status", "degraded")),
+        degraded_reason=str(release_summary.get("degraded_reason", "")),
+        missing_artifacts=release_summary.get("missing_artifacts", []),
+        fallback_source=str(release_summary.get("fallback_source", "")),
+        metadata={"run_id": run_ctx.run_id},
+    )
     out_kpi_snapshot.write_text(json.dumps(kpi_snapshot, indent=2, ensure_ascii=False), encoding="utf-8")
+    out_contract_snapshot.write_text(json.dumps(contract_snapshot, indent=2, ensure_ascii=False), encoding="utf-8")
     out_json.write_text(
         json.dumps(
             {
                 "run_id": run_ctx.run_id,
                 "overall_status": overall_status,
-                "release_decision": release_payload,
+                "release_decision": release_summary,
                 "thresholds": resolved_thresholds,
                 "gates": gate_df.to_dict(orient="records"),
                 "kpi_trend_vs_previous": trend_payload,
@@ -599,8 +709,10 @@ def main() -> None:
     run_ctx.save_metrics(
         {
             "overall_status": overall_status,
-            "smoke_pass": bool(release_payload["smoke_pass"]),
-            "pilot_eligible": bool(release_payload["pilot_eligible"]),
+            "smoke_pass": bool(release_summary["smoke_pass"]),
+            "pilot_eligible": bool(release_summary["pilot_eligible"]),
+            "acceptance_eligible": bool(release_summary.get("acceptance_eligible", False)),
+            "evidence_level": str(release_summary.get("evidence_level", "single_run_fallback")),
             "gate_pass_count": int((gate_df["status"] == "PASS").sum()),
             "gate_fail_count": int((gate_df["status"] != "PASS").sum()),
             "audit_issue_count": int(len(audit_issues)),
@@ -609,7 +721,7 @@ def main() -> None:
         }
     )
     logger.info("Production smoke complete. status=%s", overall_status)
-    logger.info("Outputs: %s %s %s", out_csv, out_json, out_kpi_snapshot)
+    logger.info("Outputs: %s %s %s %s", out_csv, out_json, out_kpi_snapshot, out_contract_snapshot)
 
 
 if __name__ == "__main__":

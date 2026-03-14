@@ -13,9 +13,9 @@
 
 ### KPI Contract
 
-- [ ] **KPI-01**: `run_production_smoke`, `run_phase_experiment_suite`, and `run_model_challenger_matrix` use aligned KPI thresholds and pass/fail semantics
-- [ ] **KPI-02**: Experiment suites can freeze training state so repeated seeded comparisons use the same model snapshot
-- [ ] **KPI-03**: Milestone acceptance is based on repeated seeded evidence rather than a single passing run
+- [x] **KPI-01**: `run_production_smoke`, `run_phase_experiment_suite`, and `run_model_challenger_matrix` use aligned KPI thresholds and pass/fail semantics
+- [x] **KPI-02**: Experiment suites can freeze training state so repeated seeded comparisons use the same model snapshot
+- [x] **KPI-03**: Milestone acceptance is based on repeated seeded evidence rather than a single passing run
 
 ### Candidate Quality
 
@@ -52,9 +52,9 @@
 | FAIR-01 | Phase 8 | Complete |
 | FAIR-02 | Phase 8 | Complete |
 | FAIR-03 | Phase 8 | Complete |
-| KPI-01 | Phase 9 | Pending |
-| KPI-02 | Phase 9 | Pending |
-| KPI-03 | Phase 9 | Pending |
+| KPI-01 | Phase 9 | Complete |
+| KPI-02 | Phase 9 | Complete |
+| KPI-03 | Phase 9 | Complete |
 | CAND-01 | Phase 10 | Pending |
 | CAND-02 | Phase 10 | Pending |
 | CAND-03 | Phase 10 | Pending |
@@ -69,4 +69,4 @@
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 after completing Phase 8*
+*Last updated: 2026-03-14 after completing Phase 9*

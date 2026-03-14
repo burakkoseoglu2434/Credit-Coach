@@ -7,6 +7,7 @@ import pandas as pd
 from credit_coach.cli.run_phase_experiment_suite import (
     _build_phase_fairness_breakdown,
     _kpi_checks,
+    _render_release_review_summary,
     _seed_contract_snapshot,
     _train_cmd,
 )
@@ -246,3 +247,32 @@ def test_train_cmd_uses_base_and_model_config_paths() -> None:
     assert "--config" in cmd
     assert "configs/default.yaml" in cmd
     assert "configs/model.yaml" in cmd
+
+
+def test_release_review_summary_is_derived_from_acceptance_summary() -> None:
+    review = _render_release_review_summary(
+        milestone_acceptance_summary={
+            "acceptance_status": "PILOT_ONLY",
+            "release_decision": "LIMITED_GO",
+            "acceptance_eligible": True,
+            "broad_rollout_allowed": False,
+            "evidence_level": "seeded_suite",
+            "lift_pass": True,
+            "reliability_pass": True,
+            "fairness_seed_pass_count": 4,
+            "seed_count": 5,
+            "primary_fairness_metric": "equalized_odds_gap_delta",
+            "worst_primary_fairness_gap": 0.012,
+            "phase": "phase-09",
+            "milestone": "v1.1",
+            "runner_type": "suite",
+            "model_version": "model-123",
+            "model_freeze_mode": "explicit_model_version",
+            "dominant_fail_segment_key": "mid|q1|stress",
+            "dominant_fail_candidate_source": "internal",
+            "supporting_artifacts": {"release_decision_json": "tables/release_decision.json"},
+        }
+    )
+    assert "PILOT_ONLY" in review
+    assert "LIMITED_GO" in review
+    assert "release_decision_json" in review

@@ -207,6 +207,10 @@ def test_build_smoke_release_summary_uses_fallback_single_seed_contract():
     assert payload["release_decision"] == "GO"
     assert payload["smoke_pass"] is True
     assert payload["pilot_eligible"] is False
+    assert payload["acceptance_eligible"] is False
+    assert payload["evidence_level"] == "single_run_fallback"
+    assert payload["broad_rollout_allowed"] is False
+    assert payload["degraded_reason"] == "missing_repeated_seeded_evidence"
 
 
 def test_build_smoke_release_summary_respects_phase_scale_limited_go():
@@ -229,6 +233,46 @@ def test_build_smoke_release_summary_respects_phase_scale_limited_go():
     assert payload["release_decision"] == "LIMITED_GO"
     assert payload["smoke_pass"] is False
     assert payload["pilot_eligible"] is True
+    assert payload["acceptance_eligible"] is True
+    assert payload["evidence_level"] == "seeded_suite"
+
+
+def test_build_smoke_release_summary_prefers_milestone_acceptance_summary() -> None:
+    payload = build_smoke_release_summary(
+        batch_summary={},
+        batch_fairness_change_df=pd.DataFrame(),
+        thresholds=_args().__dict__,
+        phase_scale_aggregate={
+            "lift_pass": True,
+            "reliability_pass": True,
+            "fairness_seed_pass_count": 5,
+            "fairness_seed_total": 5,
+            "model_freeze_mode": "explicit_model_version",
+        },
+        milestone_acceptance_summary={
+            "release_decision": "LIMITED_GO",
+            "smoke_pass": False,
+            "pilot_eligible": True,
+            "broad_rollout_allowed": False,
+            "evidence_level": "seeded_suite",
+            "evidence_status": "complete",
+            "acceptance_eligible": True,
+            "lift_pass": True,
+            "reliability_pass": True,
+            "fairness_seed_pass_count": 4,
+            "seed_count": 5,
+            "primary_fairness_metric": "equalized_odds_gap_delta",
+            "worst_primary_fairness_gap": 0.012,
+            "dominant_fail_segment_key": "mid|q1|stress",
+            "dominant_fail_candidate_source": "internal",
+            "model_version": "model-123",
+            "model_freeze_mode": "explicit_model_version",
+        },
+    )
+    assert payload["release_decision"] == "LIMITED_GO"
+    assert payload["pilot_eligible"] is True
+    assert payload["acceptance_eligible"] is True
+    assert payload["model_version"] == "model-123"
 
 
 def test_kpi_snapshot_from_rows_uses_shared_contract_snapshot() -> None:

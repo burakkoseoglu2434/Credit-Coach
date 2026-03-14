@@ -4,6 +4,7 @@ import pandas as pd
 
 from credit_coach.cli.run_model_challenger_matrix import (
     _build_variant_model_cfg,
+    _build_variant_release_payloads,
     _select_champion,
 )
 
@@ -283,5 +284,107 @@ def test_select_champion_prefers_go_release_over_limited_go_variant():
 
     champion, ranked = _select_champion(summary_df, thresholds)
     assert champion == "go_lower_lift"
+    assert bool(ranked.iloc[0]["_promotion_eligible"]) is True
+    assert bool(ranked.iloc[1]["_promotion_eligible"]) is False
+
+
+def test_build_variant_release_payloads_marks_single_seed_evidence_degraded() -> None:
+    runs_df = pd.DataFrame(
+        [
+            {
+                "variant_id": "single_seed_variant",
+                "seed": 42,
+                "model_version": "model-123",
+                "model_freeze_mode": "explicit_model_version",
+                "denied_count": 100.0,
+                "denied_with_gate_pass_plan": 10.0,
+                "denied_to_approved_lift": 0.12,
+                "denied_high_risk_lift": 0.05,
+                "denied_reliability_violation_rate": 0.20,
+                "latency_p95_ms": 300.0,
+                "latency_p99_ms": 900.0,
+                "error_rate": 0.0,
+                "fairness_approval_gap_after": 0.05,
+                "fairness_approval_gap_delta": 0.005,
+                "fairness_equalized_odds_gap_delta": 0.005,
+                "high_stress_approval_gap_after": 0.05,
+                "recourse_success_gap": 0.05,
+                "trajectory_gate_pass_rate_4w": 0.04,
+                "trajectory_gate_pass_rate_12w": 0.08,
+                "trajectory_gate_pass_rate_24w": 0.10,
+                "trajectory_partial_progress_rate": 0.25,
+                "trajectory_median_time_to_gate_pass_days": 90.0,
+            }
+        ]
+    )
+    thresholds = {
+        "min_denied_to_approved_lift": 0.09,
+        "min_denied_high_risk_lift": 0.03,
+        "max_denied_reliability_violation_rate": 0.40,
+        "max_approval_gap_delta": 0.01,
+        "max_equalized_odds_gap_delta": 0.01,
+        "max_high_stress_fairness_gap": 0.10,
+        "max_recourse_success_gap": 0.10,
+        "max_fairness_gap": 0.10,
+        "max_p95_latency_ms": 500.0,
+        "max_p99_latency_ms": 2000.0,
+        "max_error_rate": 0.005,
+        "min_trajectory_gate_pass_rate_4w": 0.03,
+        "min_trajectory_gate_pass_rate_12w": 0.06,
+        "min_trajectory_gate_pass_rate_24w": 0.09,
+        "min_trajectory_partial_progress_rate": 0.20,
+        "max_trajectory_median_time_to_gate_pass_days": 168.0,
+    }
+
+    release_df = _build_variant_release_payloads(runs_df, thresholds=thresholds, breakdown_frames=[])
+    row = release_df.iloc[0]
+    assert str(row["evidence_level"]) == "single_run_fallback"
+    assert bool(row["acceptance_eligible"]) is False
+    assert bool(row["promotion_eligible"]) is False
+    assert str(row["degraded_reason"]) == "insufficient_repeated_seeded_evidence"
+
+
+def test_select_champion_prefers_acceptance_eligible_go_over_degraded_go() -> None:
+    summary_df = pd.DataFrame(
+        [
+            {
+                "variant_id": "degraded_go_high_lift",
+                "release_decision": "GO",
+                "acceptance_eligible": False,
+                "promotion_eligible": False,
+                "mean_denied_to_approved_lift": 0.18,
+                "mean_denied_high_risk_lift": 0.09,
+                "mean_high_risk_reachability_rate": 0.26,
+                "mean_fairness_approval_gap_after": 0.04,
+                "mean_latency_p95_ms": 280.0,
+                "mean_latency_p99_ms": 850.0,
+                "mean_error_rate": 0.0,
+            },
+            {
+                "variant_id": "acceptance_eligible_go",
+                "release_decision": "GO",
+                "acceptance_eligible": True,
+                "promotion_eligible": True,
+                "mean_denied_to_approved_lift": 0.14,
+                "mean_denied_high_risk_lift": 0.06,
+                "mean_high_risk_reachability_rate": 0.21,
+                "mean_fairness_approval_gap_after": 0.05,
+                "mean_latency_p95_ms": 310.0,
+                "mean_latency_p99_ms": 910.0,
+                "mean_error_rate": 0.0,
+            },
+        ]
+    )
+    thresholds = {
+        "min_denied_to_approved_lift": 0.09,
+        "min_denied_high_risk_lift": 0.03,
+        "max_fairness_gap": 0.10,
+        "max_p95_latency_ms": 500.0,
+        "max_p99_latency_ms": 2000.0,
+        "max_error_rate": 0.005,
+    }
+
+    champion, ranked = _select_champion(summary_df, thresholds)
+    assert champion == "acceptance_eligible_go"
     assert bool(ranked.iloc[0]["_promotion_eligible"]) is True
     assert bool(ranked.iloc[1]["_promotion_eligible"]) is False

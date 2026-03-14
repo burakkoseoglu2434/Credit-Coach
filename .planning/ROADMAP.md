@@ -44,6 +44,7 @@ Plans:
 **Goal**: Align smoke, phase-suite, and challenger workflows behind one deterministic acceptance contract.
 **Depends on**: Phase 8
 **Requirements**: [KPI-01, KPI-02, KPI-03]
+**Completed**: 2026-03-14
 **Success Criteria** (what must be TRUE):
   1. Smoke, suite, and challenger outputs use the same threshold meanings and pass/fail semantics.
   2. Seeded experiment runs can freeze model state and compare like-for-like artifacts.
@@ -53,7 +54,7 @@ Plans:
 Plans:
 - [x] 09-01: Extract and align shared KPI contract helpers across release runners
 - [x] 09-02: Standardize train-once or frozen-model seeded suite execution
-- [ ] 09-03: Build milestone acceptance summaries from repeated seeded evidence
+- [x] 09-03: Build milestone acceptance summaries from repeated seeded evidence
 
 #### Phase 10: Candidate Quality and Trajectory Tuning
 **Goal**: Improve the quality and explainability of candidate generation once the measurement contract is stable.
@@ -97,6 +98,6 @@ Plans:
 | 6. Production Hardening and Governance | v1.0 | 3/3 | Complete | 2026-03-10 |
 | 7. KPI Gate Stabilization | v1.0 | 3/3 | Complete | 2026-03-10 |
 | 8. Fairness Stability Matrix | v1.1 | 3/3 | Complete | 2026-03-14 |
-| 9. KPI Contract Unification | v1.1 | 2/3 | In progress | - |
+| 9. KPI Contract Unification | v1.1 | 3/3 | Complete | 2026-03-14 |
 | 10. Candidate Quality and Trajectory Tuning | v1.1 | 0/3 | Not started | - |
 | 11. Release Evidence and Outcome Feedback | v1.1 | 0/3 | Not started | - |

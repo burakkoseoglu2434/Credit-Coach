@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+from credit_coach.ops.kpi_contract import (
+    ACCEPTED,
+    PILOT_ONLY,
+    build_kpi_contract_snapshot,
+    build_milestone_acceptance_summary,
+    render_milestone_acceptance_review,
+)
 from credit_coach.ops.release_decision import (
     GO,
     LIMITED_GO,
@@ -148,3 +155,84 @@ def test_evaluate_release_decision_returns_no_go_when_lift_fails() -> None:
     )
     assert decision["decision"] == NO_GO
     assert decision["decision_reason"] == "lift_fail"
+
+
+def test_milestone_acceptance_summary_maps_go_to_accepted() -> None:
+    summary = build_milestone_acceptance_summary(
+        phase="phase-09",
+        milestone="v1.1",
+        runner_type="suite",
+        release_payload={"decision": GO, "smoke_pass": True, "pilot_eligible": False, "broad_rollout_allowed": True},
+        aggregate_metrics={
+            "seed_count": 5,
+            "fairness_seed_pass_count": 5,
+            "lift_pass": True,
+            "reliability_pass": True,
+            "worst_fairness_gap": 0.008,
+            "dominant_fail_segment_key": "",
+            "dominant_fail_candidate_source": "",
+        },
+        evidence_level="seeded_suite",
+        acceptance_eligible=True,
+        supporting_artifacts={"phase_scale_aggregate_json": "tables/phase_scale_aggregate.json"},
+        model_version="model-123",
+        model_freeze_mode="explicit_model_version",
+    )
+    assert summary["acceptance_status"] == ACCEPTED
+    assert summary["release_decision"] == GO
+    assert summary["broad_rollout_allowed"] is True
+
+
+def test_milestone_acceptance_summary_keeps_limited_go_pilot_only_when_not_eligible() -> None:
+    summary = build_milestone_acceptance_summary(
+        phase="phase-09",
+        milestone="v1.1",
+        runner_type="suite",
+        release_payload={
+            "decision": LIMITED_GO,
+            "smoke_pass": False,
+            "pilot_eligible": True,
+            "broad_rollout_allowed": False,
+        },
+        aggregate_metrics={
+            "seed_count": 5,
+            "fairness_seed_pass_count": 4,
+            "lift_pass": True,
+            "reliability_pass": True,
+            "worst_fairness_gap": 0.012,
+            "dominant_fail_segment_key": "mid|q1|stress",
+            "dominant_fail_candidate_source": "internal",
+        },
+        evidence_level="seeded_suite",
+        acceptance_eligible=False,
+        evidence_status="degraded",
+        degraded_reason="implicit_latest_model_freeze",
+        supporting_artifacts={"release_decision_json": "tables/release_decision.json"},
+        model_version="model-123",
+        model_freeze_mode="implicit_latest",
+    )
+    review = render_milestone_acceptance_review(summary)
+    assert summary["acceptance_status"] == PILOT_ONLY
+    assert summary["acceptance_eligible"] is False
+    assert summary["broad_rollout_allowed"] is False
+    assert "implicit_latest_model_freeze" in review
+
+
+def test_kpi_contract_snapshot_carries_degraded_evidence_fields() -> None:
+    snapshot = build_kpi_contract_snapshot(
+        runner_type="smoke",
+        release_payload={"decision": GO, "smoke_pass": True, "pilot_eligible": False, "broad_rollout_allowed": True},
+        aggregate_metrics={"lift_pass": True, "reliability_pass": True, "fairness_seed_pass_count": 1, "fairness_seed_total": 1},
+        evidence_level="single_run_fallback",
+        acceptance_eligible=False,
+        evidence_status="degraded",
+        degraded_reason="missing_repeated_seeded_evidence",
+        missing_artifacts=["phase_scale_aggregate.json"],
+        fallback_source="batch_summary_json",
+        supporting_artifacts={"kpi_snapshot_json": "tables/kpi_snapshot.json"},
+    )
+    assert snapshot["release_decision"] == GO
+    assert snapshot["evidence_level"] == "single_run_fallback"
+    assert snapshot["acceptance_eligible"] is False
+    assert snapshot["broad_rollout_allowed"] is False
+    assert snapshot["fallback_source"] == "batch_summary_json"

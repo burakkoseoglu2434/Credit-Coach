@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from argparse import Namespace
+from datetime import datetime, timezone
 import math
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -236,6 +237,11 @@ SMOKE_ONLY_KPI_THRESHOLD_KEYS: tuple[str, ...] = (
     "max_telemetry_ingest_lag_s",
 )
 
+KPI_CONTRACT_VERSION = "phase9.v1"
+ACCEPTED = "ACCEPTED"
+PILOT_ONLY = "PILOT_ONLY"
+REJECTED = "REJECTED"
+
 
 def _coerce_value(key: str, value: Any) -> float | bool:
     if key == "require_telemetry_enabled":
@@ -415,3 +421,207 @@ def build_kpi_snapshot(
         for key, value in metadata.items():
             snapshot[str(key)] = value
     return snapshot
+
+
+def map_release_decision_to_acceptance_status(release_decision: str) -> str:
+    decision = str(release_decision or "").strip().upper()
+    if decision == "GO":
+        return ACCEPTED
+    if decision == "LIMITED_GO":
+        return PILOT_ONLY
+    return REJECTED
+
+
+def _normalize_supporting_artifacts(supporting_artifacts: Mapping[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(supporting_artifacts, Mapping):
+        return {}
+    normalized: dict[str, Any] = {}
+    for key in sorted(supporting_artifacts.keys(), key=str):
+        value = supporting_artifacts[key]
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            normalized[str(key)] = value
+        elif isinstance(value, Mapping):
+            normalized[str(key)] = {str(k): v for k, v in value.items()}
+        else:
+            normalized[str(key)] = str(value)
+    return normalized
+
+
+def build_kpi_contract_snapshot(
+    *,
+    runner_type: str,
+    release_payload: Mapping[str, Any],
+    aggregate_metrics: Mapping[str, Any] | None,
+    evidence_level: str,
+    acceptance_eligible: bool,
+    supporting_artifacts: Mapping[str, Any] | None = None,
+    model_version: str = "",
+    model_freeze_mode: str = "",
+    evidence_status: str = "",
+    degraded_reason: str = "",
+    missing_artifacts: Iterable[str] | None = None,
+    fallback_source: str = "",
+    metadata: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    aggregate = dict(aggregate_metrics or {})
+    decision = str(release_payload.get("decision", release_payload.get("release_decision", "NO_GO")))
+    smoke_pass = bool(release_payload.get("smoke_pass", decision == "GO"))
+    pilot_eligible = bool(release_payload.get("pilot_eligible", decision == "LIMITED_GO"))
+    broad_rollout_allowed = bool(release_payload.get("broad_rollout_allowed", decision == "GO"))
+    missing = [str(item) for item in (missing_artifacts or []) if str(item).strip()]
+    status = str(evidence_status or ("degraded" if (degraded_reason or missing or not acceptance_eligible) else "complete"))
+    if not acceptance_eligible:
+        broad_rollout_allowed = False
+
+    snapshot = {
+        "contract_version": KPI_CONTRACT_VERSION,
+        "runner_type": str(runner_type),
+        "evidence_level": str(evidence_level),
+        "evidence_status": status,
+        "acceptance_eligible": bool(acceptance_eligible),
+        "release_decision": decision,
+        "decision_reason": str(release_payload.get("decision_reason", "")),
+        "smoke_pass": smoke_pass,
+        "pilot_eligible": pilot_eligible,
+        "broad_rollout_allowed": broad_rollout_allowed,
+        "model_freeze_mode": str(model_freeze_mode or aggregate.get("model_freeze_mode", "")),
+        "model_version": str(model_version or aggregate.get("model_version", "")),
+        "lift_pass": bool(aggregate.get("lift_pass", False)),
+        "reliability_pass": bool(aggregate.get("reliability_pass", False)),
+        "fairness_seed_pass_count": int(aggregate.get("fairness_seed_pass_count", 0)),
+        "fairness_seed_total": int(aggregate.get("fairness_seed_total", 0)),
+        "primary_fairness_metric": str(
+            aggregate.get("primary_fairness_metric", aggregate.get("dominant_fail_reason", "equalized_odds_gap_delta"))
+            or "equalized_odds_gap_delta"
+        ),
+        "worst_primary_fairness_gap": float(aggregate.get("worst_fairness_gap", 0.0)),
+        "dominant_fail_segment_key": str(aggregate.get("dominant_fail_segment_key", "")),
+        "dominant_fail_candidate_source": str(aggregate.get("dominant_fail_candidate_source", "")),
+        "supporting_artifacts": _normalize_supporting_artifacts(supporting_artifacts),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if degraded_reason:
+        snapshot["degraded_reason"] = str(degraded_reason)
+    if missing:
+        snapshot["missing_artifacts"] = missing
+    if fallback_source:
+        snapshot["fallback_source"] = str(fallback_source)
+    if isinstance(metadata, Mapping):
+        for key, value in metadata.items():
+            snapshot[str(key)] = value
+    return snapshot
+
+
+def build_milestone_acceptance_summary(
+    *,
+    phase: str,
+    milestone: str,
+    runner_type: str,
+    release_payload: Mapping[str, Any],
+    aggregate_metrics: Mapping[str, Any] | None,
+    evidence_level: str,
+    acceptance_eligible: bool,
+    supporting_artifacts: Mapping[str, Any] | None = None,
+    model_version: str = "",
+    model_freeze_mode: str = "",
+    evidence_status: str = "",
+    degraded_reason: str = "",
+    missing_artifacts: Iterable[str] | None = None,
+    metadata: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    aggregate = dict(aggregate_metrics or {})
+    decision = str(release_payload.get("decision", release_payload.get("release_decision", "NO_GO")))
+    broad_rollout_allowed = bool(release_payload.get("broad_rollout_allowed", decision == "GO"))
+    if not acceptance_eligible:
+        broad_rollout_allowed = False
+    missing = [str(item) for item in (missing_artifacts or []) if str(item).strip()]
+    status = str(evidence_status or ("degraded" if (degraded_reason or missing or not acceptance_eligible) else "complete"))
+
+    summary = {
+        "phase": str(phase),
+        "milestone": str(milestone),
+        "contract_version": KPI_CONTRACT_VERSION,
+        "runner_type": str(runner_type),
+        "evidence_level": str(evidence_level),
+        "evidence_status": status,
+        "acceptance_eligible": bool(acceptance_eligible),
+        "acceptance_status": map_release_decision_to_acceptance_status(decision),
+        "release_decision": decision,
+        "smoke_pass": bool(release_payload.get("smoke_pass", decision == "GO")),
+        "pilot_eligible": bool(release_payload.get("pilot_eligible", decision == "LIMITED_GO")),
+        "broad_rollout_allowed": broad_rollout_allowed,
+        "model_freeze_mode": str(model_freeze_mode or aggregate.get("model_freeze_mode", "")),
+        "model_version": str(model_version or aggregate.get("model_version", "")),
+        "seed_count": int(aggregate.get("seed_count", aggregate.get("fairness_seed_total", 0))),
+        "fairness_seed_pass_count": int(aggregate.get("fairness_seed_pass_count", 0)),
+        "lift_pass": bool(aggregate.get("lift_pass", False)),
+        "reliability_pass": bool(aggregate.get("reliability_pass", False)),
+        "primary_fairness_metric": str(
+            aggregate.get("primary_fairness_metric", aggregate.get("dominant_fail_reason", "equalized_odds_gap_delta"))
+            or "equalized_odds_gap_delta"
+        ),
+        "worst_primary_fairness_gap": float(aggregate.get("worst_fairness_gap", 0.0)),
+        "dominant_fail_segment_key": str(aggregate.get("dominant_fail_segment_key", "")),
+        "dominant_fail_candidate_source": str(aggregate.get("dominant_fail_candidate_source", "")),
+        "supporting_artifacts": _normalize_supporting_artifacts(supporting_artifacts),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if degraded_reason:
+        summary["degraded_reason"] = str(degraded_reason)
+    if missing:
+        summary["missing_artifacts"] = missing
+    if isinstance(metadata, Mapping):
+        for key, value in metadata.items():
+            summary[str(key)] = value
+    return summary
+
+
+def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
+    supporting_artifacts = summary.get("supporting_artifacts", {})
+    if not isinstance(supporting_artifacts, Mapping):
+        supporting_artifacts = {}
+
+    lines = [
+        "# Milestone Acceptance Review",
+        "",
+        "## Decision",
+        "",
+        f"- Acceptance status: {summary.get('acceptance_status', REJECTED)}",
+        f"- Release decision: {summary.get('release_decision', 'NO_GO')}",
+        f"- Acceptance eligible: {bool(summary.get('acceptance_eligible', False))}",
+        f"- Broad rollout allowed: {bool(summary.get('broad_rollout_allowed', False))}",
+        "",
+        "## Reason Summary",
+        "",
+        f"- Evidence level: {summary.get('evidence_level', '')}",
+        f"- Lift pass: {bool(summary.get('lift_pass', False))}",
+        f"- Reliability pass: {bool(summary.get('reliability_pass', False))}",
+        f"- Fairness seed pass count: {int(summary.get('fairness_seed_pass_count', 0))}/{int(summary.get('seed_count', 0))}",
+        f"- Primary fairness metric: {summary.get('primary_fairness_metric', '')}",
+        f"- Worst primary fairness gap: {float(summary.get('worst_primary_fairness_gap', 0.0)):.6f}",
+    ]
+    if summary.get("degraded_reason"):
+        lines.append(f"- Degraded reason: {summary.get('degraded_reason', '')}")
+
+    lines.extend(
+        [
+            "",
+            "## Freeze / Provenance",
+            "",
+            f"- Phase: {summary.get('phase', '')}",
+            f"- Milestone: {summary.get('milestone', '')}",
+            f"- Runner type: {summary.get('runner_type', '')}",
+            f"- Model version: {summary.get('model_version', '')}",
+            f"- Freeze mode: {summary.get('model_freeze_mode', '')}",
+            "",
+            "## Dominant Failure Localization",
+            "",
+            f"- Dominant fail segment: {summary.get('dominant_fail_segment_key', '')}",
+            f"- Dominant fail candidate source: {summary.get('dominant_fail_candidate_source', '')}",
+        ]
+    )
+    if supporting_artifacts:
+        lines.extend(["", "## Supporting Artifacts", ""])
+        for key in sorted(supporting_artifacts.keys(), key=str):
+            lines.append(f"- {key}: {supporting_artifacts[key]}")
+    return "\n".join(lines) + "\n"

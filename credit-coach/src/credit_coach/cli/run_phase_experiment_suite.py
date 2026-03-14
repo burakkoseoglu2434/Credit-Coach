@@ -11,17 +11,19 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import yaml
 
 from credit_coach.evaluation.fairness import build_canonical_segment_key
 from credit_coach.model.registry import build_frozen_model_manifest, resolve_model_manifest
-from credit_coach.ops.kpi_contract import load_kpi_thresholds
+from credit_coach.ops.kpi_contract import (
+    build_kpi_contract_snapshot,
+    build_milestone_acceptance_summary,
+    load_kpi_thresholds,
+    render_milestone_acceptance_review,
+)
 from credit_coach.ops.release_decision import (
-    PRIMARY_FAIRNESS_METRIC,
     aggregate_release_metrics,
     build_pilot_guardrails,
     build_rollback_conditions,
-    evaluate_fairness_seed_pass,
     evaluate_release_decision,
     evaluate_seed_kpi_contract,
 )
@@ -52,6 +54,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="If set, phase suite reuses current model artifacts and does not run train once at start.",
     )
+    p.add_argument("--milestone", type=str, default="current")
     p.add_argument("--model_version", type=str, default="")
     p.add_argument("--model_manifest", type=str, default="")
     p.add_argument("--execute", action="store_true")
@@ -340,44 +343,9 @@ def _build_phase_fairness_breakdown(
 
 def _render_release_review_summary(
     *,
-    release_payload: dict[str, Any],
-    aggregate: dict[str, Any],
-    scale_df: pd.DataFrame,
+    milestone_acceptance_summary: dict[str, Any],
 ) -> str:
-    lines = [
-        "# Release Review Summary",
-        "",
-        f"- Decision: {release_payload.get('decision', 'NO_GO')}",
-        f"- Reason: {release_payload.get('decision_reason', '')}",
-        f"- Fairness seed pass count: {aggregate.get('fairness_seed_pass_count', 0)}/{aggregate.get('fairness_seed_total', 0)}",
-        f"- Dominant fail segment: {aggregate.get('dominant_fail_segment_key', '')}",
-        f"- Dominant fail candidate source: {aggregate.get('dominant_fail_candidate_source', '')}",
-        f"- Dominant fail segment share: {float(aggregate.get('dominant_fail_segment_share', 0.0)):.2f}",
-        f"- Worst fairness gap: {float(aggregate.get('worst_fairness_gap', 0.0)):.6f}",
-        "",
-        "## Seed Summary",
-        "",
-        f"- Lift pass across seeds: {bool(aggregate.get('lift_pass', False))}",
-        f"- Reliability pass across seeds: {bool(aggregate.get('reliability_pass', False))}",
-        f"- Dominant fail reason: {aggregate.get('dominant_fail_reason', '')}",
-        f"- Max fairness guard demotions: {int(scale_df.get('fairness_guard_demotion_count', pd.Series(dtype=int)).max() if 'fairness_guard_demotion_count' in scale_df.columns else 0)}",
-        f"- Fairness guard stop reasons: {', '.join(sorted(set(scale_df['fairness_guard_stop_reason'].astype(str))) if 'fairness_guard_stop_reason' in scale_df.columns else [])}",
-    ]
-    if release_payload.get("decision") == "LIMITED_GO":
-        lines.extend(
-            [
-                "",
-                "## Limited Go Package",
-                "",
-                f"- Smoke pass: {bool(release_payload.get('smoke_pass', False))}",
-                f"- Pilot eligible: {bool(release_payload.get('pilot_eligible', False))}",
-                f"- Broad rollout allowed: {bool(release_payload.get('broad_rollout_allowed', False))}",
-                f"- Max traffic pct: {int(release_payload.get('max_traffic_pct', 0))}",
-                f"- Manual approval required: {bool(release_payload.get('manual_approval_required', False))}",
-                f"- Rollback guard required: {bool(release_payload.get('rollback_guard_required', False))}",
-            ]
-        )
-    return "\n".join(lines) + "\n"
+    return render_milestone_acceptance_review(milestone_acceptance_summary)
 
 
 def main() -> None:
@@ -620,11 +588,85 @@ def main() -> None:
             json.dumps(build_rollback_conditions(aggregate, thresholds), indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
+
+    supporting_artifacts = {
+        "phase_quick_summary_json": "tables/phase_quick_summary.json",
+        "phase_scale_seed_summary_csv": "tables/phase_scale_seed_summary.csv",
+        "phase_scale_aggregate_json": "tables/phase_scale_aggregate.json",
+        "fairness_failure_breakdown_csv": "tables/fairness_failure_breakdown.csv",
+        "release_decision_json": "tables/release_decision.json",
+        "frozen_model_manifest_json": "tables/frozen_model_manifest.json",
+    }
+    if release_payload["decision"] == "LIMITED_GO":
+        supporting_artifacts["pilot_guardrails_json"] = "tables/pilot_guardrails.json"
+        supporting_artifacts["rollback_conditions_json"] = "tables/rollback_conditions.json"
+
+    seed_count = int(len(scale_df))
+    evidence_level = "seeded_suite" if seed_count > 1 else "single_run_fallback"
+    acceptance_eligible = bool(frozen_model_manifest.get("acceptance_eligible", False)) and seed_count > 1
+    evidence_status = "complete"
+    degraded_reason = ""
+    missing_artifacts: list[str] = []
+    if seed_count <= 1:
+        evidence_level = "single_run_fallback"
+        evidence_status = "degraded"
+        acceptance_eligible = False
+        degraded_reason = "insufficient_repeated_seeded_evidence"
+        missing_artifacts.append("repeated_seeded_evidence")
+    elif not bool(frozen_model_manifest.get("acceptance_eligible", False)):
+        evidence_status = "degraded"
+        degraded_reason = "implicit_latest_model_freeze"
+
+    kpi_contract_snapshot = build_kpi_contract_snapshot(
+        runner_type="suite",
+        release_payload=release_payload,
+        aggregate_metrics=aggregate,
+        evidence_level=evidence_level,
+        acceptance_eligible=acceptance_eligible,
+        supporting_artifacts=supporting_artifacts,
+        model_version=str(resolved_model_manifest.get("model_version", "")),
+        model_freeze_mode=str(resolved_model_manifest.get("freeze_mode", "implicit_latest")),
+        evidence_status=evidence_status,
+        degraded_reason=degraded_reason,
+        missing_artifacts=missing_artifacts,
+        metadata={
+            "phase_name": str(args.phase_name),
+            "train_run_id": str(train_run_id),
+            "frozen_model_manifest_path": "tables/frozen_model_manifest.json",
+        },
+    )
+    (run_ctx.tables_dir / "kpi_contract_snapshot.json").write_text(
+        json.dumps(kpi_contract_snapshot, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    milestone_acceptance_summary = build_milestone_acceptance_summary(
+        phase=str(args.phase_name),
+        milestone=str(args.milestone),
+        runner_type="suite",
+        release_payload=release_payload,
+        aggregate_metrics=aggregate,
+        evidence_level=evidence_level,
+        acceptance_eligible=acceptance_eligible,
+        supporting_artifacts=supporting_artifacts,
+        model_version=str(resolved_model_manifest.get("model_version", "")),
+        model_freeze_mode=str(resolved_model_manifest.get("freeze_mode", "implicit_latest")),
+        evidence_status=evidence_status,
+        degraded_reason=degraded_reason,
+        missing_artifacts=missing_artifacts,
+    )
+    milestone_acceptance_review = render_milestone_acceptance_review(milestone_acceptance_summary)
+    (run_ctx.tables_dir / "milestone_acceptance_summary.json").write_text(
+        json.dumps(milestone_acceptance_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    (run_ctx.tables_dir / "milestone_acceptance_review.md").write_text(
+        milestone_acceptance_review,
+        encoding="utf-8",
+    )
     (run_ctx.tables_dir / "release_review_summary.md").write_text(
         _render_release_review_summary(
-            release_payload=release_payload,
-            aggregate=aggregate,
-            scale_df=scale_df,
+            milestone_acceptance_summary=milestone_acceptance_summary,
         ),
         encoding="utf-8",
     )
@@ -645,6 +687,9 @@ def main() -> None:
             "scale_seed_count": int(len(scale_df)),
             "scale_fairness_seed_pass_count": int(aggregate["fairness_seed_pass_count"]),
             "release_decision": str(release_payload["decision"]),
+            "acceptance_status": str(milestone_acceptance_summary["acceptance_status"]),
+            "acceptance_eligible": bool(milestone_acceptance_summary["acceptance_eligible"]),
+            "evidence_level": str(milestone_acceptance_summary["evidence_level"]),
             "scale_mean_denied_to_approved_lift": float(scale_df["denied_to_approved_lift"].mean()),
             "scale_mean_denied_high_risk_lift": float(scale_df["denied_high_risk_lift"].mean()),
             "scale_mean_equalized_odds_gap_delta": float(scale_df["equalized_odds_gap_delta"].mean()),

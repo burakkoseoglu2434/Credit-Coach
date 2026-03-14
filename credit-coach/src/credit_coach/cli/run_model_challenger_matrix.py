@@ -19,8 +19,10 @@ from credit_coach.ops.kpi_contract import (
     FAIRNESS_KPI_THRESHOLD_KEYS,
     LIFT_KPI_THRESHOLD_KEYS,
     RELIABILITY_KPI_THRESHOLD_KEYS,
+    build_kpi_contract_snapshot,
     compute_kpi_violation_score,
     load_kpi_thresholds,
+    map_release_decision_to_acceptance_status,
 )
 from credit_coach.ops.release_decision import (
     GO,
@@ -286,8 +288,17 @@ def _select_champion(summary_df: pd.DataFrame, thresholds: dict[str, Any]) -> tu
         release_decisions = ranked["release_decision"].fillna("NO_GO").astype(str)
     else:
         release_decisions = pd.Series(["NO_GO"] * len(ranked), index=ranked.index, dtype="object")
+    if "acceptance_eligible" in ranked.columns:
+        acceptance_eligible = ranked["acceptance_eligible"].fillna(False).astype(bool)
+    else:
+        acceptance_eligible = pd.Series([True] * len(ranked), index=ranked.index, dtype="bool")
+    if "promotion_eligible" in ranked.columns:
+        promotion_eligible = ranked["promotion_eligible"].fillna(False).astype(bool)
+    else:
+        promotion_eligible = release_decisions == GO
     ranked["_release_rank"] = release_decisions.map(decision_rank).fillna(2).astype(int)
-    ranked["_promotion_eligible"] = release_decisions == GO
+    ranked["_acceptance_eligible"] = acceptance_eligible
+    ranked["_promotion_eligible"] = acceptance_eligible & promotion_eligible
     ranked["_score_a"] = -ranked.get("mean_denied_high_risk_lift", 0.0)
     ranked["_score_b"] = -ranked.get("mean_high_risk_reachability_rate", 0.0)
     ranked["_score_c"] = -ranked.get("mean_denied_to_approved_lift", 0.0)
@@ -295,6 +306,7 @@ def _select_champion(summary_df: pd.DataFrame, thresholds: dict[str, Any]) -> tu
     ranked["_score_e"] = ranked.get("mean_latency_p99_ms", 999999.0)
     ranked = ranked.sort_values(
         [
+            "_acceptance_eligible",
             "_release_rank",
             "_gate_all_pass",
             "_gate_failed_check_count",
@@ -305,7 +317,7 @@ def _select_champion(summary_df: pd.DataFrame, thresholds: dict[str, Any]) -> tu
             "_score_d",
             "_score_e",
         ],
-        ascending=[True, False, True, True, True, True, True, True, True],
+        ascending=[False, True, False, True, True, True, True, True, True, True],
     ).reset_index(drop=True)
     return str(ranked.iloc[0]["variant_id"]), ranked
 
@@ -355,17 +367,41 @@ def _build_variant_release_payloads(
             breakdown_rows.extend(frame.to_dict(orient="records"))
         aggregate = aggregate_release_metrics(seed_rows, thresholds=thresholds, breakdown_rows=breakdown_rows)
         release_payload = evaluate_release_decision(aggregate, thresholds)
+        seed_count = int(len(variant_runs))
+        freeze_modes = {str(mode).strip() for mode in variant_runs.get("model_freeze_mode", pd.Series(dtype=object)).tolist() if str(mode).strip()}
+        acceptance_eligible = bool(seed_count > 1 and all(mode != "implicit_latest" for mode in freeze_modes))
+        evidence_level = "seeded_challenger" if seed_count > 1 else "single_run_fallback"
+        evidence_status = "complete" if acceptance_eligible else "degraded"
+        degraded_reason = ""
+        if seed_count <= 1:
+            degraded_reason = "insufficient_repeated_seeded_evidence"
+        elif not acceptance_eligible:
+            degraded_reason = "implicit_latest_model_freeze"
+        broad_rollout_allowed = bool(release_payload.get("broad_rollout_allowed", False))
+        if not acceptance_eligible:
+            broad_rollout_allowed = False
         rows.append(
             {
                 "variant_id": str(variant_id),
                 "release_decision": str(release_payload["decision"]),
+                "acceptance_status": map_release_decision_to_acceptance_status(str(release_payload["decision"])),
+                "acceptance_eligible": acceptance_eligible,
+                "evidence_level": evidence_level,
+                "evidence_status": evidence_status,
+                "degraded_reason": degraded_reason,
                 "pilot_eligible": bool(release_payload["pilot_eligible"]),
-                "promotion_eligible": bool(release_payload["decision"] == GO),
+                "promotion_eligible": bool(release_payload["decision"] == GO and acceptance_eligible),
+                "broad_rollout_allowed": broad_rollout_allowed,
                 "fairness_seed_pass_count": int(aggregate["fairness_seed_pass_count"]),
                 "fairness_seed_total": int(aggregate["fairness_seed_total"]),
+                "lift_pass": bool(aggregate["lift_pass"]),
+                "reliability_pass": bool(aggregate["reliability_pass"]),
+                "worst_fairness_gap": float(aggregate.get("worst_fairness_gap", 0.0)),
                 "dominant_fail_segment_key": str(aggregate.get("dominant_fail_segment_key", "")),
                 "dominant_fail_candidate_source": str(aggregate.get("dominant_fail_candidate_source", "")),
                 "dominant_fail_segment_share": float(aggregate.get("dominant_fail_segment_share", 0.0)),
+                "model_version": str(variant_runs.iloc[0].get("model_version", "")),
+                "model_freeze_mode": str(variant_runs.iloc[0].get("model_freeze_mode", "")),
             }
         )
     return pd.DataFrame(rows)
@@ -590,8 +626,12 @@ def main() -> None:
             {
                 "variant_id": str(r.get("variant_id", "")),
                 "release_decision": str(r.get("release_decision", "NO_GO")),
+                "acceptance_status": str(r.get("acceptance_status", "REJECTED")),
+                "acceptance_eligible": bool(r.get("acceptance_eligible", False)),
+                "evidence_level": str(r.get("evidence_level", "single_run_fallback")),
                 "pilot_eligible": bool(r.get("pilot_eligible", False)),
                 "promotion_eligible": bool(r.get("_promotion_eligible", False)),
+                "broad_rollout_allowed": bool(r.get("broad_rollout_allowed", False)),
                 "gate_all_pass": bool(r.get("_gate_all_pass", False)),
                 "gate_failed_check_count": int(r.get("_gate_failed_check_count", 0)),
                 "gate_violation_score": float(r.get("_gate_violation_score", 0.0)),
@@ -605,8 +645,18 @@ def main() -> None:
         "seed_count": int(len(seeds)),
         "kpi_contract": str(args.kpi_contract),
         "champion_release_decision": str(champ_row.iloc[0].get("release_decision", "NO_GO")) if not champ_row.empty else "NO_GO",
+        "champion_acceptance_status": str(champ_row.iloc[0].get("acceptance_status", "REJECTED")) if not champ_row.empty else "REJECTED",
+        "champion_acceptance_eligible": bool(champ_row.iloc[0].get("acceptance_eligible", False))
+        if not champ_row.empty
+        else False,
+        "champion_evidence_level": str(champ_row.iloc[0].get("evidence_level", "single_run_fallback"))
+        if not champ_row.empty
+        else "single_run_fallback",
         "champion_pilot_eligible": bool(champ_row.iloc[0].get("pilot_eligible", False)) if not champ_row.empty else False,
         "champion_promotion_eligible": bool(champ_row.iloc[0].get("_promotion_eligible", False)) if not champ_row.empty else False,
+        "champion_broad_rollout_allowed": bool(champ_row.iloc[0].get("broad_rollout_allowed", False))
+        if not champ_row.empty
+        else False,
         "champion_gate_all_pass": bool(champ_row.iloc[0].get("_gate_all_pass", False)) if not champ_row.empty else False,
         "champion_gate_failed_check_count": int(champ_row.iloc[0].get("_gate_failed_check_count", 0))
         if not champ_row.empty
@@ -620,11 +670,57 @@ def main() -> None:
     decision_path = run_ctx.tables_dir / "challenger_matrix_decision.json"
     decision_path.write_text(json.dumps(summary_payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    supporting_artifacts = {
+        "challenger_matrix_runs_csv": "tables/challenger_matrix_runs.csv",
+        "challenger_matrix_variant_summary_csv": "tables/challenger_matrix_variant_summary.csv",
+        "challenger_matrix_variant_summary_ranked_csv": "tables/challenger_matrix_variant_summary_ranked.csv",
+        "challenger_matrix_decision_json": "tables/challenger_matrix_decision.json",
+    }
+    if frozen_variant_rows:
+        supporting_artifacts["challenger_variant_frozen_models_json"] = "tables/challenger_variant_frozen_models.json"
+    if not champ_row.empty:
+        champion_snapshot = build_kpi_contract_snapshot(
+            runner_type="challenger",
+            release_payload={
+                "decision": str(champ_row.iloc[0].get("release_decision", "NO_GO")),
+                "smoke_pass": bool(champ_row.iloc[0].get("release_decision", "NO_GO") == GO),
+                "pilot_eligible": bool(champ_row.iloc[0].get("pilot_eligible", False)),
+                "broad_rollout_allowed": bool(champ_row.iloc[0].get("broad_rollout_allowed", False)),
+            },
+            aggregate_metrics={
+                "lift_pass": bool(champ_row.iloc[0].get("lift_pass", False)),
+                "reliability_pass": bool(champ_row.iloc[0].get("reliability_pass", False)),
+                "fairness_seed_pass_count": int(champ_row.iloc[0].get("fairness_seed_pass_count", 0)),
+                "fairness_seed_total": int(champ_row.iloc[0].get("fairness_seed_total", 0)),
+                "primary_fairness_metric": "equalized_odds_gap_delta",
+                "worst_fairness_gap": float(champ_row.iloc[0].get("worst_fairness_gap", 0.0)),
+                "dominant_fail_segment_key": str(champ_row.iloc[0].get("dominant_fail_segment_key", "")),
+                "dominant_fail_candidate_source": str(champ_row.iloc[0].get("dominant_fail_candidate_source", "")),
+            },
+            evidence_level=str(champ_row.iloc[0].get("evidence_level", "single_run_fallback")),
+            acceptance_eligible=bool(champ_row.iloc[0].get("acceptance_eligible", False)),
+            supporting_artifacts=supporting_artifacts,
+            model_version=str(champ_row.iloc[0].get("model_version", "")),
+            model_freeze_mode=str(champ_row.iloc[0].get("model_freeze_mode", "")),
+            evidence_status=str(champ_row.iloc[0].get("evidence_status", "degraded")),
+            degraded_reason=str(champ_row.iloc[0].get("degraded_reason", "")),
+            metadata={
+                "champion_variant": champion_variant,
+                "variant_count": int(ranked_summary_df.shape[0]),
+            },
+        )
+        (run_ctx.tables_dir / "kpi_contract_snapshot.json").write_text(
+            json.dumps(champion_snapshot, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
     run_ctx.save_metrics(
         {
             "champion_variant": champion_variant,
             "variant_count": int(ranked_summary_df.shape[0]),
             "seed_count": int(len(seeds)),
+            "champion_release_decision": str(summary_payload["champion_release_decision"]),
+            "champion_acceptance_eligible": bool(summary_payload["champion_acceptance_eligible"]),
             "champion_mean_denied_high_risk_lift": float(
                 champ_row.iloc[0].get("mean_denied_high_risk_lift", 0.0)
             )
