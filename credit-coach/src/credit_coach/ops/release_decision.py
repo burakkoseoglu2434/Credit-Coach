@@ -3,6 +3,13 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from credit_coach.evaluation.fairness import classify_primary_fairness_fail_reason
+from credit_coach.ops.kpi_contract import (
+    FAIRNESS_KPI_THRESHOLD_KEYS,
+    LIFT_KPI_THRESHOLD_KEYS,
+    RELIABILITY_KPI_THRESHOLD_KEYS,
+    evaluate_kpi_checks,
+    list_failed_kpi_checks,
+)
 
 PRIMARY_FAIRNESS_METRIC = "equalized_odds_gap_delta"
 PRIMARY_FAIRNESS_THRESHOLD_KEY = "max_equalized_odds_gap_delta"
@@ -13,19 +20,6 @@ LIMITED_GO_MAX_TRAFFIC_PCT = 5
 SUPPORTING_GUARDRAIL_THRESHOLDS: dict[str, str] = {
     "high_stress_fairness_gap_after": "max_high_stress_fairness_gap",
     "recourse_success_gap": "max_recourse_success_gap",
-}
-
-RELIABILITY_THRESHOLD_KEYS: dict[str, tuple[str, str]] = {
-    "denied_gate_pass_rate": ("min", "min_denied_gate_pass_rate"),
-    "denied_reliability_violation_rate": ("max", "max_denied_reliability_violation_rate"),
-    "latency_p95_ms": ("max", "max_p95_latency_ms"),
-    "latency_p99_ms": ("max", "max_p99_latency_ms"),
-    "error_rate": ("max", "max_error_rate"),
-    "trajectory_gate_pass_rate_4w": ("min", "min_trajectory_gate_pass_rate_4w"),
-    "trajectory_gate_pass_rate_12w": ("min", "min_trajectory_gate_pass_rate_12w"),
-    "trajectory_gate_pass_rate_24w": ("min", "min_trajectory_gate_pass_rate_24w"),
-    "trajectory_partial_progress_rate": ("min", "min_trajectory_partial_progress_rate"),
-    "trajectory_median_time_to_gate_pass_days": ("max", "max_trajectory_median_time_to_gate_pass_days"),
 }
 
 GO = "GO"
@@ -103,11 +97,9 @@ def evaluate_seed_kpi_contract(
     denied_count = max(1, _safe_int(summary, "denied_count", 0))
     denied_gate_pass_rate = _safe_float(summary, "denied_with_gate_pass_plan", 0.0) / float(denied_count)
 
-    lift_checks = {
-        "denied_to_approved_lift": _safe_float(summary, "denied_to_approved_lift") >= _safe_float(thresholds, "min_denied_to_approved_lift", 0.09),
-        "denied_high_risk_lift": _safe_float(summary, "denied_high_risk_lift") >= _safe_float(thresholds, "min_denied_high_risk_lift", 0.03),
-    }
-    reliability_values = {
+    contract_metrics = {
+        "denied_to_approved_lift": _safe_float(summary, "denied_to_approved_lift"),
+        "denied_high_risk_lift": _safe_float(summary, "denied_high_risk_lift"),
         "denied_gate_pass_rate": denied_gate_pass_rate,
         "denied_reliability_violation_rate": _safe_float(summary, "denied_reliability_violation_rate"),
         "latency_p95_ms": _safe_float(summary, "sync_latency_p95_ms", _safe_float(summary, "latency_p95_ms")),
@@ -119,12 +111,6 @@ def evaluate_seed_kpi_contract(
         "trajectory_partial_progress_rate": _safe_float(summary, "trajectory_partial_progress_rate"),
         "trajectory_median_time_to_gate_pass_days": _safe_float(summary, "trajectory_median_time_to_gate_pass_days", 9_999.0),
     }
-    reliability_checks: dict[str, bool] = {}
-    for metric, (direction, threshold_key) in RELIABILITY_THRESHOLD_KEYS.items():
-        value = float(reliability_values[metric])
-        threshold = _safe_float(thresholds, threshold_key)
-        reliability_checks[metric] = value >= threshold if direction == "min" else value <= threshold
-
     normalized_fair_metrics = {
         "approval_gap_delta": _safe_float(fair_metrics, "approval_gap_delta"),
         PRIMARY_FAIRNESS_METRIC: _safe_float(
@@ -144,18 +130,33 @@ def evaluate_seed_kpi_contract(
             _safe_float(summary, "fairness_approval_gap_after"),
         ),
     }
+    contract_metrics.update(normalized_fair_metrics)
+    lift_evaluations = evaluate_kpi_checks(contract_metrics, thresholds, threshold_keys=LIFT_KPI_THRESHOLD_KEYS)
+    reliability_evaluations = evaluate_kpi_checks(contract_metrics, thresholds, threshold_keys=RELIABILITY_KPI_THRESHOLD_KEYS)
+    fairness_evaluations = evaluate_kpi_checks(contract_metrics, thresholds, threshold_keys=FAIRNESS_KPI_THRESHOLD_KEYS)
+    lift_checks = {metric: bool(payload["pass"]) for metric, payload in lift_evaluations.items()}
+    reliability_checks = {metric: bool(payload["pass"]) for metric, payload in reliability_evaluations.items()}
     fairness_snapshot = evaluate_fairness_seed_pass(normalized_fair_metrics, thresholds)
     fairness_checks = {
-        "approval_gap_delta": normalized_fair_metrics["approval_gap_delta"] <= _safe_float(thresholds, "max_approval_gap_delta", 0.01),
+        "approval_gap_delta": bool(fairness_evaluations["approval_gap_delta"]["pass"]),
         PRIMARY_FAIRNESS_METRIC: bool(fairness_snapshot["fairness_checks"][PRIMARY_FAIRNESS_METRIC]),
-        "fairness_gap_after": normalized_fair_metrics["fairness_gap_after"] <= _safe_float(thresholds, "max_fairness_gap", 0.10),
-        "high_stress_fairness_gap_after": bool(
-            fairness_snapshot["fairness_checks"]["high_stress_fairness_gap_after"]
-        ),
+        "fairness_gap_after": bool(fairness_evaluations["fairness_gap_after"]["pass"]),
+        "high_stress_fairness_gap_after": bool(fairness_snapshot["fairness_checks"]["high_stress_fairness_gap_after"]),
         "recourse_success_gap": bool(fairness_snapshot["fairness_checks"]["recourse_success_gap"]),
     }
     checks = {**lift_checks, **reliability_checks, **fairness_checks}
-    failed = [metric for metric, passed in checks.items() if not passed]
+    failed = (
+        list_failed_kpi_checks(lift_evaluations)
+        + list_failed_kpi_checks(reliability_evaluations)
+        + [metric for metric, passed in fairness_checks.items() if not passed and metric not in {
+            "approval_gap_delta",
+            "fairness_gap_after",
+        }]
+    )
+    if not fairness_checks["approval_gap_delta"]:
+        failed.append("approval_gap_delta")
+    if not fairness_checks["fairness_gap_after"]:
+        failed.append("fairness_gap_after")
 
     return {
         "all_pass": bool(all(checks.values())),

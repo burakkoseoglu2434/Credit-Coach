@@ -14,7 +14,13 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from credit_coach.ops.kpi_contract import load_kpi_thresholds
+from credit_coach.ops.kpi_contract import (
+    FAIRNESS_KPI_THRESHOLD_KEYS,
+    LIFT_KPI_THRESHOLD_KEYS,
+    RELIABILITY_KPI_THRESHOLD_KEYS,
+    compute_kpi_violation_score,
+    load_kpi_thresholds,
+)
 from credit_coach.ops.release_decision import (
     GO,
     aggregate_release_metrics,
@@ -197,55 +203,33 @@ def _aggregate_variant_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _gate_violation_score(row: pd.Series, thresholds: dict[str, Any]) -> tuple[float, int]:
-    # 0 = no violation, higher = worse. Score is normalized by threshold distance.
-    violations: list[float] = []
-    checks = 0
-
-    def _max_violation(metric: str, key: str) -> None:
-        nonlocal checks
-        if metric not in row or key not in thresholds:
-            return
-        try:
-            val = float(row.get(metric, 0.0))
-            thr = float(thresholds.get(key, 0.0))
-        except Exception:
-            return
-        checks += 1
-        if val > thr:
-            denom = max(abs(thr), 1e-9)
-            violations.append((val - thr) / denom)
-
-    def _min_violation(metric: str, key: str) -> None:
-        nonlocal checks
-        if metric not in row or key not in thresholds:
-            return
-        try:
-            val = float(row.get(metric, 0.0))
-            thr = float(thresholds.get(key, 0.0))
-        except Exception:
-            return
-        checks += 1
-        if val < thr:
-            denom = max(abs(thr), 1e-9)
-            violations.append((thr - val) / denom)
-
-    _min_violation("mean_denied_to_approved_lift", "min_denied_to_approved_lift")
-    _min_violation("mean_denied_high_risk_lift", "min_denied_high_risk_lift")
-    _max_violation("mean_denied_reliability_violation_rate", "max_denied_reliability_violation_rate")
-    _max_violation("mean_fairness_approval_gap_delta", "max_approval_gap_delta")
-    _max_violation("mean_fairness_equalized_odds_gap_delta", "max_equalized_odds_gap_delta")
-    _max_violation("mean_fairness_approval_gap_after", "max_fairness_gap")
-    _max_violation("mean_high_stress_approval_gap_after", "max_high_stress_fairness_gap")
-    _max_violation("mean_recourse_success_gap", "max_recourse_success_gap")
-    _max_violation("mean_latency_p95_ms", "max_p95_latency_ms")
-    _max_violation("mean_latency_p99_ms", "max_p99_latency_ms")
-    _max_violation("mean_error_rate", "max_error_rate")
-    _min_violation("mean_trajectory_gate_pass_rate_4w", "min_trajectory_gate_pass_rate_4w")
-    _min_violation("mean_trajectory_gate_pass_rate_12w", "min_trajectory_gate_pass_rate_12w")
-    _min_violation("mean_trajectory_gate_pass_rate_24w", "min_trajectory_gate_pass_rate_24w")
-    _min_violation("mean_trajectory_partial_progress_rate", "min_trajectory_partial_progress_rate")
-    _max_violation("mean_trajectory_median_time_to_gate_pass_days", "max_trajectory_median_time_to_gate_pass_days")
-    return float(sum(violations)), int(len(violations))
+    metrics = {
+        "denied_to_approved_lift": row.get("mean_denied_to_approved_lift"),
+        "denied_high_risk_lift": row.get("mean_denied_high_risk_lift"),
+        "denied_reliability_violation_rate": row.get("mean_denied_reliability_violation_rate"),
+        "approval_gap_delta": row.get("mean_fairness_approval_gap_delta"),
+        "equalized_odds_gap_delta": row.get("mean_fairness_equalized_odds_gap_delta"),
+        "fairness_gap_after": row.get("mean_fairness_approval_gap_after"),
+        "high_stress_fairness_gap_after": row.get("mean_high_stress_approval_gap_after"),
+        "recourse_success_gap": row.get("mean_recourse_success_gap"),
+        "latency_p95_ms": row.get("mean_latency_p95_ms"),
+        "latency_p99_ms": row.get("mean_latency_p99_ms"),
+        "error_rate": row.get("mean_error_rate"),
+        "trajectory_gate_pass_rate_4w": row.get("mean_trajectory_gate_pass_rate_4w"),
+        "trajectory_gate_pass_rate_12w": row.get("mean_trajectory_gate_pass_rate_12w"),
+        "trajectory_gate_pass_rate_24w": row.get("mean_trajectory_gate_pass_rate_24w"),
+        "trajectory_partial_progress_rate": row.get("mean_trajectory_partial_progress_rate"),
+        "trajectory_median_time_to_gate_pass_days": row.get("mean_trajectory_median_time_to_gate_pass_days"),
+    }
+    return compute_kpi_violation_score(
+        metrics,
+        thresholds,
+        threshold_keys=(
+            *LIFT_KPI_THRESHOLD_KEYS,
+            *RELIABILITY_KPI_THRESHOLD_KEYS,
+            *FAIRNESS_KPI_THRESHOLD_KEYS,
+        ),
+    )
 
 
 def _select_champion(summary_df: pd.DataFrame, thresholds: dict[str, Any]) -> tuple[str, pd.DataFrame]:

@@ -9,7 +9,9 @@ from typing import Any
 import pandas as pd
 
 from credit_coach.ops.kpi_contract import (
+    ALL_KPI_THRESHOLD_KEYS,
     apply_kpi_thresholds_to_args,
+    build_kpi_snapshot,
     extract_kpi_thresholds,
     load_kpi_thresholds,
 )
@@ -366,64 +368,41 @@ def _kpi_snapshot_from_rows(
             parsed = {}
         if isinstance(parsed, dict):
             details.update(parsed)
-
-    # threshold key -> (metric key in details, comparator)
-    mapping: dict[str, tuple[str, str]] = {
-        "min_denied_to_approved_lift": ("denied_to_approved_lift", "min"),
-        "min_denied_high_risk_lift": ("denied_high_risk_lift", "min"),
-        "min_denied_gate_pass_rate": ("denied_gate_pass_rate", "min"),
-        "max_denied_reliability_violation_rate": ("denied_reliability_violation_rate", "max"),
-        "max_approval_gap_delta": ("approval_gap_delta", "max"),
-        "max_equalized_odds_gap_delta": ("equalized_odds_gap_delta", "max"),
-        "max_p95_latency_ms": ("latency_p95_ms", "max"),
-        "max_p99_latency_ms": ("latency_p99_ms", "max"),
-        "max_error_rate": ("error_rate", "max"),
-        "min_last_k_validity": ("last_k_validity", "min"),
-        "min_last_k_safe_rate": ("last_k_safe_rate", "min"),
-        "min_last_k_avg_risk_margin": ("last_k_avg_risk_margin", "min"),
-        "max_fairness_gap": ("fairness_gap", "max"),
-        "max_high_stress_fairness_gap": ("high_stress_fairness_gap", "max"),
-        "max_recourse_success_gap": ("recourse_success_gap", "max"),
-        "max_recourse_cost_gap": ("recourse_cost_gap", "max"),
-        "min_trajectory_gate_pass_rate_4w": ("trajectory_gate_pass_rate_4w", "min"),
-        "min_trajectory_gate_pass_rate_12w": ("trajectory_gate_pass_rate_12w", "min"),
-        "min_trajectory_gate_pass_rate_24w": ("trajectory_gate_pass_rate_24w", "min"),
-        "min_trajectory_partial_progress_rate": ("trajectory_partial_progress_rate", "min"),
-        "max_trajectory_median_time_to_gate_pass_days": ("trajectory_median_time_to_gate_pass_days", "max"),
-        "min_approval_rate": ("approval_rate", "min"),
-        "max_psi": ("max_psi", "max"),
-        "min_avg_reliability": ("avg_reliability", "min"),
-        "min_telemetry_success_rate": ("telemetry_success_rate", "min"),
-        "max_telemetry_ingest_lag_s": ("telemetry_ingest_lag_s", "max"),
+    metrics = {
+        "denied_to_approved_lift": details.get("denied_to_approved_lift"),
+        "denied_high_risk_lift": details.get("denied_high_risk_lift"),
+        "denied_gate_pass_rate": details.get("denied_gate_pass_rate"),
+        "denied_reliability_violation_rate": details.get("denied_reliability_violation_rate"),
+        "approval_gap_delta": details.get("approval_gap_delta"),
+        "equalized_odds_gap_delta": details.get("equalized_odds_gap_delta"),
+        "latency_p95_ms": details.get("latency_p95_ms"),
+        "latency_p99_ms": details.get("latency_p99_ms"),
+        "error_rate": details.get("error_rate"),
+        "last_k_validity": details.get("last_k_validity"),
+        "last_k_safe_rate": details.get("last_k_safe_rate"),
+        "last_k_avg_risk_margin": details.get("last_k_avg_risk_margin"),
+        "fairness_gap_after": details.get("fairness_gap"),
+        "high_stress_fairness_gap_after": details.get("high_stress_fairness_gap"),
+        "recourse_success_gap": details.get("recourse_success_gap"),
+        "recourse_cost_gap": details.get("recourse_cost_gap"),
+        "trajectory_gate_pass_rate_4w": details.get("trajectory_gate_pass_rate_4w"),
+        "trajectory_gate_pass_rate_12w": details.get("trajectory_gate_pass_rate_12w"),
+        "trajectory_gate_pass_rate_24w": details.get("trajectory_gate_pass_rate_24w"),
+        "trajectory_partial_progress_rate": details.get("trajectory_partial_progress_rate"),
+        "trajectory_median_time_to_gate_pass_days": details.get("trajectory_median_time_to_gate_pass_days"),
+        "approval_rate": details.get("approval_rate"),
+        "max_psi": details.get("max_psi"),
+        "avg_reliability": details.get("avg_reliability"),
+        "telemetry_success_rate": details.get("telemetry_success_rate"),
+        "telemetry_ingest_lag_s": details.get("telemetry_ingest_lag_s"),
     }
-
-    kpis: dict[str, Any] = {}
-    for threshold_key, (metric_key, direction) in mapping.items():
-        value = details.get(metric_key)
-        threshold = getattr(args, threshold_key, None)
-        try:
-            value_f = float(value)
-        except Exception:
-            value_f = None
-        try:
-            threshold_f = float(threshold)
-        except Exception:
-            threshold_f = None
-        passed = False
-        if value_f is not None and threshold_f is not None:
-            passed = value_f >= threshold_f if direction == "min" else value_f <= threshold_f
-        kpis[metric_key] = {
-            "value": value_f,
-            "threshold": threshold_f,
-            "direction": direction,
-            "pass": bool(passed),
-        }
-
-    return {
-        "run_id": run_id,
-        "overall_status": overall_status,
-        "kpis": kpis,
-    }
+    return build_kpi_snapshot(
+        metrics,
+        extract_kpi_thresholds(args),
+        threshold_keys=ALL_KPI_THRESHOLD_KEYS,
+        run_id=run_id,
+        overall_status=overall_status,
+    )
 
 
 def _load_previous_kpi_snapshot(current_run_id: str) -> dict[str, Any]:

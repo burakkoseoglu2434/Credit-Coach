@@ -10,6 +10,12 @@ from credit_coach.cli.run_phase_experiment_suite import (
     _seed_contract_snapshot,
     _train_cmd,
 )
+from credit_coach.ops.kpi_contract import (
+    LIFT_KPI_THRESHOLD_KEYS,
+    RELIABILITY_KPI_THRESHOLD_KEYS,
+    evaluate_kpi_checks,
+    list_failed_kpi_checks,
+)
 
 
 def _thresholds() -> dict[str, float]:
@@ -155,6 +161,35 @@ def test_seed_contract_snapshot_marks_fairness_seed_fail_separately() -> None:
     assert snapshot["fairness_seed_pass"] is False
     assert snapshot["primary_fail_reason"] == "equalized_odds_gap_delta"
     assert "equalized_odds_gap_delta" in snapshot["failed_checks"]
+
+
+def test_shared_kpi_checks_use_runner_stable_failed_check_names() -> None:
+    metrics = {
+        "denied_to_approved_lift": 0.02,
+        "denied_high_risk_lift": 0.01,
+        "denied_gate_pass_rate": 0.02,
+        "denied_reliability_violation_rate": 0.80,
+        "latency_p95_ms": 900.0,
+        "latency_p99_ms": 3000.0,
+        "error_rate": 0.02,
+        "trajectory_gate_pass_rate_4w": 0.0,
+        "trajectory_gate_pass_rate_12w": 0.01,
+        "trajectory_gate_pass_rate_24w": 0.01,
+        "trajectory_partial_progress_rate": 0.05,
+        "trajectory_median_time_to_gate_pass_days": 400.0,
+    }
+    evaluations = evaluate_kpi_checks(
+        metrics,
+        _thresholds(),
+        threshold_keys=(*LIFT_KPI_THRESHOLD_KEYS, *RELIABILITY_KPI_THRESHOLD_KEYS),
+    )
+    failed = list_failed_kpi_checks(evaluations)
+    assert failed[:3] == [
+        "denied_to_approved_lift",
+        "denied_high_risk_lift",
+        "denied_gate_pass_rate",
+    ]
+    assert "trajectory_median_time_to_gate_pass_days" in failed
 
 
 def test_build_phase_fairness_breakdown_emits_required_breakdown_views() -> None:

@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 ## Current Position
 
 Phase: 9 of 11 (KPI Contract Unification)
-Plan: 0 of 3 in current phase
-Status: Planned
-Last activity: 2026-03-14 - Phase 9 context captured to lock canonical KPI artifact, frozen snapshot, degraded evidence, and milestone-acceptance decisions
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-03-14 - Wave 1 complete with shared KPI comparator, snapshot, and violation-score helpers wired into suite, smoke, and challenger
 
 Progress: [███████░░░] 72%
 
@@ -62,5 +62,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-14 15:20
-Stopped at: Phase 9 context captured after planning; next step is execute plans 09-01 through 09-03 under the v1.1 milestone
+Stopped at: Phase 9 wave 1 complete; next step is explicit frozen-model provenance and seeded bundle reuse for wave 2
 Resume file: None

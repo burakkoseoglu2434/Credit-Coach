@@ -4,7 +4,11 @@ from argparse import Namespace
 
 import pandas as pd
 
-from credit_coach.cli.run_production_smoke import build_smoke_gate_rows, build_smoke_release_summary
+from credit_coach.cli.run_production_smoke import (
+    _kpi_snapshot_from_rows,
+    build_smoke_gate_rows,
+    build_smoke_release_summary,
+)
 
 
 def _args(**overrides) -> Namespace:
@@ -225,3 +229,66 @@ def test_build_smoke_release_summary_respects_phase_scale_limited_go():
     assert payload["release_decision"] == "LIMITED_GO"
     assert payload["smoke_pass"] is False
     assert payload["pilot_eligible"] is True
+
+
+def test_kpi_snapshot_from_rows_uses_shared_contract_snapshot() -> None:
+    gate_rows = [
+        {
+            "gate_id": "G0_BATCH_RECOURSE_KPI",
+            "status": "PASS",
+            "failed_checks": "",
+            "details_json": '{"denied_to_approved_lift": 0.08, "denied_high_risk_lift": 0.04, "approval_gap_delta": 0.005, "equalized_odds_gap_delta": 0.004, "latency_p95_ms": 420.0, "latency_p99_ms": 1800.0, "error_rate": 0.003}',
+        },
+        {
+            "gate_id": "G0B_RECOURSE_FUNNEL",
+            "status": "PASS",
+            "failed_checks": "",
+            "details_json": '{"denied_gate_pass_rate": 0.10, "denied_reliability_violation_rate": 0.20}',
+        },
+        {
+            "gate_id": "G0C_TRAJECTORY",
+            "status": "PASS",
+            "failed_checks": "",
+            "details_json": '{"trajectory_gate_pass_rate_4w": 0.05, "trajectory_gate_pass_rate_12w": 0.09, "trajectory_gate_pass_rate_24w": 0.13, "trajectory_partial_progress_rate": 0.35, "trajectory_median_time_to_gate_pass_days": 84.0}',
+        },
+        {
+            "gate_id": "G1_MODEL_BACKTEST",
+            "status": "PASS",
+            "failed_checks": "",
+            "details_json": '{"last_k_validity": 0.95, "last_k_safe_rate": 0.90, "last_k_avg_risk_margin": 0.15}',
+        },
+        {
+            "gate_id": "G2_FAIRNESS",
+            "status": "PASS",
+            "failed_checks": "",
+            "details_json": '{"fairness_gap": 0.06, "high_stress_fairness_gap": 0.07, "recourse_success_gap": 0.05, "recourse_cost_gap": 120.0}',
+        },
+        {
+            "gate_id": "G3_ROBUSTNESS",
+            "status": "PASS",
+            "failed_checks": "",
+            "details_json": '{"avg_reliability": 0.93}',
+        },
+        {
+            "gate_id": "G4_MONITORING_TELEMETRY",
+            "status": "PASS",
+            "failed_checks": "",
+            "details_json": '{"approval_rate": 0.85, "max_psi": 0.08, "telemetry_success_rate": 0.995, "telemetry_ingest_lag_s": 12.0}',
+        },
+        {
+            "gate_id": "G5_SECURITY_AUDIT",
+            "status": "PASS",
+            "failed_checks": "",
+            "details_json": '{"audit_chain_ok": true}',
+        },
+    ]
+    snapshot = _kpi_snapshot_from_rows(
+        gate_rows=gate_rows,
+        args=_args(),
+        run_id="demo",
+        overall_status="GO",
+    )
+    assert snapshot["run_id"] == "demo"
+    assert snapshot["kpis"]["fairness_gap_after"]["pass"] is True
+    assert snapshot["kpis"]["high_stress_fairness_gap_after"]["pass"] is True
+    assert snapshot["kpis"]["trajectory_gate_pass_rate_24w"]["pass"] is True

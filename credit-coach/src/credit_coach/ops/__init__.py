@@ -1,8 +1,17 @@
 from .kpi_contract import (
+    ALL_KPI_THRESHOLD_KEYS,
     DEFAULT_KPI_THRESHOLDS,
+    FAIRNESS_KPI_THRESHOLD_KEYS,
+    LIFT_KPI_THRESHOLD_KEYS,
+    RELIABILITY_KPI_THRESHOLD_KEYS,
+    SMOKE_ONLY_KPI_THRESHOLD_KEYS,
     THRESHOLD_KEYS,
     apply_kpi_thresholds_to_args,
+    build_kpi_snapshot,
+    compute_kpi_violation_score,
+    evaluate_kpi_checks,
     extract_kpi_thresholds,
+    list_failed_kpi_checks,
     load_kpi_thresholds,
 )
 from .monitoring import compute_feature_psi_report, summarize_operational_health
@@ -33,10 +42,19 @@ from .telemetry import (
 
 __all__ = [
     "THRESHOLD_KEYS",
+    "ALL_KPI_THRESHOLD_KEYS",
     "DEFAULT_KPI_THRESHOLDS",
+    "LIFT_KPI_THRESHOLD_KEYS",
+    "RELIABILITY_KPI_THRESHOLD_KEYS",
+    "FAIRNESS_KPI_THRESHOLD_KEYS",
+    "SMOKE_ONLY_KPI_THRESHOLD_KEYS",
     "load_kpi_thresholds",
     "apply_kpi_thresholds_to_args",
     "extract_kpi_thresholds",
+    "evaluate_kpi_checks",
+    "list_failed_kpi_checks",
+    "compute_kpi_violation_score",
+    "build_kpi_snapshot",
     "PRIMARY_FAIRNESS_METRIC",
     "PRIMARY_FAIRNESS_THRESHOLD_KEY",
     "LIMITED_GO_CAP_MULTIPLIER",
