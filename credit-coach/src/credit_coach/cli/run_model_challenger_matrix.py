@@ -14,6 +14,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
+from credit_coach.model.registry import build_frozen_model_manifest, resolve_model_manifest
 from credit_coach.ops.kpi_contract import (
     FAIRNESS_KPI_THRESHOLD_KEYS,
     LIFT_KPI_THRESHOLD_KEYS,
@@ -141,6 +142,42 @@ def _build_variant_model_cfg(
     calibration_cfg["method"] = str(variant["calibration_method"])
     out["calibration"] = calibration_cfg
     return out
+
+
+def _batch_cmd(
+    args: argparse.Namespace,
+    *,
+    seed: int,
+    model_manifest: str,
+) -> list[str]:
+    cmd = [
+        sys.executable,
+        "-m",
+        "credit_coach.cli.run_batch_recourse_eval",
+        "--n_customers",
+        str(int(args.n_customers)),
+        "--sample_seed",
+        str(int(seed)),
+        "--log_every",
+        str(int(args.log_every)),
+        "--n_workers",
+        str(int(args.n_workers)),
+        "--base_config",
+        str(args.base_config),
+        "--model_config",
+        str(args.model_config),
+        "--recourse_config",
+        str(args.recourse_config),
+        "--causality_config",
+        str(args.causality_config),
+        "--safety_config",
+        str(args.safety_config),
+        "--macro_config",
+        str(args.macro_config),
+    ]
+    if str(model_manifest).strip():
+        cmd.extend(["--model_manifest", str(model_manifest).strip()])
+    return cmd
 
 
 def _run_cmd(*, cmd: list[str], cwd: Path, env: dict[str, str], label: str) -> tuple[str, str]:
@@ -346,6 +383,9 @@ def main() -> None:
     safety_cfg = load_config(args.safety_config)
     macro_cfg = load_config(args.macro_config)
     kpi_thresholds = load_kpi_thresholds(args.kpi_contract)
+    registry_path = Path(model_cfg.get("registry", {}).get("path", "artifacts/models"))
+    if not registry_path.is_absolute():
+        registry_path = root / registry_path
 
     run_ctx = create_run_context(
         {
@@ -380,61 +420,52 @@ def main() -> None:
 
     run_rows: list[dict[str, Any]] = []
     breakdown_frames: list[pd.DataFrame] = []
+    frozen_variant_rows: list[dict[str, Any]] = []
 
     for variant in _VARIANTS:
         variant_id = str(variant["variant_id"])
         variant_model_cfg = _build_variant_model_cfg(base_model_cfg=model_cfg, variant=variant)
         variant_cfg_path = run_ctx.tables_dir / f"model_variant_{variant_id}.yaml"
         variant_cfg_path.write_text(yaml.safe_dump(variant_model_cfg, sort_keys=False, allow_unicode=False), encoding="utf-8")
+        env = os.environ.copy()
+        env["CREDIT_COACH_FORCE_BACKEND"] = str(variant["force_backend"])
+        env["CREDIT_COACH_ALLOW_XGB"] = "1" if str(variant["force_backend"]) == "xgboost" else "0"
+
+        train_cmd = [
+            sys.executable,
+            "-m",
+            "credit_coach.cli.run_train",
+            "--base_config",
+            str(args.base_config),
+            "--config",
+            str(variant_cfg_path),
+        ]
+        train_run_id, train_log = _run_cmd(
+            cmd=train_cmd,
+            cwd=root,
+            env=env,
+            label=f"train[{variant_id}]",
+        )
+        resolved_model_manifest = resolve_model_manifest(
+            base_path=registry_path,
+            model_version=train_run_id,
+        )
+        frozen_model_manifest = build_frozen_model_manifest(
+            resolved_model_manifest,
+            project_root=root,
+            resolved_by_runner="run_model_challenger_matrix",
+            training_run_id=train_run_id,
+        )
+        frozen_variant_rows.append({"variant_id": variant_id, **frozen_model_manifest})
+        (run_ctx.tables_dir / f"challenger_train_{variant_id}.log").write_text(train_log, encoding="utf-8")
 
         for seed in seeds:
-            env = os.environ.copy()
-            env["CREDIT_COACH_FORCE_BACKEND"] = str(variant["force_backend"])
-            env["CREDIT_COACH_ALLOW_XGB"] = "1" if str(variant["force_backend"]) == "xgboost" else "0"
-
-            train_cmd = [
-                sys.executable,
-                "-m",
-                "credit_coach.cli.run_train",
-                "--base_config",
-                str(args.base_config),
-                "--config",
-                str(variant_cfg_path),
-            ]
-            train_run_id, train_log = _run_cmd(
-                cmd=train_cmd,
-                cwd=root,
-                env=env,
-                label=f"train[{variant_id}][seed={seed}]",
-            )
-
-            batch_cmd = [
-                sys.executable,
-                "-m",
-                "credit_coach.cli.run_batch_recourse_eval",
-                "--n_customers",
-                str(int(args.n_customers)),
-                "--sample_seed",
-                str(int(seed)),
-                "--log_every",
-                str(int(args.log_every)),
-                "--n_workers",
-                str(int(args.n_workers)),
-                "--base_config",
-                str(args.base_config),
-                "--model_config",
-                str(args.model_config),
-                "--recourse_config",
-                str(args.recourse_config),
-                "--causality_config",
-                str(args.causality_config),
-                "--safety_config",
-                str(args.safety_config),
-                "--macro_config",
-                str(args.macro_config),
-            ]
             batch_run_id, batch_log = _run_cmd(
-                cmd=batch_cmd,
+                cmd=_batch_cmd(
+                    args,
+                    seed=int(seed),
+                    model_manifest=str(resolved_model_manifest.get("manifest_path", "")),
+                ),
                 cwd=root,
                 env=env,
                 label=f"batch[{variant_id}][seed={seed}]",
@@ -468,6 +499,9 @@ def main() -> None:
                 "variant_id": variant_id,
                 "seed": int(seed),
                 "train_run_id": train_run_id,
+                "model_version": str(resolved_model_manifest.get("model_version", "")),
+                "model_freeze_mode": str(resolved_model_manifest.get("freeze_mode", "explicit_model_version")),
+                "model_manifest_path": str(resolved_model_manifest.get("manifest_path", "")),
                 "batch_run_id": batch_run_id,
                 "backend": str(variant["force_backend"]),
                 "calibration_method": str(variant["calibration_method"]),
@@ -509,8 +543,13 @@ def main() -> None:
             }
             run_rows.append(row)
 
-            (run_ctx.tables_dir / f"challenger_train_{variant_id}_{seed}.log").write_text(train_log, encoding="utf-8")
             (run_ctx.tables_dir / f"challenger_batch_{variant_id}_{seed}.log").write_text(batch_log, encoding="utf-8")
+
+    if frozen_variant_rows:
+        (run_ctx.tables_dir / "challenger_variant_frozen_models.json").write_text(
+            json.dumps(frozen_variant_rows, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
 
     runs_df = pd.DataFrame(run_rows)
     runs_path = run_ctx.tables_dir / "challenger_matrix_runs.csv"

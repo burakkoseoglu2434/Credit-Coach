@@ -30,7 +30,7 @@ from credit_coach.macro.impact import dynamic_alpha
 from credit_coach.macro.sources import load_macro_snapshot_mock
 from credit_coach.macro.stress_index import compute_macro_stress_index
 from credit_coach.model.predict import predict_proba_pd
-from credit_coach.model.registry import load_latest_model_bundle
+from credit_coach.model.registry import build_frozen_model_manifest, load_model_bundle
 from credit_coach.recourse.action_space import estimate_action_cost_usd, get_action_spec, get_actionable_features
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions, generate_dice_like_baseline
 from credit_coach.recourse.feasibility import apply_target_feasibility
@@ -64,6 +64,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--group_feature", type=str, default="home_ownership")
     p.add_argument("--log_every", type=int, default=50)
     p.add_argument("--n_workers", type=int, default=1)
+    p.add_argument("--model_version", type=str, default="")
+    p.add_argument("--model_manifest", type=str, default="")
     return p.parse_args()
 
 
@@ -2415,7 +2417,11 @@ def main() -> None:
     sampled = test_df.sample(n=n, random_state=int(args.sample_seed)).reset_index().rename(columns={"index": "source_row_index"})
     logger.info("Batch sample prepared: n=%s from test_rows=%s", n, len(test_df))
 
-    model, calibrator, manifest, _ = load_latest_model_bundle(base_path=model_cfg.get("registry", {}).get("path", "artifacts/models"))
+    model, calibrator, manifest, _ = load_model_bundle(
+        base_path=model_cfg.get("registry", {}).get("path", "artifacts/models"),
+        model_version=str(args.model_version).strip() or None,
+        manifest_path=str(args.model_manifest).strip() or None,
+    )
     tau = float(model_cfg.get("decision", {}).get("tau_0", 0.35))
     base_proba = pd.Series(predict_proba_pd(model, calibrator, sampled[feature_cols]), index=sampled.index, dtype=float)
 
@@ -4089,6 +4095,8 @@ def main() -> None:
 
     summary = {
         "model_version": manifest.get("model_version"),
+        "model_freeze_mode": manifest.get("freeze_mode", "implicit_latest"),
+        "model_manifest_path": manifest.get("manifest_path", ""),
         "config_hash": config_hash,
         "train_data_hash": train_file_hash,
         "test_data_hash": test_file_hash,
@@ -4290,9 +4298,20 @@ def main() -> None:
 
     summary_json = run_ctx.tables_dir / "batch_summary.json"
     summary_json.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    frozen_manifest_payload = build_frozen_model_manifest(
+        manifest,
+        project_root=Path(__file__).resolve().parents[3],
+        resolved_by_runner="run_batch_recourse_eval",
+    )
     manifest_payload = {
         "run_id": run_ctx.run_id,
         "model_version": manifest.get("model_version"),
+        "model_manifest_path": manifest.get("manifest_path", ""),
+        "model_freeze_mode": manifest.get("freeze_mode", "implicit_latest"),
+        "requested_model_version": str(args.model_version).strip(),
+        "requested_model_manifest": str(args.model_manifest).strip(),
+        "acceptance_eligible": bool(manifest.get("acceptance_eligible", False)),
+        "frozen_model_manifest": frozen_manifest_payload,
         "config_hash": config_hash,
         "data": {
             "train_path": str(train_path),

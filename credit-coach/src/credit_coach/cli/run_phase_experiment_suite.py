@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import yaml
 
 from credit_coach.evaluation.fairness import build_canonical_segment_key
+from credit_coach.model.registry import build_frozen_model_manifest, resolve_model_manifest
 from credit_coach.ops.kpi_contract import load_kpi_thresholds
 from credit_coach.ops.release_decision import (
     PRIMARY_FAIRNESS_METRIC,
@@ -23,7 +25,7 @@ from credit_coach.ops.release_decision import (
     evaluate_release_decision,
     evaluate_seed_kpi_contract,
 )
-from credit_coach.utils.run_context import create_run_context
+from credit_coach.utils.run_context import create_run_context, load_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("run_phase_experiment_suite")
@@ -50,6 +52,8 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="If set, phase suite reuses current model artifacts and does not run train once at start.",
     )
+    p.add_argument("--model_version", type=str, default="")
+    p.add_argument("--model_manifest", type=str, default="")
     p.add_argument("--execute", action="store_true")
     return p.parse_args()
 
@@ -83,8 +87,15 @@ def _run_cmd(*, cmd: list[str], cwd: Path, env: dict[str, str], label: str) -> t
     return run_id, out
 
 
-def _batch_cmd(args: argparse.Namespace, *, n_customers: int, seed: int) -> list[str]:
-    return [
+def _batch_cmd(
+    args: argparse.Namespace,
+    *,
+    n_customers: int,
+    seed: int,
+    model_version: str = "",
+    model_manifest: str = "",
+) -> list[str]:
+    cmd = [
         sys.executable,
         "-m",
         "credit_coach.cli.run_batch_recourse_eval",
@@ -109,6 +120,11 @@ def _batch_cmd(args: argparse.Namespace, *, n_customers: int, seed: int) -> list
         "--macro_config",
         str(args.macro_config),
     ]
+    if str(model_version).strip():
+        cmd.extend(["--model_version", str(model_version).strip()])
+    if str(model_manifest).strip():
+        cmd.extend(["--model_manifest", str(model_manifest).strip()])
+    return cmd
 
 
 def _train_cmd(args: argparse.Namespace) -> list[str]:
@@ -137,6 +153,14 @@ def _smoke_cmd(args: argparse.Namespace, *, batch_run_id: str) -> list[str]:
         "--batch_fairness_change_csv",
         str(base / "batch_fairness_change.csv"),
     ]
+
+
+def _build_registry_path(root: Path, model_cfg_path: str) -> Path:
+    model_cfg = load_config(model_cfg_path) if Path(model_cfg_path).exists() else {}
+    registry_path = Path(model_cfg.get("registry", {}).get("path", "artifacts/models"))
+    if not registry_path.is_absolute():
+        registry_path = root / registry_path
+    return registry_path
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -361,6 +385,11 @@ def main() -> None:
     seeds = _parse_seeds(args.scale_seeds)
     thresholds = load_kpi_thresholds(args.kpi_contract)
     root = _project_root()
+    registry_path = _build_registry_path(root, args.model_config)
+    explicit_model_version = str(args.model_version).strip()
+    explicit_model_manifest = str(args.model_manifest).strip()
+    if (explicit_model_version or explicit_model_manifest) and not bool(args.skip_train_before_batch):
+        raise ValueError("Explicit model selectors require --skip_train_before_batch so suite execution stays unambiguous")
 
     run_ctx = create_run_context(
         {
@@ -379,10 +408,24 @@ def main() -> None:
     if not args.execute:
         dry = {
             "train_once_cmd": _train_cmd(args),
-            "quick_batch_cmd": _batch_cmd(args, n_customers=int(args.quick_n), seed=int(args.quick_seed)),
-            "scale_batch_cmd_template": _batch_cmd(args, n_customers=int(args.scale_n), seed=seeds[0]),
+            "quick_batch_cmd": _batch_cmd(
+                args,
+                n_customers=int(args.quick_n),
+                seed=int(args.quick_seed),
+                model_version=explicit_model_version,
+                model_manifest=explicit_model_manifest,
+            ),
+            "scale_batch_cmd_template": _batch_cmd(
+                args,
+                n_customers=int(args.scale_n),
+                seed=seeds[0],
+                model_version=explicit_model_version,
+                model_manifest=explicit_model_manifest,
+            ),
             "scale_seeds": seeds,
             "skip_train_before_batch": bool(args.skip_train_before_batch),
+            "requested_model_version": explicit_model_version,
+            "requested_model_manifest": explicit_model_manifest,
         }
         (run_ctx.tables_dir / "phase_suite_dry_run.json").write_text(json.dumps(dry, indent=2, ensure_ascii=False), encoding="utf-8")
         run_ctx.save_metrics({"execute": False, "seed_count": len(seeds)})
@@ -394,6 +437,7 @@ def main() -> None:
     env.setdefault("TQDM_DISABLE", "1")
 
     train_run_id = ""
+    resolved_model_manifest: dict[str, Any]
     if not bool(args.skip_train_before_batch):
         train_run_id, train_log = _run_cmd(
             cmd=_train_cmd(args),
@@ -402,9 +446,36 @@ def main() -> None:
             label="train_once",
         )
         (run_ctx.tables_dir / "train_once.log").write_text(train_log, encoding="utf-8")
+        resolved_model_manifest = resolve_model_manifest(
+            base_path=registry_path,
+            model_version=train_run_id,
+        )
+    elif explicit_model_version or explicit_model_manifest:
+        resolved_model_manifest = resolve_model_manifest(
+            base_path=registry_path,
+            model_version=explicit_model_version or None,
+            manifest_path=explicit_model_manifest or None,
+        )
+    else:
+        resolved_model_manifest = resolve_model_manifest(base_path=registry_path)
+    frozen_model_manifest = build_frozen_model_manifest(
+        resolved_model_manifest,
+        project_root=root,
+        resolved_by_runner="run_phase_experiment_suite",
+        training_run_id=train_run_id or str(resolved_model_manifest.get("model_version", "")).strip(),
+    )
+    (run_ctx.tables_dir / "frozen_model_manifest.json").write_text(
+        json.dumps(frozen_model_manifest, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
     quick_run_id, quick_log = _run_cmd(
-        cmd=_batch_cmd(args, n_customers=int(args.quick_n), seed=int(args.quick_seed)),
+        cmd=_batch_cmd(
+            args,
+            n_customers=int(args.quick_n),
+            seed=int(args.quick_seed),
+            model_manifest=str(resolved_model_manifest.get("manifest_path", "")),
+        ),
         cwd=root,
         env=env,
         label="quick_batch",
@@ -434,6 +505,8 @@ def main() -> None:
         "fairness_seed_pass": bool(quick_snapshot["fairness_seed_pass"]),
         "primary_fail_reason": str(quick_snapshot["primary_fail_reason"]),
         "worst_fairness_gap": float(quick_snapshot["worst_fairness_gap"]),
+        "model_version": str(resolved_model_manifest.get("model_version", "")),
+        "model_freeze_mode": str(resolved_model_manifest.get("freeze_mode", "implicit_latest")),
     }
     (run_ctx.tables_dir / "phase_quick_summary.json").write_text(json.dumps(quick_payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -441,7 +514,12 @@ def main() -> None:
     seed_breakdowns: list[pd.DataFrame] = []
     for seed in seeds:
         run_id, run_log = _run_cmd(
-            cmd=_batch_cmd(args, n_customers=int(args.scale_n), seed=int(seed)),
+            cmd=_batch_cmd(
+                args,
+                n_customers=int(args.scale_n),
+                seed=int(seed),
+                model_manifest=str(resolved_model_manifest.get("manifest_path", "")),
+            ),
             cwd=root,
             env=env,
             label=f"scale_batch_seed_{seed}",
@@ -456,6 +534,8 @@ def main() -> None:
             {
                 "seed": int(seed),
                 "run_id": run_id,
+                "model_version": str(summary.get("model_version", resolved_model_manifest.get("model_version", ""))),
+                "model_freeze_mode": str(summary.get("model_freeze_mode", resolved_model_manifest.get("freeze_mode", "implicit_latest"))),
                 "all_pass": int(snapshot["all_pass"]),
                 "failed_checks": str(snapshot["failed_checks"]),
                 "lift_pass": int(snapshot["lift_pass"]),
@@ -499,6 +579,9 @@ def main() -> None:
     aggregate = {
         "seed_count": int(len(scale_df)),
         "pass_count": int(scale_df["all_pass"].sum()),
+        "model_version": str(resolved_model_manifest.get("model_version", "")),
+        "model_freeze_mode": str(resolved_model_manifest.get("freeze_mode", "implicit_latest")),
+        "frozen_model_manifest_path": "tables/frozen_model_manifest.json",
         **aggregate_release_metrics(
             scale_df.to_dict(orient="records"),
             thresholds=thresholds,
@@ -551,6 +634,8 @@ def main() -> None:
             "phase_name": str(args.phase_name),
             "train_run_id": train_run_id,
             "skip_train_before_batch": bool(args.skip_train_before_batch),
+            "model_version": str(resolved_model_manifest.get("model_version", "")),
+            "model_freeze_mode": str(resolved_model_manifest.get("freeze_mode", "implicit_latest")),
             "quick_run_id": quick_run_id,
             "quick_all_pass": bool(quick_ok),
             "quick_lift_pass": bool(quick_snapshot["lift_pass"]),

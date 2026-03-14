@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 ## Current Position
 
 Phase: 9 of 11 (KPI Contract Unification)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-03-14 - Wave 1 complete with shared KPI comparator, snapshot, and violation-score helpers wired into suite, smoke, and challenger
+Last activity: 2026-03-14 - Wave 2 complete with explicit frozen-model manifest resolution, batch provenance handoff, and variant-scoped challenger freeze reuse
 
-Progress: [███████░░░] 72%
+Progress: [████████░░] 79%
 
 ## Performance Metrics
 
@@ -61,6 +61,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14 15:20
-Stopped at: Phase 9 wave 1 complete; next step is explicit frozen-model provenance and seeded bundle reuse for wave 2
+Last session: 2026-03-14 16:05
+Stopped at: Phase 9 wave 2 complete; next step is milestone acceptance artifacts and repeated-evidence semantics for wave 3
 Resume file: None

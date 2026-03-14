@@ -20,7 +20,7 @@ from credit_coach.macro.impact import dynamic_alpha
 from credit_coach.macro.sources import load_macro_snapshot_mock
 from credit_coach.macro.stress_index import compute_macro_stress_index
 from credit_coach.model.predict import predict_proba_pd
-from credit_coach.model.registry import load_latest_model_bundle
+from credit_coach.model.registry import load_model_bundle
 from credit_coach.recourse.action_space import estimate_action_cost_usd, get_action_spec, get_actionable_features
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions
 from credit_coach.recourse.feasibility import apply_target_feasibility
@@ -45,6 +45,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--causality_config", type=str, default="configs/causality.yaml")
     p.add_argument("--safety_config", type=str, default="configs/safety.yaml")
     p.add_argument("--macro_config", type=str, default="configs/macro.yaml")
+    p.add_argument("--model_version", type=str, default="")
+    p.add_argument("--model_manifest", type=str, default="")
     return p.parse_args()
 
 
@@ -641,7 +643,11 @@ def main() -> None:
     row_idx = max(0, min(args.row_index, len(test_df) - 1))
     row = test_df.iloc[row_idx]
 
-    model, calibrator, manifest, _ = load_latest_model_bundle(base_path=model_cfg.get("registry", {}).get("path", "artifacts/models"))
+    model, calibrator, manifest, _ = load_model_bundle(
+        base_path=model_cfg.get("registry", {}).get("path", "artifacts/models"),
+        model_version=str(args.model_version).strip() or None,
+        manifest_path=str(args.model_manifest).strip() or None,
+    )
 
     local_reason_bundle = compute_local_reason_bundle(
         model,
