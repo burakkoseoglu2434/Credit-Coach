@@ -13,6 +13,11 @@ from credit_coach.ops.kpi_contract import (
     extract_kpi_thresholds,
     load_kpi_thresholds,
 )
+from credit_coach.ops.release_decision import (
+    aggregate_release_metrics,
+    evaluate_release_decision,
+    evaluate_seed_kpi_contract,
+)
 from credit_coach.storage.repository import verify_audit_chain
 from credit_coach.utils.run_context import create_run_context
 
@@ -30,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--fairness_csv", type=str, default="")
     p.add_argument("--fairness_stress_csv", type=str, default="")
     p.add_argument("--telemetry_json", type=str, default="")
+    p.add_argument("--phase_scale_aggregate_json", type=str, default="")
     p.add_argument("--min_denied_to_approved_lift", type=float, default=None)
     p.add_argument("--min_denied_high_risk_lift", type=float, default=None)
     p.add_argument("--min_denied_gate_pass_rate", type=float, default=None)
@@ -71,6 +77,13 @@ def _latest_or_fail(pattern: str, *, hint: str) -> Path:
 
 def _resolve_path(raw: str, *, pattern: str, hint: str) -> Path:
     return Path(raw) if raw else _latest_or_fail(pattern, hint=hint)
+
+
+def _resolve_optional_path(raw: str) -> Path | None:
+    if not raw:
+        return None
+    path = Path(raw)
+    return path if path.exists() else None
 
 
 def _safe_float(row: pd.Series, key: str, default: float = 0.0) -> float:
@@ -464,6 +477,22 @@ def _build_kpi_trend(
     }
 
 
+def build_smoke_release_summary(
+    *,
+    batch_summary: dict[str, Any],
+    batch_fairness_change_df: pd.DataFrame,
+    thresholds: dict[str, float | bool],
+    phase_scale_aggregate: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    if isinstance(phase_scale_aggregate, dict) and int(phase_scale_aggregate.get("fairness_seed_total", 0)) > 0:
+        metrics = dict(phase_scale_aggregate)
+    else:
+        fair_row = batch_fairness_change_df.iloc[0].to_dict() if not batch_fairness_change_df.empty else {}
+        snapshot = evaluate_seed_kpi_contract(batch_summary, fair_row, thresholds)
+        metrics = aggregate_release_metrics([snapshot], thresholds=thresholds)
+    return evaluate_release_decision(metrics, thresholds)
+
+
 def main() -> None:
     args = parse_args()
     contract_thresholds = load_kpi_thresholds(args.kpi_contract)
@@ -505,6 +534,7 @@ def main() -> None:
         pattern="*/tables/telemetry_export.json",
         hint="telemetry export report",
     )
+    phase_scale_aggregate_path = _resolve_optional_path(args.phase_scale_aggregate_json)
 
     batch_summary = json.loads(batch_summary_path.read_text(encoding="utf-8"))
     batch_fairness_change_df = pd.read_csv(batch_fairness_change_path)
@@ -513,6 +543,11 @@ def main() -> None:
     fairness_df = pd.read_csv(fairness_path)
     fairness_stress_df = pd.read_csv(fairness_stress_path)
     telemetry_payload = json.loads(telemetry_path.read_text(encoding="utf-8"))
+    phase_scale_aggregate = (
+        json.loads(phase_scale_aggregate_path.read_text(encoding="utf-8"))
+        if phase_scale_aggregate_path is not None
+        else {}
+    )
     audit_ok, audit_issues = verify_audit_chain()
 
     run_ctx = create_run_context(
@@ -547,8 +582,13 @@ def main() -> None:
     out_json = run_ctx.tables_dir / "production_smoke_report.json"
     out_kpi_snapshot = run_ctx.tables_dir / "kpi_snapshot.json"
     gate_df.to_csv(out_csv, index=False)
-
-    overall_status = "GO" if (gate_df["status"] == "PASS").all() else "NO_GO"
+    release_payload = build_smoke_release_summary(
+        batch_summary=batch_summary,
+        batch_fairness_change_df=batch_fairness_change_df,
+        thresholds=resolved_thresholds,
+        phase_scale_aggregate=phase_scale_aggregate,
+    )
+    overall_status = str(release_payload["release_decision"])
     kpi_snapshot = _kpi_snapshot_from_rows(
         gate_rows=rows,
         args=args,
@@ -566,6 +606,7 @@ def main() -> None:
             {
                 "run_id": run_ctx.run_id,
                 "overall_status": overall_status,
+                "release_decision": release_payload,
                 "thresholds": resolved_thresholds,
                 "gates": gate_df.to_dict(orient="records"),
                 "kpi_trend_vs_previous": trend_payload,
@@ -579,6 +620,8 @@ def main() -> None:
     run_ctx.save_metrics(
         {
             "overall_status": overall_status,
+            "smoke_pass": bool(release_payload["smoke_pass"]),
+            "pilot_eligible": bool(release_payload["pilot_eligible"]),
             "gate_pass_count": int((gate_df["status"] == "PASS").sum()),
             "gate_fail_count": int((gate_df["status"] != "PASS").sum()),
             "audit_issue_count": int(len(audit_issues)),

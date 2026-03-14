@@ -28,6 +28,7 @@ Historical archive: `.planning/milestones/v1.0-ROADMAP.md`
 **Goal**: Build the fairness-stability evidence needed to understand and control seeded regressions.
 **Depends on**: Phase 7
 **Requirements**: [FAIR-01, FAIR-02, FAIR-03]
+**Completed**: 2026-03-14
 **Success Criteria** (what must be TRUE):
   1. Seeded fairness summaries exist for approval, EO, recourse success, and high-stress outcomes.
   2. Fairness failures can be localized by segment, risk band, and candidate source.
@@ -35,9 +36,9 @@ Historical archive: `.planning/milestones/v1.0-ROADMAP.md`
 **Plans**: 3 plans
 
 Plans:
-- [ ] 08-01: Standardize multi-seed fairness summary and aggregate artifacts
-- [ ] 08-02: Add intersecting segment and source-level regression diagnostics
-- [ ] 08-03: Harden fairness-aware ranking or quota controls under the shared contract
+- [x] 08-01: Standardize multi-seed fairness summary and aggregate artifacts
+- [x] 08-02: Add intersecting segment and source-level regression diagnostics
+- [x] 08-03: Harden fairness-aware ranking or quota controls under the shared contract
 
 #### Phase 9: KPI Contract Unification
 **Goal**: Align smoke, phase-suite, and challenger workflows behind one deterministic acceptance contract.
@@ -95,7 +96,7 @@ Plans:
 | 5. Evaluation and Benchmark Matrix | v1.0 | 3/3 | Complete | 2026-03-10 |
 | 6. Production Hardening and Governance | v1.0 | 3/3 | Complete | 2026-03-10 |
 | 7. KPI Gate Stabilization | v1.0 | 3/3 | Complete | 2026-03-10 |
-| 8. Fairness Stability Matrix | v1.1 | 0/3 | Not started | - |
+| 8. Fairness Stability Matrix | v1.1 | 3/3 | Complete | 2026-03-14 |
 | 9. KPI Contract Unification | v1.1 | 0/3 | Not started | - |
 | 10. Candidate Quality and Trajectory Tuning | v1.1 | 0/3 | Not started | - |
 | 11. Release Evidence and Outcome Feedback | v1.1 | 0/3 | Not started | - |

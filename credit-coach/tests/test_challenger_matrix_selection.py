@@ -243,3 +243,45 @@ def test_select_champion_respects_equalized_odds_delta_gate():
     champion, ranked = _select_champion(summary_df, thresholds)
     assert champion == "slightly_lower_lift_good_eo_delta"
     assert str(ranked.iloc[0]["variant_id"]) == "slightly_lower_lift_good_eo_delta"
+
+
+def test_select_champion_prefers_go_release_over_limited_go_variant():
+    summary_df = pd.DataFrame(
+        [
+            {
+                "variant_id": "limited_go_high_lift",
+                "release_decision": "LIMITED_GO",
+                "mean_denied_to_approved_lift": 0.16,
+                "mean_denied_high_risk_lift": 0.08,
+                "mean_high_risk_reachability_rate": 0.24,
+                "mean_fairness_approval_gap_after": 0.05,
+                "mean_latency_p95_ms": 300.0,
+                "mean_latency_p99_ms": 900.0,
+                "mean_error_rate": 0.0,
+            },
+            {
+                "variant_id": "go_lower_lift",
+                "release_decision": "GO",
+                "mean_denied_to_approved_lift": 0.14,
+                "mean_denied_high_risk_lift": 0.06,
+                "mean_high_risk_reachability_rate": 0.21,
+                "mean_fairness_approval_gap_after": 0.05,
+                "mean_latency_p95_ms": 310.0,
+                "mean_latency_p99_ms": 910.0,
+                "mean_error_rate": 0.0,
+            },
+        ]
+    )
+    thresholds = {
+        "min_denied_to_approved_lift": 0.09,
+        "min_denied_high_risk_lift": 0.03,
+        "max_fairness_gap": 0.10,
+        "max_p95_latency_ms": 500.0,
+        "max_p99_latency_ms": 2000.0,
+        "max_error_rate": 0.005,
+    }
+
+    champion, ranked = _select_champion(summary_df, thresholds)
+    assert champion == "go_lower_lift"
+    assert bool(ranked.iloc[0]["_promotion_eligible"]) is True
+    assert bool(ranked.iloc[1]["_promotion_eligible"]) is False

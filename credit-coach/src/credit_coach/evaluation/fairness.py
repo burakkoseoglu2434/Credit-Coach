@@ -35,6 +35,66 @@ def adverse_impact_ratio(df: pd.DataFrame, group_col: str, approval_col: str) ->
     return float(min_rate / max_rate)
 
 
+def _normalize_segment_value(value: object, *, default: str = "unknown") -> str:
+    if value is None:
+        return default
+    try:
+        if pd.isna(value):
+            return default
+    except Exception:
+        pass
+    text = str(value).strip()
+    return text or default
+
+
+def normalize_stress_band(value: object | None = None, *, high_stress_flag: bool | int | None = None) -> str:
+    if value is not None:
+        text = _normalize_segment_value(value, default="")
+        if text:
+            return text
+    if high_stress_flag is None:
+        return "base"
+    return "high_stress" if bool(high_stress_flag) else "base"
+
+
+def build_canonical_segment_key(
+    *,
+    risk_band: object,
+    income_band: object,
+    stress_band: object | None = None,
+    high_stress_flag: bool | int | None = None,
+    sep: str = "|",
+) -> str:
+    parts = [
+        _normalize_segment_value(risk_band),
+        _normalize_segment_value(income_band),
+        normalize_stress_band(stress_band, high_stress_flag=high_stress_flag),
+    ]
+    return sep.join(parts)
+
+
+def classify_primary_fairness_fail_reason(
+    metrics: dict[str, float | int | bool],
+    thresholds: dict[str, float | bool],
+) -> str:
+    ordered_thresholds: tuple[tuple[str, str], ...] = (
+        ("equalized_odds_gap_delta", "max_equalized_odds_gap_delta"),
+        ("high_stress_fairness_gap_after", "max_high_stress_fairness_gap"),
+        ("recourse_success_gap", "max_recourse_success_gap"),
+        ("approval_gap_delta", "max_approval_gap_delta"),
+        ("fairness_gap_after", "max_fairness_gap"),
+    )
+    for metric, threshold_key in ordered_thresholds:
+        try:
+            value = float(metrics.get(metric, 0.0))
+            threshold = float(thresholds.get(threshold_key, 0.0))
+        except Exception:
+            continue
+        if value > threshold:
+            return metric
+    return ""
+
+
 def true_positive_rate_gap(
     df: pd.DataFrame,
     group_col: str,

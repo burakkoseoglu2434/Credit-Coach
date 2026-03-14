@@ -15,6 +15,12 @@ import pandas as pd
 import yaml
 
 from credit_coach.ops.kpi_contract import load_kpi_thresholds
+from credit_coach.ops.release_decision import (
+    GO,
+    aggregate_release_metrics,
+    evaluate_release_decision,
+    evaluate_seed_kpi_contract,
+)
 from credit_coach.utils.run_context import create_run_context, load_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s")
@@ -254,6 +260,13 @@ def _select_champion(summary_df: pd.DataFrame, thresholds: dict[str, Any]) -> tu
     ranked["_gate_violation_score"] = violation_scores
     ranked["_gate_failed_check_count"] = violation_counts
     ranked["_gate_all_pass"] = ranked["_gate_failed_check_count"] == 0
+    decision_rank = {"GO": 0, "LIMITED_GO": 1, "NO_GO": 2}
+    if "release_decision" in ranked.columns:
+        release_decisions = ranked["release_decision"].fillna("NO_GO").astype(str)
+    else:
+        release_decisions = pd.Series(["NO_GO"] * len(ranked), index=ranked.index, dtype="object")
+    ranked["_release_rank"] = release_decisions.map(decision_rank).fillna(2).astype(int)
+    ranked["_promotion_eligible"] = release_decisions == GO
     ranked["_score_a"] = -ranked.get("mean_denied_high_risk_lift", 0.0)
     ranked["_score_b"] = -ranked.get("mean_high_risk_reachability_rate", 0.0)
     ranked["_score_c"] = -ranked.get("mean_denied_to_approved_lift", 0.0)
@@ -261,6 +274,7 @@ def _select_champion(summary_df: pd.DataFrame, thresholds: dict[str, Any]) -> tu
     ranked["_score_e"] = ranked.get("mean_latency_p99_ms", 999999.0)
     ranked = ranked.sort_values(
         [
+            "_release_rank",
             "_gate_all_pass",
             "_gate_failed_check_count",
             "_gate_violation_score",
@@ -270,9 +284,70 @@ def _select_champion(summary_df: pd.DataFrame, thresholds: dict[str, Any]) -> tu
             "_score_d",
             "_score_e",
         ],
-        ascending=[False, True, True, True, True, True, True, True],
+        ascending=[True, False, True, True, True, True, True, True, True],
     ).reset_index(drop=True)
     return str(ranked.iloc[0]["variant_id"]), ranked
+
+
+def _seed_contract_from_challenger_row(row: pd.Series, thresholds: dict[str, Any]) -> dict[str, Any]:
+    denied_count = float(row.get("denied_count", 0.0))
+    denied_with_gate_pass_plan = float(row.get("denied_with_gate_pass_plan", 0.0))
+    summary = {
+        "denied_count": denied_count,
+        "denied_with_gate_pass_plan": denied_with_gate_pass_plan,
+        "denied_to_approved_lift": float(row.get("denied_to_approved_lift", 0.0)),
+        "denied_high_risk_lift": float(row.get("denied_high_risk_lift", 0.0)),
+        "denied_reliability_violation_rate": float(row.get("denied_reliability_violation_rate", 0.0)),
+        "sync_latency_p95_ms": float(row.get("latency_p95_ms", 0.0)),
+        "sync_latency_p99_ms": float(row.get("latency_p99_ms", 0.0)),
+        "error_rate": float(row.get("error_rate", 0.0)),
+        "fairness_approval_gap_after": float(row.get("fairness_approval_gap_after", 0.0)),
+        "trajectory_gate_pass_rate_4w": float(row.get("trajectory_gate_pass_rate_4w", 0.0)),
+        "trajectory_gate_pass_rate_12w": float(row.get("trajectory_gate_pass_rate_12w", 0.0)),
+        "trajectory_gate_pass_rate_24w": float(row.get("trajectory_gate_pass_rate_24w", 0.0)),
+        "trajectory_partial_progress_rate": float(row.get("trajectory_partial_progress_rate", 0.0)),
+        "trajectory_median_time_to_gate_pass_days": float(row.get("trajectory_median_time_to_gate_pass_days", 9_999.0)),
+    }
+    fair_metrics = {
+        "approval_gap_delta": float(row.get("fairness_approval_gap_delta", 0.0)),
+        "equalized_odds_gap_delta": float(row.get("fairness_equalized_odds_gap_delta", 0.0)),
+        "high_stress_fairness_gap_after": float(row.get("high_stress_approval_gap_after", 0.0)),
+        "recourse_success_gap": float(row.get("recourse_success_gap", 0.0)),
+        "fairness_gap_after": float(row.get("fairness_approval_gap_after", 0.0)),
+    }
+    return evaluate_seed_kpi_contract(summary, fair_metrics, thresholds)
+
+
+def _build_variant_release_payloads(
+    runs_df: pd.DataFrame,
+    *,
+    thresholds: dict[str, Any],
+    breakdown_frames: list[pd.DataFrame],
+) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for variant_id, variant_runs in runs_df.groupby("variant_id", dropna=False):
+        seed_rows = [_seed_contract_from_challenger_row(row, thresholds) for _, row in variant_runs.iterrows()]
+        breakdown_rows: list[dict[str, Any]] = []
+        for frame in breakdown_frames:
+            if frame.empty or str(frame["variant_id"].iloc[0]) != str(variant_id):
+                continue
+            breakdown_rows.extend(frame.to_dict(orient="records"))
+        aggregate = aggregate_release_metrics(seed_rows, thresholds=thresholds, breakdown_rows=breakdown_rows)
+        release_payload = evaluate_release_decision(aggregate, thresholds)
+        rows.append(
+            {
+                "variant_id": str(variant_id),
+                "release_decision": str(release_payload["decision"]),
+                "pilot_eligible": bool(release_payload["pilot_eligible"]),
+                "promotion_eligible": bool(release_payload["decision"] == GO),
+                "fairness_seed_pass_count": int(aggregate["fairness_seed_pass_count"]),
+                "fairness_seed_total": int(aggregate["fairness_seed_total"]),
+                "dominant_fail_segment_key": str(aggregate.get("dominant_fail_segment_key", "")),
+                "dominant_fail_candidate_source": str(aggregate.get("dominant_fail_candidate_source", "")),
+                "dominant_fail_segment_share": float(aggregate.get("dominant_fail_segment_share", 0.0)),
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def main() -> None:
@@ -320,6 +395,7 @@ def main() -> None:
         return
 
     run_rows: list[dict[str, Any]] = []
+    breakdown_frames: list[pd.DataFrame] = []
 
     for variant in _VARIANTS:
         variant_id = str(variant["variant_id"])
@@ -382,8 +458,15 @@ def main() -> None:
 
             train_metrics_path = root / "artifacts" / "models" / train_run_id / "metrics.json"
             batch_metrics_path = root / "artifacts" / "runs" / batch_run_id / "metrics.json"
+            batch_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "fairness_failure_breakdown.csv"
             train_metrics = _load_json(train_metrics_path)
             batch_metrics = _load_json(batch_metrics_path)
+            if batch_breakdown_path.exists():
+                breakdown_df = pd.read_csv(batch_breakdown_path)
+                if not breakdown_df.empty:
+                    breakdown_df["variant_id"] = variant_id
+                    breakdown_df["seed"] = int(seed)
+                    breakdown_frames.append(breakdown_df)
             raw_p95 = float(batch_metrics.get("latency_p95_ms", 0.0))
             raw_p99 = float(batch_metrics.get("latency_p99_ms", 0.0))
             sync_p95 = batch_metrics.get("sync_latency_p95_ms")
@@ -406,6 +489,8 @@ def main() -> None:
                 "calibration_method": str(variant["calibration_method"]),
                 "auc": float(train_metrics.get("auc", 0.0)),
                 "pr_auc": float(train_metrics.get("pr_auc", 0.0)),
+                "denied_count": float(batch_metrics.get("denied_count", 0.0)),
+                "denied_with_gate_pass_plan": float(batch_metrics.get("denied_with_gate_pass_plan", 0.0)),
                 "denied_to_approved_lift": float(batch_metrics.get("denied_to_approved_lift", 0.0)),
                 "denied_high_risk_lift": float(batch_metrics.get("denied_high_risk_lift", 0.0)),
                 "high_risk_reachability_rate": float(batch_metrics.get("high_risk_reachability_rate", 0.0)),
@@ -450,6 +535,9 @@ def main() -> None:
     summary_df = _aggregate_variant_metrics(runs_df)
     if summary_df.empty:
         raise RuntimeError("No challenger summary rows produced")
+    release_df = _build_variant_release_payloads(runs_df, thresholds=kpi_thresholds, breakdown_frames=breakdown_frames)
+    if not release_df.empty:
+        summary_df = summary_df.merge(release_df, on="variant_id", how="left")
     summary_path = run_ctx.tables_dir / "challenger_matrix_variant_summary.csv"
     summary_df.to_csv(summary_path, index=False)
 
@@ -478,6 +566,9 @@ def main() -> None:
         ranked_variants.append(
             {
                 "variant_id": str(r.get("variant_id", "")),
+                "release_decision": str(r.get("release_decision", "NO_GO")),
+                "pilot_eligible": bool(r.get("pilot_eligible", False)),
+                "promotion_eligible": bool(r.get("_promotion_eligible", False)),
                 "gate_all_pass": bool(r.get("_gate_all_pass", False)),
                 "gate_failed_check_count": int(r.get("_gate_failed_check_count", 0)),
                 "gate_violation_score": float(r.get("_gate_violation_score", 0.0)),
@@ -490,6 +581,9 @@ def main() -> None:
         "variant_count": int(ranked_summary_df.shape[0]),
         "seed_count": int(len(seeds)),
         "kpi_contract": str(args.kpi_contract),
+        "champion_release_decision": str(champ_row.iloc[0].get("release_decision", "NO_GO")) if not champ_row.empty else "NO_GO",
+        "champion_pilot_eligible": bool(champ_row.iloc[0].get("pilot_eligible", False)) if not champ_row.empty else False,
+        "champion_promotion_eligible": bool(champ_row.iloc[0].get("_promotion_eligible", False)) if not champ_row.empty else False,
         "champion_gate_all_pass": bool(champ_row.iloc[0].get("_gate_all_pass", False)) if not champ_row.empty else False,
         "champion_gate_failed_check_count": int(champ_row.iloc[0].get("_gate_failed_check_count", 0))
         if not champ_row.empty

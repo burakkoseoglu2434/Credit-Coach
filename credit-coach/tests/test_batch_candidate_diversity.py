@@ -340,6 +340,11 @@ def test_build_fairness_failure_breakdown_outputs_expected_columns():
     assert not out.empty
     assert "segment_key" in out.columns
     assert "failure_severity_score" in out.columns
+    assert "breakdown_type" in out.columns
+    assert "canonical_segment_key" in out.columns
+    assert "candidate_source" in out.columns
+    assert "stress_band" in out.columns
+    assert "failure_weight" in out.columns
 
 
 def test_apply_fairness_segment_cap_boost_for_high_penalty_high_risk_denied():

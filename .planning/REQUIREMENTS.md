@@ -7,9 +7,9 @@
 
 ### Fairness Stability
 
-- [ ] **FAIR-01**: System can compute repeated-seed fairness summaries for approval gap, equalized odds, recourse success gap, and high-stress fairness outcomes from one shared contract
-- [ ] **FAIR-02**: System can localize fairness regressions by intersecting segment, risk band, and candidate source rather than only aggregate metrics
-- [ ] **FAIR-03**: System can apply fairness-aware ranking or quota controls while keeping lift, gate-pass, and diagnostic evidence comparable
+- [x] **FAIR-01**: System can compute repeated-seed fairness summaries for approval gap, equalized odds, recourse success gap, and high-stress fairness outcomes from one shared contract
+- [x] **FAIR-02**: System can localize fairness regressions by intersecting segment, risk band, and candidate source rather than only aggregate metrics
+- [x] **FAIR-03**: System can apply fairness-aware ranking or quota controls while keeping lift, gate-pass, and diagnostic evidence comparable
 
 ### KPI Contract
 
@@ -49,9 +49,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FAIR-01 | Phase 8 | Pending |
-| FAIR-02 | Phase 8 | Pending |
-| FAIR-03 | Phase 8 | Pending |
+| FAIR-01 | Phase 8 | Complete |
+| FAIR-02 | Phase 8 | Complete |
+| FAIR-03 | Phase 8 | Complete |
 | KPI-01 | Phase 9 | Pending |
 | KPI-02 | Phase 9 | Pending |
 | KPI-03 | Phase 9 | Pending |
@@ -69,4 +69,4 @@
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 after starting milestone v1.1*
+*Last updated: 2026-03-14 after completing Phase 8*

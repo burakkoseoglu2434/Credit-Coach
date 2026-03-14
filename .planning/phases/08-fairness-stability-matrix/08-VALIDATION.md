@@ -1,9 +1,9 @@
 ---
 phase: 08
 slug: fairness-stability-matrix
-status: ready
+status: approved
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-03-14
 ---
 
@@ -38,13 +38,13 @@ created: 2026-03-14
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 08-01-01 | 01 | 1 | FAIR-01 | unit | `cd credit-coach && python -m pytest tests/test_release_decision.py tests/test_phase_experiment_suite.py` | ❌ W0 | ⬜ pending |
-| 08-01-02 | 01 | 1 | FAIR-01 | integration | `cd credit-coach && python -m pytest tests/test_phase_experiment_suite.py` | ✅ | ⬜ pending |
-| 08-02-01 | 02 | 2 | FAIR-02 | unit | `cd credit-coach && python -m pytest tests/test_batch_candidate_diversity.py tests/test_recourse_fairness_metrics.py` | ✅ | ⬜ pending |
-| 08-02-02 | 02 | 2 | FAIR-02 | integration | `cd credit-coach && python -m pytest tests/test_phase_experiment_suite.py tests/test_batch_candidate_diversity.py` | ✅ | ⬜ pending |
-| 08-03-01 | 03 | 3 | FAIR-03 | integration | `cd credit-coach && python -m pytest tests/test_phase_experiment_suite.py tests/test_challenger_matrix_selection.py` | ✅ | ⬜ pending |
-| 08-03-02 | 03 | 3 | FAIR-03 | contract | `cd credit-coach && python -m pytest tests/test_production_smoke.py tests/test_release_decision.py` | ❌ W0 | ⬜ pending |
-| 08-03-03 | 03 | 3 | FAIR-03 | regression | `cd credit-coach && python -m pytest tests/test_batch_candidate_diversity.py tests/test_challenger_matrix_selection.py tests/test_production_smoke.py` | ✅ | ⬜ pending |
+| 08-01-01 | 01 | 1 | FAIR-01 | unit | `cd credit-coach && python -m pytest tests/test_release_decision.py tests/test_phase_experiment_suite.py` | ✅ | ✅ green |
+| 08-01-02 | 01 | 1 | FAIR-01 | integration | `cd credit-coach && python -m pytest tests/test_phase_experiment_suite.py` | ✅ | ✅ green |
+| 08-02-01 | 02 | 2 | FAIR-02 | unit | `cd credit-coach && python -m pytest tests/test_batch_candidate_diversity.py tests/test_recourse_fairness_metrics.py` | ✅ | ✅ green |
+| 08-02-02 | 02 | 2 | FAIR-02 | integration | `cd credit-coach && python -m pytest tests/test_phase_experiment_suite.py tests/test_batch_candidate_diversity.py` | ✅ | ✅ green |
+| 08-03-01 | 03 | 3 | FAIR-03 | integration | `cd credit-coach && python -m pytest tests/test_phase_experiment_suite.py tests/test_challenger_matrix_selection.py` | ✅ | ✅ green |
+| 08-03-02 | 03 | 3 | FAIR-03 | contract | `cd credit-coach && python -m pytest tests/test_production_smoke.py tests/test_release_decision.py` | ✅ | ✅ green |
+| 08-03-03 | 03 | 3 | FAIR-03 | regression | `cd credit-coach && python -m pytest tests/test_batch_candidate_diversity.py tests/test_challenger_matrix_selection.py tests/test_production_smoke.py` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -52,9 +52,9 @@ created: 2026-03-14
 
 ## Wave 0 Requirements
 
-- [ ] `credit-coach/tests/test_release_decision.py` — shared `GO | LIMITED_GO | NO_GO` helper contract tests
-- [ ] `credit-coach/tests/test_phase_experiment_suite.py` — extend seed summary assertions for fairness seed pass counts and worst-gap fields
-- [ ] `credit-coach/tests/test_production_smoke.py` — extend smoke metadata assertions for `release_decision`, `smoke_pass`, and `pilot_eligible`
+- [x] `credit-coach/tests/test_release_decision.py` — shared `GO | LIMITED_GO | NO_GO` helper contract tests
+- [x] `credit-coach/tests/test_phase_experiment_suite.py` — extend seed summary assertions for fairness seed pass counts and worst-gap fields
+- [x] `credit-coach/tests/test_production_smoke.py` — extend smoke metadata assertions for `release_decision`, `smoke_pass`, and `pilot_eligible`
 
 ---
 
@@ -73,4 +73,4 @@ All phase behaviors have automated verification.
 - [x] Feedback latency < 30s
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending 2026-03-14
+**Approval:** approved 2026-03-14

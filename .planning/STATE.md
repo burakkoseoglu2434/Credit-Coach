@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-14)
 
 **Core value:** Generate credit recourse plans that are actionable, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 8 - Fairness Stability Matrix
+**Current focus:** Phase 9 - KPI Contract Unification
 
 ## Current Position
 
-Phase: 8 of 11 (Fairness Stability Matrix)
-Plan: 3 of 3 in current phase
-Status: Planned
-Last activity: 2026-03-14 - Phase 8 planned with research, validation, and 3 execution plans
+Phase: 9 of 11 (KPI Contract Unification)
+Plan: 0 of 3 in current phase
+Status: Ready to plan
+Last activity: 2026-03-14 - Phase 8 executed, verified, and marked complete
 
-Progress: [██████░░░░] 64%
+Progress: [███████░░░] 72%
 
 ## Performance Metrics
 
@@ -28,7 +28,7 @@ Progress: [██████░░░░] 64%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | v1.0 historical baseline | 20 | historical import | n/a |
-| v1.1 current milestone | 0 | 0 | n/a |
+| v1.1 current milestone | 3 | phase 8 complete | n/a |
 
 **Recent Trend:**
 - Last 5 plans: historical data not reconstructed
@@ -45,6 +45,7 @@ Recent decisions affecting current work:
 - Migration: Historical plans and reports remain preserved as source evidence
 - Milestone: Imported phases 1-7 are treated as historical `v1.0` baseline work
 - Milestone: Current work starts at Phase 8 under `v1.1 Fairness Stability & KPI Hardening`
+- Phase 8: Shared seeded fairness release semantics now drive suite, smoke, and challenger behavior
 
 ### Pending Todos
 
@@ -58,5 +59,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-14 13:00
-Stopped at: Phase 8 plan set completed; next step is execute 08-01 under the v1.1 fairness stability milestone
+Stopped at: Phase 8 complete; next step is discuss or plan Phase 9 under the v1.1 milestone
 Resume file: None

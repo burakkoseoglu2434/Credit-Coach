@@ -18,6 +18,7 @@ from credit_coach.coaching.planner import choose_best_plan
 from credit_coach.data.ingest import load_feature_contract
 from credit_coach.data.schema import PlanAction, PlanRecord
 from credit_coach.evaluation.fairness import (
+    build_canonical_segment_key,
     compute_multi_segment_fairness,
     build_recourse_fairness_bundle,
     build_fairness_stress_matrix,
@@ -1688,10 +1689,18 @@ def _build_fairness_failure_breakdown(
 
         row = {
             "segment_key": "|".join([str(v) for v in keys]),
+            "breakdown_type": "segment_candidate_source",
             "group_bucket": str(keys[0]),
             "risk_band": str(keys[1]),
             "income_band": str(keys[2]),
             "best_source": str(keys[3]),
+            "candidate_source": str(keys[3]),
+            "stress_band": "base",
+            "canonical_segment_key": build_canonical_segment_key(
+                risk_band=str(keys[1]),
+                income_band=str(keys[2]),
+                stress_band="base",
+            ),
             "n_rows": int(len(g)),
             "denied_rows": int((g["denied_base"] == 1).sum()),
             "approval_rate_before": approval_before,
@@ -1706,6 +1715,7 @@ def _build_fairness_failure_breakdown(
             "recourse_success_rate": recourse_success,
             "fairness_guard_demoted_rate": demoted_rate,
             "failure_severity_score": severity,
+            "failure_weight": severity,
         }
         rows.append(row)
 

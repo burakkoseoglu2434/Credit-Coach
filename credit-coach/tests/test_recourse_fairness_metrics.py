@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from credit_coach.evaluation.fairness import build_recourse_fairness_bundle
+from credit_coach.evaluation.fairness import build_canonical_segment_key, build_recourse_fairness_bundle, classify_primary_fairness_fail_reason
 
 
 def test_build_recourse_fairness_bundle():
@@ -22,3 +22,24 @@ def test_build_recourse_fairness_bundle():
     assert out["recourse_success_gap"] > 0.0
     assert out["recourse_cost_gap"] >= 0.0
     assert out["recourse_horizon_gap"] >= 0.0
+
+
+def test_build_canonical_segment_key_includes_stress_band():
+    key = build_canonical_segment_key(risk_band="mid", income_band="q1", stress_band="high_stress")
+    assert key == "mid|q1|high_stress"
+
+
+def test_classify_primary_fairness_fail_reason_prefers_equalized_odds_first():
+    reason = classify_primary_fairness_fail_reason(
+        {
+            "equalized_odds_gap_delta": 0.02,
+            "high_stress_fairness_gap_after": 0.50,
+            "recourse_success_gap": 0.20,
+        },
+        {
+            "max_equalized_odds_gap_delta": 0.01,
+            "max_high_stress_fairness_gap": 0.10,
+            "max_recourse_success_gap": 0.10,
+        },
+    )
+    assert reason == "equalized_odds_gap_delta"

@@ -4,7 +4,7 @@ from argparse import Namespace
 
 import pandas as pd
 
-from credit_coach.cli.run_production_smoke import build_smoke_gate_rows
+from credit_coach.cli.run_production_smoke import build_smoke_gate_rows, build_smoke_release_summary
 
 
 def _args(**overrides) -> Namespace:
@@ -172,3 +172,56 @@ def test_build_smoke_gate_rows_prefers_sync_latency_when_available():
     g0 = out[out["gate_id"] == "G0_BATCH_RECOURSE_KPI"].iloc[0]
     assert g0["status"] == "PASS"
     assert "latency_mode" in g0["details_json"]
+
+
+def test_build_smoke_release_summary_uses_fallback_single_seed_contract():
+    batch_summary = {
+        "denied_count": 100,
+        "denied_with_gate_pass_plan": 10,
+        "denied_to_approved_lift": 0.10,
+        "denied_high_risk_lift": 0.04,
+        "denied_reliability_violation_rate": 0.20,
+        "sync_latency_p95_ms": 420.0,
+        "sync_latency_p99_ms": 700.0,
+        "error_rate": 0.0,
+        "fairness_approval_gap_after": 0.06,
+        "trajectory_gate_pass_rate_4w": 0.05,
+        "trajectory_gate_pass_rate_12w": 0.09,
+        "trajectory_gate_pass_rate_24w": 0.12,
+        "trajectory_partial_progress_rate": 0.30,
+        "trajectory_median_time_to_gate_pass_days": 84.0,
+    }
+    batch_fairness_change = pd.DataFrame(
+        [{"approval_gap_delta": 0.0, "equalized_odds_gap_delta": 0.0, "high_stress_approval_gap_after": 0.07, "recourse_success_gap": 0.05}]
+    )
+
+    payload = build_smoke_release_summary(
+        batch_summary=batch_summary,
+        batch_fairness_change_df=batch_fairness_change,
+        thresholds=_args().__dict__,
+    )
+    assert payload["release_decision"] == "GO"
+    assert payload["smoke_pass"] is True
+    assert payload["pilot_eligible"] is False
+
+
+def test_build_smoke_release_summary_respects_phase_scale_limited_go():
+    payload = build_smoke_release_summary(
+        batch_summary={},
+        batch_fairness_change_df=pd.DataFrame(),
+        thresholds=_args().__dict__,
+        phase_scale_aggregate={
+            "lift_pass": True,
+            "reliability_pass": True,
+            "fairness_seed_pass_count": 4,
+            "fairness_seed_total": 5,
+            "worst_fairness_gap": 0.012,
+            "supporting_guardrails_within_limited_cap": True,
+            "dominant_fail_segment_key": "mid|q1|stress",
+            "dominant_fail_candidate_source": "internal",
+            "dominant_fail_segment_share": 0.71,
+        },
+    )
+    assert payload["release_decision"] == "LIMITED_GO"
+    assert payload["smoke_pass"] is False
+    assert payload["pilot_eligible"] is True
