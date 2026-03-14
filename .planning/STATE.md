@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 
 Phase: 10 of 11 (Candidate Quality and Trajectory Tuning)
 Plan: 0 of 3 in current phase
-Status: Ready for planning
-Last activity: 2026-03-14 - Phase 9 completed with canonical KPI contract snapshots, frozen-model provenance, and milestone acceptance artifacts
+Status: Planned
+Last activity: 2026-03-15 - Phase 10 planned with candidate-quality instrumentation, bounded high-risk tuning, and generator-impact diagnostics
 
 Progress: [████████░░] 82%
 
@@ -50,6 +50,8 @@ Recent decisions affecting current work:
 - Phase 9: KPI hardening will proceed in the order shared semantics -> frozen model provenance -> repeated-evidence acceptance
 - Phase 9 context: canonical runner contract is `kpi_contract_snapshot.json`, explicit freeze is fail-closed, degraded evidence is never acceptance-eligible, and milestone acceptance is derived from repeated seeded evidence
 - Phase 9 complete: smoke, suite, and challenger now emit or consume canonical KPI contract snapshots and milestone acceptance artifacts
+- Phase 10 planning assumption: roadmap requirements, Phase 9 evidence artifacts, and existing batch candidate/high-risk metrics are authoritative inputs because no dedicated `10-CONTEXT.md` was captured
+- Phase 10: candidate-quality work will proceed in the order instrumentation -> bounded high-risk tuning -> generator and policy impact diagnostics
 
 ### Pending Todos
 
@@ -62,6 +64,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14 19:05
-Stopped at: Phase 9 complete; next step is planning Phase 10
+Last session: 2026-03-15 10:45
+Stopped at: Phase 10 planning complete; next step is execute plans 10-01 through 10-03 under the v1.1 milestone
 Resume file: None
