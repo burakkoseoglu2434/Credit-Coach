@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 
 Phase: 9 of 11 (KPI Contract Unification)
 Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-03-14 - Phase 8 executed, verified, and marked complete
+Status: Planned
+Last activity: 2026-03-14 - Phase 9 planned with shared KPI semantics, frozen-model provenance, and milestone-acceptance workstreams
 
 Progress: [███████░░░] 72%
 
@@ -46,6 +46,8 @@ Recent decisions affecting current work:
 - Milestone: Imported phases 1-7 are treated as historical `v1.0` baseline work
 - Milestone: Current work starts at Phase 8 under `v1.1 Fairness Stability & KPI Hardening`
 - Phase 8: Shared seeded fairness release semantics now drive suite, smoke, and challenger behavior
+- Phase 9 planning assumption: roadmap requirements and Phase 8 outputs are authoritative input because no dedicated `09-CONTEXT.md` was captured
+- Phase 9: KPI hardening will proceed in the order shared semantics -> frozen model provenance -> repeated-evidence acceptance
 
 ### Pending Todos
 
@@ -58,6 +60,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14 13:00
-Stopped at: Phase 8 complete; next step is discuss or plan Phase 9 under the v1.1 milestone
+Last session: 2026-03-14 15:20
+Stopped at: Phase 9 planning complete; next step is execute plans 09-01 through 09-03 under the v1.1 milestone
 Resume file: None
