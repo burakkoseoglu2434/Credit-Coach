@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-03-14)
 
 **Core value:** Generate credit recourse plans that are actionable, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 10 - Candidate Quality and Trajectory Tuning
+**Current focus:** Phase 11 - Release Evidence and Outcome Feedback
 
 ## Current Position
 
-Phase: 10 of 11 (Candidate Quality and Trajectory Tuning)
+Phase: 11 of 11 (Release Evidence and Outcome Feedback)
 Plan: 0 of 3 in current phase
 Status: Planned
-Last activity: 2026-03-15 - Phase 10 replanned after context capture with canonical candidate-quality, high-risk tuning, and comparative impact contracts
+Last activity: 2026-03-15 - Phase 10 executed with canonical candidate-quality evidence, bounded high-risk tuning diagnostics, and comparative impact review artifacts
 
-Progress: [████████░░] 82%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 26 (historical import + phases 8-9)
+- Total plans completed: 29 (historical import + phases 8-10)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -28,7 +28,7 @@ Progress: [████████░░] 82%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | v1.0 historical baseline | 20 | historical import | n/a |
-| v1.1 current milestone | 6 | phases 8-9 complete | n/a |
+| v1.1 current milestone | 9 | phases 8-10 complete | n/a |
 
 **Recent Trend:**
 - Last 5 plans: historical data not reconstructed
@@ -54,6 +54,9 @@ Recent decisions affecting current work:
 - Phase 10 context: high-risk tuning is promotion evidence only, uses `denied_high_risk_lift` as the primary success metric, and requires `high_risk_profile_applied_rate >= 0.05` to count as non-anecdotal
 - Phase 10 context: generator and policy impact remains comparative rather than causal, uses the control variant as the primary baseline, and the derived review must stay explanation-first
 - Phase 10 replanning: candidate-quality work will proceed in the order instrumentation -> bounded high-risk tuning -> comparative generator and policy impact diagnostics
+- Phase 10 complete: candidate-quality evidence is now canonical in batch, suite, and challenger artifacts under the locked source taxonomy
+- Phase 10 complete: high-risk fast-track activation is explicit, bounded, and labeled as strong evidence or diagnostic-only based on activation, stability, and gate state
+- Phase 10 complete: milestone review markdown now derives candidate-quality, high-risk tuning, and comparative impact sections from machine-readable artifacts
 
 ### Pending Todos
 
@@ -66,6 +69,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15 13:05
-Stopped at: Phase 10 replanning complete; next step is execute the replanned 10-01 through 10-03 under the v1.1 milestone
+Last session: 2026-03-15 02:30
+Stopped at: Phase 10 execution complete; next step is plan and execute Phase 11 under the same v1.1 milestone
 Resume file: None

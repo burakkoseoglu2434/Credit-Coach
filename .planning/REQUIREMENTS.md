@@ -19,9 +19,9 @@
 
 ### Candidate Quality
 
-- [ ] **CAND-01**: Batch evaluation can measure candidate diversity and source entropy across internal and DiCE-driven plan generation paths
-- [ ] **CAND-02**: Planner and generator can prefer short-term phase-1 progress for denied high-risk customers when configured
-- [ ] **CAND-03**: Evaluation artifacts show which generator or policy changes improved or harmed gate pass, fairness, and short-term trajectory outcomes
+- [x] **CAND-01**: Batch evaluation can measure candidate diversity and source entropy across internal and DiCE-driven plan generation paths
+- [x] **CAND-02**: Planner and generator can prefer short-term phase-1 progress for denied high-risk customers when configured
+- [x] **CAND-03**: Evaluation artifacts show which generator or policy changes improved or harmed gate pass, fairness, and short-term trajectory outcomes
 
 ### Operations & Outcome Feedback
 

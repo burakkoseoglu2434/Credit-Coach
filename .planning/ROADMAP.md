@@ -67,9 +67,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 10-01: Instrument candidate diversity and generator provenance metrics
-- [ ] 10-02: Harden short-term phase-1 fast-track tuning for high-risk paths
-- [ ] 10-03: Publish generator and policy impact diagnostics beside batch KPIs
+- [x] 10-01: Instrument candidate diversity and generator provenance metrics
+- [x] 10-02: Harden short-term phase-1 fast-track tuning for high-risk paths
+- [x] 10-03: Publish generator and policy impact diagnostics beside batch KPIs
 
 #### Phase 11: Release Evidence and Outcome Feedback
 **Goal**: Make production-like release evidence complete, reproducible, and connected to business-impact proxies.
@@ -99,5 +99,5 @@ Plans:
 | 7. KPI Gate Stabilization | v1.0 | 3/3 | Complete | 2026-03-10 |
 | 8. Fairness Stability Matrix | v1.1 | 3/3 | Complete | 2026-03-14 |
 | 9. KPI Contract Unification | v1.1 | 3/3 | Complete | 2026-03-14 |
-| 10. Candidate Quality and Trajectory Tuning | v1.1 | 0/3 | Not started | - |
+| 10. Candidate Quality and Trajectory Tuning | v1.1 | 3/3 | Complete | 2026-03-15 |
 | 11. Release Evidence and Outcome Feedback | v1.1 | 0/3 | Not started | - |
