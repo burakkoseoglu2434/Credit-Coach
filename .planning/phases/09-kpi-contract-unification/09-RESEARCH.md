@@ -10,7 +10,7 @@ What has to change so smoke, phase-suite, and challenger workflows all enforce t
 
 ## Planning Assumption
 
-No `09-CONTEXT.md` exists because Phase 9 was planned directly from the roadmap. For this phase, the authoritative inputs are:
+Phase 9 planning started before `09-CONTEXT.md` existed, so the initial research pass used the roadmap directly. The authoritative inputs for that initial pass were:
 
 - `.planning/ROADMAP.md`
 - `.planning/REQUIREMENTS.md`
