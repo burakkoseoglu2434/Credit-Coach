@@ -1,0 +1,13 @@
+{
+  "mode": "interactive",
+  "granularity": "standard",
+  "commit_docs": true,
+  "model_profile": "balanced",
+  "parallelization": true,
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true
+  }
+}
