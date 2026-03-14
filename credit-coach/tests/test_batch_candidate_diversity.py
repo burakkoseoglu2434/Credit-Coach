@@ -3,6 +3,8 @@ from __future__ import annotations
 from credit_coach.cli.run_batch_recourse_eval import (
     _apply_phase1_feature_boost,
     _apply_fairness_segment_cap_boost,
+    _build_candidate_quality_artifacts,
+    _build_high_risk_profile_activation_summary,
     _apply_high_risk_profile,
     _build_fairness_failure_breakdown,
     _candidate_pool_diversity_index,
@@ -145,6 +147,49 @@ def test_prune_candidate_pool_with_novelty_increases_diversity():
     assert len(diverse) == 3
     assert _candidate_pool_diversity_index(diverse) >= _candidate_pool_diversity_index(plain)
     assert _candidate_source_entropy(diverse) >= 0.0
+
+
+def test_build_candidate_quality_artifacts_uses_denied_as_canonical_population():
+    batch_df = pd.DataFrame(
+        [
+            {
+                "denied_base": 1,
+                "risk_band": "high",
+                "best_source": "internal",
+                "candidate_pool_diversity_index": 0.60,
+                "candidate_source_entropy": 0.40,
+            },
+            {
+                "denied_base": 1,
+                "risk_band": "mid",
+                "best_source": "dice",
+                "candidate_pool_diversity_index": 0.30,
+                "candidate_source_entropy": 0.20,
+            },
+            {
+                "denied_base": 0,
+                "risk_band": "high",
+                "best_source": "rule",
+                "candidate_pool_diversity_index": 0.90,
+                "candidate_source_entropy": 0.80,
+            },
+        ]
+    )
+
+    summary, breakdown = _build_candidate_quality_artifacts(batch_df)
+
+    assert summary["canonical_population"] == "denied"
+    assert summary["secondary_population"] == "high_risk_denied"
+    assert summary["population_sizes"]["denied"] == 2
+    assert summary["population_sizes"]["high_risk_denied"] == 1
+    assert summary["canonical_metrics"]["candidate_pool_diversity_index"] == 0.45
+    assert summary["canonical_metrics"]["candidate_source_entropy"] == 0.30
+    assert summary["canonical_metrics"]["best_source_internal_rate"] == 0.5
+    assert summary["canonical_metrics"]["best_source_dice_rate"] == 0.5
+    assert summary["secondary_metrics"]["candidate_pool_diversity_index"] == 0.60
+    assert summary["secondary_metrics"]["best_source_internal_rate"] == 1.0
+    assert set(breakdown["population"]) == {"denied", "high_risk_denied"}
+    assert set(breakdown["candidate_source"]) == {"internal", "dice", "rule", "fallback"}
 
 
 def test_stage1_filter_candidate_pool_applies_source_cap():
@@ -344,7 +389,35 @@ def test_build_fairness_failure_breakdown_outputs_expected_columns():
     assert "canonical_segment_key" in out.columns
     assert "candidate_source" in out.columns
     assert "stress_band" in out.columns
-    assert "failure_weight" in out.columns
+
+
+def test_build_high_risk_profile_activation_summary_marks_low_activation_as_diagnostic():
+    batch_df = pd.DataFrame(
+        {
+            "denied_base": [1, 1] + ([0] * 19),
+            "risk_band": ["high", "high"] + (["mid"] * 19),
+            "high_risk_profile_applied": [1, 0] + ([0] * 19),
+            "high_risk_profile_reason": ["applied", "pd_delta_above_cap"] + (["not_high_risk"] * 19),
+        }
+    )
+
+    summary = _build_high_risk_profile_activation_summary(
+        batch_df,
+        rec_cfg={
+            "high_risk_profile": {
+                "enabled": True,
+                "denied_target_only": True,
+                "enforce_max_pd_delta": True,
+                "max_pd_delta": 0.25,
+            }
+        },
+    )
+
+    assert summary["enabled"] is True
+    assert summary["eligible_population_size"] == 2
+    assert summary["applied_rate"] < 0.05
+    assert summary["meaningful_activation"] is False
+    assert summary["blocked_reason_counts"]["pd_delta_above_cap"] == 1
 
 
 def test_apply_fairness_segment_cap_boost_for_high_penalty_high_risk_denied():

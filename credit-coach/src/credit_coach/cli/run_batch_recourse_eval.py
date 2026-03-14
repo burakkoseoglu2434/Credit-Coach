@@ -50,6 +50,9 @@ _STATUS_PRIORITY = {
     "ERROR": 3,
 }
 
+_CANDIDATE_SOURCE_CATALOG: tuple[str, ...] = ("internal", "dice", "rule", "fallback")
+_HIGH_RISK_ACTIVATION_FLOOR = 0.05
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Batch recourse evaluation for large customer cohorts")
@@ -129,6 +132,16 @@ def _safe_str(v: Any, default: str = "") -> str:
     if isinstance(v, float) and np.isnan(v):
         return default
     return str(v)
+
+
+def _round_metric(value: Any, *, digits: int = 6) -> float:
+    try:
+        metric = float(value)
+    except Exception:
+        return 0.0
+    if np.isnan(metric):
+        return 0.0
+    return round(metric, digits)
 
 
 def _extract_model_importance_vector(model: Any, feature_cols: list[str]) -> np.ndarray | None:
@@ -1164,31 +1177,46 @@ def _prune_candidate_pool(
     return selected
 
 
-def _apply_high_risk_profile(
+def _resolve_high_risk_profile_activation(
     *,
     search_profile: dict[str, Any],
     robust_cfg: dict[str, Any],
     dice_cfg: dict[str, Any],
     rec_cfg: dict[str, Any],
     segment_context: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], bool]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     high_cfg = rec_cfg.get("high_risk_profile", {}) if isinstance(rec_cfg.get("high_risk_profile", {}), dict) else {}
+    metadata: dict[str, Any] = {
+        "enabled": bool(high_cfg.get("enabled", False)),
+        "applied": False,
+        "reason": "disabled",
+        "denied_target_only": bool(high_cfg.get("denied_target_only", True)),
+        "enforce_max_pd_delta": bool(high_cfg.get("enforce_max_pd_delta", False)),
+        "max_pd_delta": _safe_float(high_cfg.get("max_pd_delta"), default=0.0)
+        if high_cfg.get("max_pd_delta") is not None
+        else None,
+        "risk_band": str(segment_context.get("risk_band", "")),
+        "pd_distance_to_tau": _safe_float(segment_context.get("pd_distance_to_tau"), default=0.0),
+    }
     if not bool(high_cfg.get("enabled", False)):
-        return search_profile, robust_cfg, dice_cfg, False
+        return search_profile, robust_cfg, dice_cfg, metadata
     if str(segment_context.get("risk_band", "")) != "high":
-        return search_profile, robust_cfg, dice_cfg, False
+        metadata["reason"] = "not_high_risk"
+        return search_profile, robust_cfg, dice_cfg, metadata
     max_pd_delta = high_cfg.get("max_pd_delta")
     enforce_max_pd_delta = bool(high_cfg.get("enforce_max_pd_delta", False))
     if enforce_max_pd_delta and max_pd_delta is not None:
         try:
             pd_delta = float(segment_context.get("pd_distance_to_tau", 0.0))
             if pd_delta > float(max_pd_delta):
-                return search_profile, robust_cfg, dice_cfg, False
+                metadata["reason"] = "pd_delta_above_cap"
+                return search_profile, robust_cfg, dice_cfg, metadata
         except Exception:
             pass
     denied_only = bool(high_cfg.get("denied_target_only", True))
     if denied_only and not bool(search_profile.get("is_denied_target", False)):
-        return search_profile, robust_cfg, dice_cfg, False
+        metadata["reason"] = "not_denied_target"
+        return search_profile, robust_cfg, dice_cfg, metadata
 
     sp = dict(search_profile)
     rc = dict(robust_cfg)
@@ -1262,7 +1290,27 @@ def _apply_high_risk_profile(
                 ),
             )
         )
-    return sp, rc, dc, True
+    metadata["applied"] = True
+    metadata["reason"] = "applied"
+    return sp, rc, dc, metadata
+
+
+def _apply_high_risk_profile(
+    *,
+    search_profile: dict[str, Any],
+    robust_cfg: dict[str, Any],
+    dice_cfg: dict[str, Any],
+    rec_cfg: dict[str, Any],
+    segment_context: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], bool]:
+    sp, rc, dc, metadata = _resolve_high_risk_profile_activation(
+        search_profile=search_profile,
+        robust_cfg=robust_cfg,
+        dice_cfg=dice_cfg,
+        rec_cfg=rec_cfg,
+        segment_context=segment_context,
+    )
+    return sp, rc, dc, bool(metadata.get("applied", False))
 
 
 def _root_cause_from_status_reasons(reasons: list[str] | str) -> str:
@@ -1586,6 +1634,146 @@ def _build_denied_diagnostics(
         ),
     }
     return gate_breakdown, source_breakdown, income_lift, risk_lift, metrics
+
+
+def _candidate_quality_metrics_for_population(rows: pd.DataFrame) -> dict[str, float]:
+    if rows.empty:
+        return {
+            "candidate_pool_diversity_index": 0.0,
+            "candidate_source_entropy": 0.0,
+            **{f"best_source_{source}_rate": 0.0 for source in _CANDIDATE_SOURCE_CATALOG},
+        }
+    best_source = rows.get("best_source", pd.Series([""] * len(rows))).astype(str).str.strip().str.lower()
+    metrics = {
+        "candidate_pool_diversity_index": _round_metric(
+            pd.to_numeric(rows.get("candidate_pool_diversity_index", pd.Series([0.0] * len(rows))), errors="coerce")
+            .fillna(0.0)
+            .mean()
+        ),
+        "candidate_source_entropy": _round_metric(
+            pd.to_numeric(rows.get("candidate_source_entropy", pd.Series([0.0] * len(rows))), errors="coerce")
+            .fillna(0.0)
+            .mean()
+        ),
+    }
+    for source in _CANDIDATE_SOURCE_CATALOG:
+        metrics[f"best_source_{source}_rate"] = _round_metric((best_source == source).mean())
+    return metrics
+
+
+def _build_candidate_quality_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any], pd.DataFrame]:
+    denied = batch_df[batch_df.get("denied_base", pd.Series(dtype=int)).astype(int) == 1].copy()
+    denied_high_risk = denied[denied.get("risk_band", pd.Series(dtype=str)).astype(str).str.lower() == "high"].copy()
+
+    canonical_metrics = _candidate_quality_metrics_for_population(denied)
+    secondary_metrics = _candidate_quality_metrics_for_population(denied_high_risk)
+    summary = {
+        "canonical_population": "denied",
+        "secondary_population": "high_risk_denied",
+        "source_catalog": list(_CANDIDATE_SOURCE_CATALOG),
+        "population_sizes": {
+            "denied": int(len(denied)),
+            "high_risk_denied": int(len(denied_high_risk)),
+        },
+        "canonical_metrics": canonical_metrics,
+        "secondary_metrics": secondary_metrics,
+    }
+
+    breakdown_rows: list[dict[str, Any]] = []
+    for population, rows in (("denied", denied), ("high_risk_denied", denied_high_risk)):
+        best_source = rows.get("best_source", pd.Series([""] * len(rows))).astype(str).str.strip().str.lower()
+        for source in _CANDIDATE_SOURCE_CATALOG:
+            count = int((best_source == source).sum()) if not rows.empty else 0
+            share = _round_metric((best_source == source).mean()) if not rows.empty else 0.0
+            breakdown_rows.append(
+                {
+                    "population": population,
+                    "candidate_source": source,
+                    "count": count,
+                    "share": share,
+                    "population_size": int(len(rows)),
+                }
+            )
+    breakdown_df = pd.DataFrame(breakdown_rows)
+    return summary, breakdown_df
+
+
+def _build_high_risk_profile_activation_summary(
+    batch_df: pd.DataFrame,
+    *,
+    rec_cfg: dict[str, Any],
+) -> dict[str, Any]:
+    high_cfg = rec_cfg.get("high_risk_profile", {}) if isinstance(rec_cfg.get("high_risk_profile", {}), dict) else {}
+    if batch_df.empty:
+        return {
+            "enabled": bool(high_cfg.get("enabled", False)),
+            "denied_target_only": bool(high_cfg.get("denied_target_only", True)),
+            "enforce_max_pd_delta": bool(high_cfg.get("enforce_max_pd_delta", False)),
+            "max_pd_delta": _safe_float(high_cfg.get("max_pd_delta"), default=0.0)
+            if high_cfg.get("max_pd_delta") is not None
+            else None,
+            "population_scope": "high_risk_denied",
+            "minimum_meaningful_activation_rate": _HIGH_RISK_ACTIVATION_FLOOR,
+            "eligible_population_size": 0,
+            "applied_count": 0,
+            "applied_rate": 0.0,
+            "meaningful_activation": False,
+            "reason_counts": {},
+            "blocked_reason_counts": {},
+        }
+
+    eligible_mask = (
+        batch_df.get("denied_base", pd.Series(dtype=int)).astype(int) == 1
+    ) & (batch_df.get("risk_band", pd.Series(dtype=str)).astype(str).str.lower() == "high")
+    applied_rate = _round_metric(batch_df.get("high_risk_profile_applied", pd.Series(dtype=int)).astype(int).mean())
+    reason_series = batch_df.get("high_risk_profile_reason", pd.Series(dtype=str)).astype(str).replace("", "unknown")
+    reason_counts = {str(key): int(value) for key, value in reason_series.value_counts(dropna=False).items()}
+    blocked_reason_counts = {
+        str(key): int(value)
+        for key, value in reason_counts.items()
+        if str(key) not in {"applied", ""}
+    }
+    return {
+        "enabled": bool(high_cfg.get("enabled", False)),
+        "denied_target_only": bool(high_cfg.get("denied_target_only", True)),
+        "enforce_max_pd_delta": bool(high_cfg.get("enforce_max_pd_delta", False)),
+        "max_pd_delta": _safe_float(high_cfg.get("max_pd_delta"), default=0.0)
+        if high_cfg.get("max_pd_delta") is not None
+        else None,
+        "population_scope": "high_risk_denied",
+        "minimum_meaningful_activation_rate": _HIGH_RISK_ACTIVATION_FLOOR,
+        "eligible_population_size": int(eligible_mask.sum()),
+        "applied_count": int(batch_df.get("high_risk_profile_applied", pd.Series(dtype=int)).astype(int).sum()),
+        "applied_rate": applied_rate,
+        "meaningful_activation": bool(applied_rate >= _HIGH_RISK_ACTIVATION_FLOOR),
+        "reason_counts": reason_counts,
+        "blocked_reason_counts": blocked_reason_counts,
+    }
+
+
+def _build_batch_high_risk_tuning_summary(
+    *,
+    summary: dict[str, Any],
+    activation_summary: dict[str, Any],
+) -> dict[str, Any]:
+    diagnostic_reasons: list[str] = []
+    if not bool(activation_summary.get("meaningful_activation", False)):
+        diagnostic_reasons.append("activation_below_min_floor")
+    evidence_status = "observed" if not diagnostic_reasons else "diagnostic_only"
+    return {
+        "primary_metric": "denied_high_risk_lift",
+        "primary_metric_value": _round_metric(summary.get("denied_high_risk_lift", 0.0)),
+        "high_risk_profile_applied_rate": _round_metric(summary.get("high_risk_profile_applied_rate", 0.0)),
+        "activation_floor": _HIGH_RISK_ACTIVATION_FLOOR,
+        "meaningful_activation": bool(activation_summary.get("meaningful_activation", False)),
+        "supporting_metrics": {
+            "high_risk_reachability_rate": _round_metric(summary.get("high_risk_reachability_rate", 0.0)),
+            "trajectory_partial_progress_rate": _round_metric(summary.get("trajectory_partial_progress_rate", 0.0)),
+        },
+        "evidence_status": evidence_status,
+        "diagnostic_reasons": diagnostic_reasons,
+        "activation_summary": activation_summary,
+    }
 
 
 def _build_fairness_failure_breakdown(
@@ -2743,6 +2931,7 @@ def main() -> None:
             "denied_base": int(base_pd_i > tau),
             "denied_target_mode": 0,
             "high_risk_profile_applied": 0,
+            "high_risk_profile_reason": "",
             "income_band": "",
             "risk_band": "",
             "segment_caps_applied": 0,
@@ -2885,7 +3074,7 @@ def main() -> None:
 
             out["fairness_penalty"] = float(fairness_penalty)
 
-            search_profile, robust_cfg, dice_cfg, high_risk_applied = _apply_high_risk_profile(
+            search_profile, robust_cfg, dice_cfg, high_risk_profile_meta = _resolve_high_risk_profile_activation(
                 search_profile=search_profile,
                 robust_cfg=robust_cfg,
                 dice_cfg=dice_cfg,
@@ -2901,7 +3090,8 @@ def main() -> None:
             min_worst_margin = robust_cfg.get("min_worst_risk_margin")
             min_reliability_f = float(min_reliability) if min_reliability is not None else None
             min_worst_margin_f = float(min_worst_margin) if min_worst_margin is not None else None
-            out["high_risk_profile_applied"] = int(high_risk_applied)
+            out["high_risk_profile_applied"] = int(bool(high_risk_profile_meta.get("applied", False)))
+            out["high_risk_profile_reason"] = str(high_risk_profile_meta.get("reason", ""))
             deny_mode = bool(search_profile.get("is_denied_target", False))
             high_risk_denied = bool(deny_mode and str(segment_context.get("risk_band", "")).strip().lower() == "high")
             pre_tune = search_profile
@@ -3863,6 +4053,15 @@ def main() -> None:
     fallback_out = run_ctx.tables_dir / "dice_fallback_distribution.csv"
     fallback_counts.to_csv(fallback_out, index=False)
 
+    candidate_quality_summary, candidate_source_breakdown = _build_candidate_quality_artifacts(batch_df)
+    candidate_quality_summary_out = run_ctx.tables_dir / "candidate_quality_summary.json"
+    candidate_quality_summary_out.write_text(
+        json.dumps(candidate_quality_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    candidate_source_breakdown_out = run_ctx.tables_dir / "candidate_source_breakdown.csv"
+    candidate_source_breakdown.to_csv(candidate_source_breakdown_out, index=False)
+
     err_df = batch_df[batch_df["error_type"] != ""]
     err_counts = (
         err_df["error_type"].value_counts(dropna=False).rename_axis("error_type").reset_index(name="count")
@@ -4187,6 +4386,34 @@ def main() -> None:
         "best_source_internal_rate": float((batch_df["best_source"] == "internal").mean()),
         "candidate_pool_diversity_index": float(batch_df["candidate_pool_diversity_index"].astype(float).mean()),
         "candidate_source_entropy": float(batch_df["candidate_source_entropy"].astype(float).mean()),
+        "candidate_quality_population": str(candidate_quality_summary["canonical_population"]),
+        "candidate_quality_secondary_population": str(candidate_quality_summary["secondary_population"]),
+        "denied_candidate_pool_diversity_index": float(
+            candidate_quality_summary["canonical_metrics"]["candidate_pool_diversity_index"]
+        ),
+        "denied_candidate_source_entropy": float(candidate_quality_summary["canonical_metrics"]["candidate_source_entropy"]),
+        "denied_best_source_internal_rate": float(candidate_quality_summary["canonical_metrics"]["best_source_internal_rate"]),
+        "denied_best_source_dice_rate": float(candidate_quality_summary["canonical_metrics"]["best_source_dice_rate"]),
+        "denied_best_source_rule_rate": float(candidate_quality_summary["canonical_metrics"]["best_source_rule_rate"]),
+        "denied_best_source_fallback_rate": float(candidate_quality_summary["canonical_metrics"]["best_source_fallback_rate"]),
+        "high_risk_denied_candidate_pool_diversity_index": float(
+            candidate_quality_summary["secondary_metrics"]["candidate_pool_diversity_index"]
+        ),
+        "high_risk_denied_candidate_source_entropy": float(
+            candidate_quality_summary["secondary_metrics"]["candidate_source_entropy"]
+        ),
+        "high_risk_denied_best_source_internal_rate": float(
+            candidate_quality_summary["secondary_metrics"]["best_source_internal_rate"]
+        ),
+        "high_risk_denied_best_source_dice_rate": float(
+            candidate_quality_summary["secondary_metrics"]["best_source_dice_rate"]
+        ),
+        "high_risk_denied_best_source_rule_rate": float(
+            candidate_quality_summary["secondary_metrics"]["best_source_rule_rate"]
+        ),
+        "high_risk_denied_best_source_fallback_rate": float(
+            candidate_quality_summary["secondary_metrics"]["best_source_fallback_rate"]
+        ),
         "high_risk_profile_applied_rate": float(batch_df["high_risk_profile_applied"].astype(int).mean()),
         "fairness_cap_boost_applied_rate": float(batch_df["fairness_cap_boost_applied"].astype(int).mean()),
         "fairness_cap_boost_factor_avg": float(batch_df["fairness_cap_boost_factor"].astype(float).mean()),
@@ -4298,6 +4525,16 @@ def main() -> None:
 
     summary_json = run_ctx.tables_dir / "batch_summary.json"
     summary_json.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    high_risk_profile_activation = _build_high_risk_profile_activation_summary(batch_df, rec_cfg=rec_cfg)
+    high_risk_tuning_summary = _build_batch_high_risk_tuning_summary(
+        summary=summary,
+        activation_summary=high_risk_profile_activation,
+    )
+    high_risk_tuning_summary_out = run_ctx.tables_dir / "high_risk_tuning_summary.json"
+    high_risk_tuning_summary_out.write_text(
+        json.dumps(high_risk_tuning_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
     frozen_manifest_payload = build_frozen_model_manifest(
         manifest,
         project_root=Path(__file__).resolve().parents[3],
@@ -4322,6 +4559,10 @@ def main() -> None:
         "sample": {
             "n_customers": int(n),
             "sample_seed": int(args.sample_seed),
+        },
+        "high_risk_profile": {
+            **high_risk_profile_activation,
+            "summary_path": "tables/high_risk_tuning_summary.json",
         },
     }
     run_manifest_out = run_ctx.tables_dir / "batch_run_manifest.json"

@@ -241,6 +241,24 @@ KPI_CONTRACT_VERSION = "phase9.v1"
 ACCEPTED = "ACCEPTED"
 PILOT_ONLY = "PILOT_ONLY"
 REJECTED = "REJECTED"
+HELPED = "helped"
+HARMED = "harmed"
+MIXED = "mixed"
+NO_MATERIAL_CHANGE = "no_material_change"
+STRONG = "strong"
+TENTATIVE = "tentative"
+
+PRIMARY_COMPARATIVE_IMPACT_AXES: dict[str, dict[str, Any]] = {
+    "denied_to_approved_lift": {"higher_is_better": True},
+    "denied_high_risk_lift": {"higher_is_better": True},
+    "equalized_odds_gap_delta": {"higher_is_better": False},
+    "denied_reliability_violation_rate": {"higher_is_better": False},
+}
+SUPPORTING_COMPARATIVE_IMPACT_AXES: dict[str, dict[str, Any]] = {
+    "high_risk_reachability_rate": {"higher_is_better": True},
+    "trajectory_partial_progress_rate": {"higher_is_better": True},
+    "candidate_source_entropy": {"higher_is_better": True},
+}
 
 
 def _coerce_value(key: str, value: Any) -> float | bool:
@@ -259,6 +277,134 @@ def _coerce_metric_value(value: Any) -> float | None:
     if math.isnan(value_f):
         return None
     return value_f
+
+
+def _round_metric(value: Any, *, digits: int = 6) -> float:
+    metric = _coerce_metric_value(value)
+    if metric is None:
+        return 0.0
+    return round(float(metric), digits)
+
+
+def _impact_label_from_delta(delta: float, *, higher_is_better: bool) -> str:
+    if abs(delta) <= 1e-9:
+        return NO_MATERIAL_CHANGE
+    if higher_is_better:
+        return HELPED if delta > 0.0 else HARMED
+    return HELPED if delta < 0.0 else HARMED
+
+
+def _overall_impact_assessment(labels: Iterable[str]) -> str:
+    normalized = [str(label) for label in labels if str(label)]
+    helped = any(label == HELPED for label in normalized)
+    harmed = any(label == HARMED for label in normalized)
+    if helped and harmed:
+        return MIXED
+    if helped:
+        return HELPED
+    if harmed:
+        return HARMED
+    return NO_MATERIAL_CHANGE
+
+
+def build_comparative_impact_summary(
+    *,
+    subject_label: str,
+    baseline_label: str,
+    subject_metrics: Mapping[str, Any],
+    baseline_metrics: Mapping[str, Any] | None,
+    evidence_level: str,
+    evidence_status: str,
+    seed_count: int,
+    metric_direction_consistency: Mapping[str, bool] | None = None,
+    source_mix_deltas: Mapping[str, Any] | None = None,
+    baseline_type: str = "control_variant",
+    diagnostic_reason: str = "",
+    metadata: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    consistency = {
+        str(key): bool(value)
+        for key, value in (metric_direction_consistency or {}).items()
+    }
+    normalized_source_mix = {
+        str(key): _round_metric(value)
+        for key, value in (source_mix_deltas or {}).items()
+    }
+    payload: dict[str, Any] = {
+        "comparison_type": "comparative_evidence",
+        "baseline_type": str(baseline_type),
+        "baseline_label": str(baseline_label),
+        "subject_label": str(subject_label),
+        "evidence_level": str(evidence_level),
+        "evidence_status": str(evidence_status or "degraded"),
+        "seed_count": int(seed_count),
+        "source_mix_deltas": normalized_source_mix,
+        "primary_axes": {},
+        "supporting_axes": {},
+    }
+    if isinstance(metadata, Mapping):
+        for key, value in metadata.items():
+            payload[str(key)] = value
+
+    if not isinstance(baseline_metrics, Mapping):
+        payload["comparative_impact_confidence"] = TENTATIVE
+        payload["overall_assessment"] = NO_MATERIAL_CHANGE
+        payload["diagnostic_only"] = True
+        payload["diagnostic_reason"] = str(diagnostic_reason or "baseline_unavailable")
+        return payload
+
+    def _axis_payload(
+        metric_key: str,
+        spec: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        baseline_value = _coerce_metric_value(baseline_metrics.get(metric_key))
+        subject_value = _coerce_metric_value(subject_metrics.get(metric_key))
+        if baseline_value is None or subject_value is None:
+            return {
+                "label": NO_MATERIAL_CHANGE,
+                "baseline_value": 0.0 if baseline_value is None else _round_metric(baseline_value),
+                "subject_value": 0.0 if subject_value is None else _round_metric(subject_value),
+                "delta": 0.0,
+                "directionally_consistent": bool(consistency.get(metric_key, False)),
+            }
+        delta = _round_metric(subject_value - baseline_value)
+        return {
+            "label": _impact_label_from_delta(delta, higher_is_better=bool(spec.get("higher_is_better", True))),
+            "baseline_value": _round_metric(baseline_value),
+            "subject_value": _round_metric(subject_value),
+            "delta": delta,
+            "directionally_consistent": bool(consistency.get(metric_key, True)),
+        }
+
+    primary_axes = {
+        metric_key: _axis_payload(metric_key, spec)
+        for metric_key, spec in PRIMARY_COMPARATIVE_IMPACT_AXES.items()
+    }
+    supporting_axes = {
+        metric_key: _axis_payload(metric_key, spec)
+        for metric_key, spec in SUPPORTING_COMPARATIVE_IMPACT_AXES.items()
+    }
+    payload["primary_axes"] = primary_axes
+    payload["supporting_axes"] = supporting_axes
+    payload["overall_assessment"] = _overall_impact_assessment(
+        axis_payload["label"] for axis_payload in primary_axes.values()
+    )
+
+    consistency_values = [
+        bool(consistency.get(metric_key, True))
+        for metric_key in (*PRIMARY_COMPARATIVE_IMPACT_AXES.keys(), *SUPPORTING_COMPARATIVE_IMPACT_AXES.keys())
+        if metric_key in consistency
+    ]
+    strong_confidence = bool(
+        str(evidence_status or "").lower() == "complete"
+        and int(seed_count) > 1
+        and all(consistency_values or [True])
+    )
+    payload["comparative_impact_confidence"] = STRONG if strong_confidence else TENTATIVE
+    payload["diagnostic_only"] = not strong_confidence
+    if diagnostic_reason:
+        payload["diagnostic_reason"] = str(diagnostic_reason)
+    return payload
 
 
 def _resolve_metric_value(metrics: Mapping[str, Any], threshold_key: str) -> tuple[float | None, str]:
@@ -580,6 +726,25 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
     supporting_artifacts = summary.get("supporting_artifacts", {})
     if not isinstance(supporting_artifacts, Mapping):
         supporting_artifacts = {}
+    candidate_quality = summary.get("candidate_quality_summary", {})
+    if not isinstance(candidate_quality, Mapping):
+        candidate_quality = {}
+    high_risk_tuning = summary.get("high_risk_tuning_summary", {})
+    if not isinstance(high_risk_tuning, Mapping):
+        high_risk_tuning = {}
+    impact_summary = summary.get("impact_attribution_summary", {})
+    if not isinstance(impact_summary, Mapping):
+        impact_summary = {}
+
+    candidate_metrics = candidate_quality.get("canonical_metrics", {})
+    if not isinstance(candidate_metrics, Mapping):
+        candidate_metrics = {}
+    high_risk_supporting = high_risk_tuning.get("supporting_metrics", {})
+    if not isinstance(high_risk_supporting, Mapping):
+        high_risk_supporting = {}
+    impact_primary_axes = impact_summary.get("primary_axes", {})
+    if not isinstance(impact_primary_axes, Mapping):
+        impact_primary_axes = {}
 
     lines = [
         "# Milestone Acceptance Review",
@@ -588,38 +753,73 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
         "",
         f"- Acceptance status: {summary.get('acceptance_status', REJECTED)}",
         f"- Release decision: {summary.get('release_decision', 'NO_GO')}",
+        f"- Evidence level: {summary.get('evidence_level', '')}",
         f"- Acceptance eligible: {bool(summary.get('acceptance_eligible', False))}",
         f"- Broad rollout allowed: {bool(summary.get('broad_rollout_allowed', False))}",
+        f"- Phase: {summary.get('phase', '')}",
+        f"- Milestone: {summary.get('milestone', '')}",
+        f"- Model version: {summary.get('model_version', '')}",
+        f"- Freeze mode: {summary.get('model_freeze_mode', '')}",
         "",
-        "## Reason Summary",
+        "## Candidate Quality Summary",
         "",
-        f"- Evidence level: {summary.get('evidence_level', '')}",
-        f"- Lift pass: {bool(summary.get('lift_pass', False))}",
-        f"- Reliability pass: {bool(summary.get('reliability_pass', False))}",
-        f"- Fairness seed pass count: {int(summary.get('fairness_seed_pass_count', 0))}/{int(summary.get('seed_count', 0))}",
-        f"- Primary fairness metric: {summary.get('primary_fairness_metric', '')}",
-        f"- Worst primary fairness gap: {float(summary.get('worst_primary_fairness_gap', 0.0)):.6f}",
+        f"- Population: {candidate_quality.get('candidate_quality_population', 'denied')}",
+        f"- Companion population: {candidate_quality.get('candidate_quality_secondary_population', 'high_risk_denied')}",
+        f"- Candidate pool diversity index: {float(candidate_metrics.get('candidate_pool_diversity_index', 0.0)):.6f}",
+        f"- Candidate source entropy: {float(candidate_metrics.get('candidate_source_entropy', 0.0)):.6f}",
+        f"- Best source internal rate: {float(candidate_metrics.get('best_source_internal_rate', 0.0)):.6f}",
+        f"- Best source dice rate: {float(candidate_metrics.get('best_source_dice_rate', 0.0)):.6f}",
+        f"- Best source rule rate: {float(candidate_metrics.get('best_source_rule_rate', 0.0)):.6f}",
+        f"- Best source fallback rate: {float(candidate_metrics.get('best_source_fallback_rate', 0.0)):.6f}",
+        "",
+        "## High-Risk Tuning Summary",
+        "",
+        f"- Primary metric: {high_risk_tuning.get('primary_metric', 'denied_high_risk_lift')}",
+        f"- Primary metric value: {float(high_risk_tuning.get('primary_metric_value', 0.0)):.6f}",
+        f"- High-risk profile applied rate: {float(high_risk_tuning.get('high_risk_profile_applied_rate', 0.0)):.6f}",
+        f"- Meaningful activation: {bool(high_risk_tuning.get('meaningful_activation', False))}",
+        f"- Evidence status: {high_risk_tuning.get('evidence_status', 'diagnostic_only')}",
+        f"- High-risk reachability rate: {float(high_risk_supporting.get('high_risk_reachability_rate', 0.0)):.6f}",
+        f"- Trajectory partial progress rate: {float(high_risk_supporting.get('trajectory_partial_progress_rate', 0.0)):.6f}",
+        "",
+        "## Impact Attribution Summary",
+        "",
+        f"- Baseline: {impact_summary.get('baseline_label', '')}",
+        f"- Overall assessment: {impact_summary.get('overall_assessment', NO_MATERIAL_CHANGE)}",
+        f"- Comparative impact confidence: {impact_summary.get('comparative_impact_confidence', TENTATIVE)}",
     ]
-    if summary.get("degraded_reason"):
-        lines.append(f"- Degraded reason: {summary.get('degraded_reason', '')}")
+    if impact_summary.get("diagnostic_reason"):
+        lines.append(f"- Diagnostic reason: {impact_summary.get('diagnostic_reason', '')}")
+    for metric_key in (
+        "denied_to_approved_lift",
+        "denied_high_risk_lift",
+        "equalized_odds_gap_delta",
+        "denied_reliability_violation_rate",
+    ):
+        axis_payload = impact_primary_axes.get(metric_key, {})
+        if not isinstance(axis_payload, Mapping):
+            continue
+        lines.append(
+            f"- {metric_key}: {axis_payload.get('label', NO_MATERIAL_CHANGE)} "
+            f"(delta={float(axis_payload.get('delta', 0.0)):.6f})"
+        )
 
     lines.extend(
         [
             "",
-            "## Freeze / Provenance",
+            "## Fairness & Reliability Snapshot",
             "",
-            f"- Phase: {summary.get('phase', '')}",
-            f"- Milestone: {summary.get('milestone', '')}",
-            f"- Runner type: {summary.get('runner_type', '')}",
-            f"- Model version: {summary.get('model_version', '')}",
-            f"- Freeze mode: {summary.get('model_freeze_mode', '')}",
-            "",
-            "## Dominant Failure Localization",
-            "",
+            f"- Lift pass: {bool(summary.get('lift_pass', False))}",
+            f"- Reliability pass: {bool(summary.get('reliability_pass', False))}",
+            f"- Fairness seed pass count: {int(summary.get('fairness_seed_pass_count', 0))}/{int(summary.get('seed_count', 0))}",
+            f"- Primary fairness metric: {summary.get('primary_fairness_metric', '')}",
+            f"- Worst primary fairness gap: {float(summary.get('worst_primary_fairness_gap', 0.0)):.6f}",
             f"- Dominant fail segment: {summary.get('dominant_fail_segment_key', '')}",
             f"- Dominant fail candidate source: {summary.get('dominant_fail_candidate_source', '')}",
         ]
     )
+    if summary.get("degraded_reason"):
+        lines.append(f"- Degraded reason: {summary.get('degraded_reason', '')}")
     if supporting_artifacts:
         lines.extend(["", "## Supporting Artifacts", ""])
         for key in sorted(supporting_artifacts.keys(), key=str):

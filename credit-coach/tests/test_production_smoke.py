@@ -267,6 +267,18 @@ def test_build_smoke_release_summary_prefers_milestone_acceptance_summary() -> N
             "dominant_fail_candidate_source": "internal",
             "model_version": "model-123",
             "model_freeze_mode": "explicit_model_version",
+            "candidate_quality_summary": {
+                "candidate_quality_population": "denied",
+                "candidate_quality_secondary_population": "high_risk_denied",
+            },
+            "high_risk_tuning_summary": {
+                "primary_metric": "denied_high_risk_lift",
+                "high_risk_profile_applied_rate": 0.07,
+            },
+            "impact_attribution_summary": {
+                "baseline_label": "control_logistic_isotonic",
+                "comparative_impact_confidence": "tentative",
+            },
         },
     )
     assert payload["release_decision"] == "LIMITED_GO"

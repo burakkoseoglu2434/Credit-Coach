@@ -15,6 +15,7 @@ import pandas as pd
 from credit_coach.evaluation.fairness import build_canonical_segment_key
 from credit_coach.model.registry import build_frozen_model_manifest, resolve_model_manifest
 from credit_coach.ops.kpi_contract import (
+    build_comparative_impact_summary,
     build_kpi_contract_snapshot,
     build_milestone_acceptance_summary,
     load_kpi_thresholds,
@@ -31,6 +32,7 @@ from credit_coach.utils.run_context import create_run_context, load_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("run_phase_experiment_suite")
+_HIGH_RISK_ACTIVATION_FLOOR = 0.05
 
 
 def parse_args() -> argparse.Namespace:
@@ -176,6 +178,16 @@ def _load_csv(path: Path) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame()
     return pd.read_csv(path)
+
+
+def _round_metric(value: Any, *, digits: int = 6) -> float:
+    try:
+        metric = float(value)
+    except Exception:
+        return 0.0
+    if pd.isna(metric):
+        return 0.0
+    return round(metric, digits)
 
 
 def _kpi_checks(summary: dict[str, Any], fair_row: dict[str, Any], thresholds: dict[str, Any]) -> tuple[bool, str]:
@@ -341,6 +353,192 @@ def _build_phase_fairness_breakdown(
     return pd.DataFrame(output_rows)
 
 
+def _build_phase_candidate_quality_summary(scale_df: pd.DataFrame) -> dict[str, Any]:
+    metric_fields = (
+        "candidate_pool_diversity_index",
+        "candidate_source_entropy",
+        "best_source_internal_rate",
+        "best_source_dice_rate",
+        "best_source_rule_rate",
+        "best_source_fallback_rate",
+    )
+    secondary_fields = tuple(f"high_risk_denied_{field}" for field in metric_fields)
+    if scale_df.empty:
+        return {
+            "candidate_quality_population": "denied",
+            "candidate_quality_secondary_population": "high_risk_denied",
+            "source_catalog": ["internal", "dice", "rule", "fallback"],
+            "seed_count": 0,
+            "canonical_metrics": {field: 0.0 for field in metric_fields},
+            "secondary_metrics": {field.replace("high_risk_denied_", ""): 0.0 for field in secondary_fields},
+        }
+    canonical_metrics = {
+        field: _round_metric(pd.to_numeric(scale_df.get(field, pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean())
+        for field in metric_fields
+    }
+    secondary_metrics = {
+        field.replace("high_risk_denied_", ""): _round_metric(
+            pd.to_numeric(scale_df.get(field, pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean()
+        )
+        for field in secondary_fields
+    }
+    return {
+        "candidate_quality_population": str(scale_df.get("candidate_quality_population", pd.Series(["denied"])).iloc[0]),
+        "candidate_quality_secondary_population": str(
+            scale_df.get("candidate_quality_secondary_population", pd.Series(["high_risk_denied"])).iloc[0]
+        ),
+        "source_catalog": ["internal", "dice", "rule", "fallback"],
+        "seed_count": int(len(scale_df)),
+        "canonical_metrics": canonical_metrics,
+        "secondary_metrics": secondary_metrics,
+    }
+
+
+def _build_phase_candidate_source_breakdown(seed_breakdowns: list[pd.DataFrame]) -> pd.DataFrame:
+    if not seed_breakdowns:
+        return pd.DataFrame(
+            columns=["seed", "population", "candidate_source", "count", "share", "population_size", "breakdown_type"]
+        )
+    frames: list[pd.DataFrame] = []
+    for breakdown_df in seed_breakdowns:
+        if breakdown_df.empty:
+            continue
+        working = breakdown_df.copy()
+        if "seed" not in working.columns:
+            continue
+        working["breakdown_type"] = "seed_population_source"
+        frames.append(working)
+    if not frames:
+        return pd.DataFrame(
+            columns=["seed", "population", "candidate_source", "count", "share", "population_size", "breakdown_type"]
+        )
+    combined = pd.concat(frames, ignore_index=True)
+    rollup = (
+        combined.groupby(["population", "candidate_source"], dropna=False)
+        .agg(
+            count=("count", "sum"),
+            share=("share", "mean"),
+            population_size=("population_size", "sum"),
+        )
+        .reset_index()
+    )
+    rollup["seed"] = -1
+    rollup["breakdown_type"] = "population_source_rollup"
+    if "share" in rollup.columns:
+        rollup["share"] = pd.to_numeric(rollup["share"], errors="coerce").fillna(0.0).round(6)
+    return pd.concat([combined, rollup], ignore_index=True, sort=False)
+
+
+def _seed_direction_consistent(values: pd.Series) -> bool:
+    series = pd.to_numeric(values, errors="coerce").fillna(0.0)
+    positive = int((series > 1e-9).sum())
+    negative = int((series < -1e-9).sum())
+    nonzero = positive + negative
+    if nonzero == 0:
+        return True
+    return max(positive, negative) >= ((nonzero // 2) + 1)
+
+
+def _build_phase_high_risk_tuning_summary(
+    scale_df: pd.DataFrame,
+    *,
+    release_decision: str,
+) -> dict[str, Any]:
+    if scale_df.empty:
+        return {
+            "primary_metric": "denied_high_risk_lift",
+            "primary_metric_value": 0.0,
+            "high_risk_profile_applied_rate": 0.0,
+            "activation_floor": _HIGH_RISK_ACTIVATION_FLOOR,
+            "meaningful_activation": False,
+            "directional_consistency": False,
+            "positive_seed_count": 0,
+            "negative_seed_count": 0,
+            "evidence_status": "diagnostic_only",
+            "diagnostic_reasons": ["missing_seeded_rows"],
+            "supporting_metrics": {
+                "high_risk_reachability_rate": 0.0,
+                "trajectory_partial_progress_rate": 0.0,
+            },
+        }
+
+    primary_series = pd.to_numeric(scale_df.get("denied_high_risk_lift", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
+    activation_rate = _round_metric(
+        pd.to_numeric(scale_df.get("high_risk_profile_applied_rate", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean()
+    )
+    supporting_metrics = {
+        "high_risk_reachability_rate": _round_metric(
+            pd.to_numeric(scale_df.get("high_risk_reachability_rate", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean()
+        ),
+        "trajectory_partial_progress_rate": _round_metric(
+            pd.to_numeric(scale_df.get("trajectory_partial_progress_rate", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean()
+        ),
+    }
+    positive_seed_count = int((primary_series > 1e-9).sum())
+    negative_seed_count = int((primary_series < -1e-9).sum())
+    diagnostic_reasons: list[str] = []
+    if activation_rate < _HIGH_RISK_ACTIVATION_FLOOR:
+        diagnostic_reasons.append("activation_below_min_floor")
+    if not _seed_direction_consistent(primary_series):
+        diagnostic_reasons.append("seed_direction_unstable")
+    if str(release_decision).strip().upper() == "NO_GO":
+        diagnostic_reasons.append("release_gate_not_satisfied")
+    if supporting_metrics["high_risk_reachability_rate"] <= 0.0:
+        diagnostic_reasons.append("reachability_signal_not_positive")
+    if supporting_metrics["trajectory_partial_progress_rate"] <= 0.0:
+        diagnostic_reasons.append("trajectory_signal_not_positive")
+    return {
+        "primary_metric": "denied_high_risk_lift",
+        "primary_metric_value": _round_metric(primary_series.mean()),
+        "high_risk_profile_applied_rate": activation_rate,
+        "activation_floor": _HIGH_RISK_ACTIVATION_FLOOR,
+        "meaningful_activation": bool(activation_rate >= _HIGH_RISK_ACTIVATION_FLOOR),
+        "directional_consistency": _seed_direction_consistent(primary_series),
+        "positive_seed_count": positive_seed_count,
+        "negative_seed_count": negative_seed_count,
+        "evidence_status": "strong_evidence" if not diagnostic_reasons else "diagnostic_only",
+        "diagnostic_reasons": diagnostic_reasons,
+        "supporting_metrics": supporting_metrics,
+    }
+
+
+def _build_suite_impact_attribution_summary(
+    *,
+    phase_name: str,
+    aggregate: dict[str, Any],
+    evidence_level: str,
+    evidence_status: str,
+    seed_count: int,
+) -> dict[str, Any]:
+    return build_comparative_impact_summary(
+        subject_label=str(phase_name),
+        baseline_label="control_variant_unavailable",
+        subject_metrics={
+            "denied_to_approved_lift": aggregate.get("mean_denied_to_approved_lift", 0.0),
+            "denied_high_risk_lift": aggregate.get("mean_denied_high_risk_lift", 0.0),
+            "equalized_odds_gap_delta": aggregate.get("mean_equalized_odds_gap_delta", 0.0),
+            "denied_reliability_violation_rate": aggregate.get("mean_denied_reliability_violation_rate", 0.0),
+            "high_risk_reachability_rate": aggregate.get("mean_high_risk_reachability_rate", 0.0),
+            "trajectory_partial_progress_rate": aggregate.get("mean_trajectory_partial_progress_rate", 0.0),
+            "candidate_source_entropy": aggregate.get("mean_candidate_source_entropy", 0.0),
+        },
+        baseline_metrics=None,
+        evidence_level=evidence_level,
+        evidence_status=evidence_status,
+        seed_count=seed_count,
+        baseline_type="control_variant",
+        diagnostic_reason="control_variant_baseline_not_available_in_suite_runner",
+        metadata={
+            "source_mix_snapshot": {
+                "best_source_internal_rate": _round_metric(aggregate.get("mean_best_source_internal_rate", 0.0)),
+                "best_source_dice_rate": _round_metric(aggregate.get("mean_best_source_dice_rate", 0.0)),
+                "best_source_rule_rate": _round_metric(aggregate.get("mean_best_source_rule_rate", 0.0)),
+                "best_source_fallback_rate": _round_metric(aggregate.get("mean_best_source_fallback_rate", 0.0)),
+            }
+        },
+    )
+
+
 def _render_release_review_summary(
     *,
     milestone_acceptance_summary: dict[str, Any],
@@ -480,6 +678,7 @@ def main() -> None:
 
     scale_rows: list[dict[str, Any]] = []
     seed_breakdowns: list[pd.DataFrame] = []
+    seed_candidate_source_breakdowns: list[pd.DataFrame] = []
     for seed in seeds:
         run_id, run_log = _run_cmd(
             cmd=_batch_cmd(
@@ -497,6 +696,22 @@ def main() -> None:
         summary = _load_json(root / "artifacts" / "runs" / run_id / "tables" / "batch_summary.json")
         fair_row = pd.read_csv(root / "artifacts" / "runs" / run_id / "tables" / "batch_fairness_change.csv").iloc[0].to_dict()
         breakdown_df = _load_csv(root / "artifacts" / "runs" / run_id / "tables" / "fairness_failure_breakdown.csv")
+        candidate_quality_summary = _load_json(
+            root / "artifacts" / "runs" / run_id / "tables" / "candidate_quality_summary.json"
+        )
+        candidate_source_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "candidate_source_breakdown.csv"
+        )
+        canonical_candidate_metrics = (
+            candidate_quality_summary.get("canonical_metrics", {})
+            if isinstance(candidate_quality_summary.get("canonical_metrics", {}), dict)
+            else {}
+        )
+        secondary_candidate_metrics = (
+            candidate_quality_summary.get("secondary_metrics", {})
+            if isinstance(candidate_quality_summary.get("secondary_metrics", {}), dict)
+            else {}
+        )
         snapshot = _seed_contract_snapshot(summary, fair_row, thresholds)
         scale_rows.append(
             {
@@ -514,6 +729,7 @@ def main() -> None:
                 "worst_fairness_gap": float(snapshot["worst_fairness_gap"]),
                 "denied_to_approved_lift": float(summary.get("denied_to_approved_lift", 0.0)),
                 "denied_high_risk_lift": float(summary.get("denied_high_risk_lift", 0.0)),
+                "high_risk_reachability_rate": float(summary.get("high_risk_reachability_rate", 0.0)),
                 "denied_reliability_violation_rate": float(summary.get("denied_reliability_violation_rate", 0.0)),
                 "sync_latency_p95_ms": float(summary.get("sync_latency_p95_ms", summary.get("latency_p95_ms", 0.0))),
                 "sync_latency_p99_ms": float(summary.get("sync_latency_p99_ms", summary.get("latency_p99_ms", 0.0))),
@@ -530,12 +746,74 @@ def main() -> None:
                 "trajectory_gate_pass_rate_24w": float(summary.get("trajectory_gate_pass_rate_24w", 0.0)),
                 "trajectory_partial_progress_rate": float(summary.get("trajectory_partial_progress_rate", 0.0)),
                 "trajectory_median_time_to_gate_pass_days": float(summary.get("trajectory_median_time_to_gate_pass_days", 9_999.0)),
+                "high_risk_profile_applied_rate": float(summary.get("high_risk_profile_applied_rate", 0.0)),
+                "candidate_quality_population": str(candidate_quality_summary.get("canonical_population", "denied")),
+                "candidate_quality_secondary_population": str(
+                    candidate_quality_summary.get("secondary_population", "high_risk_denied")
+                ),
+                "candidate_pool_diversity_index": float(
+                    canonical_candidate_metrics.get("candidate_pool_diversity_index", summary.get("denied_candidate_pool_diversity_index", 0.0))
+                ),
+                "candidate_source_entropy": float(
+                    canonical_candidate_metrics.get("candidate_source_entropy", summary.get("denied_candidate_source_entropy", 0.0))
+                ),
+                "best_source_internal_rate": float(
+                    canonical_candidate_metrics.get("best_source_internal_rate", summary.get("denied_best_source_internal_rate", 0.0))
+                ),
+                "best_source_dice_rate": float(
+                    canonical_candidate_metrics.get("best_source_dice_rate", summary.get("denied_best_source_dice_rate", 0.0))
+                ),
+                "best_source_rule_rate": float(
+                    canonical_candidate_metrics.get("best_source_rule_rate", summary.get("denied_best_source_rule_rate", 0.0))
+                ),
+                "best_source_fallback_rate": float(
+                    canonical_candidate_metrics.get("best_source_fallback_rate", summary.get("denied_best_source_fallback_rate", 0.0))
+                ),
+                "high_risk_denied_candidate_pool_diversity_index": float(
+                    secondary_candidate_metrics.get(
+                        "candidate_pool_diversity_index",
+                        summary.get("high_risk_denied_candidate_pool_diversity_index", 0.0),
+                    )
+                ),
+                "high_risk_denied_candidate_source_entropy": float(
+                    secondary_candidate_metrics.get(
+                        "candidate_source_entropy",
+                        summary.get("high_risk_denied_candidate_source_entropy", 0.0),
+                    )
+                ),
+                "high_risk_denied_best_source_internal_rate": float(
+                    secondary_candidate_metrics.get(
+                        "best_source_internal_rate",
+                        summary.get("high_risk_denied_best_source_internal_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_best_source_dice_rate": float(
+                    secondary_candidate_metrics.get(
+                        "best_source_dice_rate",
+                        summary.get("high_risk_denied_best_source_dice_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_best_source_rule_rate": float(
+                    secondary_candidate_metrics.get(
+                        "best_source_rule_rate",
+                        summary.get("high_risk_denied_best_source_rule_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_best_source_fallback_rate": float(
+                    secondary_candidate_metrics.get(
+                        "best_source_fallback_rate",
+                        summary.get("high_risk_denied_best_source_fallback_rate", 0.0),
+                    )
+                ),
             }
         )
         if not breakdown_df.empty:
             breakdown_df["seed"] = int(seed)
             breakdown_df["primary_fail_reason"] = str(snapshot["primary_fail_reason"])
             seed_breakdowns.append(breakdown_df)
+        if not candidate_source_breakdown.empty:
+            candidate_source_breakdown["seed"] = int(seed)
+            seed_candidate_source_breakdowns.append(candidate_source_breakdown)
 
     scale_df = pd.DataFrame(scale_rows).sort_values("seed").reset_index(drop=True)
     scale_path = run_ctx.tables_dir / "phase_scale_seed_summary.csv"
@@ -543,6 +821,15 @@ def main() -> None:
     phase_breakdown_df = _build_phase_fairness_breakdown(seed_rows=scale_rows, seed_breakdowns=seed_breakdowns)
     phase_breakdown_path = run_ctx.tables_dir / "fairness_failure_breakdown.csv"
     phase_breakdown_df.to_csv(phase_breakdown_path, index=False)
+    phase_candidate_quality_summary = _build_phase_candidate_quality_summary(scale_df)
+    candidate_quality_summary_path = run_ctx.tables_dir / "candidate_quality_summary.json"
+    candidate_quality_summary_path.write_text(
+        json.dumps(phase_candidate_quality_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    phase_candidate_source_breakdown = _build_phase_candidate_source_breakdown(seed_candidate_source_breakdowns)
+    candidate_source_breakdown_path = run_ctx.tables_dir / "candidate_source_breakdown.csv"
+    phase_candidate_source_breakdown.to_csv(candidate_source_breakdown_path, index=False)
 
     aggregate = {
         "seed_count": int(len(scale_df)),
@@ -557,6 +844,7 @@ def main() -> None:
         ),
         "mean_denied_to_approved_lift": float(scale_df["denied_to_approved_lift"].mean()),
         "mean_denied_high_risk_lift": float(scale_df["denied_high_risk_lift"].mean()),
+        "mean_high_risk_reachability_rate": float(scale_df["high_risk_reachability_rate"].mean()),
         "mean_denied_reliability_violation_rate": float(scale_df["denied_reliability_violation_rate"].mean()),
         "mean_sync_latency_p95_ms": float(scale_df["sync_latency_p95_ms"].mean()),
         "mean_sync_latency_p99_ms": float(scale_df["sync_latency_p99_ms"].mean()),
@@ -572,11 +860,44 @@ def main() -> None:
         "mean_trajectory_gate_pass_rate_24w": float(scale_df["trajectory_gate_pass_rate_24w"].mean()),
         "mean_trajectory_partial_progress_rate": float(scale_df["trajectory_partial_progress_rate"].mean()),
         "mean_trajectory_median_time_to_gate_pass_days": float(scale_df["trajectory_median_time_to_gate_pass_days"].mean()),
+        "mean_high_risk_profile_applied_rate": float(scale_df["high_risk_profile_applied_rate"].mean()),
+        "candidate_quality_population": str(phase_candidate_quality_summary["candidate_quality_population"]),
+        "candidate_quality_secondary_population": str(
+            phase_candidate_quality_summary["candidate_quality_secondary_population"]
+        ),
+        "mean_candidate_pool_diversity_index": float(scale_df["candidate_pool_diversity_index"].mean()),
+        "mean_candidate_source_entropy": float(scale_df["candidate_source_entropy"].mean()),
+        "mean_best_source_internal_rate": float(scale_df["best_source_internal_rate"].mean()),
+        "mean_best_source_dice_rate": float(scale_df["best_source_dice_rate"].mean()),
+        "mean_best_source_rule_rate": float(scale_df["best_source_rule_rate"].mean()),
+        "mean_best_source_fallback_rate": float(scale_df["best_source_fallback_rate"].mean()),
+        "mean_high_risk_denied_candidate_pool_diversity_index": float(
+            scale_df["high_risk_denied_candidate_pool_diversity_index"].mean()
+        ),
+        "mean_high_risk_denied_candidate_source_entropy": float(
+            scale_df["high_risk_denied_candidate_source_entropy"].mean()
+        ),
+        "mean_high_risk_denied_best_source_internal_rate": float(
+            scale_df["high_risk_denied_best_source_internal_rate"].mean()
+        ),
+        "mean_high_risk_denied_best_source_dice_rate": float(scale_df["high_risk_denied_best_source_dice_rate"].mean()),
+        "mean_high_risk_denied_best_source_rule_rate": float(scale_df["high_risk_denied_best_source_rule_rate"].mean()),
+        "mean_high_risk_denied_best_source_fallback_rate": float(
+            scale_df["high_risk_denied_best_source_fallback_rate"].mean()
+        ),
     }
     (run_ctx.tables_dir / "phase_scale_aggregate.json").write_text(json.dumps(aggregate, indent=2, ensure_ascii=False), encoding="utf-8")
     release_payload = evaluate_release_decision(aggregate, thresholds)
     (run_ctx.tables_dir / "release_decision.json").write_text(
         json.dumps(release_payload, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    phase_high_risk_tuning_summary = _build_phase_high_risk_tuning_summary(
+        scale_df,
+        release_decision=str(release_payload["decision"]),
+    )
+    (run_ctx.tables_dir / "high_risk_tuning_summary.json").write_text(
+        json.dumps(phase_high_risk_tuning_summary, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
     if release_payload["decision"] == "LIMITED_GO":
@@ -594,6 +915,10 @@ def main() -> None:
         "phase_scale_seed_summary_csv": "tables/phase_scale_seed_summary.csv",
         "phase_scale_aggregate_json": "tables/phase_scale_aggregate.json",
         "fairness_failure_breakdown_csv": "tables/fairness_failure_breakdown.csv",
+        "candidate_quality_summary_json": "tables/candidate_quality_summary.json",
+        "candidate_source_breakdown_csv": "tables/candidate_source_breakdown.csv",
+        "high_risk_tuning_summary_json": "tables/high_risk_tuning_summary.json",
+        "generator_policy_impact_json": "tables/generator_policy_impact.json",
         "release_decision_json": "tables/release_decision.json",
         "frozen_model_manifest_json": "tables/frozen_model_manifest.json",
     }
@@ -617,6 +942,18 @@ def main() -> None:
         evidence_status = "degraded"
         degraded_reason = "implicit_latest_model_freeze"
 
+    impact_attribution_summary = _build_suite_impact_attribution_summary(
+        phase_name=str(args.phase_name),
+        aggregate=aggregate,
+        evidence_level=evidence_level,
+        evidence_status=evidence_status,
+        seed_count=seed_count,
+    )
+    (run_ctx.tables_dir / "generator_policy_impact.json").write_text(
+        json.dumps(impact_attribution_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
     kpi_contract_snapshot = build_kpi_contract_snapshot(
         runner_type="suite",
         release_payload=release_payload,
@@ -633,6 +970,9 @@ def main() -> None:
             "phase_name": str(args.phase_name),
             "train_run_id": str(train_run_id),
             "frozen_model_manifest_path": "tables/frozen_model_manifest.json",
+            "candidate_quality_summary": phase_candidate_quality_summary,
+            "high_risk_tuning_summary": phase_high_risk_tuning_summary,
+            "impact_attribution_summary": impact_attribution_summary,
         },
     )
     (run_ctx.tables_dir / "kpi_contract_snapshot.json").write_text(
@@ -654,6 +994,11 @@ def main() -> None:
         evidence_status=evidence_status,
         degraded_reason=degraded_reason,
         missing_artifacts=missing_artifacts,
+        metadata={
+            "candidate_quality_summary": phase_candidate_quality_summary,
+            "high_risk_tuning_summary": phase_high_risk_tuning_summary,
+            "impact_attribution_summary": impact_attribution_summary,
+        },
     )
     milestone_acceptance_review = render_milestone_acceptance_review(milestone_acceptance_summary)
     (run_ctx.tables_dir / "milestone_acceptance_summary.json").write_text(
@@ -698,6 +1043,9 @@ def main() -> None:
             "scale_mean_trajectory_gate_pass_rate_12w": float(scale_df["trajectory_gate_pass_rate_12w"].mean()),
             "scale_mean_trajectory_gate_pass_rate_24w": float(scale_df["trajectory_gate_pass_rate_24w"].mean()),
             "scale_mean_trajectory_partial_progress_rate": float(scale_df["trajectory_partial_progress_rate"].mean()),
+            "scale_mean_high_risk_profile_applied_rate": float(scale_df["high_risk_profile_applied_rate"].mean()),
+            "scale_mean_candidate_pool_diversity_index": float(scale_df["candidate_pool_diversity_index"].mean()),
+            "scale_mean_candidate_source_entropy": float(scale_df["candidate_source_entropy"].mean()),
         }
     )
 

@@ -19,6 +19,7 @@ from credit_coach.ops.kpi_contract import (
     FAIRNESS_KPI_THRESHOLD_KEYS,
     LIFT_KPI_THRESHOLD_KEYS,
     RELIABILITY_KPI_THRESHOLD_KEYS,
+    build_comparative_impact_summary,
     build_kpi_contract_snapshot,
     compute_kpi_violation_score,
     load_kpi_thresholds,
@@ -34,6 +35,7 @@ from credit_coach.utils.run_context import create_run_context, load_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("run_model_challenger_matrix")
+_HIGH_RISK_ACTIVATION_FLOOR = 0.05
 
 _VARIANTS: tuple[dict[str, Any], ...] = (
     {
@@ -79,6 +81,48 @@ _VARIANTS: tuple[dict[str, Any], ...] = (
         },
     },
 )
+
+
+def _build_challenger_candidate_source_breakdown(breakdown_frames: list[pd.DataFrame]) -> pd.DataFrame:
+    if not breakdown_frames:
+        return pd.DataFrame(
+            columns=[
+                "variant_id",
+                "seed",
+                "population",
+                "candidate_source",
+                "count",
+                "share",
+                "population_size",
+                "breakdown_type",
+            ]
+        )
+    combined = pd.concat(breakdown_frames, ignore_index=True)
+    combined["breakdown_type"] = "variant_seed_population_source"
+    rollup = (
+        combined.groupby(["variant_id", "population", "candidate_source"], dropna=False)
+        .agg(
+            count=("count", "sum"),
+            share=("share", "mean"),
+            population_size=("population_size", "sum"),
+        )
+        .reset_index()
+    )
+    rollup["seed"] = -1
+    rollup["breakdown_type"] = "variant_population_source_rollup"
+    if "share" in rollup.columns:
+        rollup["share"] = pd.to_numeric(rollup["share"], errors="coerce").fillna(0.0).round(6)
+    return pd.concat([combined, rollup], ignore_index=True, sort=False)
+
+
+def _round_metric(value: Any, *, digits: int = 6) -> float:
+    try:
+        metric = float(value)
+    except Exception:
+        return 0.0
+    if pd.isna(metric):
+        return 0.0
+    return round(metric, digits)
 
 
 def parse_args() -> argparse.Namespace:
@@ -213,8 +257,21 @@ def _aggregate_variant_metrics(df: pd.DataFrame) -> pd.DataFrame:
         "pr_auc",
         "denied_to_approved_lift",
         "denied_high_risk_lift",
+        "high_risk_profile_applied_rate",
         "high_risk_reachability_rate",
         "denied_reliability_violation_rate",
+        "candidate_pool_diversity_index",
+        "candidate_source_entropy",
+        "best_source_internal_rate",
+        "best_source_dice_rate",
+        "best_source_rule_rate",
+        "best_source_fallback_rate",
+        "high_risk_denied_candidate_pool_diversity_index",
+        "high_risk_denied_candidate_source_entropy",
+        "high_risk_denied_best_source_internal_rate",
+        "high_risk_denied_best_source_dice_rate",
+        "high_risk_denied_best_source_rule_rate",
+        "high_risk_denied_best_source_fallback_rate",
         "fairness_approval_gap_delta",
         "fairness_approval_gap_after",
         "fairness_equalized_odds_gap_delta",
@@ -237,8 +294,222 @@ def _aggregate_variant_metrics(df: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
         .rename(columns={c: f"mean_{c}" for c in available})
     )
+    numeric_cols = [col for col in grouped.columns if col != "variant_id"]
+    if numeric_cols:
+        grouped[numeric_cols] = grouped[numeric_cols].round(6)
     grouped["seed_count"] = df.groupby("variant_id").size().values
     return grouped
+
+
+def _seed_direction_consistent(values: pd.Series) -> bool:
+    series = pd.to_numeric(values, errors="coerce").fillna(0.0)
+    positive = int((series > 1e-9).sum())
+    negative = int((series < -1e-9).sum())
+    nonzero = positive + negative
+    if nonzero == 0:
+        return True
+    return max(positive, negative) >= ((nonzero // 2) + 1)
+
+
+def _paired_delta_direction_consistent(
+    runs_df: pd.DataFrame,
+    *,
+    variant_id: str,
+    baseline_variant: str,
+    metric_key: str,
+) -> bool:
+    if metric_key not in runs_df.columns:
+        return False
+    candidate = runs_df[runs_df["variant_id"] == variant_id][["seed", metric_key]].copy()
+    baseline = runs_df[runs_df["variant_id"] == baseline_variant][["seed", metric_key]].copy()
+    if candidate.empty or baseline.empty:
+        return False
+    merged = candidate.merge(baseline, on="seed", how="inner", suffixes=("_candidate", "_baseline"))
+    if merged.empty:
+        return False
+    deltas = (
+        pd.to_numeric(merged[f"{metric_key}_candidate"], errors="coerce").fillna(0.0)
+        - pd.to_numeric(merged[f"{metric_key}_baseline"], errors="coerce").fillna(0.0)
+    )
+    return _seed_direction_consistent(deltas)
+
+
+def _build_challenger_high_risk_tuning_summary(
+    ranked_summary_df: pd.DataFrame,
+    runs_df: pd.DataFrame,
+) -> dict[str, Any]:
+    variants: list[dict[str, Any]] = []
+    for _, row in ranked_summary_df.iterrows():
+        variant_id = str(row.get("variant_id", ""))
+        variant_runs = runs_df[runs_df["variant_id"] == variant_id]
+        primary_series = pd.to_numeric(variant_runs.get("denied_high_risk_lift", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
+        activation_rate = _round_metric(row.get("mean_high_risk_profile_applied_rate", 0.0))
+        diagnostic_reasons: list[str] = []
+        if activation_rate < _HIGH_RISK_ACTIVATION_FLOOR:
+            diagnostic_reasons.append("activation_below_min_floor")
+        if not _seed_direction_consistent(primary_series):
+            diagnostic_reasons.append("seed_direction_unstable")
+        if str(row.get("release_decision", "NO_GO")).upper() == "NO_GO":
+            diagnostic_reasons.append("release_gate_not_satisfied")
+        if float(row.get("mean_high_risk_reachability_rate", 0.0)) <= 0.0:
+            diagnostic_reasons.append("reachability_signal_not_positive")
+        if float(row.get("mean_trajectory_partial_progress_rate", 0.0)) <= 0.0:
+            diagnostic_reasons.append("trajectory_signal_not_positive")
+        variants.append(
+            {
+                "variant_id": variant_id,
+                "primary_metric": "denied_high_risk_lift",
+                "primary_metric_value": _round_metric(row.get("mean_denied_high_risk_lift", 0.0)),
+                "high_risk_profile_applied_rate": activation_rate,
+                "activation_floor": _HIGH_RISK_ACTIVATION_FLOOR,
+                "meaningful_activation": bool(activation_rate >= _HIGH_RISK_ACTIVATION_FLOOR),
+                "directional_consistency": _seed_direction_consistent(primary_series),
+                "positive_seed_count": int((primary_series > 1e-9).sum()),
+                "negative_seed_count": int((primary_series < -1e-9).sum()),
+                "evidence_status": "strong_evidence" if not diagnostic_reasons else "diagnostic_only",
+                "diagnostic_reasons": diagnostic_reasons,
+                "supporting_metrics": {
+                    "high_risk_reachability_rate": _round_metric(row.get("mean_high_risk_reachability_rate", 0.0)),
+                    "trajectory_partial_progress_rate": _round_metric(
+                        row.get("mean_trajectory_partial_progress_rate", 0.0)
+                    ),
+                },
+            }
+        )
+    champion_variant = str(ranked_summary_df.iloc[0].get("variant_id", "")) if not ranked_summary_df.empty else ""
+    champion_summary = next((row for row in variants if row["variant_id"] == champion_variant), {})
+    return {
+        "champion_variant": champion_variant,
+        "variant_count": int(len(variants)),
+        "variants": variants,
+        "champion_summary": champion_summary,
+    }
+
+
+def _build_challenger_impact_summary(
+    ranked_summary_df: pd.DataFrame,
+    runs_df: pd.DataFrame,
+    *,
+    control_variant: str,
+    champion_variant: str,
+) -> dict[str, Any]:
+    if ranked_summary_df.empty:
+        return {
+            "baseline_variant": str(control_variant),
+            "champion_variant": str(champion_variant),
+            "comparisons": {},
+            "champion_summary": {},
+        }
+
+    control_row = ranked_summary_df[ranked_summary_df["variant_id"] == control_variant]
+    if control_row.empty:
+        return {
+            "baseline_variant": str(control_variant),
+            "champion_variant": str(champion_variant),
+            "comparisons": {},
+            "champion_summary": {},
+        }
+    baseline_row = control_row.iloc[0]
+
+    def _row_metrics(row: pd.Series) -> dict[str, Any]:
+        return {
+            "denied_to_approved_lift": row.get("mean_denied_to_approved_lift", 0.0),
+            "denied_high_risk_lift": row.get("mean_denied_high_risk_lift", 0.0),
+            "equalized_odds_gap_delta": row.get("mean_fairness_equalized_odds_gap_delta", 0.0),
+            "denied_reliability_violation_rate": row.get("mean_denied_reliability_violation_rate", 0.0),
+            "high_risk_reachability_rate": row.get("mean_high_risk_reachability_rate", 0.0),
+            "trajectory_partial_progress_rate": row.get("mean_trajectory_partial_progress_rate", 0.0),
+            "candidate_source_entropy": row.get("mean_candidate_source_entropy", 0.0),
+        }
+
+    comparisons: dict[str, Any] = {}
+    for _, row in ranked_summary_df.iterrows():
+        variant_id = str(row.get("variant_id", ""))
+        if variant_id == control_variant:
+            continue
+        direction_consistency = {
+            "denied_to_approved_lift": _paired_delta_direction_consistent(
+                runs_df,
+                variant_id=variant_id,
+                baseline_variant=control_variant,
+                metric_key="denied_to_approved_lift",
+            ),
+            "denied_high_risk_lift": _paired_delta_direction_consistent(
+                runs_df,
+                variant_id=variant_id,
+                baseline_variant=control_variant,
+                metric_key="denied_high_risk_lift",
+            ),
+            "equalized_odds_gap_delta": _paired_delta_direction_consistent(
+                runs_df,
+                variant_id=variant_id,
+                baseline_variant=control_variant,
+                metric_key="fairness_equalized_odds_gap_delta",
+            ),
+            "denied_reliability_violation_rate": _paired_delta_direction_consistent(
+                runs_df,
+                variant_id=variant_id,
+                baseline_variant=control_variant,
+                metric_key="denied_reliability_violation_rate",
+            ),
+            "high_risk_reachability_rate": _paired_delta_direction_consistent(
+                runs_df,
+                variant_id=variant_id,
+                baseline_variant=control_variant,
+                metric_key="high_risk_reachability_rate",
+            ),
+            "trajectory_partial_progress_rate": _paired_delta_direction_consistent(
+                runs_df,
+                variant_id=variant_id,
+                baseline_variant=control_variant,
+                metric_key="trajectory_partial_progress_rate",
+            ),
+            "candidate_source_entropy": _paired_delta_direction_consistent(
+                runs_df,
+                variant_id=variant_id,
+                baseline_variant=control_variant,
+                metric_key="candidate_source_entropy",
+            ),
+        }
+        source_mix_deltas = {
+            "best_source_internal_rate": _round_metric(
+                row.get("mean_best_source_internal_rate", 0.0) - baseline_row.get("mean_best_source_internal_rate", 0.0)
+            ),
+            "best_source_dice_rate": _round_metric(
+                row.get("mean_best_source_dice_rate", 0.0) - baseline_row.get("mean_best_source_dice_rate", 0.0)
+            ),
+            "best_source_rule_rate": _round_metric(
+                row.get("mean_best_source_rule_rate", 0.0) - baseline_row.get("mean_best_source_rule_rate", 0.0)
+            ),
+            "best_source_fallback_rate": _round_metric(
+                row.get("mean_best_source_fallback_rate", 0.0) - baseline_row.get("mean_best_source_fallback_rate", 0.0)
+            ),
+        }
+        degraded_reason = str(row.get("degraded_reason", ""))
+        comparisons[variant_id] = build_comparative_impact_summary(
+            subject_label=variant_id,
+            baseline_label=control_variant,
+            subject_metrics=_row_metrics(row),
+            baseline_metrics=_row_metrics(baseline_row),
+            evidence_level=str(row.get("evidence_level", "single_run_fallback")),
+            evidence_status=str(row.get("evidence_status", "degraded")),
+            seed_count=int(row.get("seed_count", 0)),
+            metric_direction_consistency=direction_consistency,
+            source_mix_deltas=source_mix_deltas,
+            baseline_type="control_variant",
+            diagnostic_reason=degraded_reason,
+            metadata={
+                "release_decision": str(row.get("release_decision", "NO_GO")),
+                "acceptance_status": str(row.get("acceptance_status", "REJECTED")),
+            },
+        )
+    return {
+        "baseline_variant": str(control_variant),
+        "champion_variant": str(champion_variant),
+        "comparison_count": int(len(comparisons)),
+        "comparisons": comparisons,
+        "champion_summary": comparisons.get(str(champion_variant), {}),
+    }
 
 
 def _gate_violation_score(row: pd.Series, thresholds: dict[str, Any]) -> tuple[float, int]:
@@ -457,6 +728,7 @@ def main() -> None:
     run_rows: list[dict[str, Any]] = []
     breakdown_frames: list[pd.DataFrame] = []
     frozen_variant_rows: list[dict[str, Any]] = []
+    candidate_source_breakdown_frames: list[pd.DataFrame] = []
 
     for variant in _VARIANTS:
         variant_id = str(variant["variant_id"])
@@ -510,14 +782,33 @@ def main() -> None:
             train_metrics_path = root / "artifacts" / "models" / train_run_id / "metrics.json"
             batch_metrics_path = root / "artifacts" / "runs" / batch_run_id / "metrics.json"
             batch_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "fairness_failure_breakdown.csv"
+            candidate_quality_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "candidate_quality_summary.json"
+            candidate_source_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "candidate_source_breakdown.csv"
             train_metrics = _load_json(train_metrics_path)
             batch_metrics = _load_json(batch_metrics_path)
+            candidate_quality_summary = _load_json(candidate_quality_path)
+            candidate_quality_metrics = (
+                candidate_quality_summary.get("canonical_metrics", {})
+                if isinstance(candidate_quality_summary.get("canonical_metrics", {}), dict)
+                else {}
+            )
+            secondary_candidate_quality_metrics = (
+                candidate_quality_summary.get("secondary_metrics", {})
+                if isinstance(candidate_quality_summary.get("secondary_metrics", {}), dict)
+                else {}
+            )
             if batch_breakdown_path.exists():
                 breakdown_df = pd.read_csv(batch_breakdown_path)
                 if not breakdown_df.empty:
                     breakdown_df["variant_id"] = variant_id
                     breakdown_df["seed"] = int(seed)
                     breakdown_frames.append(breakdown_df)
+            if candidate_source_breakdown_path.exists():
+                candidate_source_breakdown_df = pd.read_csv(candidate_source_breakdown_path)
+                if not candidate_source_breakdown_df.empty:
+                    candidate_source_breakdown_df["variant_id"] = variant_id
+                    candidate_source_breakdown_df["seed"] = int(seed)
+                    candidate_source_breakdown_frames.append(candidate_source_breakdown_df)
             raw_p95 = float(batch_metrics.get("latency_p95_ms", 0.0))
             raw_p99 = float(batch_metrics.get("latency_p99_ms", 0.0))
             sync_p95 = batch_metrics.get("sync_latency_p95_ms")
@@ -547,8 +838,85 @@ def main() -> None:
                 "denied_with_gate_pass_plan": float(batch_metrics.get("denied_with_gate_pass_plan", 0.0)),
                 "denied_to_approved_lift": float(batch_metrics.get("denied_to_approved_lift", 0.0)),
                 "denied_high_risk_lift": float(batch_metrics.get("denied_high_risk_lift", 0.0)),
+                "high_risk_profile_applied_rate": float(batch_metrics.get("high_risk_profile_applied_rate", 0.0)),
                 "high_risk_reachability_rate": float(batch_metrics.get("high_risk_reachability_rate", 0.0)),
                 "denied_reliability_violation_rate": float(batch_metrics.get("denied_reliability_violation_rate", 0.0)),
+                "candidate_quality_population": str(candidate_quality_summary.get("canonical_population", "denied")),
+                "candidate_quality_secondary_population": str(
+                    candidate_quality_summary.get("secondary_population", "high_risk_denied")
+                ),
+                "candidate_pool_diversity_index": float(
+                    candidate_quality_metrics.get(
+                        "candidate_pool_diversity_index",
+                        batch_metrics.get("denied_candidate_pool_diversity_index", 0.0),
+                    )
+                ),
+                "candidate_source_entropy": float(
+                    candidate_quality_metrics.get(
+                        "candidate_source_entropy",
+                        batch_metrics.get("denied_candidate_source_entropy", 0.0),
+                    )
+                ),
+                "best_source_internal_rate": float(
+                    candidate_quality_metrics.get(
+                        "best_source_internal_rate",
+                        batch_metrics.get("denied_best_source_internal_rate", 0.0),
+                    )
+                ),
+                "best_source_dice_rate": float(
+                    candidate_quality_metrics.get(
+                        "best_source_dice_rate",
+                        batch_metrics.get("denied_best_source_dice_rate", 0.0),
+                    )
+                ),
+                "best_source_rule_rate": float(
+                    candidate_quality_metrics.get(
+                        "best_source_rule_rate",
+                        batch_metrics.get("denied_best_source_rule_rate", 0.0),
+                    )
+                ),
+                "best_source_fallback_rate": float(
+                    candidate_quality_metrics.get(
+                        "best_source_fallback_rate",
+                        batch_metrics.get("denied_best_source_fallback_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_candidate_pool_diversity_index": float(
+                    secondary_candidate_quality_metrics.get(
+                        "candidate_pool_diversity_index",
+                        batch_metrics.get("high_risk_denied_candidate_pool_diversity_index", 0.0),
+                    )
+                ),
+                "high_risk_denied_candidate_source_entropy": float(
+                    secondary_candidate_quality_metrics.get(
+                        "candidate_source_entropy",
+                        batch_metrics.get("high_risk_denied_candidate_source_entropy", 0.0),
+                    )
+                ),
+                "high_risk_denied_best_source_internal_rate": float(
+                    secondary_candidate_quality_metrics.get(
+                        "best_source_internal_rate",
+                        batch_metrics.get("high_risk_denied_best_source_internal_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_best_source_dice_rate": float(
+                    secondary_candidate_quality_metrics.get(
+                        "best_source_dice_rate",
+                        batch_metrics.get("high_risk_denied_best_source_dice_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_best_source_rule_rate": float(
+                    secondary_candidate_quality_metrics.get(
+                        "best_source_rule_rate",
+                        batch_metrics.get("high_risk_denied_best_source_rule_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_best_source_fallback_rate": float(
+                    secondary_candidate_quality_metrics.get(
+                        "best_source_fallback_rate",
+                        batch_metrics.get("high_risk_denied_best_source_fallback_rate", 0.0),
+                    )
+                ),
                 "fairness_approval_gap_before": float(batch_metrics.get("fairness_approval_gap_before", 0.0)),
                 "fairness_approval_gap_after": float(batch_metrics.get("fairness_approval_gap_after", 0.0)),
                 "fairness_approval_gap_delta": float(
@@ -594,6 +962,9 @@ def main() -> None:
     summary_df = _aggregate_variant_metrics(runs_df)
     if summary_df.empty:
         raise RuntimeError("No challenger summary rows produced")
+    source_breakdown_df = _build_challenger_candidate_source_breakdown(candidate_source_breakdown_frames)
+    source_breakdown_path = run_ctx.tables_dir / "challenger_candidate_source_breakdown.csv"
+    source_breakdown_df.to_csv(source_breakdown_path, index=False)
     release_df = _build_variant_release_payloads(runs_df, thresholds=kpi_thresholds, breakdown_frames=breakdown_frames)
     if not release_df.empty:
         summary_df = summary_df.merge(release_df, on="variant_id", how="left")
@@ -606,6 +977,23 @@ def main() -> None:
     control_variant = "control_logistic_isotonic"
     control_row = ranked_summary_df[ranked_summary_df["variant_id"] == control_variant]
     champ_row = ranked_summary_df[ranked_summary_df["variant_id"] == champion_variant]
+    high_risk_tuning_summary = _build_challenger_high_risk_tuning_summary(ranked_summary_df, runs_df)
+    high_risk_tuning_path = run_ctx.tables_dir / "challenger_high_risk_tuning_summary.json"
+    high_risk_tuning_path.write_text(
+        json.dumps(high_risk_tuning_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    impact_summary = _build_challenger_impact_summary(
+        ranked_summary_df,
+        runs_df,
+        control_variant=control_variant,
+        champion_variant=champion_variant,
+    )
+    impact_summary_path = run_ctx.tables_dir / "challenger_impact_summary.json"
+    impact_summary_path.write_text(
+        json.dumps(impact_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
     deltas = {}
     if not control_row.empty and not champ_row.empty:
@@ -665,6 +1053,8 @@ def main() -> None:
         if not champ_row.empty
         else 0.0,
         "deltas_vs_control": deltas,
+        "champion_high_risk_tuning_summary": high_risk_tuning_summary.get("champion_summary", {}),
+        "champion_impact_summary": impact_summary.get("champion_summary", {}),
         "ranked_variants": ranked_variants,
     }
     decision_path = run_ctx.tables_dir / "challenger_matrix_decision.json"
@@ -674,6 +1064,9 @@ def main() -> None:
         "challenger_matrix_runs_csv": "tables/challenger_matrix_runs.csv",
         "challenger_matrix_variant_summary_csv": "tables/challenger_matrix_variant_summary.csv",
         "challenger_matrix_variant_summary_ranked_csv": "tables/challenger_matrix_variant_summary_ranked.csv",
+        "challenger_candidate_source_breakdown_csv": "tables/challenger_candidate_source_breakdown.csv",
+        "challenger_high_risk_tuning_summary_json": "tables/challenger_high_risk_tuning_summary.json",
+        "challenger_impact_summary_json": "tables/challenger_impact_summary.json",
         "challenger_matrix_decision_json": "tables/challenger_matrix_decision.json",
     }
     if frozen_variant_rows:
@@ -707,6 +1100,8 @@ def main() -> None:
             metadata={
                 "champion_variant": champion_variant,
                 "variant_count": int(ranked_summary_df.shape[0]),
+                "high_risk_tuning_summary": high_risk_tuning_summary.get("champion_summary", {}),
+                "impact_attribution_summary": impact_summary.get("champion_summary", {}),
             },
         )
         (run_ctx.tables_dir / "kpi_contract_snapshot.json").write_text(

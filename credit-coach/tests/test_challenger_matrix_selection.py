@@ -3,6 +3,9 @@ from __future__ import annotations
 import pandas as pd
 
 from credit_coach.cli.run_model_challenger_matrix import (
+    _aggregate_variant_metrics,
+    _build_challenger_candidate_source_breakdown,
+    _build_challenger_impact_summary,
     _build_variant_model_cfg,
     _build_variant_release_payloads,
     _select_champion,
@@ -72,6 +75,191 @@ def test_select_champion_prefers_gate_passing_variant_over_higher_lift():
     assert champion == "slightly_lower_lift_gate_pass"
     assert bool(ranked.iloc[0]["_gate_all_pass"]) is True
     assert str(ranked.iloc[0]["variant_id"]) == "slightly_lower_lift_gate_pass"
+
+
+def test_aggregate_variant_metrics_carries_candidate_quality_means():
+    runs_df = pd.DataFrame(
+        [
+            {
+                "variant_id": "control",
+                "candidate_pool_diversity_index": 0.40,
+                "candidate_source_entropy": 0.20,
+                "high_risk_profile_applied_rate": 0.06,
+                "best_source_internal_rate": 0.50,
+                "best_source_dice_rate": 0.30,
+                "best_source_rule_rate": 0.10,
+                "best_source_fallback_rate": 0.10,
+            },
+            {
+                "variant_id": "control",
+                "candidate_pool_diversity_index": 0.60,
+                "candidate_source_entropy": 0.40,
+                "high_risk_profile_applied_rate": 0.08,
+                "best_source_internal_rate": 0.30,
+                "best_source_dice_rate": 0.50,
+                "best_source_rule_rate": 0.10,
+                "best_source_fallback_rate": 0.10,
+            },
+        ]
+    )
+
+    summary = _aggregate_variant_metrics(runs_df)
+    assert float(summary.iloc[0]["mean_candidate_pool_diversity_index"]) == 0.5
+    assert float(summary.iloc[0]["mean_candidate_source_entropy"]) == 0.3
+    assert float(summary.iloc[0]["mean_high_risk_profile_applied_rate"]) == 0.07
+    assert float(summary.iloc[0]["mean_best_source_dice_rate"]) == 0.4
+
+
+def test_build_challenger_candidate_source_breakdown_emits_variant_rollups():
+    breakdown = _build_challenger_candidate_source_breakdown(
+        [
+            pd.DataFrame(
+                [
+                    {
+                        "variant_id": "control",
+                        "seed": 42,
+                        "population": "denied",
+                        "candidate_source": "internal",
+                        "count": 6,
+                        "share": 0.6,
+                        "population_size": 10,
+                    }
+                ]
+            ),
+            pd.DataFrame(
+                [
+                    {
+                        "variant_id": "control",
+                        "seed": 43,
+                        "population": "denied",
+                        "candidate_source": "internal",
+                        "count": 4,
+                        "share": 0.4,
+                        "population_size": 10,
+                    }
+                ]
+            ),
+        ]
+    )
+
+    assert set(breakdown["breakdown_type"]) == {
+        "variant_seed_population_source",
+        "variant_population_source_rollup",
+    }
+    rollup = breakdown[
+        (breakdown["breakdown_type"] == "variant_population_source_rollup")
+        & (breakdown["variant_id"] == "control")
+        & (breakdown["population"] == "denied")
+        & (breakdown["candidate_source"] == "internal")
+    ]
+    assert int(rollup.iloc[0]["count"]) == 10
+    assert float(rollup.iloc[0]["share"]) == 0.5
+
+
+def test_build_challenger_impact_summary_uses_control_baseline_with_strong_confidence():
+    ranked_summary_df = pd.DataFrame(
+        [
+            {
+                "variant_id": "challenger",
+                "seed_count": 5,
+                "evidence_level": "seeded_challenger",
+                "evidence_status": "complete",
+                "release_decision": "GO",
+                "acceptance_status": "ACCEPTED",
+                "mean_denied_to_approved_lift": 0.14,
+                "mean_denied_high_risk_lift": 0.06,
+                "mean_denied_reliability_violation_rate": 0.15,
+                "mean_fairness_equalized_odds_gap_delta": 0.003,
+                "mean_high_risk_reachability_rate": 0.25,
+                "mean_trajectory_partial_progress_rate": 0.29,
+                "mean_candidate_source_entropy": 0.36,
+                "mean_best_source_internal_rate": 0.35,
+                "mean_best_source_dice_rate": 0.50,
+                "mean_best_source_rule_rate": 0.10,
+                "mean_best_source_fallback_rate": 0.05,
+            },
+            {
+                "variant_id": "control_logistic_isotonic",
+                "seed_count": 5,
+                "evidence_level": "seeded_challenger",
+                "evidence_status": "complete",
+                "release_decision": "GO",
+                "acceptance_status": "ACCEPTED",
+                "mean_denied_to_approved_lift": 0.10,
+                "mean_denied_high_risk_lift": 0.04,
+                "mean_denied_reliability_violation_rate": 0.20,
+                "mean_fairness_equalized_odds_gap_delta": 0.006,
+                "mean_high_risk_reachability_rate": 0.20,
+                "mean_trajectory_partial_progress_rate": 0.24,
+                "mean_candidate_source_entropy": 0.30,
+                "mean_best_source_internal_rate": 0.55,
+                "mean_best_source_dice_rate": 0.25,
+                "mean_best_source_rule_rate": 0.10,
+                "mean_best_source_fallback_rate": 0.10,
+            },
+        ]
+    )
+    runs_df = pd.DataFrame(
+        [
+            {
+                "variant_id": "control_logistic_isotonic",
+                "seed": 42,
+                "denied_to_approved_lift": 0.09,
+                "denied_high_risk_lift": 0.03,
+                "fairness_equalized_odds_gap_delta": 0.006,
+                "denied_reliability_violation_rate": 0.22,
+                "high_risk_reachability_rate": 0.19,
+                "trajectory_partial_progress_rate": 0.23,
+                "candidate_source_entropy": 0.29,
+            },
+            {
+                "variant_id": "control_logistic_isotonic",
+                "seed": 43,
+                "denied_to_approved_lift": 0.11,
+                "denied_high_risk_lift": 0.05,
+                "fairness_equalized_odds_gap_delta": 0.006,
+                "denied_reliability_violation_rate": 0.18,
+                "high_risk_reachability_rate": 0.21,
+                "trajectory_partial_progress_rate": 0.25,
+                "candidate_source_entropy": 0.31,
+            },
+            {
+                "variant_id": "challenger",
+                "seed": 42,
+                "denied_to_approved_lift": 0.13,
+                "denied_high_risk_lift": 0.05,
+                "fairness_equalized_odds_gap_delta": 0.004,
+                "denied_reliability_violation_rate": 0.17,
+                "high_risk_reachability_rate": 0.24,
+                "trajectory_partial_progress_rate": 0.28,
+                "candidate_source_entropy": 0.35,
+            },
+            {
+                "variant_id": "challenger",
+                "seed": 43,
+                "denied_to_approved_lift": 0.15,
+                "denied_high_risk_lift": 0.07,
+                "fairness_equalized_odds_gap_delta": 0.002,
+                "denied_reliability_violation_rate": 0.13,
+                "high_risk_reachability_rate": 0.26,
+                "trajectory_partial_progress_rate": 0.30,
+                "candidate_source_entropy": 0.37,
+            },
+        ]
+    )
+
+    summary = _build_challenger_impact_summary(
+        ranked_summary_df,
+        runs_df,
+        control_variant="control_logistic_isotonic",
+        champion_variant="challenger",
+    )
+
+    champion = summary["champion_summary"]
+    assert champion["comparative_impact_confidence"] == "strong"
+    assert champion["primary_axes"]["denied_high_risk_lift"]["label"] == "helped"
+    assert champion["primary_axes"]["denied_reliability_violation_rate"]["label"] == "helped"
+    assert champion["source_mix_deltas"]["best_source_dice_rate"] == 0.25
 
 
 def test_select_champion_chooses_lower_violation_score_when_all_fail():

@@ -5,7 +5,11 @@ from types import SimpleNamespace
 import pandas as pd
 
 from credit_coach.cli.run_phase_experiment_suite import (
+    _build_phase_candidate_quality_summary,
+    _build_phase_candidate_source_breakdown,
     _build_phase_fairness_breakdown,
+    _build_phase_high_risk_tuning_summary,
+    _build_suite_impact_attribution_summary,
     _kpi_checks,
     _render_release_review_summary,
     _seed_contract_snapshot,
@@ -271,8 +275,191 @@ def test_release_review_summary_is_derived_from_acceptance_summary() -> None:
             "dominant_fail_segment_key": "mid|q1|stress",
             "dominant_fail_candidate_source": "internal",
             "supporting_artifacts": {"release_decision_json": "tables/release_decision.json"},
+            "candidate_quality_summary": {
+                "candidate_quality_population": "denied",
+                "candidate_quality_secondary_population": "high_risk_denied",
+                "canonical_metrics": {
+                    "candidate_pool_diversity_index": 0.52,
+                    "candidate_source_entropy": 0.31,
+                    "best_source_internal_rate": 0.45,
+                    "best_source_dice_rate": 0.35,
+                    "best_source_rule_rate": 0.15,
+                    "best_source_fallback_rate": 0.05,
+                },
+            },
+            "high_risk_tuning_summary": {
+                "primary_metric": "denied_high_risk_lift",
+                "primary_metric_value": 0.041,
+                "high_risk_profile_applied_rate": 0.08,
+                "meaningful_activation": True,
+                "evidence_status": "strong_evidence",
+                "supporting_metrics": {
+                    "high_risk_reachability_rate": 0.22,
+                    "trajectory_partial_progress_rate": 0.28,
+                },
+            },
+            "impact_attribution_summary": {
+                "baseline_label": "control_logistic_isotonic",
+                "overall_assessment": "mixed",
+                "comparative_impact_confidence": "tentative",
+                "primary_axes": {
+                    "denied_high_risk_lift": {"label": "helped", "delta": 0.02},
+                    "equalized_odds_gap_delta": {"label": "harmed", "delta": 0.003},
+                },
+            },
         }
     )
     assert "PILOT_ONLY" in review
     assert "LIMITED_GO" in review
+    assert "Candidate Quality Summary" in review
+    assert "High-Risk Tuning Summary" in review
+    assert "Impact Attribution Summary" in review
     assert "release_decision_json" in review
+
+
+def test_build_phase_candidate_quality_summary_uses_locked_population_contract() -> None:
+    scale_df = pd.DataFrame(
+        [
+            {
+                "candidate_quality_population": "denied",
+                "candidate_quality_secondary_population": "high_risk_denied",
+                "candidate_pool_diversity_index": 0.40,
+                "candidate_source_entropy": 0.20,
+                "best_source_internal_rate": 0.50,
+                "best_source_dice_rate": 0.30,
+                "best_source_rule_rate": 0.20,
+                "best_source_fallback_rate": 0.00,
+                "high_risk_denied_candidate_pool_diversity_index": 0.25,
+                "high_risk_denied_candidate_source_entropy": 0.10,
+                "high_risk_denied_best_source_internal_rate": 0.60,
+                "high_risk_denied_best_source_dice_rate": 0.40,
+                "high_risk_denied_best_source_rule_rate": 0.00,
+                "high_risk_denied_best_source_fallback_rate": 0.00,
+            },
+            {
+                "candidate_quality_population": "denied",
+                "candidate_quality_secondary_population": "high_risk_denied",
+                "candidate_pool_diversity_index": 0.60,
+                "candidate_source_entropy": 0.40,
+                "best_source_internal_rate": 0.40,
+                "best_source_dice_rate": 0.40,
+                "best_source_rule_rate": 0.10,
+                "best_source_fallback_rate": 0.10,
+                "high_risk_denied_candidate_pool_diversity_index": 0.35,
+                "high_risk_denied_candidate_source_entropy": 0.20,
+                "high_risk_denied_best_source_internal_rate": 0.50,
+                "high_risk_denied_best_source_dice_rate": 0.30,
+                "high_risk_denied_best_source_rule_rate": 0.10,
+                "high_risk_denied_best_source_fallback_rate": 0.10,
+            },
+        ]
+    )
+
+    summary = _build_phase_candidate_quality_summary(scale_df)
+
+    assert summary["candidate_quality_population"] == "denied"
+    assert summary["candidate_quality_secondary_population"] == "high_risk_denied"
+    assert summary["canonical_metrics"]["candidate_pool_diversity_index"] == 0.5
+    assert summary["canonical_metrics"]["best_source_internal_rate"] == 0.45
+    assert summary["secondary_metrics"]["candidate_pool_diversity_index"] == 0.30
+    assert summary["secondary_metrics"]["best_source_dice_rate"] == 0.35
+
+
+def test_build_phase_candidate_source_breakdown_emits_seed_and_rollup_views() -> None:
+    breakdown = _build_phase_candidate_source_breakdown(
+        [
+            pd.DataFrame(
+                [
+                    {
+                        "seed": 42,
+                        "population": "denied",
+                        "candidate_source": "internal",
+                        "count": 6,
+                        "share": 0.6,
+                        "population_size": 10,
+                    },
+                    {
+                        "seed": 42,
+                        "population": "high_risk_denied",
+                        "candidate_source": "dice",
+                        "count": 2,
+                        "share": 0.4,
+                        "population_size": 5,
+                    },
+                ]
+            ),
+            pd.DataFrame(
+                [
+                    {
+                        "seed": 43,
+                        "population": "denied",
+                        "candidate_source": "internal",
+                        "count": 5,
+                        "share": 0.5,
+                        "population_size": 10,
+                    }
+                ]
+            ),
+        ]
+    )
+
+    assert set(breakdown["breakdown_type"]) == {"seed_population_source", "population_source_rollup"}
+    denied_rollup = breakdown[
+        (breakdown["breakdown_type"] == "population_source_rollup")
+        & (breakdown["population"] == "denied")
+        & (breakdown["candidate_source"] == "internal")
+    ]
+    assert int(denied_rollup.iloc[0]["count"]) == 11
+    assert float(denied_rollup.iloc[0]["share"]) == 0.55
+
+
+def test_build_phase_high_risk_tuning_summary_marks_low_activation_as_diagnostic() -> None:
+    scale_df = pd.DataFrame(
+        [
+            {
+                "denied_high_risk_lift": 0.04,
+                "high_risk_profile_applied_rate": 0.01,
+                "high_risk_reachability_rate": 0.10,
+                "trajectory_partial_progress_rate": 0.15,
+            },
+            {
+                "denied_high_risk_lift": -0.01,
+                "high_risk_profile_applied_rate": 0.02,
+                "high_risk_reachability_rate": 0.08,
+                "trajectory_partial_progress_rate": 0.12,
+            },
+        ]
+    )
+
+    summary = _build_phase_high_risk_tuning_summary(scale_df, release_decision="NO_GO")
+
+    assert summary["evidence_status"] == "diagnostic_only"
+    assert "activation_below_min_floor" in summary["diagnostic_reasons"]
+    assert "seed_direction_unstable" in summary["diagnostic_reasons"]
+    assert "release_gate_not_satisfied" in summary["diagnostic_reasons"]
+
+
+def test_build_suite_impact_attribution_summary_is_tentative_without_control_baseline() -> None:
+    summary = _build_suite_impact_attribution_summary(
+        phase_name="phase-10",
+        aggregate={
+            "mean_denied_to_approved_lift": 0.12,
+            "mean_denied_high_risk_lift": 0.05,
+            "mean_equalized_odds_gap_delta": 0.004,
+            "mean_denied_reliability_violation_rate": 0.18,
+            "mean_high_risk_reachability_rate": 0.20,
+            "mean_trajectory_partial_progress_rate": 0.25,
+            "mean_candidate_source_entropy": 0.33,
+            "mean_best_source_internal_rate": 0.44,
+            "mean_best_source_dice_rate": 0.36,
+            "mean_best_source_rule_rate": 0.12,
+            "mean_best_source_fallback_rate": 0.08,
+        },
+        evidence_level="seeded_suite",
+        evidence_status="complete",
+        seed_count=5,
+    )
+
+    assert summary["comparative_impact_confidence"] == "tentative"
+    assert summary["diagnostic_only"] is True
+    assert summary["diagnostic_reason"] == "control_variant_baseline_not_available_in_suite_runner"
