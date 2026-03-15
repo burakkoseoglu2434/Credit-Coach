@@ -10,6 +10,12 @@ _STATUS_PRIORITY = {
     "REJECTED": 2,
     "ERROR": 3,
 }
+_CONSTRAINT_PRIORITY = {
+    "valid": 0,
+    "repaired": 1,
+    "provisional": 2,
+    "invalid": 3,
+}
 
 
 def _safe_float(v, default: float = 0.0) -> float:
@@ -59,6 +65,16 @@ def _status_priority(status: str | None) -> int:
 
 def _prefer_non_rejected(plans: list[PlanRecord]) -> list[PlanRecord]:
     preferred = [p for p in plans if _status_priority(getattr(p, "status", "")) <= _STATUS_PRIORITY["NEEDS_REVIEW"]]
+    return preferred if preferred else plans
+
+
+def _constraint_priority(plan: PlanRecord) -> int:
+    key = str(getattr(plan, "constraint_status", "valid") or "valid").strip().lower()
+    return int(_CONSTRAINT_PRIORITY.get(key, 4))
+
+
+def _prefer_constraint_eligible(plans: list[PlanRecord]) -> list[PlanRecord]:
+    preferred = [p for p in plans if _constraint_priority(p) <= _CONSTRAINT_PRIORITY["repaired"]]
     return preferred if preferred else plans
 
 
@@ -364,6 +380,7 @@ def _denied_sort_key(
                 ),
             ) * 10.0
     return (
+        _constraint_priority(plan),
         _status_priority(plan.status),
         _gate_total_violation(
             plan,
@@ -431,6 +448,7 @@ def _high_risk_sort_key(
                 ),
             ) * 10.0
     return (
+        _constraint_priority(plan),
         _status_priority(plan.status),
         float(high_violation),
         -float(base_priority),
@@ -454,7 +472,7 @@ def choose_best_plan(
 ) -> PlanRecord:
     if not plans:
         raise ValueError("No plans provided")
-    candidates = _prefer_non_rejected(plans)
+    candidates = _prefer_non_rejected(_prefer_constraint_eligible(plans))
 
     # fairness_penalty remains part of generator scoring, but plan selection
     # enforces a deterministic user-facing tie-break rule.
@@ -499,6 +517,7 @@ def choose_best_plan(
     return sorted(
         candidates,
         key=lambda p: (
+            _constraint_priority(p),
             _status_priority(p.status),
             -_gate_pass_score(
                 p,

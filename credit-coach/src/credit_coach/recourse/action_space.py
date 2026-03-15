@@ -27,6 +27,7 @@ class ActionTemplate:
     feature_names: tuple[str, ...] = field(default_factory=tuple)
     requires_institutional_approval: bool = False
     approval_pending_semantic_only: bool = False
+    provides_tags: tuple[str, ...] = field(default_factory=tuple)
     prerequisite_tags: tuple[str, ...] = field(default_factory=tuple)
     conflict_tags: tuple[str, ...] = field(default_factory=tuple)
 
@@ -47,6 +48,7 @@ class ActionSpec:
     action_title: str = ""
     requires_institutional_approval: bool = False
     approval_pending_semantic_only: bool = False
+    provides_tags: tuple[str, ...] = field(default_factory=tuple)
     prerequisite_tags: tuple[str, ...] = field(default_factory=tuple)
     conflict_tags: tuple[str, ...] = field(default_factory=tuple)
 
@@ -73,6 +75,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
         title="Increase regular income",
         description="Improve recurring income through additional work or stable earnings.",
         feature_names=("annual_inc",),
+        provides_tags=("stable_income",),
     ),
     "verify_income_documentation": ActionTemplate(
         action_key="verify_income_documentation",
@@ -80,6 +83,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
         title="Verify income documentation",
         description="Complete documentation or verification steps to strengthen the file.",
         feature_names=("verification_status",),
+        provides_tags=("income_verified",),
     ),
     "reduce_spending": ActionTemplate(
         action_key="reduce_spending",
@@ -171,6 +175,7 @@ def _spec(
         action_title=template.title if template else "",
         requires_institutional_approval=bool(template.requires_institutional_approval) if template else False,
         approval_pending_semantic_only=bool(template.approval_pending_semantic_only) if template else False,
+        provides_tags=tuple(template.provides_tags) if template else (),
         prerequisite_tags=tuple(template.prerequisite_tags) if template else (),
         conflict_tags=tuple(template.conflict_tags) if template else (),
     )
@@ -454,6 +459,7 @@ def get_action_metadata(
             "composite_action": False,
             "requires_institutional_approval": False,
             "approval_pending_semantic_only": False,
+            "provides_tags": [],
             "prerequisite_tags": [],
             "conflict_tags": [],
         }
@@ -466,6 +472,7 @@ def get_action_metadata(
         "composite_action": len(template.feature_names) > 1,
         "requires_institutional_approval": bool(template.requires_institutional_approval),
         "approval_pending_semantic_only": bool(template.approval_pending_semantic_only),
+        "provides_tags": list(template.provides_tags),
         "prerequisite_tags": list(template.prerequisite_tags),
         "conflict_tags": list(template.conflict_tags),
     }

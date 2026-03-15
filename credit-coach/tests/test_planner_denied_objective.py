@@ -13,6 +13,7 @@ def _mk_plan(
     predicted_pd: float,
     robust_score: float,
     status: str = "NEEDS_REVIEW",
+    constraint_status: str = "valid",
     time_months: int = 3,
 ) -> PlanRecord:
     p = PlanRecord(
@@ -34,6 +35,7 @@ def _mk_plan(
         predicted_pd=predicted_pd,
         robust_score=robust_score,
         score=robust_score,
+        constraint_status=constraint_status,
         status=status,
     )
     p.ci_high = ci_high
@@ -309,3 +311,36 @@ def test_choose_best_plan_denied_mode_prefers_phase1_when_short_term_enabled():
         },
     )
     assert best.plan_id == "p_fast"
+
+
+def test_choose_best_plan_prefers_non_provisional_constraint_status_when_scores_match():
+    provisional = _mk_plan(
+        "p_provisional",
+        ci_high=0.34,
+        reliability=0.78,
+        worst_margin=-0.02,
+        predicted_pd=0.30,
+        robust_score=50.0,
+        status="NEEDS_REVIEW",
+        constraint_status="provisional",
+    )
+    valid = _mk_plan(
+        "p_valid",
+        ci_high=0.34,
+        reliability=0.78,
+        worst_margin=-0.02,
+        predicted_pd=0.30,
+        robust_score=50.0,
+        status="NEEDS_REVIEW",
+        constraint_status="valid",
+    )
+
+    best = choose_best_plan(
+        [provisional, valid],
+        tau=0.35,
+        min_reliability=0.70,
+        min_worst_risk_margin=-0.05,
+        denied_mode=True,
+        denied_objective_cfg={"enabled": True},
+    )
+    assert best.plan_id == "p_valid"

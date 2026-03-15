@@ -37,6 +37,7 @@ from credit_coach.recourse.action_space import (
     get_action_spec,
     get_actionable_features,
 )
+from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions, generate_dice_like_baseline
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.generator import PlanGenConfig, generate_nine_plans, generate_plan_record
@@ -1372,6 +1373,18 @@ def _top_action_realism_rejection_reason(events: list[dict[str, Any]]) -> str:
     return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
 
 
+def _top_constraint_reason(events: list[dict[str, Any]], *, event_type: str) -> str:
+    counts: dict[str, int] = {}
+    for event in events:
+        if str(event.get("event_type", "")) != event_type:
+            continue
+        key = str(event.get("reason_code", "")).strip() or "unknown"
+        counts[key] = int(counts.get(key, 0) + 1)
+    if not counts:
+        return ""
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+
+
 def _extract_reliability_thresholds_by_risk_band(
     *,
     uncertainty_cfg: dict[str, Any],
@@ -2540,7 +2553,6 @@ def _dice_plan_record(
     source_tag: str = "dice",
 ) -> PlanRecord:
     plan_actions: list[PlanAction] = []
-    x_prime = row.copy()
 
     for a in actions:
         feature = str(a["feature_name"])
@@ -2561,7 +2573,6 @@ def _dice_plan_record(
         delta = float(target - current)
         if str(detail["status"]) == "rejected":
             continue
-        x_prime[feature] = target
         action_month = max(1, int(spec.time_months))
         week_start = int(((action_month - 1) * 4) + 1)
         week_end = int(action_month * 4)
@@ -2592,6 +2603,15 @@ def _dice_plan_record(
             )
         )
 
+    constraint_result = enforce_action_constraints(
+        plan_actions,
+        action_context={str(k): row.get(k) for k in row.index},
+    )
+    plan_actions = list(constraint_result.actions)
+    x_prime = row.copy()
+    for action in plan_actions:
+        x_prime[str(action.feature_name)] = float(action.target_value)
+
     x_input = pd.DataFrame([x_prime[feature_cols].values], columns=feature_cols)
     pred_pd = float(predict_proba_pd(model, calibrator, x_input)[0])
     cost = float(sum(a.estimated_cost_usd for a in plan_actions))
@@ -2608,6 +2628,9 @@ def _dice_plan_record(
         predicted_pd=pred_pd,
         causal_penalty=cpen,
         score=score,
+        constraint_status=constraint_result.status,
+        constraint_reason=constraint_result.reason,
+        constraint_trace=list(constraint_result.trace),
         status="PENDING",
     )
 
@@ -2988,6 +3011,7 @@ def main() -> None:
             "high_risk_bridge_hit": 0,
             "best_status": "ERROR",
             "best_status_reason": "",
+            "best_constraint_status": "invalid",
             "best_source": "",
             "best_plan_id": "",
             "best_horizon_months": 0,
@@ -3033,6 +3057,11 @@ def main() -> None:
             "action_realism_rejected_action_count": 0,
             "action_realism_infeasible_plan_count": 0,
             "action_realism_top_rejection_reason": "",
+            "action_constraint_events_json": "[]",
+            "action_constraint_repair_applied_count": 0,
+            "action_constraint_approval_pending_action_count": 0,
+            "action_constraint_invalid_combination_count": 0,
+            "action_constraint_top_reason": "",
             "had_any_candidate": 0,
             "gate_pass_any_candidate": 0,
             "dice_backend": "",
@@ -3218,6 +3247,21 @@ def main() -> None:
             out["action_realism_rejected_action_count"] = int(runtime_diag.get("action_realism_rejected_action_count", 0))
             out["action_realism_infeasible_plan_count"] = int(runtime_diag.get("action_realism_infeasible_plan_count", 0))
             out["action_realism_top_rejection_reason"] = _top_action_realism_rejection_reason(action_realism_events)
+            action_constraint_events = list(runtime_diag.get("action_constraint_events", []))
+            out["action_constraint_events_json"] = json.dumps(action_constraint_events, ensure_ascii=False)
+            out["action_constraint_repair_applied_count"] = int(
+                runtime_diag.get("action_constraint_repair_applied_count", 0)
+            )
+            out["action_constraint_approval_pending_action_count"] = int(
+                runtime_diag.get("action_constraint_approval_pending_action_count", 0)
+            )
+            out["action_constraint_invalid_combination_count"] = int(
+                runtime_diag.get("action_constraint_invalid_combination_count", 0)
+            )
+            out["action_constraint_top_reason"] = _top_constraint_reason(
+                action_constraint_events,
+                event_type="repair_dropped",
+            )
             validated: list[PlanRecord] = []
             for p in plans:
                 if deadline_ts is not None and time.perf_counter() >= float(deadline_ts):
@@ -3596,6 +3640,7 @@ def main() -> None:
             )
             out["best_status"] = str(best.status)
             out["best_status_reason"] = str(best.status_reason or "")
+            out["best_constraint_status"] = str(getattr(best, "constraint_status", "valid") or "valid")
             out["best_source"] = _plan_source(best)
             out["best_plan_id"] = str(best.plan_id)
             out["best_horizon_months"] = int(best.horizon_months)
@@ -3840,6 +3885,7 @@ def main() -> None:
                         "action_class": _safe_str(event.get("action_class", "")),
                         "feature_name": _safe_str(event.get("feature_name", "")),
                         "action_group_id": _safe_str(event.get("action_group_id", "")),
+                        "composite_action": _safe_int(event.get("composite_action", 0)),
                         "status": _safe_str(event.get("status", "")),
                         "reason_code": _safe_str(code, ""),
                         "time_months": _safe_int(event.get("time_months", 0)),
@@ -3868,6 +3914,7 @@ def main() -> None:
                 "action_class",
                 "feature_name",
                 "action_group_id",
+                "composite_action",
                 "status",
                 "reason_code",
                 "time_months",
@@ -3881,6 +3928,119 @@ def main() -> None:
         )
     feasibility_rejection_breakdown_out = run_ctx.tables_dir / "feasibility_rejection_breakdown.csv"
     feasibility_rejection_breakdown.to_csv(feasibility_rejection_breakdown_out, index=False)
+
+    action_type_breakdown = (
+        action_realism_events_df.groupby(["action_class", "action_key", "status"], dropna=False)
+        .size()
+        .reset_index(name="count")
+        .sort_values(["count", "action_class", "action_key"], ascending=[False, True, True])
+        .reset_index(drop=True)
+        if not action_realism_events_df.empty
+        else pd.DataFrame(columns=["action_class", "action_key", "status", "count"])
+    )
+    action_type_breakdown_out = run_ctx.tables_dir / "action_type_breakdown.csv"
+    action_type_breakdown.to_csv(action_type_breakdown_out, index=False)
+
+    action_constraint_event_rows: list[dict[str, Any]] = []
+    for _, batch_row in batch_df[["batch_index", "denied_base", "risk_band", "action_constraint_events_json"]].iterrows():
+        raw_events = batch_row.get("action_constraint_events_json", "[]")
+        try:
+            events = json.loads(raw_events) if isinstance(raw_events, str) else []
+        except Exception:
+            events = []
+        if not isinstance(events, list):
+            continue
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            action_constraint_event_rows.append(
+                {
+                    "batch_index": int(batch_row.get("batch_index", 0)),
+                    "denied_base": int(batch_row.get("denied_base", 0)),
+                    "risk_band": _safe_str(batch_row.get("risk_band", "")),
+                    "event_type": _safe_str(event.get("event_type", "")),
+                    "action_key": _safe_str(event.get("action_key", "")),
+                    "action_class": _safe_str(event.get("action_class", "")),
+                    "action_group_id": _safe_str(event.get("action_group_id", "")),
+                    "feature_name": _safe_str(event.get("feature_name", "")),
+                    "reason_code": _safe_str(event.get("reason_code", "")),
+                    "related_action_key": _safe_str(event.get("related_action_key", "")),
+                    "related_group_id": _safe_str(event.get("related_group_id", "")),
+                    "time_months": _safe_int(event.get("time_months", 0)),
+                }
+            )
+    action_constraint_events_df = (
+        pd.DataFrame(action_constraint_event_rows)
+        if action_constraint_event_rows
+        else pd.DataFrame(
+            columns=[
+                "batch_index",
+                "denied_base",
+                "risk_band",
+                "event_type",
+                "action_key",
+                "action_class",
+                "action_group_id",
+                "feature_name",
+                "reason_code",
+                "related_action_key",
+                "related_group_id",
+                "time_months",
+            ]
+        )
+    )
+    constraint_repair_breakdown = (
+        action_constraint_events_df[action_constraint_events_df["event_type"] == "repair_dropped"]
+        .groupby(["reason_code", "action_class", "action_key"], dropna=False)
+        .size()
+        .reset_index(name="count")
+        .sort_values(["count", "reason_code"], ascending=[False, True])
+        .reset_index(drop=True)
+        if not action_constraint_events_df.empty
+        else pd.DataFrame(columns=["reason_code", "action_class", "action_key", "count"])
+    )
+    constraint_repair_breakdown_out = run_ctx.tables_dir / "constraint_repair_breakdown.csv"
+    constraint_repair_breakdown.to_csv(constraint_repair_breakdown_out, index=False)
+
+    approval_pending_breakdown = (
+        action_constraint_events_df[action_constraint_events_df["event_type"] == "approval_pending"]
+        .groupby(["reason_code", "action_class", "action_key"], dropna=False)
+        .size()
+        .reset_index(name="count")
+        .sort_values(["count", "reason_code"], ascending=[False, True])
+        .reset_index(drop=True)
+        if not action_constraint_events_df.empty
+        else pd.DataFrame(columns=["reason_code", "action_class", "action_key", "count"])
+    )
+    approval_pending_breakdown_out = run_ctx.tables_dir / "approval_pending_breakdown.csv"
+    approval_pending_breakdown.to_csv(approval_pending_breakdown_out, index=False)
+
+    total_action_realism_events = float(max(1, len(action_realism_events_df)))
+    action_type_behavioral_rate = (
+        float((action_realism_events_df["action_class"] == "behavioral").mean())
+        if not action_realism_events_df.empty
+        else 0.0
+    )
+    action_type_structural_rate = (
+        float((action_realism_events_df["action_class"] == "structural").mean())
+        if not action_realism_events_df.empty
+        else 0.0
+    )
+    action_type_institutional_rate = (
+        float((action_realism_events_df["action_class"] == "institutional").mean())
+        if not action_realism_events_df.empty
+        else 0.0
+    )
+    composite_action_rate = (
+        float(action_realism_events_df["composite_action"].astype(float).mean())
+        if not action_realism_events_df.empty
+        else 0.0
+    )
+    repair_applied_rate = float((batch_df["action_constraint_repair_applied_count"].astype(int) > 0).mean())
+    approval_pending_action_rate = float(
+        batch_df["action_constraint_approval_pending_action_count"].astype(float).sum() / total_action_realism_events
+    )
+    invalid_combination_rate = float((batch_df["action_constraint_invalid_combination_count"].astype(int) > 0).mean())
 
     top_plan = best_mix.iloc[0] if not best_mix.empty else pd.Series(dtype=object)
     top_plan_approved = best_mix_approved.iloc[0] if not best_mix_approved.empty else pd.Series(dtype=object)
@@ -4504,6 +4664,10 @@ def main() -> None:
         "best_source_internal_rate": float((batch_df["best_source"] == "internal").mean()),
         "candidate_pool_diversity_index": float(batch_df["candidate_pool_diversity_index"].astype(float).mean()),
         "candidate_source_entropy": float(batch_df["candidate_source_entropy"].astype(float).mean()),
+        "action_type_behavioral_rate": float(action_type_behavioral_rate),
+        "action_type_structural_rate": float(action_type_structural_rate),
+        "action_type_institutional_rate": float(action_type_institutional_rate),
+        "composite_action_rate": float(composite_action_rate),
         "action_realism_valid_action_count": int(batch_df["action_realism_valid_action_count"].astype(int).sum()),
         "action_realism_clipped_action_count": int(batch_df["action_realism_clipped_action_count"].astype(int).sum()),
         "action_realism_rejected_action_count": int(batch_df["action_realism_rejected_action_count"].astype(int).sum()),
@@ -4527,6 +4691,9 @@ def main() -> None:
             )
         ),
         "infeasible_plan_rate": float(batch_df["action_realism_infeasible_plan_count"].astype(int).mean()),
+        "repair_applied_rate": float(repair_applied_rate),
+        "approval_pending_action_rate": float(approval_pending_action_rate),
+        "invalid_combination_rate": float(invalid_combination_rate),
         "candidate_quality_population": str(candidate_quality_summary["canonical_population"]),
         "candidate_quality_secondary_population": str(candidate_quality_summary["secondary_population"]),
         "denied_candidate_pool_diversity_index": float(
@@ -4672,7 +4839,43 @@ def main() -> None:
     else:
         summary["action_realism_top_rejection_reason"] = ""
         summary["action_realism_top_rejection_reason_count"] = 0
+    if not constraint_repair_breakdown.empty:
+        summary["action_realism_top_constraint_reason"] = _safe_str(
+            constraint_repair_breakdown.iloc[0].get("reason_code", "")
+        )
+        summary["action_realism_top_constraint_reason_count"] = _safe_int(
+            constraint_repair_breakdown.iloc[0].get("count", 0)
+        )
+    else:
+        summary["action_realism_top_constraint_reason"] = ""
+        summary["action_realism_top_constraint_reason_count"] = 0
     run_ctx.save_metrics(summary)
+
+    action_realism_summary = {
+        "canonical_population": "denied",
+        "action_type_behavioral_rate": float(action_type_behavioral_rate),
+        "action_type_structural_rate": float(action_type_structural_rate),
+        "action_type_institutional_rate": float(action_type_institutional_rate),
+        "composite_action_rate": float(composite_action_rate),
+        "clipped_action_rate": float(summary["action_realism_clipped_action_rate"]),
+        "rejected_action_rate": float(summary["action_realism_rejected_action_rate"]),
+        "repair_applied_rate": float(repair_applied_rate),
+        "approval_pending_action_rate": float(approval_pending_action_rate),
+        "invalid_combination_rate": float(invalid_combination_rate),
+        "infeasible_plan_rate": float(summary["infeasible_plan_rate"]),
+        "dominant_rejection_reason": str(summary["action_realism_top_rejection_reason"]),
+        "supporting_artifacts": {
+            "action_type_breakdown_csv": "tables/action_type_breakdown.csv",
+            "feasibility_rejection_breakdown_csv": "tables/feasibility_rejection_breakdown.csv",
+            "constraint_repair_breakdown_csv": "tables/constraint_repair_breakdown.csv",
+            "approval_pending_breakdown_csv": "tables/approval_pending_breakdown.csv",
+        },
+    }
+    action_realism_summary_out = run_ctx.tables_dir / "action_realism_summary.json"
+    action_realism_summary_out.write_text(
+        json.dumps(action_realism_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
     summary_json = run_ctx.tables_dir / "batch_summary.json"
     summary_json.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")

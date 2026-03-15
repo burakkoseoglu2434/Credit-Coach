@@ -254,6 +254,18 @@ class PlanRecord(BaseModel):
     robust_worst_risk_margin: float | None = Field(None, description="Stres senaryolarinda en dusuk margin")
     causal_penalty: float | None = Field(None, ge=0.0, description="Nedensel ceza puanı")
     score: float | None = Field(None, description="Nihai plan skoru")
+    constraint_status: Literal["valid", "repaired", "provisional", "invalid"] = Field(
+        default="valid",
+        description="Action dependency/conflict katmanindan gelen plan-level durum",
+    )
+    constraint_reason: str | None = Field(
+        default=None,
+        description="Action constraint katmaninin reason-coded ozet gerekcesi",
+    )
+    constraint_trace: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Repair, conflict ve approval-pending trace olaylari",
+    )
 
     status: Literal["APPROVED", "NEEDS_REVIEW", "REJECTED", "PENDING"] = Field(
         default="PENDING", description="Güvenlik kapısı sonucu"

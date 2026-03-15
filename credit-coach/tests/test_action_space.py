@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import pytest
 
+from credit_coach.data.schema import PlanAction
+from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.action_space import (
     ACTION_CATALOG,
     ACTION_SPACE,
@@ -184,6 +186,105 @@ class TestTypedActionCatalog:
         assert first["action_group_id"] == second["action_group_id"]
         assert derive_action_group_id("refinance", 3) == first["action_group_id"]
         assert first["composite_action"] is True
+
+    def test_action_catalog_exposes_dependency_and_provider_tags(self) -> None:
+        refinance = get_action_template("refinance")
+        income = get_action_template("increase_regular_income")
+        settlement = get_action_template("settlement_discount")
+        assert "stable_income" in refinance.prerequisite_tags
+        assert "stable_income" in income.provides_tags
+        assert "installment_plan" in settlement.conflict_tags
+
+    def test_enforce_action_constraints_repairs_conflicting_groups(self) -> None:
+        conflicting = [
+            PlanAction(
+                feature_name="revol_bal",
+                current_value=12_000.0,
+                target_value=10_500.0,
+                delta=-1_500.0,
+                time_months=2,
+                estimated_cost_usd=40.0,
+                action_key="debt_consolidation",
+                action_class="structural",
+                action_title="Consolidate revolving debt",
+                action_group_id="debt_consolidation:m2",
+                conflict_tags=["settlement_discount"],
+            ),
+            PlanAction(
+                feature_name="tot_coll_amt",
+                current_value=3_000.0,
+                target_value=2_400.0,
+                delta=-600.0,
+                time_months=2,
+                estimated_cost_usd=15.0,
+                action_key="settlement_discount",
+                action_class="institutional",
+                action_title="Negotiate settlement discount",
+                action_group_id="settlement_discount:m2",
+                requires_institutional_approval=True,
+                approval_pending_semantic_only=True,
+                conflict_tags=["installment_plan"],
+            ),
+        ]
+
+        result = enforce_action_constraints(conflicting, action_context={"annual_inc": 55_000.0, "dti": 22.0})
+
+        assert result.status == "repaired"
+        assert len(result.actions) == 1
+        assert result.actions[0].action_key == "debt_consolidation"
+        assert any(entry["event_type"] == "repair_dropped" for entry in result.trace)
+        assert any(str(entry["reason_code"]).startswith("conflict_with:") for entry in result.trace)
+
+    def test_enforce_action_constraints_supports_prerequisite_provider_and_provisional_status(self) -> None:
+        actions = [
+            PlanAction(
+                feature_name="annual_inc",
+                current_value=45_000.0,
+                target_value=49_000.0,
+                delta=4_000.0,
+                time_months=3,
+                estimated_cost_usd=20.0,
+                action_key="increase_regular_income",
+                action_class="behavioral",
+                action_title="Increase regular income",
+                action_group_id="increase_regular_income:m3",
+            ),
+            PlanAction(
+                feature_name="int_rate",
+                current_value=19.0,
+                target_value=17.0,
+                delta=-2.0,
+                time_months=3,
+                estimated_cost_usd=10.0,
+                action_key="refinance",
+                action_class="structural",
+                action_title="Refinance or restructure debt",
+                action_group_id="refinance:m3",
+                prerequisite_tags=["stable_income"],
+            ),
+            PlanAction(
+                feature_name="total_rev_hi_lim",
+                current_value=6_000.0,
+                target_value=7_500.0,
+                delta=1_500.0,
+                time_months=3,
+                estimated_cost_usd=8.0,
+                action_key="credit_limit_adjustment",
+                action_class="institutional",
+                action_title="Request or negotiate credit limit adjustment",
+                action_group_id="credit_limit_adjustment:m3",
+                requires_institutional_approval=True,
+            ),
+        ]
+
+        result = enforce_action_constraints(actions, action_context={"annual_inc": 25_000.0, "dti": 39.0})
+
+        assert result.status == "provisional"
+        assert len(result.actions) == 3
+        assert any(action.action_key == "refinance" for action in result.actions)
+        provisional = next(action for action in result.actions if action.action_key == "credit_limit_adjustment")
+        assert provisional.action_status == "provisional"
+        assert "requires_institutional_approval" in provisional.diagnostic_flags
 
 
 class TestHelperFunctions:

@@ -27,6 +27,7 @@ from credit_coach.recourse.action_space import (
     get_action_spec,
     get_actionable_features,
 )
+from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.generator import generate_nine_plans
@@ -423,6 +424,9 @@ def _build_customer_roadmap(
                 "approval_pending_semantic_only": int(
                     bool(getattr(action, "approval_pending_semantic_only", False))
                 ),
+                "action_status": str(getattr(action, "action_status", "") or ""),
+                "action_status_reason": str(getattr(action, "action_status_reason", "") or ""),
+                "diagnostic_flags": list(getattr(action, "diagnostic_flags", [])),
             }
         )
 
@@ -475,6 +479,7 @@ def _build_customer_roadmap(
         "best_plan_id": str(best.plan_id),
         "best_plan_source": str(best_source),
         "best_status": str(best.status),
+        "best_constraint_status": str(getattr(best, "constraint_status", "valid") or "valid"),
         "phases": phases,
         "checkpoints": checkpoints,
         "next_review_week": int(review_week),
@@ -522,6 +527,9 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                 "approval_pending_semantic_only": int(
                     bool(getattr(action, "approval_pending_semantic_only", False))
                 ),
+                "action_status": str(getattr(action, "action_status", "") or ""),
+                "action_status_reason": str(getattr(action, "action_status_reason", "") or ""),
+                "diagnostic_flags": list(getattr(action, "diagnostic_flags", [])),
             }
         )
     return {
@@ -547,6 +555,9 @@ def _plan_to_row(plan: PlanRecord) -> dict:
         "phase_3_action_count": int(phase_3_count),
         "proximity_l1": _plan_proximity_l1(plan),
         "timeline_steps_json": json.dumps(timeline_steps, ensure_ascii=False),
+        "constraint_status": str(getattr(plan, "constraint_status", "valid") or "valid"),
+        "constraint_reason": str(getattr(plan, "constraint_reason", "") or ""),
+        "constraint_trace_json": json.dumps(getattr(plan, "constraint_trace", []), ensure_ascii=False),
         "status": plan.status,
         "status_reason": plan.status_reason,
     }
@@ -568,7 +579,6 @@ def _dice_plan_record(
     segment_context: dict | None = None,
 ) -> PlanRecord:
     plan_actions: list[PlanAction] = []
-    x_prime = row.copy()
 
     for a in actions:
         feature = str(a["feature_name"])
@@ -589,8 +599,6 @@ def _dice_plan_record(
         delta = float(target - current)
         if str(detail["status"]) == "rejected":
             continue
-
-        x_prime[feature] = target
         action_month = max(1, int(spec.time_months))
         week_start = int(((action_month - 1) * 4) + 1)
         week_end = int(action_month * 4)
@@ -621,6 +629,15 @@ def _dice_plan_record(
             )
         )
 
+    constraint_result = enforce_action_constraints(
+        plan_actions,
+        action_context={str(k): row.get(k) for k in row.index},
+    )
+    plan_actions = list(constraint_result.actions)
+    x_prime = row.copy()
+    for action in plan_actions:
+        x_prime[str(action.feature_name)] = float(action.target_value)
+
     x_input = pd.DataFrame([x_prime[feature_cols].values], columns=feature_cols)
     pred_pd = float(predict_proba_pd(model, calibrator, x_input)[0])
     cost = float(sum(a.estimated_cost_usd for a in plan_actions))
@@ -637,6 +654,9 @@ def _dice_plan_record(
         predicted_pd=pred_pd,
         causal_penalty=cpen,
         score=score,
+        constraint_status=constraint_result.status,
+        constraint_reason=constraint_result.reason,
+        constraint_trace=list(constraint_result.trace),
         status="PENDING",
     )
 

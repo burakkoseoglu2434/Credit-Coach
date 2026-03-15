@@ -22,6 +22,7 @@ from credit_coach.recourse.action_space import (
     get_action_spec,
     get_actionable_features,
 )
+from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.region_targets import get_target_pd
 from credit_coach.safety.statistical import estimate_prediction_ci
@@ -1211,6 +1212,31 @@ def generate_plan_record(
         max_actions=max_actions,
         min_abs_delta=min_abs_delta,
     )
+    constraint_result = enforce_action_constraints(
+        actions,
+        action_context=_build_action_context(row),
+    )
+    actions = list(constraint_result.actions)
+    if runtime_diag is not None and constraint_result.trace:
+        runtime_diag.setdefault("action_constraint_events", []).extend(constraint_result.trace)
+        runtime_diag["action_constraint_repair_applied_count"] = int(
+            runtime_diag.get("action_constraint_repair_applied_count", 0)
+            + int(any(str(event.get("event_type", "")) == "repair_dropped" for event in constraint_result.trace))
+        )
+        runtime_diag["action_constraint_approval_pending_action_count"] = int(
+            runtime_diag.get("action_constraint_approval_pending_action_count", 0)
+            + sum(1 for event in constraint_result.trace if str(event.get("event_type", "")) == "approval_pending")
+        )
+        runtime_diag["action_constraint_invalid_combination_count"] = int(
+            runtime_diag.get("action_constraint_invalid_combination_count", 0)
+            + int(
+                any(
+                    str(event.get("reason_code", "")).startswith("conflict_with:")
+                    or str(event.get("reason_code", "")).startswith("missing_prerequisite:")
+                    for event in constraint_result.trace
+                )
+            )
+        )
     x_prime = _apply_actions(row, actions)
     x_input = pd.DataFrame([x_prime[feature_cols].values], columns=feature_cols)
     pred_pd = float(predict_proba_pd(model, calibrator, x_input)[0])
@@ -1352,6 +1378,9 @@ def generate_plan_record(
         robust_worst_risk_margin=float(rel_report.get("worst_risk_margin", cfg.tau - pred_pd)),
         causal_penalty=cpen,
         score=final_score,
+        constraint_status=constraint_result.status,
+        constraint_reason=constraint_result.reason,
+        constraint_trace=list(constraint_result.trace),
         status="PENDING",
     )
 

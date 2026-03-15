@@ -1,10 +1,21 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from credit_coach.cli.run_recourse import _effective_recourse_search
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
+from credit_coach.recourse.generator import PlanGenConfig, generate_plan_record
 from credit_coach.safety.statistical import estimate_prediction_ci
+
+
+class _DummyModel:
+    def predict_proba(self, x):
+        df = x if isinstance(x, pd.DataFrame) else pd.DataFrame(x)
+        inc = pd.to_numeric(df.get("annual_inc", pd.Series([50_000.0] * len(df))), errors="coerce").fillna(50_000.0)
+        util = pd.to_numeric(df.get("revol_util", pd.Series([50.0] * len(df))), errors="coerce").fillna(50.0)
+        p = (0.75 - (inc / 250000.0) + (util / 500.0)).clip(0.05, 0.99).to_numpy()
+        return np.column_stack([1.0 - p, p])
 
 
 def test_effective_recourse_search_denied_target_profile():
@@ -112,3 +123,64 @@ def test_estimate_prediction_ci_conformal_and_hybrid_bounds():
     assert 0.0 <= low_c <= high_c <= 1.0
     assert 0.0 <= low_b <= high_b <= 1.0
     assert (high_c - low_c) >= 0.02
+
+
+def test_generate_plan_record_repairs_conflicting_action_bundle():
+    row = pd.Series(
+        {
+            "annual_inc": 55_000.0,
+            "dti": 22.0,
+            "revol_bal": 12_000.0,
+            "tot_coll_amt": 2_500.0,
+        }
+    )
+    plan = generate_plan_record(
+        customer_id="c1",
+        run_id="r1",
+        row=row,
+        model=_DummyModel(),
+        calibrator=None,
+        feature_cols=list(row.index),
+        horizon_months=6,
+        strategy="balanced",
+        graph=None,
+        cfg=PlanGenConfig(tau=0.35),
+        candidate_features=["revol_bal", "tot_coll_amt"],
+        topk=2,
+        robust_cfg={"enabled": False},
+        search_cfg={"min_abs_action_delta": 1e-6},
+    )
+    assert plan.constraint_status == "repaired"
+    assert plan.actions
+    assert all(action.action_key != "settlement_discount" for action in plan.actions)
+    assert any(str(entry.get("reason_code", "")).startswith("conflict_with:") for entry in plan.constraint_trace)
+
+
+def test_generate_plan_record_marks_approval_required_action_provisional():
+    row = pd.Series(
+        {
+            "annual_inc": 50_000.0,
+            "dti": 21.0,
+            "total_rev_hi_lim": 6_000.0,
+        }
+    )
+    plan = generate_plan_record(
+        customer_id="c2",
+        run_id="r2",
+        row=row,
+        model=_DummyModel(),
+        calibrator=None,
+        feature_cols=list(row.index),
+        horizon_months=6,
+        strategy="balanced",
+        graph=None,
+        cfg=PlanGenConfig(tau=0.35),
+        candidate_features=["total_rev_hi_lim"],
+        topk=1,
+        robust_cfg={"enabled": False},
+        search_cfg={"min_abs_action_delta": 1e-6},
+    )
+    assert plan.constraint_status == "provisional"
+    assert len(plan.actions) == 1
+    assert plan.actions[0].action_status == "provisional"
+    assert "requires_institutional_approval" in plan.actions[0].diagnostic_flags

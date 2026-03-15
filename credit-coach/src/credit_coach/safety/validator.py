@@ -32,6 +32,13 @@ def validate_plan(
     uncertainty_cfg: dict | None = None,
     segment_context: dict | None = None,
 ) -> PlanRecord:
+    constraint_status = str(getattr(plan, "constraint_status", "valid") or "valid").strip().lower()
+    constraint_reason = str(getattr(plan, "constraint_reason", "") or "").strip() or None
+    if constraint_status == "invalid":
+        plan.status = "REJECTED"
+        plan.status_reason = _with_reason("action constraint invalid", constraint_reason)
+        return plan
+
     actions = [a.model_dump() for a in plan.actions]
     feasible, reason = check_actions_feasible(actions)
     if not feasible:
@@ -194,6 +201,12 @@ def validate_plan(
                 f"min {float(min_worst_risk_margin):.4f}"
             ),
         )
+
+    if constraint_status == "provisional":
+        status = "NEEDS_REVIEW"
+        reason_txt = _with_reason(reason_txt, constraint_reason or "institutional approval pending")
+    elif constraint_status == "repaired" and constraint_reason:
+        reason_txt = _with_reason(reason_txt, f"repair_applied: {constraint_reason}")
 
     plan.status = status
     plan.status_reason = reason_txt
