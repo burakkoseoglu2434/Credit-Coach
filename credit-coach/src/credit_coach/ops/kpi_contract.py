@@ -809,28 +809,52 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
     supporting_artifacts = summary.get("supporting_artifacts", {})
     if not isinstance(supporting_artifacts, Mapping):
         supporting_artifacts = {}
-    candidate_quality = summary.get("candidate_quality_summary", {})
-    if not isinstance(candidate_quality, Mapping):
-        candidate_quality = {}
-    high_risk_tuning = summary.get("high_risk_tuning_summary", {})
-    if not isinstance(high_risk_tuning, Mapping):
-        high_risk_tuning = {}
-    impact_summary = summary.get("impact_attribution_summary", {})
-    if not isinstance(impact_summary, Mapping):
-        impact_summary = {}
+    release_pack_summary = summary.get("release_pack_summary", {})
+    if not isinstance(release_pack_summary, Mapping):
+        release_pack_summary = {}
+    outcome_feedback = summary.get("outcome_feedback_summary", {})
+    if not isinstance(outcome_feedback, Mapping):
+        outcome_feedback = {}
 
-    candidate_metrics = candidate_quality.get("canonical_metrics", {})
-    if not isinstance(candidate_metrics, Mapping):
-        candidate_metrics = {}
-    high_risk_supporting = high_risk_tuning.get("supporting_metrics", {})
-    if not isinstance(high_risk_supporting, Mapping):
-        high_risk_supporting = {}
-    impact_primary_axes = impact_summary.get("primary_axes", {})
-    if not isinstance(impact_primary_axes, Mapping):
-        impact_primary_axes = {}
+    def _safe_float(value: Any) -> float:
+        try:
+            return float(value)
+        except Exception:
+            return 0.0
+
+    telemetry_gate_status = str(summary.get("telemetry_gate_status", ""))
+    pack_status = str(release_pack_summary.get("pack_status", "complete"))
+    outcome_comparison_status = str(outcome_feedback.get("comparison_status", "not_available"))
+    evidence_status = "complete"
+    if (
+        str(summary.get("evidence_status", "complete")) != "complete"
+        or telemetry_gate_status == "degraded"
+        or pack_status != "complete"
+        or outcome_comparison_status == "baseline_missing"
+    ):
+        evidence_status = "degraded"
+
+    evidence_reason = ""
+    if telemetry_gate_status == "degraded":
+        evidence_reason = "telemetry_degraded"
+    elif list(release_pack_summary.get("missing_artifacts", [])):
+        evidence_reason = "missing_artifacts"
+    elif outcome_comparison_status == "baseline_missing":
+        evidence_reason = "baseline_missing"
+    elif str(summary.get("degraded_reason", "")).strip():
+        evidence_reason = str(summary.get("degraded_reason", "")).strip()
+
+    best_arm = outcome_feedback.get("best_proxy_improving_arm", {})
+    if not isinstance(best_arm, Mapping):
+        best_arm = {}
+    worst_arm = outcome_feedback.get("worst_proxy_regressing_arm", {})
+    if not isinstance(worst_arm, Mapping):
+        worst_arm = {}
 
     lines = [
         "# Milestone Acceptance Review",
+        "",
+        f"Evidence Status: {evidence_status}" + (f" ({evidence_reason})" if evidence_reason else ""),
         "",
         "## Decision",
         "",
@@ -844,65 +868,33 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
         f"- Model version: {summary.get('model_version', '')}",
         f"- Freeze mode: {summary.get('model_freeze_mode', '')}",
         "",
-        "## Candidate Quality Summary",
+        "## Telemetry Readiness",
         "",
-        f"- Population: {candidate_quality.get('candidate_quality_population', 'denied')}",
-        f"- Companion population: {candidate_quality.get('candidate_quality_secondary_population', 'high_risk_denied')}",
-        f"- Candidate pool diversity index: {float(candidate_metrics.get('candidate_pool_diversity_index', 0.0)):.6f}",
-        f"- Candidate source entropy: {float(candidate_metrics.get('candidate_source_entropy', 0.0)):.6f}",
-        f"- Best source internal rate: {float(candidate_metrics.get('best_source_internal_rate', 0.0)):.6f}",
-        f"- Best source dice rate: {float(candidate_metrics.get('best_source_dice_rate', 0.0)):.6f}",
-        f"- Best source rule rate: {float(candidate_metrics.get('best_source_rule_rate', 0.0)):.6f}",
-        f"- Best source fallback rate: {float(candidate_metrics.get('best_source_fallback_rate', 0.0)):.6f}",
+        f"- Telemetry gate status: {telemetry_gate_status or 'unknown'}",
+        f"- Telemetry failure reason: {summary.get('telemetry_failure_reason', '') or 'none'}",
+        f"- Telemetry success rate: {_safe_float(summary.get('telemetry_success_rate', 0.0)):.6f}",
+        f"- Telemetry ingest lag (s): {_safe_float(summary.get('telemetry_ingest_lag_s', 0.0)):.6f}",
+        f"- Broad rollout allowed: {bool(summary.get('broad_rollout_allowed', False))}",
+        f"- Pilot eligible: {bool(summary.get('pilot_eligible', False))}",
         "",
-        "## High-Risk Tuning Summary",
+        "## Release Pack Completeness",
         "",
-        f"- Primary metric: {high_risk_tuning.get('primary_metric', 'denied_high_risk_lift')}",
-        f"- Primary metric value: {float(high_risk_tuning.get('primary_metric_value', 0.0)):.6f}",
-        f"- High-risk profile applied rate: {float(high_risk_tuning.get('high_risk_profile_applied_rate', 0.0)):.6f}",
-        f"- Meaningful activation: {bool(high_risk_tuning.get('meaningful_activation', False))}",
-        f"- Evidence status: {high_risk_tuning.get('evidence_status', 'diagnostic_only')}",
-        f"- High-risk reachability rate: {float(high_risk_supporting.get('high_risk_reachability_rate', 0.0)):.6f}",
-        f"- Trajectory partial progress rate: {float(high_risk_supporting.get('trajectory_partial_progress_rate', 0.0)):.6f}",
+        f"- Pack status: {pack_status or 'complete'}",
+        f"- Pack acceptance eligible: {bool(release_pack_summary.get('pack_acceptance_eligible', False))}",
+        f"- Required artifacts: {len(release_pack_summary.get('required_artifacts', {}))}",
+        f"- Optional artifacts: {len(release_pack_summary.get('optional_artifacts', {}))}",
+        f"- Missing artifacts: {', '.join(release_pack_summary.get('missing_artifacts', [])) or 'none'}",
         "",
-        "## Impact Attribution Summary",
+        "## Outcome Feedback Summary",
         "",
-        f"- Baseline: {impact_summary.get('baseline_label', '')}",
-        f"- Overall assessment: {impact_summary.get('overall_assessment', NO_MATERIAL_CHANGE)}",
-        f"- Comparative impact confidence: {impact_summary.get('comparative_impact_confidence', TENTATIVE)}",
+        f"- Comparison status: {outcome_comparison_status}",
+        f"- Outcome feedback confidence: {outcome_feedback.get('outcome_feedback_confidence', TENTATIVE)}",
+        f"- Best proxy-improving arm: {best_arm.get('policy_arm', '') or 'none'}",
+        f"- Worst proxy-regressing arm: {worst_arm.get('policy_arm', '') or 'none'}",
+        f"- approval_rate delta: {_safe_float(outcome_feedback.get('approval_rate_delta', 0.0)):.6f}",
+        f"- default_rate_90d delta: {_safe_float(outcome_feedback.get('default_rate_90d_delta', 0.0)):.6f}",
+        f"- avg_margin_90d delta: {_safe_float(outcome_feedback.get('avg_margin_90d_delta', 0.0)):.6f}",
     ]
-    if impact_summary.get("diagnostic_reason"):
-        lines.append(f"- Diagnostic reason: {impact_summary.get('diagnostic_reason', '')}")
-    for metric_key in (
-        "denied_to_approved_lift",
-        "denied_high_risk_lift",
-        "equalized_odds_gap_delta",
-        "denied_reliability_violation_rate",
-    ):
-        axis_payload = impact_primary_axes.get(metric_key, {})
-        if not isinstance(axis_payload, Mapping):
-            continue
-        lines.append(
-            f"- {metric_key}: {axis_payload.get('label', NO_MATERIAL_CHANGE)} "
-            f"(delta={float(axis_payload.get('delta', 0.0)):.6f})"
-        )
-
-    lines.extend(
-        [
-            "",
-            "## Fairness & Reliability Snapshot",
-            "",
-            f"- Lift pass: {bool(summary.get('lift_pass', False))}",
-            f"- Reliability pass: {bool(summary.get('reliability_pass', False))}",
-            f"- Fairness seed pass count: {int(summary.get('fairness_seed_pass_count', 0))}/{int(summary.get('seed_count', 0))}",
-            f"- Primary fairness metric: {summary.get('primary_fairness_metric', '')}",
-            f"- Worst primary fairness gap: {float(summary.get('worst_primary_fairness_gap', 0.0)):.6f}",
-            f"- Dominant fail segment: {summary.get('dominant_fail_segment_key', '')}",
-            f"- Dominant fail candidate source: {summary.get('dominant_fail_candidate_source', '')}",
-        ]
-    )
-    if summary.get("degraded_reason"):
-        lines.append(f"- Degraded reason: {summary.get('degraded_reason', '')}")
     if supporting_artifacts:
         lines.extend(["", "## Supporting Artifacts", ""])
         for key in sorted(supporting_artifacts.keys(), key=str):

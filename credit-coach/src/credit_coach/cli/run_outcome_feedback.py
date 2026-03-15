@@ -70,13 +70,17 @@ def main() -> None:
 
     summary_out = run_ctx.tables_dir / "outcome_policy_summary.csv"
     deltas_out = run_ctx.tables_dir / "outcome_policy_deltas.json"
+    outcome_feedback_out = run_ctx.tables_dir / "outcome_feedback_summary.json"
     summary_df.to_csv(summary_out, index=False)
     deltas_out.write_text(json.dumps(deltas, indent=2, ensure_ascii=False), encoding="utf-8")
+    outcome_feedback_out.write_text(json.dumps(deltas, indent=2, ensure_ascii=False), encoding="utf-8")
     run_ctx.save_metrics(
         {
             "window_days": int(args.window_days),
             "ingested_records": int(ingested),
             "policy_arm_count": int(summary_df["policy_arm"].nunique()) if not summary_df.empty else 0,
+            "comparison_status": str(deltas.get("comparison_status", "no_data")),
+            "outcome_feedback_confidence": str(deltas.get("outcome_feedback_confidence", "tentative")),
             "approval_rate_delta": float(deltas.get("approval_rate_delta", 0.0)),
             "default_rate_90d_delta": float(deltas.get("default_rate_90d_delta", 0.0)),
             "avg_margin_90d_delta": float(deltas.get("avg_margin_90d_delta", 0.0)),
@@ -84,6 +88,7 @@ def main() -> None:
     )
     logger.info("Outcome feedback summary: %s", summary_out)
     logger.info("Outcome policy deltas: %s", deltas_out)
+    logger.info("Outcome feedback machine-readable summary: %s", outcome_feedback_out)
 
 
 if __name__ == "__main__":

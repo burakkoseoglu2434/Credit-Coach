@@ -48,4 +48,74 @@ def test_outcome_feedback_summary_and_deltas(monkeypatch, tmp_path):
     deltas = compute_policy_outcome_deltas(window_days=90)
     assert deltas["has_control"] is True
     assert deltas["has_treatment"] is True
+    assert deltas["comparison_status"] == "treatment_vs_control"
+    assert deltas["outcome_feedback_confidence"] == "strong"
     assert deltas["default_rate_90d_delta"] < 0.0
+    assert deltas["best_proxy_improving_arm"]["policy_arm"] == "treatment"
+    assert deltas["comparisons"][0]["proxy_labels"]["approval_rate"] == "no_material_change"
+
+
+def test_outcome_feedback_supports_multi_arm_control_comparisons(monkeypatch, tmp_path):
+    _init_test_db(monkeypatch, tmp_path)
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d1",
+            run_id="r1",
+            customer_id="c1",
+            policy_arm="control",
+            approved=True,
+            observed_default_90d=1,
+            observed_margin_90d=10.0,
+        )
+    )
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d2",
+            run_id="r1",
+            customer_id="c2",
+            policy_arm="treatment",
+            approved=True,
+            observed_default_90d=0,
+            observed_margin_90d=100.0,
+        )
+    )
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d3",
+            run_id="r1",
+            customer_id="c3",
+            policy_arm="pilot_b",
+            approved=False,
+            observed_default_90d=1,
+            observed_margin_90d=-30.0,
+        )
+    )
+
+    deltas = compute_policy_outcome_deltas(window_days=90)
+
+    assert deltas["comparison_status"] == "treatment_vs_control"
+    assert len(deltas["comparisons"]) == 2
+    assert deltas["best_proxy_improving_arm"]["policy_arm"] == "treatment"
+    assert deltas["worst_proxy_regressing_arm"]["policy_arm"] == "pilot_b"
+
+
+def test_outcome_feedback_falls_back_to_baseline_missing_without_control(monkeypatch, tmp_path):
+    _init_test_db(monkeypatch, tmp_path)
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d1",
+            run_id="r1",
+            customer_id="c1",
+            policy_arm="treatment",
+            approved=True,
+            observed_default_90d=0,
+            observed_margin_90d=50.0,
+        )
+    )
+
+    deltas = compute_policy_outcome_deltas(window_days=90)
+
+    assert deltas["comparison_status"] == "baseline_missing"
+    assert deltas["outcome_feedback_confidence"] == "tentative"
+    assert deltas["comparisons"] == []
+    assert deltas["policy_arm_summaries"][0]["policy_arm"] == "treatment"

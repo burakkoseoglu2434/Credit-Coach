@@ -81,6 +81,20 @@ def _extract_run_id(text: str) -> str:
     return m[0] if m else ""
 
 
+def _latest_optional_artifact(pattern: str) -> Path | None:
+    candidates = sorted(Path("artifacts/runs").glob(pattern))
+    if not candidates:
+        return None
+    return candidates[-1]
+
+
+def _mirror_artifact(source: Path | None, destination: Path) -> bool:
+    if source is None or not source.exists():
+        return False
+    destination.write_bytes(source.read_bytes())
+    return True
+
+
 def _run_cmd(*, cmd: list[str], cwd: Path, env: dict[str, str], label: str) -> tuple[str, str]:
     logger.info("Running %s: %s", label, " ".join(cmd))
     proc = subprocess.run(cmd, cwd=str(cwd), env=env, text=True, capture_output=True, check=False)
@@ -599,6 +613,27 @@ def main() -> None:
         logger.info("Dry-run saved: %s", run_ctx.tables_dir / "phase_suite_dry_run.json")
         return
 
+    outcome_feedback_summary_source = _latest_optional_artifact("*/tables/outcome_feedback_summary.json")
+    outcome_policy_summary_source = _latest_optional_artifact("*/tables/outcome_policy_summary.csv")
+    outcome_policy_deltas_source = _latest_optional_artifact("*/tables/outcome_policy_deltas.json")
+    mirrored_outcome_feedback = _mirror_artifact(
+        outcome_feedback_summary_source,
+        run_ctx.tables_dir / "outcome_feedback_summary.json",
+    )
+    mirrored_outcome_policy_summary = _mirror_artifact(
+        outcome_policy_summary_source,
+        run_ctx.tables_dir / "outcome_policy_summary.csv",
+    )
+    mirrored_outcome_policy_deltas = _mirror_artifact(
+        outcome_policy_deltas_source,
+        run_ctx.tables_dir / "outcome_policy_deltas.json",
+    )
+    outcome_feedback_summary = (
+        json.loads((run_ctx.tables_dir / "outcome_feedback_summary.json").read_text(encoding="utf-8"))
+        if mirrored_outcome_feedback
+        else {}
+    )
+
     env = dict(os.environ)
     env.setdefault("MPLCONFIGDIR", "/tmp/mplcache")
     env.setdefault("TQDM_DISABLE", "1")
@@ -924,6 +959,12 @@ def main() -> None:
         "frozen_model_manifest_json": "tables/frozen_model_manifest.json",
         "release_evidence_pack_json": "tables/release_evidence_pack.json",
     }
+    if mirrored_outcome_feedback:
+        supporting_artifacts["outcome_feedback_summary_json"] = "tables/outcome_feedback_summary.json"
+    if mirrored_outcome_policy_summary:
+        supporting_artifacts["outcome_policy_summary_csv"] = "tables/outcome_policy_summary.csv"
+    if mirrored_outcome_policy_deltas:
+        supporting_artifacts["outcome_policy_deltas_json"] = "tables/outcome_policy_deltas.json"
     if release_payload["decision"] == "LIMITED_GO":
         supporting_artifacts["pilot_guardrails_json"] = "tables/pilot_guardrails.json"
         supporting_artifacts["rollback_conditions_json"] = "tables/rollback_conditions.json"
@@ -975,6 +1016,7 @@ def main() -> None:
             "candidate_quality_summary": phase_candidate_quality_summary,
             "high_risk_tuning_summary": phase_high_risk_tuning_summary,
             "impact_attribution_summary": impact_attribution_summary,
+            "outcome_feedback_summary": outcome_feedback_summary,
         },
     )
     (run_ctx.tables_dir / "kpi_contract_snapshot.json").write_text(
@@ -1000,6 +1042,7 @@ def main() -> None:
             "candidate_quality_summary": phase_candidate_quality_summary,
             "high_risk_tuning_summary": phase_high_risk_tuning_summary,
             "impact_attribution_summary": impact_attribution_summary,
+            "outcome_feedback_summary": outcome_feedback_summary,
         },
     )
     milestone_acceptance_review = render_milestone_acceptance_review(milestone_acceptance_summary)
@@ -1035,6 +1078,12 @@ def main() -> None:
         "high_risk_tuning_summary_json": "tables/high_risk_tuning_summary.json",
         "generator_policy_impact_json": "tables/generator_policy_impact.json",
     }
+    if mirrored_outcome_feedback:
+        optional_release_artifacts["outcome_feedback_summary_json"] = "tables/outcome_feedback_summary.json"
+    if mirrored_outcome_policy_summary:
+        optional_release_artifacts["outcome_policy_summary_csv"] = "tables/outcome_policy_summary.csv"
+    if mirrored_outcome_policy_deltas:
+        optional_release_artifacts["outcome_policy_deltas_json"] = "tables/outcome_policy_deltas.json"
     if release_payload["decision"] == "LIMITED_GO":
         optional_release_artifacts["pilot_guardrails_json"] = "tables/pilot_guardrails.json"
         optional_release_artifacts["rollback_conditions_json"] = "tables/rollback_conditions.json"
@@ -1057,6 +1106,28 @@ def main() -> None:
     )
     (run_ctx.tables_dir / "release_evidence_pack.json").write_text(
         json.dumps(release_evidence_pack, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    milestone_acceptance_summary["release_pack_summary"] = {
+        "pack_status": str(release_evidence_pack["pack_status"]),
+        "pack_acceptance_eligible": bool(release_evidence_pack["pack_acceptance_eligible"]),
+        "required_artifacts": dict(release_evidence_pack["required_artifacts"]),
+        "optional_artifacts": dict(release_evidence_pack["optional_artifacts"]),
+        "missing_artifacts": list(release_evidence_pack["missing_artifacts"]),
+    }
+    milestone_acceptance_review = render_milestone_acceptance_review(milestone_acceptance_summary)
+    (run_ctx.tables_dir / "milestone_acceptance_summary.json").write_text(
+        json.dumps(milestone_acceptance_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    (run_ctx.tables_dir / "milestone_acceptance_review.md").write_text(
+        milestone_acceptance_review,
+        encoding="utf-8",
+    )
+    (run_ctx.tables_dir / "release_review_summary.md").write_text(
+        _render_release_review_summary(
+            milestone_acceptance_summary=milestone_acceptance_summary,
+        ),
         encoding="utf-8",
     )
 

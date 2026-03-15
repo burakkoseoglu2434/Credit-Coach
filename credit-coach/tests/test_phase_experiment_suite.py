@@ -276,45 +276,39 @@ def test_release_review_summary_is_derived_from_acceptance_summary() -> None:
             "dominant_fail_segment_key": "mid|q1|stress",
             "dominant_fail_candidate_source": "internal",
             "supporting_artifacts": {"release_decision_json": "tables/release_decision.json"},
-            "candidate_quality_summary": {
-                "candidate_quality_population": "denied",
-                "candidate_quality_secondary_population": "high_risk_denied",
-                "canonical_metrics": {
-                    "candidate_pool_diversity_index": 0.52,
-                    "candidate_source_entropy": 0.31,
-                    "best_source_internal_rate": 0.45,
-                    "best_source_dice_rate": 0.35,
-                    "best_source_rule_rate": 0.15,
-                    "best_source_fallback_rate": 0.05,
+            "telemetry_gate_status": "degraded",
+            "telemetry_failure_reason": "missing_artifact",
+            "telemetry_success_rate": 0.0,
+            "telemetry_ingest_lag_s": 0.0,
+            "release_pack_summary": {
+                "pack_status": "degraded",
+                "pack_acceptance_eligible": False,
+                "required_artifacts": {
+                    "telemetry_export_json": "tables/telemetry_export.json",
+                    "milestone_acceptance_summary_json": "tables/milestone_acceptance_summary.json",
                 },
+                "optional_artifacts": {
+                    "release_decision_json": "tables/release_decision.json",
+                },
+                "missing_artifacts": ["tables/telemetry_export.json"],
             },
-            "high_risk_tuning_summary": {
-                "primary_metric": "denied_high_risk_lift",
-                "primary_metric_value": 0.041,
-                "high_risk_profile_applied_rate": 0.08,
-                "meaningful_activation": True,
-                "evidence_status": "strong_evidence",
-                "supporting_metrics": {
-                    "high_risk_reachability_rate": 0.22,
-                    "trajectory_partial_progress_rate": 0.28,
-                },
-            },
-            "impact_attribution_summary": {
-                "baseline_label": "control_logistic_isotonic",
-                "overall_assessment": "mixed",
-                "comparative_impact_confidence": "tentative",
-                "primary_axes": {
-                    "denied_high_risk_lift": {"label": "helped", "delta": 0.02},
-                    "equalized_odds_gap_delta": {"label": "harmed", "delta": 0.003},
-                },
+            "outcome_feedback_summary": {
+                "comparison_status": "baseline_missing",
+                "outcome_feedback_confidence": "tentative",
+                "best_proxy_improving_arm": {},
+                "worst_proxy_regressing_arm": {},
+                "approval_rate_delta": 0.0,
+                "default_rate_90d_delta": 0.0,
+                "avg_margin_90d_delta": 0.0,
             },
         }
     )
     assert "PILOT_ONLY" in review
     assert "LIMITED_GO" in review
-    assert "Candidate Quality Summary" in review
-    assert "High-Risk Tuning Summary" in review
-    assert "Impact Attribution Summary" in review
+    assert "Evidence Status: degraded" in review
+    assert "Telemetry Readiness" in review
+    assert "Release Pack Completeness" in review
+    assert "Outcome Feedback Summary" in review
     assert "release_decision_json" in review
 
 

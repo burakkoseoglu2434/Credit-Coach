@@ -345,39 +345,153 @@ def summarize_decision_outcomes(*, window_days: int = 90) -> pd.DataFrame:
     return g
 
 
+def _proxy_delta_label(delta: float, *, higher_is_better: bool) -> str:
+    if abs(float(delta)) <= 1e-12:
+        return "no_material_change"
+    if higher_is_better:
+        return "helped" if float(delta) > 0.0 else "harmed"
+    return "helped" if float(delta) < 0.0 else "harmed"
+
+
+def _proxy_overall_assessment(labels: list[str]) -> str:
+    helped = any(label == "helped" for label in labels)
+    harmed = any(label == "harmed" for label in labels)
+    if helped and harmed:
+        return "mixed"
+    if helped:
+        return "helped"
+    if harmed:
+        return "harmed"
+    return "no_material_change"
+
+
 def compute_policy_outcome_deltas(*, window_days: int = 90) -> dict[str, Any]:
     summary = summarize_decision_outcomes(window_days=window_days)
     if summary.empty:
         return {
             "window_days": int(window_days),
+            "comparison_status": "no_data",
+            "outcome_feedback_confidence": "tentative",
             "has_control": False,
             "has_treatment": False,
+            "baseline_arm": "control",
+            "canonical_proxy_metrics": ["approval_rate", "default_rate_90d", "avg_margin_90d"],
+            "policy_arm_summaries": [],
+            "comparisons": [],
+            "best_proxy_improving_arm": {},
+            "worst_proxy_regressing_arm": {},
             "approval_rate_delta": 0.0,
             "default_rate_90d_delta": 0.0,
             "avg_margin_90d_delta": 0.0,
         }
-    by_arm = {
-        str(row["policy_arm"]): row
+    policy_arm_summaries = [
+        {
+            "policy_arm": str(row["policy_arm"]),
+            "decision_count": int(row["decision_count"]),
+            "approval_rate": float(row["approval_rate"]),
+            "default_rate_90d": float(row["default_rate_90d"]),
+            "avg_margin_90d": float(row["avg_margin_90d"]),
+        }
         for _, row in summary.iterrows()
-    }
+    ]
+    by_arm = {str(row["policy_arm"]): row for _, row in summary.iterrows()}
     control = by_arm.get("control")
     treatment = by_arm.get("treatment")
-    if control is None or treatment is None:
+    if control is None:
         return {
             "window_days": int(window_days),
-            "has_control": control is not None,
+            "comparison_status": "baseline_missing",
+            "outcome_feedback_confidence": "tentative",
+            "has_control": False,
             "has_treatment": treatment is not None,
+            "baseline_arm": "control",
+            "canonical_proxy_metrics": ["approval_rate", "default_rate_90d", "avg_margin_90d"],
+            "policy_arm_summaries": policy_arm_summaries,
+            "comparisons": [],
+            "best_proxy_improving_arm": {},
+            "worst_proxy_regressing_arm": {},
             "approval_rate_delta": 0.0,
             "default_rate_90d_delta": 0.0,
             "avg_margin_90d_delta": 0.0,
         }
+    comparisons: list[dict[str, Any]] = []
+    for arm_name, arm_row in by_arm.items():
+        if arm_name == "control":
+            continue
+        approval_delta = float(arm_row["approval_rate"] - control["approval_rate"])
+        default_delta = float(arm_row["default_rate_90d"] - control["default_rate_90d"])
+        margin_delta = float(arm_row["avg_margin_90d"] - control["avg_margin_90d"])
+        proxy_labels = {
+            "approval_rate": _proxy_delta_label(approval_delta, higher_is_better=True),
+            "default_rate_90d": _proxy_delta_label(default_delta, higher_is_better=False),
+            "avg_margin_90d": _proxy_delta_label(margin_delta, higher_is_better=True),
+        }
+        comparisons.append(
+            {
+                "policy_arm": str(arm_name),
+                "baseline_arm": "control",
+                "approval_rate_delta": approval_delta,
+                "default_rate_90d_delta": default_delta,
+                "avg_margin_90d_delta": margin_delta,
+                "proxy_labels": proxy_labels,
+                "overall_proxy_assessment": _proxy_overall_assessment(list(proxy_labels.values())),
+                "_proxy_score": int(sum(1 if value == "helped" else -1 if value == "harmed" else 0 for value in proxy_labels.values())),
+            }
+        )
+
+    def _comparison_rank(payload: dict[str, Any]) -> tuple[float, float, float, float, str]:
+        return (
+            float(payload.get("_proxy_score", 0)),
+            float(payload.get("approval_rate_delta", 0.0)),
+            float(-payload.get("default_rate_90d_delta", 0.0)),
+            float(payload.get("avg_margin_90d_delta", 0.0)),
+            str(payload.get("policy_arm", "")),
+        )
+
+    best_proxy_improving_arm = {}
+    worst_proxy_regressing_arm = {}
+    if comparisons:
+        best_proxy_improving_arm = {
+            key: value
+            for key, value in max(comparisons, key=_comparison_rank).items()
+            if not str(key).startswith("_")
+        }
+        worst_proxy_regressing_arm = {
+            key: value
+            for key, value in min(comparisons, key=_comparison_rank).items()
+            if not str(key).startswith("_")
+        }
+
+    treatment_approval_delta = 0.0
+    treatment_default_delta = 0.0
+    treatment_margin_delta = 0.0
+    if treatment is not None:
+        treatment_approval_delta = float(treatment["approval_rate"] - control["approval_rate"])
+        treatment_default_delta = float(treatment["default_rate_90d"] - control["default_rate_90d"])
+        treatment_margin_delta = float(treatment["avg_margin_90d"] - control["avg_margin_90d"])
+
     return {
         "window_days": int(window_days),
         "has_control": True,
-        "has_treatment": True,
-        "approval_rate_delta": float(treatment["approval_rate"] - control["approval_rate"]),
-        "default_rate_90d_delta": float(treatment["default_rate_90d"] - control["default_rate_90d"]),
-        "avg_margin_90d_delta": float(treatment["avg_margin_90d"] - control["avg_margin_90d"]),
+        "has_treatment": treatment is not None,
+        "comparison_status": "treatment_vs_control" if treatment is not None else "control_comparison",
+        "outcome_feedback_confidence": "strong" if comparisons else "tentative",
+        "baseline_arm": "control",
+        "canonical_proxy_metrics": ["approval_rate", "default_rate_90d", "avg_margin_90d"],
+        "policy_arm_summaries": policy_arm_summaries,
+        "comparisons": [
+            {
+                key: value
+                for key, value in comparison.items()
+                if not str(key).startswith("_")
+            }
+            for comparison in comparisons
+        ],
+        "best_proxy_improving_arm": best_proxy_improving_arm,
+        "worst_proxy_regressing_arm": worst_proxy_regressing_arm,
+        "approval_rate_delta": treatment_approval_delta,
+        "default_rate_90d_delta": treatment_default_delta,
+        "avg_margin_90d_delta": treatment_margin_delta,
     }
 
 
