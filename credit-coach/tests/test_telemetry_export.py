@@ -39,6 +39,8 @@ def test_export_monitoring_telemetry_disabled():
     assert result["enabled"] is False
     assert result["exported"] is False
     assert result["status"] == "disabled"
+    assert result["telemetry_status"] == "disabled"
+    assert result["telemetry_failure_reason"] == "disabled_exporter"
 
 
 def test_export_monitoring_telemetry_prometheus_http(monkeypatch):
@@ -138,6 +140,23 @@ def test_export_monitoring_telemetry_file_prometheus(tmp_path):
     assert out_path.exists()
     payload = out_path.read_text(encoding="utf-8")
     assert "credit_coach_alert_count" in payload
+    assert result["telemetry_status"] == "success"
+    assert result["telemetry_failure_reason"] == ""
+
+
+def test_export_monitoring_telemetry_missing_endpoint_sets_export_failure():
+    result = export_monitoring_telemetry(
+        {"approval_rate": 0.7, "avg_risk_margin": 0.01, "avg_reliability": 0.8, "fairness_gap": 0.1, "high_stress_fairness_gap": 0.12, "max_psi": 0.2},
+        alert_count=2,
+        high_alert_count=1,
+        exporter_cfg={
+            "enabled": True,
+            "mode": "prometheus",
+        },
+    )
+    assert result["exported"] is False
+    assert result["telemetry_status"] == "export_failed"
+    assert result["telemetry_failure_reason"] == "export_failed"
 
 
 def test_build_telemetry_metrics_alert_fields():

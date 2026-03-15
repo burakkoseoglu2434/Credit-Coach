@@ -79,6 +79,13 @@ def _latest_or_fail(pattern: str, *, hint: str) -> Path:
     return candidates[-1]
 
 
+def _latest_or_none(pattern: str) -> Path | None:
+    candidates = sorted(Path("artifacts/runs").glob(pattern))
+    if not candidates:
+        return None
+    return candidates[-1]
+
+
 def _resolve_path(raw: str, *, pattern: str, hint: str) -> Path:
     return Path(raw) if raw else _latest_or_fail(pattern, hint=hint)
 
@@ -88,6 +95,13 @@ def _resolve_optional_path(raw: str) -> Path | None:
         return None
     path = Path(raw)
     return path if path.exists() else None
+
+
+def _resolve_optional_artifact_path(raw: str, *, pattern: str) -> Path | None:
+    if raw:
+        path = Path(raw)
+        return path if path.exists() else None
+    return _latest_or_none(pattern)
 
 
 def _safe_float(row: pd.Series, key: str, default: float = 0.0) -> float:
@@ -116,6 +130,54 @@ def _gate_row(gate_id: str, checks: dict[str, bool], values: dict[str, float | i
     }
 
 
+def _evaluate_telemetry_gate(
+    *,
+    telemetry_payload: dict[str, Any] | None,
+    require_telemetry_enabled: bool,
+    min_telemetry_success_rate: float,
+    max_telemetry_ingest_lag_s: float,
+    telemetry_artifact_path: str = "",
+) -> dict[str, Any]:
+    payload = dict(telemetry_payload or {})
+    artifact_path = str(telemetry_artifact_path or payload.get("telemetry_artifact_path", "")).strip()
+    telemetry_enabled = bool(payload.get("enabled", False))
+    telemetry_exported = bool(payload.get("exported", False))
+    telemetry_status = str(payload.get("telemetry_status", payload.get("status", "missing")) or "missing")
+    telemetry_success_rate = _safe_float_map(payload, "send_success_rate", 1.0 if telemetry_exported else 0.0)
+    telemetry_ingest_lag_s = _safe_float_map(payload, "ingest_lag_s_p95", 0.0)
+    telemetry_failure_reason = str(payload.get("telemetry_failure_reason", "")).strip()
+    telemetry_required_for_broad_rollout = True
+    telemetry_required_for_pilot = True
+
+    if not artifact_path:
+        telemetry_failure_reason = "missing_artifact"
+        telemetry_status = "missing"
+    elif not telemetry_enabled:
+        telemetry_failure_reason = telemetry_failure_reason or "disabled_exporter"
+    elif not telemetry_exported:
+        telemetry_failure_reason = telemetry_failure_reason or "export_failed"
+    elif telemetry_success_rate < float(min_telemetry_success_rate):
+        telemetry_failure_reason = "success_rate_below_threshold"
+    elif telemetry_ingest_lag_s > float(max_telemetry_ingest_lag_s):
+        telemetry_failure_reason = "ingest_lag_above_threshold"
+
+    telemetry_gate_status = "healthy" if not telemetry_failure_reason else "degraded"
+
+    return {
+        "telemetry_status": telemetry_status,
+        "telemetry_gate_status": telemetry_gate_status,
+        "telemetry_failure_reason": telemetry_failure_reason,
+        "telemetry_success_rate": telemetry_success_rate,
+        "telemetry_ingest_lag_s": telemetry_ingest_lag_s,
+        "telemetry_required_for_broad_rollout": telemetry_required_for_broad_rollout,
+        "telemetry_required_for_pilot": telemetry_required_for_pilot,
+        "telemetry_artifact_path": artifact_path,
+        "telemetry_enabled": telemetry_enabled,
+        "telemetry_exported": telemetry_exported,
+        "telemetry_ok": bool(telemetry_gate_status != "degraded"),
+    }
+
+
 def build_smoke_gate_rows(
     *,
     batch_summary: dict,
@@ -125,6 +187,7 @@ def build_smoke_gate_rows(
     fairness_df: pd.DataFrame,
     fairness_stress_df: pd.DataFrame,
     telemetry_payload: dict,
+    telemetry_artifact_path: str = "",
     audit_ok: bool,
     audit_issue_count: int,
     args: argparse.Namespace,
@@ -267,21 +330,13 @@ def build_smoke_gate_rows(
     max_psi = _safe_float(mon_row, "max_psi")
     avg_reliability = _safe_float(mon_row, "avg_reliability")
 
-    telemetry_status = str(telemetry_payload.get("status", "missing"))
-    telemetry_enabled = bool(telemetry_payload.get("enabled", False))
-    telemetry_exported = bool(telemetry_payload.get("exported", False))
-    telemetry_success_rate = _safe_float_map(telemetry_payload, "send_success_rate", 1.0 if telemetry_exported else 0.0)
-    telemetry_ingest_lag_s = _safe_float_map(telemetry_payload, "ingest_lag_s_p95", 0.0)
-    if args.require_telemetry_enabled:
-        telemetry_ok = (
-            telemetry_enabled
-            and telemetry_exported
-            and telemetry_status == "success"
-            and (telemetry_success_rate >= float(args.min_telemetry_success_rate))
-            and (telemetry_ingest_lag_s <= float(args.max_telemetry_ingest_lag_s))
-        )
-    else:
-        telemetry_ok = telemetry_status in {"success", "disabled"}
+    telemetry_gate = _evaluate_telemetry_gate(
+        telemetry_payload=telemetry_payload,
+        require_telemetry_enabled=bool(args.require_telemetry_enabled),
+        min_telemetry_success_rate=float(args.min_telemetry_success_rate),
+        max_telemetry_ingest_lag_s=float(args.max_telemetry_ingest_lag_s),
+        telemetry_artifact_path=telemetry_artifact_path,
+    )
 
     rows.extend(
         [
@@ -327,16 +382,23 @@ def build_smoke_gate_rows(
                 checks={
                     "approval_rate": approval_rate >= float(args.min_approval_rate),
                     "max_psi": max_psi <= float(args.max_psi),
-                    "telemetry": telemetry_ok,
+                    "telemetry": bool(telemetry_gate["telemetry_ok"]),
                 },
                 values={
                     "approval_rate": approval_rate,
                     "max_psi": max_psi,
-                    "telemetry_enabled": telemetry_enabled,
-                    "telemetry_exported": telemetry_exported,
-                    "telemetry_status": telemetry_status,
-                    "telemetry_success_rate": telemetry_success_rate,
-                    "telemetry_ingest_lag_s": telemetry_ingest_lag_s,
+                    "telemetry_enabled": bool(telemetry_gate["telemetry_enabled"]),
+                    "telemetry_exported": bool(telemetry_gate["telemetry_exported"]),
+                    "telemetry_status": str(telemetry_gate["telemetry_status"]),
+                    "telemetry_gate_status": str(telemetry_gate["telemetry_gate_status"]),
+                    "telemetry_failure_reason": str(telemetry_gate["telemetry_failure_reason"]),
+                    "telemetry_success_rate": float(telemetry_gate["telemetry_success_rate"]),
+                    "telemetry_ingest_lag_s": float(telemetry_gate["telemetry_ingest_lag_s"]),
+                    "telemetry_required_for_broad_rollout": bool(
+                        telemetry_gate["telemetry_required_for_broad_rollout"]
+                    ),
+                    "telemetry_required_for_pilot": bool(telemetry_gate["telemetry_required_for_pilot"]),
+                    "telemetry_artifact_path": str(telemetry_gate["telemetry_artifact_path"]),
                 },
             ),
             _gate_row(
@@ -463,16 +525,25 @@ def build_smoke_release_summary(
     batch_summary: dict[str, Any],
     batch_fairness_change_df: pd.DataFrame,
     thresholds: dict[str, float | bool],
+    telemetry_payload: dict[str, Any] | None = None,
+    telemetry_artifact_path: str = "",
     phase_scale_aggregate: dict[str, Any] | None = None,
     milestone_acceptance_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    telemetry_gate = _evaluate_telemetry_gate(
+        telemetry_payload=dict(telemetry_payload or {}),
+        require_telemetry_enabled=bool(thresholds.get("require_telemetry_enabled", False)),
+        min_telemetry_success_rate=float(thresholds.get("min_telemetry_success_rate", 0.0)),
+        max_telemetry_ingest_lag_s=float(thresholds.get("max_telemetry_ingest_lag_s", 0.0)),
+        telemetry_artifact_path=telemetry_artifact_path,
+    )
     if isinstance(milestone_acceptance_summary, dict) and str(milestone_acceptance_summary.get("release_decision", "")).strip():
         decision = str(milestone_acceptance_summary.get("release_decision", "NO_GO"))
         acceptance_eligible = bool(milestone_acceptance_summary.get("acceptance_eligible", False))
         broad_rollout_allowed = bool(milestone_acceptance_summary.get("broad_rollout_allowed", decision == "GO"))
         if not acceptance_eligible:
             broad_rollout_allowed = False
-        return {
+        summary = {
             "release_decision": decision,
             "decision_reason": str(milestone_acceptance_summary.get("decision_reason", "")),
             "smoke_pass": bool(milestone_acceptance_summary.get("smoke_pass", decision == "GO")),
@@ -495,6 +566,13 @@ def build_smoke_release_summary(
             "model_version": str(milestone_acceptance_summary.get("model_version", "")),
             "model_freeze_mode": str(milestone_acceptance_summary.get("model_freeze_mode", "")),
         }
+        if telemetry_gate["telemetry_gate_status"] == "degraded":
+            summary["smoke_pass"] = False
+            summary["pilot_eligible"] = False
+            summary["broad_rollout_allowed"] = False
+            summary["evidence_status"] = "degraded"
+        summary.update(telemetry_gate)
+        return summary
 
     if isinstance(phase_scale_aggregate, dict) and int(phase_scale_aggregate.get("fairness_seed_total", 0)) > 0:
         metrics = dict(phase_scale_aggregate)
@@ -505,7 +583,7 @@ def build_smoke_release_summary(
         broad_rollout_allowed = bool(release_payload.get("broad_rollout_allowed", False))
         if not acceptance_eligible:
             broad_rollout_allowed = False
-        return {
+        summary = {
             "release_decision": str(release_payload["decision"]),
             "decision_reason": str(release_payload.get("decision_reason", "")),
             "smoke_pass": bool(release_payload["smoke_pass"]),
@@ -519,12 +597,19 @@ def build_smoke_release_summary(
             "fallback_source": "",
             **metrics,
         }
+        if telemetry_gate["telemetry_gate_status"] == "degraded":
+            summary["smoke_pass"] = False
+            summary["pilot_eligible"] = False
+            summary["broad_rollout_allowed"] = False
+            summary["evidence_status"] = "degraded"
+        summary.update(telemetry_gate)
+        return summary
     else:
         fair_row = batch_fairness_change_df.iloc[0].to_dict() if not batch_fairness_change_df.empty else {}
         snapshot = evaluate_seed_kpi_contract(batch_summary, fair_row, thresholds)
         metrics = aggregate_release_metrics([snapshot], thresholds=thresholds)
         release_payload = evaluate_release_decision(metrics, thresholds)
-        return {
+        summary = {
             "release_decision": str(release_payload["decision"]),
             "decision_reason": str(release_payload.get("decision_reason", "")),
             "smoke_pass": bool(release_payload["smoke_pass"]),
@@ -538,6 +623,12 @@ def build_smoke_release_summary(
             "fallback_source": "batch_summary_json",
             **metrics,
         }
+        if telemetry_gate["telemetry_gate_status"] == "degraded":
+            summary["smoke_pass"] = False
+            summary["pilot_eligible"] = False
+            summary["broad_rollout_allowed"] = False
+        summary.update(telemetry_gate)
+        return summary
 
 
 def main() -> None:
@@ -576,10 +667,9 @@ def main() -> None:
         pattern="*/tables/fairness_stress_matrix.csv",
         hint="fairness stress matrix",
     )
-    telemetry_path = _resolve_path(
+    telemetry_path = _resolve_optional_artifact_path(
         args.telemetry_json,
         pattern="*/tables/telemetry_export.json",
-        hint="telemetry export report",
     )
     phase_scale_aggregate_path = _resolve_optional_path(args.phase_scale_aggregate_json)
     milestone_acceptance_path = _resolve_optional_path(args.milestone_acceptance_json)
@@ -590,7 +680,11 @@ def main() -> None:
     monitoring_df = pd.read_csv(monitoring_path)
     fairness_df = pd.read_csv(fairness_path)
     fairness_stress_df = pd.read_csv(fairness_stress_path)
-    telemetry_payload = json.loads(telemetry_path.read_text(encoding="utf-8"))
+    telemetry_payload = (
+        json.loads(telemetry_path.read_text(encoding="utf-8"))
+        if telemetry_path is not None and telemetry_path.exists()
+        else {}
+    )
     phase_scale_aggregate = (
         json.loads(phase_scale_aggregate_path.read_text(encoding="utf-8"))
         if phase_scale_aggregate_path is not None
@@ -627,6 +721,7 @@ def main() -> None:
         fairness_df=fairness_df,
         fairness_stress_df=fairness_stress_df,
         telemetry_payload=telemetry_payload,
+        telemetry_artifact_path=str(telemetry_path) if telemetry_path is not None else "",
         audit_ok=audit_ok,
         audit_issue_count=len(audit_issues),
         args=args,
@@ -641,6 +736,8 @@ def main() -> None:
         batch_summary=batch_summary,
         batch_fairness_change_df=batch_fairness_change_df,
         thresholds=resolved_thresholds,
+        telemetry_payload=telemetry_payload,
+        telemetry_artifact_path=str(telemetry_path) if telemetry_path is not None else "",
         phase_scale_aggregate=phase_scale_aggregate,
         milestone_acceptance_summary=milestone_acceptance_summary,
     )
@@ -662,6 +759,8 @@ def main() -> None:
         "batch_summary_json": str(batch_summary_path),
         "batch_fairness_change_csv": str(batch_fairness_change_path),
     }
+    if telemetry_path is not None:
+        supporting_artifacts["telemetry_export_json"] = str(telemetry_path)
     if phase_scale_aggregate_path is not None:
         supporting_artifacts["phase_scale_aggregate_json"] = str(phase_scale_aggregate_path)
     if milestone_acceptance_path is not None:
@@ -675,6 +774,16 @@ def main() -> None:
             "smoke_pass": bool(release_summary.get("smoke_pass", False)),
             "pilot_eligible": bool(release_summary.get("pilot_eligible", False)),
             "broad_rollout_allowed": bool(release_summary.get("broad_rollout_allowed", False)),
+            "telemetry_status": str(release_summary.get("telemetry_status", "")),
+            "telemetry_gate_status": str(release_summary.get("telemetry_gate_status", "")),
+            "telemetry_failure_reason": str(release_summary.get("telemetry_failure_reason", "")),
+            "telemetry_success_rate": float(release_summary.get("telemetry_success_rate", 0.0)),
+            "telemetry_ingest_lag_s": float(release_summary.get("telemetry_ingest_lag_s", 0.0)),
+            "telemetry_required_for_broad_rollout": bool(
+                release_summary.get("telemetry_required_for_broad_rollout", False)
+            ),
+            "telemetry_required_for_pilot": bool(release_summary.get("telemetry_required_for_pilot", False)),
+            "telemetry_artifact_path": str(release_summary.get("telemetry_artifact_path", "")),
         },
         aggregate_metrics=release_summary,
         evidence_level=str(release_summary.get("evidence_level", "single_run_fallback")),

@@ -221,7 +221,20 @@ def test_milestone_acceptance_summary_keeps_limited_go_pilot_only_when_not_eligi
 def test_kpi_contract_snapshot_carries_degraded_evidence_fields() -> None:
     snapshot = build_kpi_contract_snapshot(
         runner_type="smoke",
-        release_payload={"decision": GO, "smoke_pass": True, "pilot_eligible": False, "broad_rollout_allowed": True},
+        release_payload={
+            "decision": GO,
+            "smoke_pass": True,
+            "pilot_eligible": False,
+            "broad_rollout_allowed": True,
+            "telemetry_status": "success",
+            "telemetry_gate_status": "healthy",
+            "telemetry_failure_reason": "",
+            "telemetry_success_rate": 1.0,
+            "telemetry_ingest_lag_s": 12.0,
+            "telemetry_required_for_broad_rollout": True,
+            "telemetry_required_for_pilot": True,
+            "telemetry_artifact_path": "tables/telemetry_export.json",
+        },
         aggregate_metrics={"lift_pass": True, "reliability_pass": True, "fairness_seed_pass_count": 1, "fairness_seed_total": 1},
         evidence_level="single_run_fallback",
         acceptance_eligible=False,
@@ -236,3 +249,5 @@ def test_kpi_contract_snapshot_carries_degraded_evidence_fields() -> None:
     assert snapshot["acceptance_eligible"] is False
     assert snapshot["broad_rollout_allowed"] is False
     assert snapshot["fallback_source"] == "batch_summary_json"
+    assert snapshot["telemetry_gate_status"] == "healthy"
+    assert snapshot["telemetry_artifact_path"] == "tables/telemetry_export.json"

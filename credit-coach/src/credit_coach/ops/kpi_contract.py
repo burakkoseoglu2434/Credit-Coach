@@ -593,6 +593,40 @@ def _normalize_supporting_artifacts(supporting_artifacts: Mapping[str, Any] | No
     return normalized
 
 
+def _resolve_telemetry_metadata(
+    *,
+    release_payload: Mapping[str, Any],
+    aggregate: Mapping[str, Any],
+) -> dict[str, Any]:
+    telemetry_status = str(release_payload.get("telemetry_status", aggregate.get("telemetry_status", "")))
+    telemetry_gate_status = str(release_payload.get("telemetry_gate_status", aggregate.get("telemetry_gate_status", "")))
+    telemetry_failure_reason = str(
+        release_payload.get("telemetry_failure_reason", aggregate.get("telemetry_failure_reason", ""))
+    )
+    telemetry_artifact_path = str(
+        release_payload.get("telemetry_artifact_path", aggregate.get("telemetry_artifact_path", ""))
+    )
+    return {
+        "telemetry_status": telemetry_status,
+        "telemetry_gate_status": telemetry_gate_status,
+        "telemetry_failure_reason": telemetry_failure_reason,
+        "telemetry_success_rate": float(release_payload.get("telemetry_success_rate", aggregate.get("telemetry_success_rate", 0.0))),
+        "telemetry_ingest_lag_s": float(
+            release_payload.get("telemetry_ingest_lag_s", aggregate.get("telemetry_ingest_lag_s", 0.0))
+        ),
+        "telemetry_required_for_broad_rollout": bool(
+            release_payload.get(
+                "telemetry_required_for_broad_rollout",
+                aggregate.get("telemetry_required_for_broad_rollout", False),
+            )
+        ),
+        "telemetry_required_for_pilot": bool(
+            release_payload.get("telemetry_required_for_pilot", aggregate.get("telemetry_required_for_pilot", False))
+        ),
+        "telemetry_artifact_path": telemetry_artifact_path,
+    }
+
+
 def build_kpi_contract_snapshot(
     *,
     runner_type: str,
@@ -646,6 +680,7 @@ def build_kpi_contract_snapshot(
         "supporting_artifacts": _normalize_supporting_artifacts(supporting_artifacts),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+    snapshot.update(_resolve_telemetry_metadata(release_payload=release_payload, aggregate=aggregate))
     if degraded_reason:
         snapshot["degraded_reason"] = str(degraded_reason)
     if missing:
@@ -712,6 +747,7 @@ def build_milestone_acceptance_summary(
         "supporting_artifacts": _normalize_supporting_artifacts(supporting_artifacts),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+    summary.update(_resolve_telemetry_metadata(release_payload=release_payload, aggregate=aggregate))
     if degraded_reason:
         summary["degraded_reason"] = str(degraded_reason)
     if missing:

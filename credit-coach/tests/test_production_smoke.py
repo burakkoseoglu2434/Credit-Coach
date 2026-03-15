@@ -68,7 +68,15 @@ def test_build_smoke_gate_rows_passes():
     monitoring = pd.DataFrame([{"approval_rate": 0.85, "max_psi": 0.08, "avg_reliability": 0.93}])
     fairness = pd.DataFrame([{"approval_gap": 0.06}])
     fairness_stress = pd.DataFrame([{"high_stress": 1, "approval_gap": 0.07}])
-    telemetry = {"enabled": False, "status": "disabled", "exported": False, "send_success_rate": 0.0, "ingest_lag_s_p95": 0.0}
+    telemetry = {
+        "enabled": True,
+        "status": "success",
+        "exported": True,
+        "telemetry_status": "success",
+        "telemetry_failure_reason": "",
+        "send_success_rate": 1.0,
+        "ingest_lag_s_p95": 12.0,
+    }
 
     rows = build_smoke_gate_rows(
         batch_summary=batch_summary,
@@ -78,6 +86,7 @@ def test_build_smoke_gate_rows_passes():
         fairness_df=fairness,
         fairness_stress_df=fairness_stress,
         telemetry_payload=telemetry,
+        telemetry_artifact_path="tables/telemetry_export.json",
         audit_ok=True,
         audit_issue_count=0,
         args=_args(),
@@ -112,7 +121,15 @@ def test_build_smoke_gate_rows_detects_failures():
     monitoring = pd.DataFrame([{"approval_rate": 0.50, "max_psi": 0.40, "avg_reliability": 0.40}])
     fairness = pd.DataFrame([{"approval_gap": 0.18}])
     fairness_stress = pd.DataFrame([{"high_stress": 1, "approval_gap": 0.22}])
-    telemetry = {"enabled": False, "status": "disabled", "exported": False, "send_success_rate": 0.0, "ingest_lag_s_p95": 999.0}
+    telemetry = {
+        "enabled": False,
+        "status": "disabled",
+        "exported": False,
+        "telemetry_status": "disabled",
+        "telemetry_failure_reason": "disabled_exporter",
+        "send_success_rate": 0.0,
+        "ingest_lag_s_p95": 999.0,
+    }
 
     rows = build_smoke_gate_rows(
         batch_summary=batch_summary,
@@ -122,6 +139,7 @@ def test_build_smoke_gate_rows_detects_failures():
         fairness_df=fairness,
         fairness_stress_df=fairness_stress,
         telemetry_payload=telemetry,
+        telemetry_artifact_path="tables/telemetry_export.json",
         audit_ok=False,
         audit_issue_count=2,
         args=_args(require_telemetry_enabled=True),
@@ -158,7 +176,15 @@ def test_build_smoke_gate_rows_prefers_sync_latency_when_available():
     monitoring = pd.DataFrame([{"approval_rate": 0.85, "max_psi": 0.08, "avg_reliability": 0.93}])
     fairness = pd.DataFrame([{"approval_gap": 0.06}])
     fairness_stress = pd.DataFrame([{"high_stress": 1, "approval_gap": 0.07}])
-    telemetry = {"enabled": False, "status": "disabled", "exported": False, "send_success_rate": 0.0, "ingest_lag_s_p95": 0.0}
+    telemetry = {
+        "enabled": True,
+        "status": "success",
+        "exported": True,
+        "telemetry_status": "success",
+        "telemetry_failure_reason": "",
+        "send_success_rate": 1.0,
+        "ingest_lag_s_p95": 12.0,
+    }
 
     rows = build_smoke_gate_rows(
         batch_summary=batch_summary,
@@ -168,6 +194,7 @@ def test_build_smoke_gate_rows_prefers_sync_latency_when_available():
         fairness_df=fairness,
         fairness_stress_df=fairness_stress,
         telemetry_payload=telemetry,
+        telemetry_artifact_path="tables/telemetry_export.json",
         audit_ok=True,
         audit_issue_count=0,
         args=_args(),
@@ -205,12 +232,14 @@ def test_build_smoke_release_summary_uses_fallback_single_seed_contract():
         thresholds=_args().__dict__,
     )
     assert payload["release_decision"] == "GO"
-    assert payload["smoke_pass"] is True
+    assert payload["smoke_pass"] is False
     assert payload["pilot_eligible"] is False
     assert payload["acceptance_eligible"] is False
     assert payload["evidence_level"] == "single_run_fallback"
     assert payload["broad_rollout_allowed"] is False
     assert payload["degraded_reason"] == "missing_repeated_seeded_evidence"
+    assert payload["telemetry_gate_status"] == "degraded"
+    assert payload["telemetry_failure_reason"] == "missing_artifact"
 
 
 def test_build_smoke_release_summary_respects_phase_scale_limited_go():
@@ -218,6 +247,13 @@ def test_build_smoke_release_summary_respects_phase_scale_limited_go():
         batch_summary={},
         batch_fairness_change_df=pd.DataFrame(),
         thresholds=_args().__dict__,
+        telemetry_payload={
+            "enabled": False,
+            "exported": False,
+            "telemetry_status": "disabled",
+            "telemetry_failure_reason": "disabled_exporter",
+        },
+        telemetry_artifact_path="",
         phase_scale_aggregate={
             "lift_pass": True,
             "reliability_pass": True,
@@ -232,9 +268,11 @@ def test_build_smoke_release_summary_respects_phase_scale_limited_go():
     )
     assert payload["release_decision"] == "LIMITED_GO"
     assert payload["smoke_pass"] is False
-    assert payload["pilot_eligible"] is True
+    assert payload["pilot_eligible"] is False
     assert payload["acceptance_eligible"] is True
     assert payload["evidence_level"] == "seeded_suite"
+    assert payload["telemetry_gate_status"] == "degraded"
+    assert payload["telemetry_failure_reason"] == "missing_artifact"
 
 
 def test_build_smoke_release_summary_prefers_milestone_acceptance_summary() -> None:
@@ -242,6 +280,15 @@ def test_build_smoke_release_summary_prefers_milestone_acceptance_summary() -> N
         batch_summary={},
         batch_fairness_change_df=pd.DataFrame(),
         thresholds=_args().__dict__,
+        telemetry_payload={
+            "enabled": True,
+            "exported": True,
+            "telemetry_status": "success",
+            "telemetry_failure_reason": "",
+            "send_success_rate": 1.0,
+            "ingest_lag_s_p95": 12.0,
+        },
+        telemetry_artifact_path="tables/telemetry_export.json",
         phase_scale_aggregate={
             "lift_pass": True,
             "reliability_pass": True,
@@ -285,6 +332,42 @@ def test_build_smoke_release_summary_prefers_milestone_acceptance_summary() -> N
     assert payload["pilot_eligible"] is True
     assert payload["acceptance_eligible"] is True
     assert payload["model_version"] == "model-123"
+    assert payload["telemetry_gate_status"] == "healthy"
+
+
+def test_build_smoke_gate_rows_marks_missing_telemetry_artifact_when_required() -> None:
+    rows = build_smoke_gate_rows(
+        batch_summary={
+            "denied_to_approved_lift": 0.08,
+            "denied_high_risk_lift": 0.04,
+            "denied_count": 100,
+            "denied_with_gate_pass_plan": 10,
+            "denied_reliability_violation_rate": 0.20,
+            "latency_p95_ms": 420.0,
+            "latency_p99_ms": 1800.0,
+            "error_rate": 0.003,
+            "trajectory_gate_pass_rate_4w": 0.05,
+            "trajectory_gate_pass_rate_12w": 0.09,
+            "trajectory_gate_pass_rate_24w": 0.13,
+            "trajectory_partial_progress_rate": 0.35,
+            "trajectory_median_time_to_gate_pass_days": 84.0,
+        },
+        batch_fairness_change_df=pd.DataFrame([{"approval_gap_delta": 0.005, "equalized_odds_gap_delta": 0.004}]),
+        benchmark_df=pd.DataFrame(
+            [{"method": "our", "last_k_validity": 0.95, "last_k_safe_rate": 0.90, "last_k_avg_risk_margin": 0.15}]
+        ),
+        monitoring_df=pd.DataFrame([{"approval_rate": 0.85, "max_psi": 0.08, "avg_reliability": 0.93}]),
+        fairness_df=pd.DataFrame([{"approval_gap": 0.06}]),
+        fairness_stress_df=pd.DataFrame([{"high_stress": 1, "approval_gap": 0.07}]),
+        telemetry_payload={},
+        telemetry_artifact_path="",
+        audit_ok=True,
+        audit_issue_count=0,
+        args=_args(require_telemetry_enabled=True),
+    )
+    telemetry_row = pd.DataFrame(rows).query("gate_id == 'G4_MONITORING_TELEMETRY'").iloc[0]
+    assert telemetry_row["status"] == "FAIL"
+    assert "missing_artifact" in telemetry_row["details_json"]
 
 
 def test_kpi_snapshot_from_rows_uses_shared_contract_snapshot() -> None:
@@ -329,7 +412,7 @@ def test_kpi_snapshot_from_rows_uses_shared_contract_snapshot() -> None:
             "gate_id": "G4_MONITORING_TELEMETRY",
             "status": "PASS",
             "failed_checks": "",
-            "details_json": '{"approval_rate": 0.85, "max_psi": 0.08, "telemetry_success_rate": 0.995, "telemetry_ingest_lag_s": 12.0}',
+            "details_json": '{"approval_rate": 0.85, "max_psi": 0.08, "telemetry_status": "success", "telemetry_gate_status": "healthy", "telemetry_failure_reason": "", "telemetry_success_rate": 0.995, "telemetry_ingest_lag_s": 12.0}',
         },
         {
             "gate_id": "G5_SECURITY_AUDIT",
@@ -348,3 +431,41 @@ def test_kpi_snapshot_from_rows_uses_shared_contract_snapshot() -> None:
     assert snapshot["kpis"]["fairness_gap_after"]["pass"] is True
     assert snapshot["kpis"]["high_stress_fairness_gap_after"]["pass"] is True
     assert snapshot["kpis"]["trajectory_gate_pass_rate_24w"]["pass"] is True
+
+
+def test_build_smoke_release_summary_blocks_go_when_telemetry_threshold_fails() -> None:
+    payload = build_smoke_release_summary(
+        batch_summary={},
+        batch_fairness_change_df=pd.DataFrame(),
+        thresholds=_args(require_telemetry_enabled=True).__dict__,
+        telemetry_payload={
+            "enabled": True,
+            "exported": True,
+            "telemetry_status": "success",
+            "telemetry_failure_reason": "",
+            "send_success_rate": 0.80,
+            "ingest_lag_s_p95": 15.0,
+        },
+        telemetry_artifact_path="tables/telemetry_export.json",
+        milestone_acceptance_summary={
+            "release_decision": "GO",
+            "smoke_pass": True,
+            "pilot_eligible": False,
+            "broad_rollout_allowed": True,
+            "evidence_level": "seeded_suite",
+            "evidence_status": "complete",
+            "acceptance_eligible": True,
+            "lift_pass": True,
+            "reliability_pass": True,
+            "fairness_seed_pass_count": 5,
+            "seed_count": 5,
+            "model_version": "model-123",
+            "model_freeze_mode": "explicit_model_version",
+        },
+    )
+    assert payload["release_decision"] == "GO"
+    assert payload["smoke_pass"] is False
+    assert payload["pilot_eligible"] is False
+    assert payload["broad_rollout_allowed"] is False
+    assert payload["telemetry_gate_status"] == "degraded"
+    assert payload["telemetry_failure_reason"] == "success_rate_below_threshold"

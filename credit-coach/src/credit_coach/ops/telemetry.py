@@ -111,6 +111,24 @@ def _write_payload(path_like: str, payload: str) -> tuple[bool, str]:
         return False, f"error:{exc.__class__.__name__}"
 
 
+def _telemetry_export_failure_reason(
+    *,
+    enabled: bool,
+    exported: bool,
+    status: str,
+) -> str:
+    normalized = str(status or "").strip().lower()
+    if not enabled:
+        return "disabled_exporter"
+    if exported:
+        return ""
+    if normalized in {"missing_output_path", "missing_endpoint_url"}:
+        return "export_failed"
+    if normalized.startswith("http_") or normalized.startswith("error:") or normalized == "export_failed":
+        return "export_failed"
+    return "export_failed"
+
+
 def export_prometheus_text(
     metrics: dict[str, float],
     *,
@@ -222,6 +240,8 @@ def export_monitoring_telemetry(
             "enabled": False,
             "mode": mode,
             "status": "disabled",
+            "telemetry_status": "disabled",
+            "telemetry_failure_reason": "disabled_exporter",
             "exported": False,
             "metrics_count": len(metrics),
             "payload_preview": text_payload,
@@ -233,6 +253,8 @@ def export_monitoring_telemetry(
                 "enabled": True,
                 "mode": mode,
                 "status": "missing_output_path",
+                "telemetry_status": "export_failed",
+                "telemetry_failure_reason": "export_failed",
                 "exported": False,
                 "metrics_count": len(metrics),
                 "payload_preview": text_payload,
@@ -256,6 +278,12 @@ def export_monitoring_telemetry(
             "enabled": True,
             "mode": mode,
             "status": status,
+            "telemetry_status": "success" if ok else "export_failed",
+            "telemetry_failure_reason": _telemetry_export_failure_reason(
+                enabled=True,
+                exported=bool(ok),
+                status=status,
+            ),
             "exported": bool(ok),
             "metrics_count": len(metrics),
             "payload_preview": payload,
@@ -265,6 +293,8 @@ def export_monitoring_telemetry(
             "enabled": True,
             "mode": mode,
             "status": "missing_endpoint_url",
+            "telemetry_status": "export_failed",
+            "telemetry_failure_reason": "export_failed",
             "exported": False,
             "metrics_count": len(metrics),
             "payload_preview": text_payload,
@@ -292,6 +322,12 @@ def export_monitoring_telemetry(
         "enabled": True,
         "mode": mode,
         "status": status,
+        "telemetry_status": "success" if ok else "export_failed",
+        "telemetry_failure_reason": _telemetry_export_failure_reason(
+            enabled=True,
+            exported=bool(ok),
+            status=status,
+        ),
         "exported": bool(ok),
         "metrics_count": len(metrics),
         "payload_preview": payload,

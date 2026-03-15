@@ -156,6 +156,11 @@ def main() -> None:
     telemetry_result["ingest_lag_s_p95"] = float(
         telemetry_cfg_eff.get("ingest_lag_s_p95", telemetry_result.get("ingest_lag_s_p95", 0.0))
     )
+    telemetry_result["telemetry_status"] = str(
+        telemetry_result.get("telemetry_status", telemetry_result.get("status", "unknown"))
+    )
+    telemetry_result["telemetry_failure_reason"] = str(telemetry_result.get("telemetry_failure_reason", ""))
+    telemetry_result["telemetry_artifact_path"] = "tables/telemetry_export.json"
     telemetry_path.write_text(json.dumps(telemetry_result, indent=2, ensure_ascii=False), encoding="utf-8")
 
     run_ctx.save_metrics(
