@@ -31,9 +31,14 @@ from credit_coach.macro.sources import load_macro_snapshot_mock
 from credit_coach.macro.stress_index import compute_macro_stress_index
 from credit_coach.model.predict import predict_proba_pd
 from credit_coach.model.registry import build_frozen_model_manifest, load_model_bundle
-from credit_coach.recourse.action_space import estimate_action_cost_usd, get_action_spec, get_actionable_features
+from credit_coach.recourse.action_space import (
+    estimate_action_cost_usd,
+    get_action_metadata,
+    get_action_spec,
+    get_actionable_features,
+)
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions, generate_dice_like_baseline
-from credit_coach.recourse.feasibility import apply_target_feasibility
+from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.generator import PlanGenConfig, generate_nine_plans, generate_plan_record
 from credit_coach.safety.validator import validate_plan
 from credit_coach.utils.hashing import hash_config, hash_file
@@ -1351,6 +1356,22 @@ def _root_cause_from_status_reasons(reasons: list[str] | str) -> str:
     return "multi_or_unknown"
 
 
+def _top_action_realism_rejection_reason(events: list[dict[str, Any]]) -> str:
+    counts: dict[str, int] = {}
+    for event in events:
+        if str(event.get("status", "")) != "rejected":
+            continue
+        codes = event.get("reason_codes", [])
+        if not isinstance(codes, list) or not codes:
+            codes = ["unknown"]
+        for code in codes:
+            key = str(code).strip() or "unknown"
+            counts[key] = int(counts.get(key, 0) + 1)
+    if not counts:
+        return ""
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+
+
 def _extract_reliability_thresholds_by_risk_band(
     *,
     uncertainty_cfg: dict[str, Any],
@@ -2524,16 +2545,22 @@ def _dice_plan_record(
     for a in actions:
         feature = str(a["feature_name"])
         spec = get_action_spec(feature)
+        action_meta = get_action_metadata(feature, action_month=max(1, int(spec.time_months)))
         current = float(a["current_value"])
-        target = apply_target_feasibility(
+        detail = apply_target_feasibility_with_details(
             feature_name=feature,
             current_value=current,
             target_value=float(a["target_value"]),
             horizon_months=6,
             profile=feasibility_profile,
             segment_context=segment_context,
+            action_class=spec.action_class,
+            action_context={str(k): row.get(k) for k in row.index},
         )
+        target = float(detail["target_value"])
         delta = float(target - current)
+        if str(detail["status"]) == "rejected":
+            continue
         x_prime[feature] = target
         action_month = max(1, int(spec.time_months))
         week_start = int(((action_month - 1) * 4) + 1)
@@ -2550,6 +2577,18 @@ def _dice_plan_record(
                 week_start=week_start,
                 week_end=week_end,
                 checkpoint_metric=f"{feature} -> {float(target):.6f}",
+                action_key=str(action_meta.get("action_key") or ""),
+                action_class=action_meta.get("action_class"),
+                action_title=str(action_meta.get("action_title") or ""),
+                action_group_id=str(action_meta.get("action_group_id") or ""),
+                composite_action=bool(action_meta.get("composite_action", False)),
+                requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
+                approval_pending_semantic_only=bool(action_meta.get("approval_pending_semantic_only", False)),
+                prerequisite_tags=list(action_meta.get("prerequisite_tags", [])),
+                conflict_tags=list(action_meta.get("conflict_tags", [])),
+                action_status=str(detail["status"]),
+                action_status_reason=detail.get("status_reason"),
+                diagnostic_flags=list(detail.get("reason_codes", [])),
             )
         )
 
@@ -2988,6 +3027,12 @@ def main() -> None:
             "candidate_pool_approved_count": 0,
             "candidate_pool_diversity_index": 0.0,
             "candidate_source_entropy": 0.0,
+            "action_realism_events_json": "[]",
+            "action_realism_valid_action_count": 0,
+            "action_realism_clipped_action_count": 0,
+            "action_realism_rejected_action_count": 0,
+            "action_realism_infeasible_plan_count": 0,
+            "action_realism_top_rejection_reason": "",
             "had_any_candidate": 0,
             "gate_pass_any_candidate": 0,
             "dice_backend": "",
@@ -3166,6 +3211,13 @@ def main() -> None:
                 deadline_ts=deadline_ts,
                 runtime_diag=runtime_diag,
             )
+            action_realism_events = list(runtime_diag.get("action_realism_events", []))
+            out["action_realism_events_json"] = json.dumps(action_realism_events, ensure_ascii=False)
+            out["action_realism_valid_action_count"] = int(runtime_diag.get("action_realism_valid_action_count", 0))
+            out["action_realism_clipped_action_count"] = int(runtime_diag.get("action_realism_clipped_action_count", 0))
+            out["action_realism_rejected_action_count"] = int(runtime_diag.get("action_realism_rejected_action_count", 0))
+            out["action_realism_infeasible_plan_count"] = int(runtime_diag.get("action_realism_infeasible_plan_count", 0))
+            out["action_realism_top_rejection_reason"] = _top_action_realism_rejection_reason(action_realism_events)
             validated: list[PlanRecord] = []
             for p in plans:
                 if deadline_ts is not None and time.perf_counter() >= float(deadline_ts):
@@ -3763,6 +3815,72 @@ def main() -> None:
     ).astype(float)
     denied_root_causes_out = run_ctx.tables_dir / "denied_not_approved_root_causes.csv"
     denied_root_causes.to_csv(denied_root_causes_out, index=False)
+
+    action_realism_event_rows: list[dict[str, Any]] = []
+    for _, batch_row in batch_df[["batch_index", "denied_base", "risk_band", "action_realism_events_json"]].iterrows():
+        raw_events = batch_row.get("action_realism_events_json", "[]")
+        try:
+            events = json.loads(raw_events) if isinstance(raw_events, str) else []
+        except Exception:
+            events = []
+        if not isinstance(events, list):
+            continue
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            codes = event.get("reason_codes", [])
+            codes = codes if isinstance(codes, list) and codes else [""]
+            for code in codes:
+                action_realism_event_rows.append(
+                    {
+                        "batch_index": int(batch_row.get("batch_index", 0)),
+                        "denied_base": int(batch_row.get("denied_base", 0)),
+                        "risk_band": _safe_str(batch_row.get("risk_band", "")),
+                        "action_key": _safe_str(event.get("action_key", "")),
+                        "action_class": _safe_str(event.get("action_class", "")),
+                        "feature_name": _safe_str(event.get("feature_name", "")),
+                        "action_group_id": _safe_str(event.get("action_group_id", "")),
+                        "status": _safe_str(event.get("status", "")),
+                        "reason_code": _safe_str(code, ""),
+                        "time_months": _safe_int(event.get("time_months", 0)),
+                        "requested_delta": _safe_float(event.get("requested_delta", 0.0)),
+                        "resolved_delta": _safe_float(event.get("resolved_delta", 0.0)),
+                        "semantic_ratio": _safe_float(event.get("semantic_ratio", 1.0)),
+                    }
+                )
+    if action_realism_event_rows:
+        action_realism_events_df = pd.DataFrame(action_realism_event_rows)
+        feasibility_rejection_breakdown = (
+            action_realism_events_df[action_realism_events_df["status"].isin(["clipped", "rejected"])]
+            .groupby(["status", "reason_code", "action_class", "action_key"], dropna=False)
+            .size()
+            .reset_index(name="count")
+            .sort_values(["status", "count", "reason_code"], ascending=[True, False, True])
+            .reset_index(drop=True)
+        )
+    else:
+        action_realism_events_df = pd.DataFrame(
+            columns=[
+                "batch_index",
+                "denied_base",
+                "risk_band",
+                "action_key",
+                "action_class",
+                "feature_name",
+                "action_group_id",
+                "status",
+                "reason_code",
+                "time_months",
+                "requested_delta",
+                "resolved_delta",
+                "semantic_ratio",
+            ]
+        )
+        feasibility_rejection_breakdown = pd.DataFrame(
+            columns=["status", "reason_code", "action_class", "action_key", "count"]
+        )
+    feasibility_rejection_breakdown_out = run_ctx.tables_dir / "feasibility_rejection_breakdown.csv"
+    feasibility_rejection_breakdown.to_csv(feasibility_rejection_breakdown_out, index=False)
 
     top_plan = best_mix.iloc[0] if not best_mix.empty else pd.Series(dtype=object)
     top_plan_approved = best_mix_approved.iloc[0] if not best_mix_approved.empty else pd.Series(dtype=object)
@@ -4386,6 +4504,29 @@ def main() -> None:
         "best_source_internal_rate": float((batch_df["best_source"] == "internal").mean()),
         "candidate_pool_diversity_index": float(batch_df["candidate_pool_diversity_index"].astype(float).mean()),
         "candidate_source_entropy": float(batch_df["candidate_source_entropy"].astype(float).mean()),
+        "action_realism_valid_action_count": int(batch_df["action_realism_valid_action_count"].astype(int).sum()),
+        "action_realism_clipped_action_count": int(batch_df["action_realism_clipped_action_count"].astype(int).sum()),
+        "action_realism_rejected_action_count": int(batch_df["action_realism_rejected_action_count"].astype(int).sum()),
+        "action_realism_infeasible_plan_count": int(batch_df["action_realism_infeasible_plan_count"].astype(int).sum()),
+        "action_realism_clipped_action_rate": float(
+            batch_df["action_realism_clipped_action_count"].astype(float).sum()
+            / max(
+                1.0,
+                batch_df["action_realism_valid_action_count"].astype(float).sum()
+                + batch_df["action_realism_clipped_action_count"].astype(float).sum()
+                + batch_df["action_realism_rejected_action_count"].astype(float).sum()
+            )
+        ),
+        "action_realism_rejected_action_rate": float(
+            batch_df["action_realism_rejected_action_count"].astype(float).sum()
+            / max(
+                1.0,
+                batch_df["action_realism_valid_action_count"].astype(float).sum()
+                + batch_df["action_realism_clipped_action_count"].astype(float).sum()
+                + batch_df["action_realism_rejected_action_count"].astype(float).sum()
+            )
+        ),
+        "infeasible_plan_rate": float(batch_df["action_realism_infeasible_plan_count"].astype(int).mean()),
         "candidate_quality_population": str(candidate_quality_summary["canonical_population"]),
         "candidate_quality_secondary_population": str(candidate_quality_summary["secondary_population"]),
         "denied_candidate_pool_diversity_index": float(
@@ -4521,6 +4662,16 @@ def main() -> None:
     else:
         summary["denied_not_approved_top_root_cause"] = ""
         summary["denied_not_approved_top_root_cause_share"] = 0.0
+    if not feasibility_rejection_breakdown.empty:
+        summary["action_realism_top_rejection_reason"] = _safe_str(
+            feasibility_rejection_breakdown.iloc[0].get("reason_code", "")
+        )
+        summary["action_realism_top_rejection_reason_count"] = _safe_int(
+            feasibility_rejection_breakdown.iloc[0].get("count", 0)
+        )
+    else:
+        summary["action_realism_top_rejection_reason"] = ""
+        summary["action_realism_top_rejection_reason_count"] = 0
     run_ctx.save_metrics(summary)
 
     summary_json = run_ctx.tables_dir / "batch_summary.json"

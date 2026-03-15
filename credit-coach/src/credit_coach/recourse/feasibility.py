@@ -2,6 +2,30 @@ from __future__ import annotations
 
 from typing import Any
 
+_DEBT_PAYDOWN_FEATURES = {
+    "revol_bal",
+    "tot_cur_bal",
+    "total_bal_ex_mort",
+    "delinq_amnt",
+    "tot_coll_amt",
+}
+_CREDIT_LIMIT_FEATURES = {
+    "total_rev_hi_lim",
+    "total_bc_limit",
+    "tot_hi_cred_lim",
+}
+_UTILIZATION_FEATURES = {
+    "revol_util",
+}
+_INCOME_FEATURES = {
+    "annual_inc",
+}
+_SEMANTIC_RATIO_DEFAULTS = {
+    "behavioral": 0.05,
+    "structural": 0.35,
+    "institutional": 0.50,
+}
+
 
 def _as_float(value: Any) -> float | None:
     if value is None:
@@ -60,7 +84,27 @@ def _resolve_segment_multiplier(
     return float(max(0.0, combined))
 
 
-def apply_target_feasibility(
+def _append_reason(reason_codes: list[str], code: str, *, changed: bool) -> None:
+    if not changed:
+        return
+    if code not in reason_codes:
+        reason_codes.append(code)
+
+
+def _semantic_ratio_threshold(rule: dict[str, Any], action_class: str | None) -> float:
+    cls = str(action_class or "").strip().lower()
+    field_map = {
+        "behavioral": "min_behavioral_semantic_ratio",
+        "structural": "min_structural_semantic_ratio",
+        "institutional": "min_institutional_semantic_ratio",
+    }
+    threshold = _as_float(rule.get(field_map.get(cls, ""))) if cls in field_map else None
+    if threshold is not None:
+        return float(max(0.0, min(1.0, threshold)))
+    return float(_SEMANTIC_RATIO_DEFAULTS.get(cls or "behavioral", 0.35))
+
+
+def apply_target_feasibility_with_details(
     *,
     feature_name: str,
     current_value: float,
@@ -68,22 +112,40 @@ def apply_target_feasibility(
     horizon_months: int,
     profile: dict[str, Any] | None,
     segment_context: dict[str, Any] | None = None,
-) -> float:
-    """
-    Apply feature-level recourse feasibility constraints.
+    action_class: str | None = None,
+    action_context: dict[str, Any] | None = None,
+    min_abs_effect: float = 1e-9,
+) -> dict[str, Any]:
+    current = float(current_value)
+    requested = float(target_value)
+    horizon = max(1, int(horizon_months))
+    out = float(target_value)
+    reason_codes: list[str] = []
 
-    Supported rule keys:
-      - max_relative_change
-      - max_abs_increase / max_abs_decrease
-      - max_abs_increase_per_month / max_abs_decrease_per_month
-      - min_target / max_target
-      - freeze_if_current_below / freeze_if_current_above
-      - round_to_int
-    """
     if not isinstance(profile, dict) or not profile:
-        return float(target_value)
+        resolved_delta = float(out - current)
+        return {
+            "target_value": float(out),
+            "requested_delta": float(requested - current),
+            "resolved_delta": resolved_delta,
+            "status": "valid",
+            "was_clipped": False,
+            "reason_codes": [],
+            "status_reason": None,
+            "semantic_ratio": 1.0,
+        }
     if not _as_bool(profile.get("enabled", True), default=True):
-        return float(target_value)
+        resolved_delta = float(out - current)
+        return {
+            "target_value": float(out),
+            "requested_delta": float(requested - current),
+            "resolved_delta": resolved_delta,
+            "status": "valid",
+            "was_clipped": False,
+            "reason_codes": [],
+            "status_reason": None,
+            "semantic_ratio": 1.0,
+        }
 
     defaults = profile.get("defaults", {}) if isinstance(profile.get("defaults", {}), dict) else {}
     per_feature = profile.get("features", {}) if isinstance(profile.get("features", {}), dict) else {}
@@ -92,23 +154,25 @@ def apply_target_feasibility(
         feature_rule = {}
     rule = _merge_rules(defaults, feature_rule)
 
-    current = float(current_value)
-    out = float(target_value)
-    horizon = max(1, int(horizon_months))
-
     freeze_below = _as_float(rule.get("freeze_if_current_below"))
     if freeze_below is not None and current < freeze_below:
-        return current
+        out = current
+        _append_reason(reason_codes, "freeze_if_current_below", changed=True)
     freeze_above = _as_float(rule.get("freeze_if_current_above"))
     if freeze_above is not None and current > freeze_above:
-        return current
+        out = current
+        _append_reason(reason_codes, "freeze_if_current_above", changed=True)
 
     min_target = _as_float(rule.get("min_target"))
-    max_target = _as_float(rule.get("max_target"))
     if min_target is not None:
+        prev = out
         out = max(min_target, out)
+        _append_reason(reason_codes, "min_target_bound", changed=abs(out - prev) > 1e-12)
+    max_target = _as_float(rule.get("max_target"))
     if max_target is not None:
+        prev = out
         out = min(max_target, out)
+        _append_reason(reason_codes, "max_target_bound", changed=abs(out - prev) > 1e-12)
 
     segment_mult = _resolve_segment_multiplier(
         feature_name=feature_name,
@@ -117,8 +181,10 @@ def apply_target_feasibility(
 
     max_rel = _as_float(rule.get("max_relative_change"))
     if max_rel is not None and max_rel >= 0:
+        prev = out
         max_delta = max(abs(current), 1.0) * max_rel * float(segment_mult)
         out = max(current - max_delta, min(current + max_delta, out))
+        _append_reason(reason_codes, "max_relative_change", changed=abs(out - prev) > 1e-12)
 
     max_inc = _as_float(rule.get("max_abs_increase"))
     max_dec = _as_float(rule.get("max_abs_decrease"))
@@ -137,12 +203,135 @@ def apply_target_feasibility(
         scaled_dec = per_month_dec * float(horizon) * float(segment_mult)
         max_dec = min(max_dec, scaled_dec) if max_dec is not None else scaled_dec
 
+    max_monthly_change = _as_float(rule.get("max_monthly_change"))
+    if max_monthly_change is not None and max_monthly_change >= 0:
+        monthly_cap = float(max_monthly_change) * float(horizon) * float(segment_mult)
+        max_inc = min(max_inc, monthly_cap) if max_inc is not None else monthly_cap
+        max_dec = min(max_dec, monthly_cap) if max_dec is not None else monthly_cap
+
     if out >= current and max_inc is not None and max_inc >= 0:
+        prev = out
         out = min(out, current + max_inc)
+        _append_reason(reason_codes, "max_abs_increase", changed=abs(out - prev) > 1e-12)
     if out < current and max_dec is not None and max_dec >= 0:
+        prev = out
         out = max(out, current - max_dec)
+        _append_reason(reason_codes, "max_abs_decrease", changed=abs(out - prev) > 1e-12)
+
+    if feature_name in _INCOME_FEATURES:
+        income_growth_cap = _as_float(rule.get("income_growth_cap"))
+        if income_growth_cap is not None and income_growth_cap >= 0:
+            prev = out
+            out = min(out, current * (1.0 + float(income_growth_cap)))
+            _append_reason(reason_codes, "income_growth_cap", changed=abs(out - prev) > 1e-12)
+
+    if feature_name in _UTILIZATION_FEATURES:
+        max_utilization_drop_ratio = _as_float(rule.get("max_utilization_drop_ratio"))
+        if max_utilization_drop_ratio is not None and max_utilization_drop_ratio >= 0 and current > 0:
+            prev = out
+            max_drop = current * float(max_utilization_drop_ratio)
+            out = max(out, current - max_drop)
+            _append_reason(reason_codes, "max_utilization_drop_ratio", changed=abs(out - prev) > 1e-12)
+
+    if feature_name in _CREDIT_LIMIT_FEATURES:
+        max_credit_limit_adjustment_ratio = _as_float(rule.get("max_credit_limit_adjustment_ratio"))
+        if max_credit_limit_adjustment_ratio is not None and max_credit_limit_adjustment_ratio >= 0 and current > 0:
+            prev = out
+            max_limit = current * (1.0 + float(max_credit_limit_adjustment_ratio))
+            min_limit = current * max(0.0, 1.0 - float(max_credit_limit_adjustment_ratio))
+            out = min(max_limit, max(min_limit, out))
+            _append_reason(reason_codes, "max_credit_limit_adjustment_ratio", changed=abs(out - prev) > 1e-12)
+
+    if feature_name in _DEBT_PAYDOWN_FEATURES:
+        financial_capacity_ratio = _as_float(rule.get("financial_capacity_ratio"))
+        annual_inc = _as_float((action_context or {}).get("annual_inc"))
+        if (
+            financial_capacity_ratio is not None
+            and financial_capacity_ratio >= 0
+            and annual_inc is not None
+            and annual_inc > 0
+            and out < current
+        ):
+            prev = out
+            monthly_income = float(annual_inc) / 12.0
+            max_paydown = monthly_income * float(financial_capacity_ratio) * float(horizon)
+            out = max(out, current - max_paydown)
+            _append_reason(reason_codes, "financial_capacity_ratio", changed=abs(out - prev) > 1e-12)
 
     if _as_bool(rule.get("round_to_int"), default=False):
+        prev = out
         out = float(round(out))
+        _append_reason(reason_codes, "round_to_int", changed=abs(out - prev) > 1e-12)
 
-    return float(out)
+    requested_delta = float(requested - current)
+    resolved_delta = float(out - current)
+    was_clipped = abs(out - requested) > 1e-12
+    semantic_ratio = 1.0
+    if abs(requested_delta) > 1e-12:
+        semantic_ratio = float(abs(resolved_delta) / abs(requested_delta))
+
+    status = "clipped" if was_clipped else "valid"
+    status_reason = "|".join(reason_codes) if reason_codes else None
+    semantic_ratio_threshold = _semantic_ratio_threshold(rule, action_class)
+
+    if abs(requested_delta) > float(min_abs_effect):
+        if abs(resolved_delta) <= float(min_abs_effect):
+            status = "rejected"
+            if "semantic_noop_after_clip" not in reason_codes:
+                reason_codes.append("semantic_noop_after_clip")
+        elif requested_delta * resolved_delta < 0:
+            status = "rejected"
+            if "direction_inversion_after_clip" not in reason_codes:
+                reason_codes.append("direction_inversion_after_clip")
+        elif was_clipped and semantic_ratio < semantic_ratio_threshold:
+            status = "rejected"
+            if "semantic_loss_after_clip" not in reason_codes:
+                reason_codes.append("semantic_loss_after_clip")
+
+    status_reason = "|".join(reason_codes) if reason_codes else None
+    return {
+        "target_value": float(out),
+        "requested_delta": float(requested_delta),
+        "resolved_delta": float(resolved_delta),
+        "status": status,
+        "was_clipped": bool(was_clipped),
+        "reason_codes": reason_codes,
+        "status_reason": status_reason,
+        "semantic_ratio": float(semantic_ratio),
+    }
+
+
+def apply_target_feasibility(
+    *,
+    feature_name: str,
+    current_value: float,
+    target_value: float,
+    horizon_months: int,
+    profile: dict[str, Any] | None,
+    segment_context: dict[str, Any] | None = None,
+) -> float:
+    """
+    Apply feature-level recourse feasibility constraints.
+
+    Supported rule keys:
+      - max_relative_change
+      - max_abs_increase / max_abs_decrease
+      - max_abs_increase_per_month / max_abs_decrease_per_month
+      - max_monthly_change
+      - min_target / max_target
+      - freeze_if_current_below / freeze_if_current_above
+      - income_growth_cap
+      - max_utilization_drop_ratio
+      - max_credit_limit_adjustment_ratio
+      - financial_capacity_ratio
+      - round_to_int
+    """
+    result = apply_target_feasibility_with_details(
+        feature_name=feature_name,
+        current_value=current_value,
+        target_value=target_value,
+        horizon_months=horizon_months,
+        profile=profile,
+        segment_context=segment_context,
+    )
+    return float(result["target_value"])

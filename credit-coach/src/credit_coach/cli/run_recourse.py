@@ -28,7 +28,7 @@ from credit_coach.recourse.action_space import (
     get_actionable_features,
 )
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions
-from credit_coach.recourse.feasibility import apply_target_feasibility
+from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.generator import generate_nine_plans
 from credit_coach.safety.validator import validate_plan
 from credit_coach.storage.repository import save_plan
@@ -575,15 +575,20 @@ def _dice_plan_record(
         spec = get_action_spec(feature)
         action_meta = get_action_metadata(feature, action_month=max(1, int(spec.time_months)))
         current = float(a["current_value"])
-        target = apply_target_feasibility(
+        detail = apply_target_feasibility_with_details(
             feature_name=feature,
             current_value=current,
             target_value=float(a["target_value"]),
             horizon_months=6,
             profile=feasibility_profile,
             segment_context=segment_context,
+            action_class=spec.action_class,
+            action_context={str(k): row.get(k) for k in row.index},
         )
+        target = float(detail["target_value"])
         delta = float(target - current)
+        if str(detail["status"]) == "rejected":
+            continue
 
         x_prime[feature] = target
         action_month = max(1, int(spec.time_months))
@@ -610,7 +615,9 @@ def _dice_plan_record(
                 approval_pending_semantic_only=bool(action_meta.get("approval_pending_semantic_only", False)),
                 prerequisite_tags=list(action_meta.get("prerequisite_tags", [])),
                 conflict_tags=list(action_meta.get("conflict_tags", [])),
-                action_status="valid",
+                action_status=str(detail["status"]),
+                action_status_reason=detail.get("status_reason"),
+                diagnostic_flags=list(detail.get("reason_codes", [])),
             )
         )
 

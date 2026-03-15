@@ -22,7 +22,7 @@ from credit_coach.recourse.action_space import (
     get_action_spec,
     get_actionable_features,
 )
-from credit_coach.recourse.feasibility import apply_target_feasibility
+from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.region_targets import get_target_pd
 from credit_coach.safety.statistical import estimate_prediction_ci
 
@@ -123,6 +123,44 @@ def _make_plan_action(
         action_status=str(action_status),
         action_status_reason=action_status_reason,
         diagnostic_flags=list(diagnostic_flags or []),
+    )
+
+
+def _build_action_context(row: pd.Series) -> dict[str, Any]:
+    return {
+        str(k): row.get(k)
+        for k in row.index
+    }
+
+
+def _record_action_realism_event(
+    action_realism_events: list[dict[str, Any]] | None,
+    *,
+    feature_name: str,
+    action_month: int,
+    status: str,
+    detail: dict[str, Any],
+) -> None:
+    if action_realism_events is None:
+        return
+    action_meta = get_action_metadata(feature_name, action_month=action_month)
+    action_realism_events.append(
+        {
+            "feature_name": feature_name,
+            "action_key": str(action_meta.get("action_key") or ""),
+            "action_class": str(action_meta.get("action_class") or ""),
+            "action_group_id": str(action_meta.get("action_group_id") or ""),
+            "composite_action": bool(action_meta.get("composite_action", False)),
+            "requires_institutional_approval": bool(action_meta.get("requires_institutional_approval", False)),
+            "approval_pending_semantic_only": bool(action_meta.get("approval_pending_semantic_only", False)),
+            "time_months": int(action_month),
+            "status": str(status),
+            "requested_delta": float(detail.get("requested_delta", 0.0)),
+            "resolved_delta": float(detail.get("resolved_delta", 0.0)),
+            "semantic_ratio": float(detail.get("semantic_ratio", 1.0)),
+            "reason_codes": list(detail.get("reason_codes", [])),
+            "status_reason": detail.get("status_reason"),
+        }
     )
 
 
@@ -318,9 +356,11 @@ def _build_actions(
     min_abs_delta: float = 1e-9,
     deadline_ts: float | None = None,
     runtime_diag: dict[str, Any] | None = None,
+    action_realism_events: list[dict[str, Any]] | None = None,
 ) -> list[PlanAction]:
     actions: list[PlanAction] = []
     adaptive_cfg = adaptive_cfg or {}
+    action_context = _build_action_context(row)
     adaptive_enabled = bool(adaptive_cfg.get("enabled", False))
     can_adapt = adaptive_enabled and model is not None and feature_cols is not None and len(selected_features) > 0
     s_scale = _strategy_scale(strategy)
@@ -376,27 +416,43 @@ def _build_actions(
                 adaptive_cfg=adaptive_cfg,
             )
 
-        target = apply_target_feasibility(
+        detail = apply_target_feasibility_with_details(
             feature_name=feat,
             current_value=current,
             target_value=float(target),
             horizon_months=horizon_months,
             profile=feasibility_profile,
             segment_context=segment_context,
+            action_class=spec.action_class,
+            action_context=action_context,
+            min_abs_effect=min_abs_delta,
         )
+        target = float(detail["target_value"])
         target = _clip_target(spec, target)
         delta = target - current
-        if abs(float(delta)) <= float(min_abs_delta):
-            continue
         action_month = max(1, min(horizon_months, spec.time_months))
         if phase1_enabled and force_phase1_month and feat in phase1_prioritized:
             action_month = 1
+        _record_action_realism_event(
+            action_realism_events,
+            feature_name=feat,
+            action_month=action_month,
+            status=str(detail["status"]),
+            detail=detail,
+        )
+        if str(detail["status"]) == "rejected":
+            continue
+        if abs(float(delta)) <= float(min_abs_delta):
+            continue
         actions.append(
             _make_plan_action(
                 feature_name=feat,
                 current_value=current,
                 target_value=float(target),
                 action_month=action_month,
+                action_status=str(detail["status"]),
+                action_status_reason=detail.get("status_reason"),
+                diagnostic_flags=list(detail.get("reason_codes", [])),
             )
         )
     return actions
@@ -838,6 +894,7 @@ def _build_actions_weekly(
     min_abs_delta: float = 1e-9,
     deadline_ts: float | None = None,
     runtime_diag: dict[str, Any] | None = None,
+    action_realism_events: list[dict[str, Any]] | None = None,
 ) -> list[PlanAction]:
     adaptive_cfg = adaptive_cfg or {}
     weekly_cfg = weekly_cfg or {}
@@ -859,6 +916,7 @@ def _build_actions_weekly(
     baseline_pd = float(
         predict_proba_pd(model, calibrator, pd.DataFrame([row[feature_cols].values], columns=feature_cols))[0]
     )
+    action_context = _build_action_context(row)
     sensitivity: dict[str, float] = {f: 1.0 for f in selected_features}
     if can_adapt and selected_features:
         _, sensitivity = _estimate_feature_sensitivity(
@@ -912,15 +970,21 @@ def _build_actions_weekly(
             if phase1_enabled and feat in phase1_prioritized:
                 step *= float(phase1_step_multiplier)
             target = _target_from_step(spec, current, step)
-            target = apply_target_feasibility(
+            detail = apply_target_feasibility_with_details(
                 feature_name=feat,
                 current_value=current,
                 target_value=float(target),
                 horizon_months=stage_horizon,
                 profile=feasibility_profile,
                 segment_context=segment_context,
+                action_class=spec.action_class,
+                action_context=_build_action_context(work_row),
+                min_abs_effect=min_abs_delta,
             )
+            target = float(detail["target_value"])
             target = _clip_target(spec, float(target))
+            if str(detail["status"]) == "rejected":
+                continue
             if abs(float(target) - current) <= float(min_abs_delta):
                 continue
             cand_pd = _pd_for_candidate(
@@ -967,26 +1031,42 @@ def _build_actions_weekly(
         if abs(target - current) <= float(min_abs_delta):
             continue
         spec = get_action_spec(feat)
-        final_target = apply_target_feasibility(
+        detail = apply_target_feasibility_with_details(
             feature_name=feat,
             current_value=current,
             target_value=target,
             horizon_months=horizon_months,
             profile=feasibility_profile,
             segment_context=segment_context,
+            action_class=spec.action_class,
+            action_context=action_context,
+            min_abs_effect=min_abs_delta,
         )
+        final_target = float(detail["target_value"])
         final_target = _clip_target(spec, float(final_target))
-        if abs(final_target - current) <= float(min_abs_delta):
-            continue
         action_month = max(1, min(horizon_months, spec.time_months))
         if phase1_enabled and force_phase1_month and feat in phase1_prioritized:
             action_month = 1
+        _record_action_realism_event(
+            action_realism_events,
+            feature_name=feat,
+            action_month=action_month,
+            status=str(detail["status"]),
+            detail=detail,
+        )
+        if str(detail["status"]) == "rejected":
+            continue
+        if abs(final_target - current) <= float(min_abs_delta):
+            continue
         actions.append(
             _make_plan_action(
                 feature_name=feat,
                 current_value=current,
                 target_value=float(final_target),
                 action_month=action_month,
+                action_status=str(detail["status"]),
+                action_status_reason=detail.get("status_reason"),
+                diagnostic_flags=list(detail.get("reason_codes", [])),
             )
         )
 
@@ -1008,6 +1088,7 @@ def _build_actions_weekly(
             min_abs_delta=min_abs_delta,
             deadline_ts=deadline_ts,
             runtime_diag=runtime_diag,
+            action_realism_events=action_realism_events,
         )
     return actions
 
@@ -1056,6 +1137,7 @@ def generate_plan_record(
     phase1_cfg = search_cfg.get("phase1_fast_track", {}) if isinstance(search_cfg.get("phase1_fast_track", {}), dict) else {}
     denied_mode = bool(search_cfg.get("denied_mode", False))
     use_weekly = bool(weekly_cfg.get("enabled", False)) and (not bool(weekly_cfg.get("only_denied", True)) or denied_mode)
+    action_realism_events: list[dict[str, Any]] = []
     target_pd = get_target_pd(strategy, cfg.tau)
     target_pd_margin_extra = max(0.0, _safe_float(search_cfg.get("target_pd_margin_extra", 0.0), 0.0))
     if target_pd_margin_extra > 0.0:
@@ -1084,6 +1166,7 @@ def generate_plan_record(
             min_abs_delta=min_abs_delta,
             deadline_ts=deadline_ts,
             runtime_diag=runtime_diag,
+            action_realism_events=action_realism_events,
         )
     else:
         actions = _build_actions(
@@ -1103,7 +1186,26 @@ def generate_plan_record(
             min_abs_delta=min_abs_delta,
             deadline_ts=deadline_ts,
             runtime_diag=runtime_diag,
+            action_realism_events=action_realism_events,
         )
+    if runtime_diag is not None and action_realism_events:
+        runtime_diag.setdefault("action_realism_events", []).extend(action_realism_events)
+        runtime_diag["action_realism_valid_action_count"] = int(
+            runtime_diag.get("action_realism_valid_action_count", 0)
+            + sum(1 for event in action_realism_events if str(event.get("status")) == "valid")
+        )
+        runtime_diag["action_realism_clipped_action_count"] = int(
+            runtime_diag.get("action_realism_clipped_action_count", 0)
+            + sum(1 for event in action_realism_events if str(event.get("status")) == "clipped")
+        )
+        runtime_diag["action_realism_rejected_action_count"] = int(
+            runtime_diag.get("action_realism_rejected_action_count", 0)
+            + sum(1 for event in action_realism_events if str(event.get("status")) == "rejected")
+        )
+        if any(str(event.get("status")) == "rejected" for event in action_realism_events) and not actions:
+            runtime_diag["action_realism_infeasible_plan_count"] = int(
+                runtime_diag.get("action_realism_infeasible_plan_count", 0) + 1
+            )
     actions = _prune_actions(
         actions,
         max_actions=max_actions,
