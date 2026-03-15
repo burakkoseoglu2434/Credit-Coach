@@ -16,7 +16,12 @@ from credit_coach.macro.reliability import (
     resolve_reliability_settings,
 )
 from credit_coach.model.predict import predict_proba_pd
-from credit_coach.recourse.action_space import estimate_action_cost_usd, get_action_spec, get_actionable_features
+from credit_coach.recourse.action_space import (
+    estimate_action_cost_usd,
+    get_action_metadata,
+    get_action_spec,
+    get_actionable_features,
+)
 from credit_coach.recourse.feasibility import apply_target_feasibility
 from credit_coach.recourse.region_targets import get_target_pd
 from credit_coach.safety.statistical import estimate_prediction_ci
@@ -79,6 +84,46 @@ def _week_window_for_month(month: int) -> tuple[int, int]:
     start = int(((m - 1) * 4) + 1)
     end = int(m * 4)
     return start, end
+
+
+def _make_plan_action(
+    *,
+    feature_name: str,
+    current_value: float,
+    target_value: float,
+    action_month: int,
+    action_status: str = "valid",
+    action_status_reason: str | None = None,
+    diagnostic_flags: list[str] | None = None,
+) -> PlanAction:
+    spec = get_action_spec(feature_name)
+    phase_id = _phase_id_for_month(action_month)
+    week_start, week_end = _week_window_for_month(action_month)
+    action_meta = get_action_metadata(feature_name, action_month=action_month)
+    return PlanAction(
+        feature_name=feature_name,
+        current_value=float(current_value),
+        target_value=float(target_value),
+        delta=float(target_value - current_value),
+        time_months=int(action_month),
+        estimated_cost_usd=estimate_action_cost_usd(float(current_value), float(target_value), spec),
+        phase_id=phase_id,
+        week_start=int(week_start),
+        week_end=int(week_end),
+        checkpoint_metric=f"{feature_name} -> {float(target_value):.6f}",
+        action_key=str(action_meta.get("action_key") or ""),
+        action_class=action_meta.get("action_class"),
+        action_title=str(action_meta.get("action_title") or ""),
+        action_group_id=str(action_meta.get("action_group_id") or ""),
+        composite_action=bool(action_meta.get("composite_action", False)),
+        requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
+        approval_pending_semantic_only=bool(action_meta.get("approval_pending_semantic_only", False)),
+        prerequisite_tags=list(action_meta.get("prerequisite_tags", [])),
+        conflict_tags=list(action_meta.get("conflict_tags", [])),
+        action_status=str(action_status),
+        action_status_reason=action_status_reason,
+        diagnostic_flags=list(diagnostic_flags or []),
+    )
 
 
 def _phase1_fast_track_context(
@@ -346,19 +391,12 @@ def _build_actions(
         action_month = max(1, min(horizon_months, spec.time_months))
         if phase1_enabled and force_phase1_month and feat in phase1_prioritized:
             action_month = 1
-        week_start, week_end = _week_window_for_month(action_month)
         actions.append(
-            PlanAction(
+            _make_plan_action(
                 feature_name=feat,
                 current_value=current,
                 target_value=float(target),
-                delta=float(delta),
-                time_months=action_month,
-                estimated_cost_usd=estimate_action_cost_usd(current, float(target), spec),
-                phase_id=_phase_id_for_month(action_month),
-                week_start=int(week_start),
-                week_end=int(week_end),
-                checkpoint_metric=f"{feat} -> {float(target):.6f}",
+                action_month=action_month,
             )
         )
     return actions
@@ -943,19 +981,12 @@ def _build_actions_weekly(
         action_month = max(1, min(horizon_months, spec.time_months))
         if phase1_enabled and force_phase1_month and feat in phase1_prioritized:
             action_month = 1
-        week_start, week_end = _week_window_for_month(action_month)
         actions.append(
-            PlanAction(
+            _make_plan_action(
                 feature_name=feat,
                 current_value=current,
                 target_value=float(final_target),
-                delta=float(final_target - current),
-                time_months=action_month,
-                estimated_cost_usd=estimate_action_cost_usd(current, float(final_target), spec),
-                phase_id=_phase_id_for_month(action_month),
-                week_start=int(week_start),
-                week_end=int(week_end),
-                checkpoint_metric=f"{feat} -> {float(final_target):.6f}",
+                action_month=action_month,
             )
         )
 

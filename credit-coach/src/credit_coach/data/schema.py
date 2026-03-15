@@ -127,6 +127,51 @@ class PlanAction(BaseModel):
         default=None,
         description="Aksiyon için izlenecek checkpoint metriği (opsiyonel, örn: dti<=30)",
     )
+    action_key: str | None = Field(
+        default=None,
+        description="Kullaniciya gorunen gercek dunya aksiyon anahtari (orn: reduce_spending)",
+    )
+    action_class: Literal["behavioral", "structural", "institutional"] | None = Field(
+        default=None,
+        description="Aksiyon sinifi: behavioral | structural | institutional",
+    )
+    action_title: str | None = Field(default=None, description="Aksiyonun okunabilir basligi")
+    action_group_id: str | None = Field(
+        default=None,
+        description="Composite aksiyonlari ayni grup altinda toplamak icin stabil grup kimligi",
+    )
+    composite_action: bool = Field(
+        default=False,
+        description="Bu aksiyon daha genis bir composite aksiyonun parcasi mi",
+    )
+    requires_institutional_approval: bool = Field(
+        default=False,
+        description="Aksiyonun uygulanmasi kurum onayi gerektiriyor mu",
+    )
+    approval_pending_semantic_only: bool = Field(
+        default=False,
+        description="Feature effect'e henuz donusmeyen semantik placeholder institutional aksiyon mu",
+    )
+    prerequisite_tags: list[str] = Field(
+        default_factory=list,
+        description="Bu aksiyonun bagli oldugu prerequisite etiketleri",
+    )
+    conflict_tags: list[str] = Field(
+        default_factory=list,
+        description="Bu aksiyonun ayni planda conflict yaratabilecegi etiketler",
+    )
+    action_status: Literal["valid", "clipped", "provisional", "invalid", "repair_dropped"] | None = Field(
+        default="valid",
+        description="Action realism veya constraint islemlerinden sonraki durum",
+    )
+    action_status_reason: str | None = Field(
+        default=None,
+        description="Aksiyon statusu icin reason code veya aciklama",
+    )
+    diagnostic_flags: list[str] = Field(
+        default_factory=list,
+        description="Aksiyonla ilgili ek diagnostic flag'ler",
+    )
 
 
 class LocalReason(BaseModel):

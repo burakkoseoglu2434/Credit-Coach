@@ -22,11 +22,15 @@ from __future__ import annotations
 import pytest
 
 from credit_coach.recourse.action_space import (
+    ACTION_CATALOG,
     ACTION_SPACE,
     ActionSpec,
+    derive_action_group_id,
     estimate_action_cost_usd,
+    get_action_metadata,
     get_actionable_features,
     get_action_spec,
+    get_action_template,
     validate_action_space_coverage,
 )
 
@@ -140,6 +144,46 @@ class TestActionSpecValues:
                 assert spec.min_val < spec.max_val, (
                     f"'{name}': min_val={spec.min_val} >= max_val={spec.max_val}"
                 )
+
+    def test_actionable_specs_have_typed_action_metadata(self) -> None:
+        """Actionable spec'ler explicit typed action metadata tasimali."""
+        for name, spec in ACTION_SPACE.items():
+            if not spec.actionable:
+                continue
+            assert spec.action_key, f"'{name}' icin action_key eksik."
+            assert spec.action_class in {"behavioral", "structural", "institutional"}
+            assert spec.action_title, f"'{name}' icin action_title eksik."
+
+
+class TestTypedActionCatalog:
+    """Phase 12 typed action taxonomy kontratini test eder."""
+
+    def test_action_catalog_contains_locked_examples(self) -> None:
+        for action_key in (
+            "reduce_spending",
+            "debt_consolidation",
+            "refinance",
+            "installment_plan",
+            "settlement_discount",
+        ):
+            assert action_key in ACTION_CATALOG, f"'{action_key}' ACTION_CATALOG icinde olmali."
+
+    def test_action_catalog_spans_all_three_classes(self) -> None:
+        classes = {template.action_class for template in ACTION_CATALOG.values()}
+        assert classes == {"behavioral", "structural", "institutional"}
+
+    def test_get_action_template_returns_catalog_entry(self) -> None:
+        template = get_action_template("refinance")
+        assert template.action_class == "structural"
+        assert {"int_rate", "installment"} <= set(template.feature_names)
+
+    def test_action_metadata_builds_shared_group_for_composite_actions(self) -> None:
+        first = get_action_metadata("int_rate", action_month=3)
+        second = get_action_metadata("installment", action_month=3)
+        assert first["action_key"] == "refinance"
+        assert first["action_group_id"] == second["action_group_id"]
+        assert derive_action_group_id("refinance", 3) == first["action_group_id"]
+        assert first["composite_action"] is True
 
 
 class TestHelperFunctions:

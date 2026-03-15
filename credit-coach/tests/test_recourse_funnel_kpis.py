@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from io import StringIO
+
 import numpy as np
 import pandas as pd
 
@@ -10,6 +12,7 @@ from credit_coach.cli.run_batch_recourse_eval import (
     _plan_trajectory_metrics,
     _root_cause_from_status_reasons,
 )
+from credit_coach.cli.run_recourse import _plan_to_row
 from credit_coach.data.schema import PlanAction, PlanRecord
 
 
@@ -318,3 +321,49 @@ def test_plan_trajectory_metrics_uses_time_layered_actions():
     assert float(out["trajectory_pd_24w"]) <= float(out["trajectory_pd_12w"])
     assert int(out["trajectory_gate_pass_24w"]) == 1
     assert int(out["trajectory_partial_progress"]) == 1
+
+
+def test_plan_row_serialization_keeps_typed_action_fields():
+    plan = PlanRecord(
+        plan_id="p2",
+        customer_id="c2",
+        run_id="r2",
+        horizon_months=6,
+        strategy="balanced",
+        actions=[
+            PlanAction(
+                feature_name="int_rate",
+                current_value=18.0,
+                target_value=15.0,
+                delta=-3.0,
+                time_months=3,
+                estimated_cost_usd=50.0,
+                action_key="refinance",
+                action_class="structural",
+                action_title="Refinance or restructure debt",
+                action_group_id="refinance:m3",
+                composite_action=True,
+            ),
+            PlanAction(
+                feature_name="installment",
+                current_value=450.0,
+                target_value=380.0,
+                delta=-70.0,
+                time_months=3,
+                estimated_cost_usd=40.0,
+                action_key="refinance",
+                action_class="structural",
+                action_title="Refinance or restructure debt",
+                action_group_id="refinance:m3",
+                composite_action=True,
+            ),
+        ],
+        predicted_pd=0.30,
+        status="APPROVED",
+    )
+    row = _plan_to_row(plan)
+    steps = pd.read_json(StringIO(row["timeline_steps_json"]))
+    assert set(steps["action_key"]) == {"refinance"}
+    assert set(steps["action_class"]) == {"structural"}
+    assert set(steps["action_group_id"]) == {"refinance:m3"}
+    assert int(row["phase_2_action_count"]) == 2

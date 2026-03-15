@@ -21,7 +21,12 @@ from credit_coach.macro.sources import load_macro_snapshot_mock
 from credit_coach.macro.stress_index import compute_macro_stress_index
 from credit_coach.model.predict import predict_proba_pd
 from credit_coach.model.registry import load_model_bundle
-from credit_coach.recourse.action_space import estimate_action_cost_usd, get_action_spec, get_actionable_features
+from credit_coach.recourse.action_space import (
+    estimate_action_cost_usd,
+    get_action_metadata,
+    get_action_spec,
+    get_actionable_features,
+)
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions
 from credit_coach.recourse.feasibility import apply_target_feasibility
 from credit_coach.recourse.generator import generate_nine_plans
@@ -400,6 +405,11 @@ def _build_customer_roadmap(
         phase_steps.setdefault(phase_id, [])
         phase_steps[phase_id].append(
             {
+                "action_key": str(getattr(action, "action_key", "") or ""),
+                "action_class": str(getattr(action, "action_class", "") or ""),
+                "action_title": str(getattr(action, "action_title", "") or ""),
+                "action_group_id": str(getattr(action, "action_group_id", "") or ""),
+                "composite_action": int(bool(getattr(action, "composite_action", False))),
                 "feature_name": str(getattr(action, "feature_name", "")),
                 "current_value": _safe_float(getattr(action, "current_value", 0.0), 0.0),
                 "target_value": _safe_float(getattr(action, "target_value", 0.0), 0.0),
@@ -407,6 +417,12 @@ def _build_customer_roadmap(
                 "time_months": int(m),
                 "estimated_cost_usd": _safe_float(getattr(action, "estimated_cost_usd", 0.0), 0.0),
                 "checkpoint_metric": str(getattr(action, "checkpoint_metric", "") or ""),
+                "requires_institutional_approval": int(
+                    bool(getattr(action, "requires_institutional_approval", False))
+                ),
+                "approval_pending_semantic_only": int(
+                    bool(getattr(action, "approval_pending_semantic_only", False))
+                ),
             }
         )
 
@@ -490,11 +506,22 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                 "phase_id": phase_id,
                 "phase_title": _phase_title(phase_id),
                 "time_months": int(m),
+                "action_key": str(getattr(action, "action_key", "") or ""),
+                "action_class": str(getattr(action, "action_class", "") or ""),
+                "action_title": str(getattr(action, "action_title", "") or ""),
+                "action_group_id": str(getattr(action, "action_group_id", "") or ""),
+                "composite_action": int(bool(getattr(action, "composite_action", False))),
                 "feature_name": str(getattr(action, "feature_name", "")),
                 "current_value": _safe_float(getattr(action, "current_value", 0.0), 0.0),
                 "target_value": _safe_float(getattr(action, "target_value", 0.0), 0.0),
                 "delta": _safe_float(getattr(action, "delta", 0.0), 0.0),
                 "estimated_cost_usd": _safe_float(getattr(action, "estimated_cost_usd", 0.0), 0.0),
+                "requires_institutional_approval": int(
+                    bool(getattr(action, "requires_institutional_approval", False))
+                ),
+                "approval_pending_semantic_only": int(
+                    bool(getattr(action, "approval_pending_semantic_only", False))
+                ),
             }
         )
     return {
@@ -546,6 +573,7 @@ def _dice_plan_record(
     for a in actions:
         feature = str(a["feature_name"])
         spec = get_action_spec(feature)
+        action_meta = get_action_metadata(feature, action_month=max(1, int(spec.time_months)))
         current = float(a["current_value"])
         target = apply_target_feasibility(
             feature_name=feature,
@@ -573,6 +601,16 @@ def _dice_plan_record(
                 week_start=week_start,
                 week_end=week_end,
                 checkpoint_metric=f"{feature} -> {float(target):.6f}",
+                action_key=str(action_meta.get("action_key") or ""),
+                action_class=action_meta.get("action_class"),
+                action_title=str(action_meta.get("action_title") or ""),
+                action_group_id=str(action_meta.get("action_group_id") or ""),
+                composite_action=bool(action_meta.get("composite_action", False)),
+                requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
+                approval_pending_semantic_only=bool(action_meta.get("approval_pending_semantic_only", False)),
+                prerequisite_tags=list(action_meta.get("prerequisite_tags", [])),
+                conflict_tags=list(action_meta.get("conflict_tags", [])),
+                action_status="valid",
             )
         )
 
@@ -981,12 +1019,19 @@ def main() -> None:
                 "phase_id": phase_id,
                 "phase_title": phase_title,
                 "target_window_weeks": str(phase.get("target_window_weeks", "")),
+                "action_key": str(step.get("action_key", "")),
+                "action_class": str(step.get("action_class", "")),
+                "action_title": str(step.get("action_title", "")),
+                "action_group_id": str(step.get("action_group_id", "")),
+                "composite_action": _safe_int(step.get("composite_action", 0), 0),
                 "feature_name": str(step.get("feature_name", "")),
                 "current_value": _safe_float(step.get("current_value", 0.0), 0.0),
                 "target_value": _safe_float(step.get("target_value", 0.0), 0.0),
                 "delta": _safe_float(step.get("delta", 0.0), 0.0),
                 "time_months": _safe_int(step.get("time_months", 0), 0),
                 "estimated_cost_usd": _safe_float(step.get("estimated_cost_usd", 0.0), 0.0),
+                "requires_institutional_approval": _safe_int(step.get("requires_institutional_approval", 0), 0),
+                "approval_pending_semantic_only": _safe_int(step.get("approval_pending_semantic_only", 0), 0),
             }
             roadmap_steps_rows.append(row_out)
     roadmap_steps_df = pd.DataFrame(roadmap_steps_rows)
