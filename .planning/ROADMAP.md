@@ -4,6 +4,7 @@
 
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
 - ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
+- 🎯 **v1.2 Recommendation Quality Hardening** - Phases 12-16 (active)
 
 <details>
 <summary>✅ v1.0 Brownfield Baseline (Phases 1-7) - SHIPPED 2026-03-10</summary>
@@ -20,72 +21,98 @@ Historical archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 </details>
 
-### ✅ v1.1 Fairness Stability & KPI Hardening (Complete)
+<details>
+<summary>✅ v1.1 Fairness Stability & KPI Hardening (Phases 8-11) - SHIPPED 2026-03-15</summary>
 
-**Milestone Goal:** Make release decisions stable across repeated seeded runs by hardening fairness diagnostics, KPI contract alignment, candidate-quality evidence, and telemetry-backed release packages.
-**Completed:** 2026-03-15
+Historical archive: `.planning/milestones/v1.1-ROADMAP.md`
 
-#### Phase 8: Fairness Stability Matrix
-**Goal**: Build the fairness-stability evidence needed to understand and control seeded regressions.
-**Depends on**: Phase 7
-**Requirements**: [FAIR-01, FAIR-02, FAIR-03]
-**Completed**: 2026-03-14
+- Phase 8: Fairness Stability Matrix
+- Phase 9: KPI Contract Unification
+- Phase 10: Candidate Quality and Trajectory Tuning
+- Phase 11: Release Evidence and Outcome Feedback
+
+</details>
+
+### 🎯 v1.2 Recommendation Quality Hardening (Active)
+
+**Milestone Goal:** Improve the real-world validity, feasibility, and behavioral realism of recourse recommendations by expanding action semantics, modeling action execution probability, enabling sequential trajectory planning, introducing offer policy optimization, and establishing outcome feedback loops.
+
+This milestone upgrades the system from a gate-aware recourse engine toward a behavior-aware sequential recourse decision engine.
+
+#### Phase 12: Action Realism & Feasibility Expansion
+**Goal**: Expand the action space from feature edits to real-world financial and institutional actions, and strengthen feasibility constraints.
+**Depends on**: Phase 11 / v1.1 baseline
+**Requirements**: [REC-01, REC-02, REC-03]
 **Success Criteria** (what must be TRUE):
-  1. Seeded fairness summaries exist for approval, EO, recourse success, and high-stress outcomes.
-  2. Fairness failures can be localized by segment, risk band, and candidate source.
-  3. Fairness-aware controls can be tuned without losing diagnostic traceability.
+  1. Action taxonomy supports behavioral, structural, and institutional actions.
+  2. Feasibility constraints prevent unrealistic financial transitions.
+  3. Action diversity increases without raising infeasible-plan rate.
 **Plans**: 3 plans
 
 Plans:
-- [x] 08-01: Standardize multi-seed fairness summary and aggregate artifacts
-- [x] 08-02: Add intersecting segment and source-level regression diagnostics
-- [x] 08-03: Harden fairness-aware ranking or quota controls under the shared contract
+- [ ] 12-01: Redesign the action taxonomy for behavioral, structural, and institutional plan actions
+- [ ] 12-02: Expand feasibility realism with monthly, income, utilization, and financial-capacity constraints
+- [ ] 12-03: Add action dependency and conflict modeling for incompatible recommendation combinations
 
-#### Phase 9: KPI Contract Unification
-**Goal**: Align smoke, phase-suite, and challenger workflows behind one deterministic acceptance contract.
-**Depends on**: Phase 8
-**Requirements**: [KPI-01, KPI-02, KPI-03]
-**Completed**: 2026-03-14
+#### Phase 13: Behavior-Aware Recourse
+**Goal**: Introduce execution probability modeling so recommendations consider the likelihood that a user will actually perform the suggested actions.
+**Depends on**: Phase 12
+**Requirements**: [REC-04, REC-05]
 **Success Criteria** (what must be TRUE):
-  1. Smoke, suite, and challenger outputs use the same threshold meanings and pass/fail semantics.
-  2. Seeded experiment runs can freeze model state and compare like-for-like artifacts.
-  3. Milestone acceptance depends on repeated seeded evidence instead of a single winning run.
+  1. Each action includes an estimated execution probability.
+  2. Planner scoring incorporates expected utility.
+  3. High-risk plans prioritize feasible, likely actions.
 **Plans**: 3 plans
 
 Plans:
-- [x] 09-01: Extract and align shared KPI contract helpers across release runners
-- [x] 09-02: Standardize train-once or frozen-model seeded suite execution
-- [x] 09-03: Build milestone acceptance summaries from repeated seeded evidence
+- [ ] 13-01: Add an action-execution probability model and planner integration
+- [ ] 13-02: Update planner scoring to use expected utility under gate constraints
+- [ ] 13-03: Simulate partial execution, failed steps, and mixed-execution scenarios
 
-#### Phase 10: Candidate Quality and Trajectory Tuning
-**Goal**: Improve the quality and explainability of candidate generation once the measurement contract is stable.
-**Depends on**: Phase 9
-**Requirements**: [CAND-01, CAND-02, CAND-03]
+#### Phase 14: Sequential Recourse Planning
+**Goal**: Transition from single-plan recommendations to multi-phase improvement trajectories.
+**Depends on**: Phase 13
+**Requirements**: [REC-06, REC-07]
 **Success Criteria** (what must be TRUE):
-  1. Candidate diversity and source entropy are measured in milestone evidence.
-  2. Short-term phase-1 progress can be tuned safely for denied high-risk users.
-  3. Reports explain which generator or policy changes improved or harmed KPI outcomes.
+  1. Plans include multiple time phases.
+  2. Trajectory simulations capture dynamic risk evolution.
+  3. Short-term improvements do not harm long-term outcomes.
 **Plans**: 3 plans
 
 Plans:
-- [x] 10-01: Instrument candidate diversity and generator provenance metrics
-- [x] 10-02: Harden short-term phase-1 fast-track tuning for high-risk paths
-- [x] 10-03: Publish generator and policy impact diagnostics beside batch KPIs
+- [ ] 14-01: Build a multi-phase planning model for near-, mid-, and longer-horizon actions
+- [ ] 14-02: Add dynamic trajectory simulation with timing, inertia, and partial execution
+- [ ] 14-03: Balance short-term feasibility against long-term risk improvement in the optimization objective
 
-#### Phase 11: Release Evidence and Outcome Feedback
-**Goal**: Make production-like release evidence complete, reproducible, and connected to business-impact proxies.
-**Depends on**: Phase 10
-**Requirements**: [OPS-01, OPS-02, OPS-03]
+#### Phase 15: Policy Optimization Layer
+**Goal**: Integrate institutional offer optimization with recourse planning.
+**Depends on**: Phase 14
+**Requirements**: [REC-08, REC-09]
 **Success Criteria** (what must be TRUE):
-  1. Production profile fails closed when telemetry evidence is missing or unhealthy.
-  2. Release packets include fairness, trajectory, telemetry, and seed-summary artifacts in stable locations.
-  3. Outcome-feedback or policy-delta reports connect offline KPI movement to business-impact proxies.
+  1. Institution-side offers appear in candidate plans.
+  2. Offer acceptance likelihood is modeled.
+  3. Recovery proxies improve without increasing risk violations.
 **Plans**: 3 plans
 
 Plans:
-- [x] 11-01: Enforce telemetry-required production profile and exporter health checks
-- [x] 11-02: Standardize reproducible release evidence packs and milestone decision bundles
-- [x] 11-03: Build outcome-feedback and policy-delta reporting workflow
+- [ ] 15-01: Add institution-side offer actions into the recourse action space
+- [ ] 15-02: Score offers against expected recovery, risk, fairness, and reliability constraints
+- [ ] 15-03: Model user acceptance probability for offers and fold it into expected recovery
+
+#### Phase 16: Outcome Feedback & Learning Loop
+**Goal**: Enable the system to learn from real-world outcomes.
+**Depends on**: Phase 15
+**Requirements**: [REC-10, REC-11]
+**Success Criteria** (what must be TRUE):
+  1. Decisions and recommendations are logged with full context.
+  2. Outcome ingestion updates evaluation datasets.
+  3. Policy evaluation supports off-policy analysis.
+**Plans**: 3 plans
+
+Plans:
+- [ ] 16-01: Expand decision logging to capture recommendation, offer, and execution context
+- [ ] 16-02: Build an outcome-ingestion pipeline for action completion, payment behavior, default, and recovery signals
+- [ ] 16-03: Add off-policy evaluation tooling such as IPS and doubly robust reporting
 
 ## Progress
 
@@ -102,3 +129,8 @@ Plans:
 | 9. KPI Contract Unification | v1.1 | 3/3 | Complete | 2026-03-14 |
 | 10. Candidate Quality and Trajectory Tuning | v1.1 | 3/3 | Complete | 2026-03-15 |
 | 11. Release Evidence and Outcome Feedback | v1.1 | 3/3 | Complete | 2026-03-15 |
+| 12. Action Realism & Feasibility Expansion | v1.2 | 0/3 | Pending | - |
+| 13. Behavior-Aware Recourse | v1.2 | 0/3 | Pending | - |
+| 14. Sequential Recourse Planning | v1.2 | 0/3 | Pending | - |
+| 15. Policy Optimization Layer | v1.2 | 0/3 | Pending | - |
+| 16. Outcome Feedback & Learning Loop | v1.2 | 0/3 | Pending | - |

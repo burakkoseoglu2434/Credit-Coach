@@ -1,33 +1,35 @@
-# Requirements: Credit Coach v1.1 Fairness Stability & KPI Hardening
+# Requirements: Credit Coach v1.2 Recommendation Quality Hardening
 
-**Defined:** 2026-03-14
-**Core Value:** Generate credit recourse plans that are actionable, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
+**Defined:** 2026-03-15
+**Core Value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
 
-## v1.1 Requirements
+## v1.2 Requirements
 
-### Fairness Stability
+### Action Realism & Feasibility Expansion
 
-- [x] **FAIR-01**: System can compute repeated-seed fairness summaries for approval gap, equalized odds, recourse success gap, and high-stress fairness outcomes from one shared contract
-- [x] **FAIR-02**: System can localize fairness regressions by intersecting segment, risk band, and candidate source rather than only aggregate metrics
-- [x] **FAIR-03**: System can apply fairness-aware ranking or quota controls while keeping lift, gate-pass, and diagnostic evidence comparable
+- [ ] **REC-01**: System can represent behavioral, structural, and institutional recommendation actions through one explicit action taxonomy
+- [ ] **REC-02**: Feasibility rules can block unrealistic financial transitions using monthly-change, income-growth, utilization, and capacity constraints
+- [ ] **REC-03**: Planner can detect action dependencies or conflicts so invalid combinations are rejected before ranking
 
-### KPI Contract
+### Behavior-Aware Recourse
 
-- [x] **KPI-01**: `run_production_smoke`, `run_phase_experiment_suite`, and `run_model_challenger_matrix` use aligned KPI thresholds and pass/fail semantics
-- [x] **KPI-02**: Experiment suites can freeze training state so repeated seeded comparisons use the same model snapshot
-- [x] **KPI-03**: Milestone acceptance is based on repeated seeded evidence rather than a single passing run
+- [ ] **REC-04**: Each candidate action or plan can carry an estimated execution probability grounded in customer or plan context
+- [ ] **REC-05**: Planner scoring can use expected utility and partial-execution behavior without weakening fairness, reliability, or telemetry inheritance
 
-### Candidate Quality
+### Sequential Recourse Planning
 
-- [x] **CAND-01**: Batch evaluation can measure candidate diversity and source entropy across internal and DiCE-driven plan generation paths
-- [x] **CAND-02**: Planner and generator can prefer short-term phase-1 progress for denied high-risk customers when configured
-- [x] **CAND-03**: Evaluation artifacts show which generator or policy changes improved or harmed gate pass, fairness, and short-term trajectory outcomes
+- [ ] **REC-06**: Planner can generate phased recommendation trajectories for 0-4 weeks, 1-3 months, and 3-12 months rather than only one-shot plans
+- [ ] **REC-07**: Trajectory simulation can model timing, partial execution, and dynamic risk evolution so short-term improvements do not hide long-term harm
 
-### Operations & Outcome Feedback
+### Policy Optimization Layer
 
-- [x] **OPS-01**: Production profile requires telemetry and fails closed when telemetry export is disabled or degraded
-- [x] **OPS-02**: Release evidence packs include fairness, trajectory, telemetry, and seed summary artifacts in reproducible locations
-- [x] **OPS-03**: System can publish outcome-feedback or policy-delta style reports linking offline KPI movement to business-impact proxies
+- [ ] **REC-08**: Institution-side offer actions can appear in candidate plans and be ranked beside user-driven recourse actions
+- [ ] **REC-09**: Offer optimization can improve recovery proxies without increasing risk, fairness, or reliability violations
+
+### Outcome Feedback & Learning Loop
+
+- [ ] **REC-10**: Decision logging can persist recommendation, offer, and context details needed for downstream learning
+- [ ] **REC-11**: Outcome ingestion and off-policy evaluation can learn from action completion, payment behavior, default events, and recovery results
 
 ## Future Requirements
 
@@ -41,32 +43,32 @@
 
 | Feature | Reason |
 |---------|--------|
-| New end-user application surfaces | This milestone is focused on brownfield stability, not new product surface area |
-| Replacing governance gates with lift-only optimization | Historical reports show this causes release regressions |
-| Full online experimentation platform | Outcome feedback is milestone scope; full online experimentation remains later-stage work |
+| New borrower-facing or mobile-first product surfaces | This milestone remains focused on the recommendation engine rather than end-user UX |
+| Full online autonomous learning or policy promotion | Outcome learning is milestone scope; production auto-promotion remains later-stage work |
+| Legal or compliance opinion automation | The system continues to define engineering and governance patterns, not legal advice |
+| Mandatory external institution integrations for every workflow | Offer and outcome logic can start from internal artifacts before external system wiring becomes mandatory |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FAIR-01 | Phase 8 | Complete |
-| FAIR-02 | Phase 8 | Complete |
-| FAIR-03 | Phase 8 | Complete |
-| KPI-01 | Phase 9 | Complete |
-| KPI-02 | Phase 9 | Complete |
-| KPI-03 | Phase 9 | Complete |
-| CAND-01 | Phase 10 | Complete |
-| CAND-02 | Phase 10 | Complete |
-| CAND-03 | Phase 10 | Complete |
-| OPS-01 | Phase 11 | Complete |
-| OPS-02 | Phase 11 | Complete |
-| OPS-03 | Phase 11 | Complete |
+| REC-01 | Phase 12 | Pending |
+| REC-02 | Phase 12 | Pending |
+| REC-03 | Phase 12 | Pending |
+| REC-04 | Phase 13 | Pending |
+| REC-05 | Phase 13 | Pending |
+| REC-06 | Phase 14 | Pending |
+| REC-07 | Phase 14 | Pending |
+| REC-08 | Phase 15 | Pending |
+| REC-09 | Phase 15 | Pending |
+| REC-10 | Phase 16 | Pending |
+| REC-11 | Phase 16 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 12 total
-- Mapped to phases: 12
+- v1.2 requirements: 11 total
+- Mapped to phases: 11
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-03-14*
-*Last updated: 2026-03-15 after completing Phase 11*
+*Requirements defined: 2026-03-15*
+*Last updated: 2026-03-15 after opening milestone v1.2*

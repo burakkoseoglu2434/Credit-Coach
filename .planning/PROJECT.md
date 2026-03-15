@@ -4,64 +4,64 @@
 
 Credit Coach is a credit-risk and recourse platform that moves beyond binary approve/deny decisions. It predicts probability of default, explains model behavior, and generates feasible action plans that can help denied customers reach approval while staying within fairness, reliability, latency, and governance gates.
 
-The project serves two connected goals: an academically credible research core and a production-oriented fintech productization path. The current milestone is focused on turning an already capable brownfield baseline into a fairness-stable, KPI-hardened release system that can survive repeated seeded evaluation.
+The project serves two connected goals: an academically credible research core and a production-oriented fintech productization path. The current milestone focuses on improving the behavioral realism, feasibility, and learning value of the recourse engine now that `v1.1` has stabilized the measurement and release-governance backbone.
 
 ## Core Value
 
-Generate credit recourse plans that are actionable, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
+Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
 
-## Current Milestone: v1.1 Fairness Stability & KPI Hardening
+## Current Milestone: v1.2 Recommendation Quality Hardening
 
-**Goal:** Make release decisions stable across repeated seeded runs by hardening fairness diagnostics, KPI contract alignment, trajectory realism, and production evidence.
+**Goal:** Improve the real-world validity, feasibility, and behavioral realism of recourse recommendations by expanding action semantics, modeling action execution probability, enabling sequential trajectory planning, integrating institutional offer optimization, and strengthening outcome feedback loops.
 
 **Target features:**
-- Seed-stable fairness and recourse diagnostics
-- Unified KPI contract across smoke, suite, and challenger workflows
-- Candidate diversity and short-term trajectory tuning with explainable provenance
-- Telemetry-required release evidence and outcome-feedback reporting
+- Real-world action taxonomy spanning behavioral, structural, and institutional actions
+- Stronger feasibility, dependency, and conflict constraints for financially realistic plans
+- Behavior-aware execution probability and expected-utility scoring
+- Sequential multi-phase trajectory planning with partial-execution simulation
+- Offer optimization and learning loops that connect recommendation quality to real outcomes
 
 ## Requirements
 
 ### Validated
 
 - ✓ Core PD modeling, calibration, and deterministic backend controls exist in the codebase - v1.0
-- ✓ Gate-aligned recourse generation, feasibility controls, and high-risk/trajectory flows exist in the codebase - v1.0
+- ✓ Gate-aligned recourse generation, feasibility controls, and high-risk or trajectory flows exist in the codebase - v1.0
 - ✓ Fairness, stress, benchmark, challenger, telemetry, and release-gate workflows exist in the codebase - v1.0
-- ✓ Operational runbooks, security controls, and audit-friendly persistence exist in the codebase - v1.0
+- ✓ Seeded fairness, KPI contract, candidate-quality, telemetry evidence, and outcome-feedback packaging are hardened - v1.1
 
 ### Active
 
-- [ ] Stabilize fairness and equalized-odds behavior across repeated seeded evaluations
-- [ ] Align smoke, phase-suite, and challenger workflows behind one KPI contract
-- [ ] Improve short-term and candidate-diversity signals without breaking governance gates
-- [ ] Require telemetry-backed release evidence for production-like decisions
-- [ ] Extend release evidence toward outcome-feedback and policy-delta reporting
+- [ ] Expand the action space beyond feature edits into behavioral, structural, and institutional recommendation types
+- [ ] Strengthen feasibility realism so recommendations respect monthly, income, utilization, and institutional constraints
+- [ ] Incorporate execution probability and partial-execution behavior into recommendation scoring
+- [ ] Move from one-shot plans to multi-phase trajectories that balance short-term feasibility with long-term risk improvement
+- [ ] Integrate institution-side offers and outcome-learning loops without weakening fairness, reliability, or telemetry safeguards
 
 ### Out of Scope
 
-- Mobile-first product expansion - current documentation and code are focused on core decisioning and recourse reliability
-- New domain pivots outside credit recourse - existing research, code, and reports are tightly centered on credit approval improvement
-- Legal/compliance opinion automation - documents explicitly frame these as engineering and governance patterns, not legal advice
-- Major end-user product surfaces - this milestone is focused on stability and governance of the existing brownfield platform
+- Major new end-user product surfaces - this milestone remains focused on the core recommendation engine rather than borrower-facing UX
+- New domain pivots outside credit recourse - the roadmap remains tightly centered on credit approval improvement
+- Legal or compliance opinion automation - the work continues to define engineering controls, not legal advice
+- Fully online autonomous learning or policy deployment - outcome learning remains evidence-first before any production auto-promotion
 
 ## Context
 
 - The repository already contains a substantial brownfield implementation under `credit-coach/`.
-- Legacy documentation describes a 12-week thesis-oriented plan, multiple hardening sprints, recourse redesign work, KPI recovery iterations, and production runbooks.
-- The imported `v1.0` baseline was reconstructed from historical planning and execution docs so the project can continue with milestone-style GSD planning.
-- The recurring product tension is clear across the imported documents: increase lift and business value while preserving fairness, reliability, latency, and audit gates.
-- Several documents indicate release readiness is judged by batch KPI reports, smoke reports, challenger matrices, telemetry exports, and operational runbooks.
-- The latest imported reports shift the primary blocker from basic capability coverage to fairness stability, trajectory realism, and KPI contract consistency under repeated seeded runs.
-- The documentation set mixes planning, research, implementation reports, onboarding material, and production operations guidance. This migration reorganizes that material into a GSD-compatible planning structure.
+- The imported `v1.0` baseline established model, recourse, fairness, telemetry, and audit foundations.
+- `v1.1 Fairness Stability & KPI Hardening` is complete, audited, and now serves as the stable governance baseline for future recommendation work.
+- The dominant blocker has shifted from release-contract instability to recommendation realism: richer action semantics, stronger feasibility, execution likelihood, sequential planning, and institutional optimization.
+- Existing batch, suite, challenger, telemetry, and outcome-feedback seams should be reused where possible so new recommendation-quality evidence inherits the same machine-readable release discipline.
+- The user provided the initial `v1.2` milestone scope directly in GSD-ready form, so this milestone launch starts from a locked milestone contract rather than open-ended discovery.
 
 ## Constraints
 
-- **Governance**: Fairness, reliability, and release gates must remain explicit - product success is not defined by lift alone
-- **Performance**: Batch and smoke workflows must stay within p95/p99 latency targets - several imported reports identify tail latency as a key blocker
-- **Reproducibility**: KPI decisions must be based on deterministic or well-controlled experiment flows - repeated run comparisons appear throughout the legacy reports
-- **Operational Safety**: Telemetry, runbooks, and gate documentation must stay aligned with the codebase - productionization is a first-class goal
-- **Brownfield**: Existing implementation patterns and artifacts must be respected - this is not a greenfield reset
-- **Milestone Continuity**: Phase numbering continues from imported v1.0 history - current milestone work starts at Phase 8
+- **Governance**: Fairness, reliability, telemetry, and release gates remain inherited constraints; recommendation realism cannot override them
+- **Behavioral Realism**: New actions must model actual customer or institution behavior, not just favorable feature edits
+- **Reproducibility**: New scoring, simulation, and learning loops must remain testable and artifact-driven
+- **Operational Safety**: Outcome feedback and offer optimization may add business value, but must stay auditable and degradation-aware
+- **Brownfield**: Existing implementation patterns, artifacts, and runner seams must be respected - this is not a greenfield reset
+- **Milestone Continuity**: Phase numbering continues from imported v1.0 and completed v1.1 history - current work starts at Phase 12
 
 ## Key Decisions
 
@@ -70,9 +70,9 @@ Generate credit recourse plans that are actionable, safe, and measurably effecti
 | Use GSD `.planning` as the single planning home for this repo | Legacy docs were scattered across repo root and `credit-coach/docs`, making continuity and phase tracking difficult | ✓ Good |
 | Preserve legacy source documents under `.planning/` instead of discarding them | The old files contain historical context, evidence, and implementation detail needed for audits and future planning | ✓ Good |
 | Treat the repository as a brownfield GSD project | Existing code and reports prove the project is already in active development | ✓ Good |
-| Frame current roadmap around KPI stability plus governance compliance | Nearly every imported plan/report evaluates success through both lift and safety gates | ✓ Good |
 | Reconstruct phases 1-7 as historical `v1.0` baseline work | This preserves continuity while allowing milestone-based planning to start cleanly at Phase 8 | ✓ Good |
-| Open `v1.1 Fairness Stability & KPI Hardening` as the active milestone | Latest imported reports show fairness stability and KPI contract consistency are the main remaining blockers | — Pending |
+| Treat `v1.1 Fairness Stability & KPI Hardening` as the audited hardening baseline | Fairness, KPI, telemetry, and release evidence contracts are now stable enough to support deeper recommendation work | ✓ Good |
+| Open `v1.2 Recommendation Quality Hardening` as the active milestone | The next meaningful upgrade is moving from a gate-aware recourse engine toward a behavior-aware sequential recourse decision engine | ✓ Good |
 
 ---
-*Last updated: 2026-03-14 after starting milestone v1.1*
+*Last updated: 2026-03-15 after starting milestone v1.2*

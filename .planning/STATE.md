@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-14)
+See: .planning/PROJECT.md (updated 2026-03-15)
 
-**Core value:** Generate credit recourse plans that are actionable, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** v1.1 milestone complete - ready for milestone audit or next milestone planning
+**Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
+**Current focus:** v1.2 milestone opened - ready to plan Phase 12 recommendation realism work
 
 ## Current Position
 
-Phase: 11 of 11 (Release Evidence and Outcome Feedback)
-Plan: 3 of 3 in current phase
-Status: Complete
-Last activity: 2026-03-15 - Phase 11 executed: telemetry fail-closed gates, suite-owned release packs, and outcome-feedback review linkage are complete
+Phase: 12 of 16 (Action Realism & Feasibility Expansion)
+Plan: 0 of 3 in current phase
+Status: Ready to plan
+Last activity: 2026-03-15 - Opened milestone `v1.2 Recommendation Quality Hardening` from the audited `v1.1` baseline
 
-Progress: [██████████] 100%
+Progress: [----------] 0%
 
 ## Performance Metrics
 
@@ -28,11 +28,12 @@ Progress: [██████████] 100%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | v1.0 historical baseline | 20 | historical import | n/a |
-| v1.1 current milestone | 12 | phases 8-11 complete | n/a |
+| v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
+| v1.2 active milestone | 0 | phases 12-16 planned | n/a |
 
 **Recent Trend:**
 - Last 5 plans: historical data not reconstructed
-- Trend: Stable, with v1.1 milestone now closed successfully
+- Trend: Stable hardening baseline complete; focus shifts to recommendation realism and learning quality
 
 ## Accumulated Context
 
@@ -46,26 +47,18 @@ Recent decisions affecting current work:
 - Milestone: Imported phases 1-7 are treated as historical `v1.0` baseline work
 - Milestone: Current work starts at Phase 8 under `v1.1 Fairness Stability & KPI Hardening`
 - Phase 8: Shared seeded fairness release semantics now drive suite, smoke, and challenger behavior
-- Phase 9 planning started from roadmap requirements and Phase 8 outputs before `09-CONTEXT.md` existed; the context file is now captured and execution should follow it
-- Phase 9: KPI hardening will proceed in the order shared semantics -> frozen model provenance -> repeated-evidence acceptance
 - Phase 9 context: canonical runner contract is `kpi_contract_snapshot.json`, explicit freeze is fail-closed, degraded evidence is never acceptance-eligible, and milestone acceptance is derived from repeated seeded evidence
 - Phase 9 complete: smoke, suite, and challenger now emit or consume canonical KPI contract snapshots and milestone acceptance artifacts
 - Phase 10 context: canonical candidate-quality fields are diversity, entropy, and `best_source_*_rate` over the `denied` population, with `high_risk_denied` as companion evidence
 - Phase 10 context: high-risk tuning is promotion evidence only, uses `denied_high_risk_lift` as the primary success metric, and requires `high_risk_profile_applied_rate >= 0.05` to count as non-anecdotal
-- Phase 10 context: generator and policy impact remains comparative rather than causal, uses the control variant as the primary baseline, and the derived review must stay explanation-first
-- Phase 10 replanning: candidate-quality work will proceed in the order instrumentation -> bounded high-risk tuning -> comparative generator and policy impact diagnostics
 - Phase 10 complete: candidate-quality evidence is now canonical in batch, suite, and challenger artifacts under the locked source taxonomy
-- Phase 10 complete: high-risk fast-track activation is explicit, bounded, and labeled as strong evidence or diagnostic-only based on activation, stability, and gate state
-- Phase 10 complete: milestone review markdown now derives candidate-quality, high-risk tuning, and comparative impact sections from machine-readable artifacts
-- Phase 11 planning started from roadmap requirements, Phase 8-10 contracts, and current telemetry and outcome-feedback seams before `11-CONTEXT.md` existed
-- Phase 11 planning: work will proceed in the order telemetry fail-closed semantics -> reproducible release evidence packs -> outcome-feedback and policy-delta linkage
-- Phase 11 context: telemetry gates broad rollout and pilot eligibility independently from release-decision computation, and degraded telemetry never allows operational rollout
-- Phase 11 context: the canonical release evidence pack belongs to the suite runner, uses `tables/`-relative paths, and always writes explicit completeness metadata
-- Phase 11 context: outcome feedback stays treatment-vs-control by default, falls back to descriptive summaries when control is missing, and review remains explanation-first
-- Phase 11 replanning: research, validation, and execution plans now explicitly target telemetry-as-operational-gate semantics, suite-owned release packs, baseline-missing outcome fallback, and the locked review section order
 - Phase 11 complete: telemetry is now a fail-closed operational prerequisite in smoke while preserving the underlying release-decision contract
 - Phase 11 complete: the suite emits canonical `release_evidence_pack.json`, and challenger or smoke emit compatible local evidence snapshots
 - Phase 11 complete: outcome-feedback artifacts now publish machine-readable control-relative proxy summaries and feed the Phase 11 review surface
+- Milestone audit: `v1.1 Fairness Stability & KPI Hardening` passed with 12/12 requirements satisfied and no phase or flow gaps
+- Milestone archive: active `v1.1` roadmap and requirements are snapshotted under `.planning/milestones/`
+- Milestone open: `v1.2 Recommendation Quality Hardening` is now active with phases 12-16 covering action realism, behavior-aware recourse, sequential planning, offer optimization, and learning loops
+- Inheritance: `v1.2` explicitly carries forward fairness, reliability, telemetry, and machine-readable evidence contracts from `v1.1`
 
 ### Pending Todos
 
@@ -79,5 +72,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-15 15:12
-Stopped at: Phase 11 complete; next step is milestone audit or opening the next milestone
+Stopped at: `v1.2` opened; next step is `$gsd-plan-phase 12`
 Resume file: None
