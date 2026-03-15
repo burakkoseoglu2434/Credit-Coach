@@ -25,9 +25,9 @@
 
 ### Operations & Outcome Feedback
 
-- [ ] **OPS-01**: Production profile requires telemetry and fails closed when telemetry export is disabled or degraded
-- [ ] **OPS-02**: Release evidence packs include fairness, trajectory, telemetry, and seed summary artifacts in reproducible locations
-- [ ] **OPS-03**: System can publish outcome-feedback or policy-delta style reports linking offline KPI movement to business-impact proxies
+- [x] **OPS-01**: Production profile requires telemetry and fails closed when telemetry export is disabled or degraded
+- [x] **OPS-02**: Release evidence packs include fairness, trajectory, telemetry, and seed summary artifacts in reproducible locations
+- [x] **OPS-03**: System can publish outcome-feedback or policy-delta style reports linking offline KPI movement to business-impact proxies
 
 ## Future Requirements
 
@@ -55,12 +55,12 @@
 | KPI-01 | Phase 9 | Complete |
 | KPI-02 | Phase 9 | Complete |
 | KPI-03 | Phase 9 | Complete |
-| CAND-01 | Phase 10 | Pending |
-| CAND-02 | Phase 10 | Pending |
-| CAND-03 | Phase 10 | Pending |
-| OPS-01 | Phase 11 | Pending |
-| OPS-02 | Phase 11 | Pending |
-| OPS-03 | Phase 11 | Pending |
+| CAND-01 | Phase 10 | Complete |
+| CAND-02 | Phase 10 | Complete |
+| CAND-03 | Phase 10 | Complete |
+| OPS-01 | Phase 11 | Complete |
+| OPS-02 | Phase 11 | Complete |
+| OPS-03 | Phase 11 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 12 total
@@ -69,4 +69,4 @@
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 after completing Phase 9*
+*Last updated: 2026-03-15 after completing Phase 11*

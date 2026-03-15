@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
-- 🚧 **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (current milestone)
+- ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
 
 <details>
 <summary>✅ v1.0 Brownfield Baseline (Phases 1-7) - SHIPPED 2026-03-10</summary>
@@ -20,9 +20,10 @@ Historical archive: `.planning/milestones/v1.0-ROADMAP.md`
 
 </details>
 
-### 🚧 v1.1 Fairness Stability & KPI Hardening (In Progress)
+### ✅ v1.1 Fairness Stability & KPI Hardening (Complete)
 
 **Milestone Goal:** Make release decisions stable across repeated seeded runs by hardening fairness diagnostics, KPI contract alignment, candidate-quality evidence, and telemetry-backed release packages.
+**Completed:** 2026-03-15
 
 #### Phase 8: Fairness Stability Matrix
 **Goal**: Build the fairness-stability evidence needed to understand and control seeded regressions.
@@ -82,9 +83,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 11-01: Enforce telemetry-required production profile and exporter health checks
-- [ ] 11-02: Standardize reproducible release evidence packs and milestone decision bundles
-- [ ] 11-03: Build outcome-feedback and policy-delta reporting workflow
+- [x] 11-01: Enforce telemetry-required production profile and exporter health checks
+- [x] 11-02: Standardize reproducible release evidence packs and milestone decision bundles
+- [x] 11-03: Build outcome-feedback and policy-delta reporting workflow
 
 ## Progress
 
@@ -100,4 +101,4 @@ Plans:
 | 8. Fairness Stability Matrix | v1.1 | 3/3 | Complete | 2026-03-14 |
 | 9. KPI Contract Unification | v1.1 | 3/3 | Complete | 2026-03-14 |
 | 10. Candidate Quality and Trajectory Tuning | v1.1 | 3/3 | Complete | 2026-03-15 |
-| 11. Release Evidence and Outcome Feedback | v1.1 | 0/3 | Not started | - |
+| 11. Release Evidence and Outcome Feedback | v1.1 | 3/3 | Complete | 2026-03-15 |
