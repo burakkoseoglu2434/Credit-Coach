@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** v1.2 milestone opened - ready to plan Phase 12 recommendation realism work
+**Current focus:** Phase 12 is planned under v1.2 - ready to execute action realism and feasibility expansion
 
 ## Current Position
 
 Phase: 12 of 16 (Action Realism & Feasibility Expansion)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-03-15 - Opened milestone `v1.2 Recommendation Quality Hardening` from the audited `v1.1` baseline
+Plan: 3 of 3 in current phase
+Status: Planned
+Last activity: 2026-03-15 - Planned Phase 12: action taxonomy redesign, feasibility realism expansion, and action interaction constraints
 
 Progress: [----------] 0%
 
@@ -59,6 +59,9 @@ Recent decisions affecting current work:
 - Milestone archive: active `v1.1` roadmap and requirements are snapshotted under `.planning/milestones/`
 - Milestone open: `v1.2 Recommendation Quality Hardening` is now active with phases 12-16 covering action realism, behavior-aware recourse, sequential planning, offer optimization, and learning loops
 - Inheritance: `v1.2` explicitly carries forward fairness, reliability, telemetry, and machine-readable evidence contracts from `v1.1`
+- Phase 12 planning: no `12-CONTEXT.md` exists yet, so planning used the locked v1.2 milestone definition, roadmap, requirements, state, and milestone research seed as authoritative context
+- Phase 12 planning: execution order is action taxonomy redesign -> feasibility realism expansion -> dependency and conflict enforcement
+- Phase 12 planning: existing action-space, feasibility, generator, planner, and trajectory seams are reused rather than replaced with a second recourse engine
 
 ### Pending Todos
 
@@ -72,5 +75,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-15 15:12
-Stopped at: `v1.2` opened; next step is `$gsd-plan-phase 12`
+Stopped at: Phase 12 planned; next step is `$gsd-execute-phase 12`
 Resume file: None
