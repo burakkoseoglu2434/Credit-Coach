@@ -65,8 +65,10 @@ created: 2026-03-15
 One human scan is still useful after execution:
 
 - confirm production-profile telemetry behavior reads as fail-closed and never silently downgrades to best-effort broad rollout
-- confirm release evidence packs point to stable machine-readable artifacts rather than copying large payloads into markdown
-- confirm outcome-feedback summaries clearly describe business-impact proxies without overstating causal certainty
+- confirm degraded telemetry also blocks pilot eligibility rather than only broad rollout
+- confirm release evidence packs point to stable `tables/`-relative machine-readable artifacts rather than copying large payloads into markdown
+- confirm outcome-feedback summaries clearly describe business-impact proxies without overstating causal certainty, and fall back cleanly when the control baseline is missing
+- confirm the review opens with evidence status and keeps the locked Phase 11 section order
 
 All core behavior should remain automatically verified.
 

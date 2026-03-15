@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 Phase: 11 of 11 (Release Evidence and Outcome Feedback)
 Plan: 0 of 3 in current phase
 Status: Planned
-Last activity: 2026-03-15 - Phase 11 context captured for telemetry gating, release-pack ownership, outcome-feedback comparison policy, and review surface decisions
+Last activity: 2026-03-15 - Phase 11 replanned with locked context for telemetry gating, suite-owned release packs, outcome-feedback fallback rules, and explanation-first review
 
 Progress: [█████████░] 91%
 
@@ -62,6 +62,7 @@ Recent decisions affecting current work:
 - Phase 11 context: telemetry gates broad rollout and pilot eligibility independently from release-decision computation, and degraded telemetry never allows operational rollout
 - Phase 11 context: the canonical release evidence pack belongs to the suite runner, uses `tables/`-relative paths, and always writes explicit completeness metadata
 - Phase 11 context: outcome feedback stays treatment-vs-control by default, falls back to descriptive summaries when control is missing, and review remains explanation-first
+- Phase 11 replanning: research, validation, and execution plans now explicitly target telemetry-as-operational-gate semantics, suite-owned release packs, baseline-missing outcome fallback, and the locked review section order
 
 ### Pending Todos
 
@@ -75,5 +76,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-15 02:30
-Stopped at: Phase 11 context gathered after initial planning; next step is replan Phase 11 with locked context, then execute telemetry hardening, release-pack standardization, and outcome-feedback linkage
+Stopped at: Phase 11 replanning complete with locked context; next step is execute telemetry hardening, release-pack standardization, and outcome-feedback linkage
 Resume file: None

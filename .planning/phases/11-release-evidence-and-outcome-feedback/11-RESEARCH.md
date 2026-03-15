@@ -1,7 +1,7 @@
 # Phase 11: Release Evidence and Outcome Feedback - Research
 
 **Researched:** 2026-03-15
-**Status:** Ready for execution planning
+**Status:** Ready for replanning
 **Confidence:** HIGH
 
 ## Planning Question
@@ -10,23 +10,24 @@ What has to change so production-like release evidence becomes fail-closed, repr
 
 ## Planning Assumption
 
-This planning pass proceeds without `11-CONTEXT.md`. The authoritative inputs for this phase are:
+This research pass is the forced re-research step after `11-CONTEXT.md` captured the user decisions that planning had previously lacked. The authoritative inputs for this pass are:
 
 - `.planning/ROADMAP.md`
 - `.planning/REQUIREMENTS.md`
 - `.planning/STATE.md`
+- `.planning/phases/11-release-evidence-and-outcome-feedback/11-CONTEXT.md`
 - Phase 8, Phase 9, and Phase 10 outputs
 - current CLI and test code under `credit-coach/src/credit_coach/` and `credit-coach/tests/`
 
-That is sufficient because `OPS-01`, `OPS-02`, and `OPS-03` are concrete, the repo already contains telemetry export, release-decision, and outcome-feedback primitives, and the remaining work is mainly contract hardening plus artifact unification.
+That is sufficient because `OPS-01`, `OPS-02`, and `OPS-03` are concrete, the user has now locked the remaining operational interpretation choices, and the repo already contains telemetry export, release-decision, and outcome-feedback primitives. The remaining work is contract hardening plus artifact unification, not open-ended product discovery.
 
 ## Executive Summary
 
-Phase 11 should not invent a new governance model. The repo already exports telemetry, already evaluates production smoke gates, already emits seeded acceptance artifacts, and already stores delayed outcome feedback. What remains is to force those capabilities into one release-ready operational contract.
+Phase 11 should not invent a new governance model. The repo already exports telemetry, already evaluates production smoke gates, already emits seeded acceptance artifacts, and already stores delayed outcome feedback. What remains is to force those capabilities into one release-ready operational contract shaped by the newly locked context.
 
-This makes Phase 11 a hardening and packaging phase. The main job is to fail closed when telemetry evidence is missing or unhealthy, publish stable release evidence bundles that point to fairness, trajectory, telemetry, and seed-summary artifacts, and connect offline KPI movement to business-impact proxy reports without diluting the shared seeded acceptance logic from Phase 9.
+This makes Phase 11 a hardening and packaging phase. The main job is to keep `release_decision` computation separate from telemetry gating, fail closed operationally when telemetry evidence is missing or unhealthy, publish one suite-owned stable release evidence bundle that points to fairness, trajectory, telemetry, and seed-summary artifacts, and connect offline KPI movement to business-impact proxy reports without diluting the shared seeded acceptance logic from Phase 9.
 
-The recommended execution order is:
+The recommended execution order remains:
 
 - enforce telemetry-required production profile and exporter-health semantics
 - standardize reproducible release evidence packs and milestone decision bundles
@@ -46,7 +47,7 @@ The recommended execution order is:
 - `credit-coach/tests/test_telemetry_export.py`
   - already covers the exporter layer directly
 
-This means `OPS-01` is not about inventing telemetry. It is about turning telemetry health into a production-profile requirement that broad rollout cannot bypass.
+This means `OPS-01` is not about inventing telemetry. It is about turning telemetry health into a production-profile requirement that broad rollout and pilot operation cannot bypass.
 
 ### Production smoke already understands telemetry and seeded acceptance artifacts
 
@@ -60,7 +61,7 @@ This means `OPS-01` is not about inventing telemetry. It is about turning teleme
 - `credit-coach/tests/test_production_smoke.py`
   - already protects smoke gating behavior and release-decision semantics
 
-This means the enforcement seam for `OPS-01` already exists. Phase 11 should tighten defaults, degraded-evidence semantics, and artifact traceability around it.
+This means the enforcement seam for `OPS-01` already exists. Phase 11 should tighten telemetry failure classification, pilot/broad-rollout semantics, and artifact traceability around it.
 
 ### Seeded acceptance and milestone summaries already exist
 
@@ -73,7 +74,7 @@ This means the enforcement seam for `OPS-01` already exists. Phase 11 should tig
 - `credit-coach/src/credit_coach/cli/run_model_challenger_matrix.py`
   - already emits comparable seeded variant outputs for challenger analysis
 
-This means `OPS-02` should extend the existing contract with stable release-pack locations rather than create a second acceptance lane.
+This means `OPS-02` should extend the existing contract with a suite-owned stable release-pack layer rather than create a second acceptance lane.
 
 ### Outcome feedback already exists, but lives outside the release-review path
 
@@ -86,47 +87,65 @@ This means `OPS-02` should extend the existing contract with stable release-pack
 - `credit-coach/tests/test_outcome_feedback.py`
   - already covers the current reporting workflow
 
-This means `OPS-03` is an integration and interpretation gap, not a greenfield analytics problem.
+This means `OPS-03` is an integration and interpretation gap, not a greenfield analytics problem. The main open question was comparison policy, and that is now locked.
 
 ## Gaps Phase 11 Must Close
 
 ### 1. Telemetry can be present without being a fail-closed production prerequisite
 
-The repo can already export telemetry and smoke can already read it, but Phase 11 still needs a deterministic production-profile contract that makes missing, disabled, stale, or unhealthy telemetry broad-rollout blocking rather than optional metadata.
+The repo can already export telemetry and smoke can already read it, but Phase 11 still needs a deterministic production-profile contract that makes missing, disabled, failed, low-success-rate, or high-ingest-lag telemetry block both broad rollout and pilot eligibility without rewriting the underlying `release_decision`.
 
 ### 2. Release evidence exists, but not yet as one stable bundle
 
-Fairness, trajectory, seeded acceptance, and telemetry artifacts already exist across multiple runners, but Phase 11 still needs a reproducible bundle or manifest that points to them from stable locations and keeps milestone review deterministic.
+Fairness, trajectory, seeded acceptance, and telemetry artifacts already exist across multiple runners, but Phase 11 still needs one suite-owned reproducible bundle that points to them from stable `tables/`-relative locations, always writes explicit completeness metadata, and keeps milestone review deterministic.
 
 ### 3. Outcome feedback exists, but not yet as release evidence
 
-Outcome deltas currently live in their own reporting lane. Phase 11 needs to surface them as companion evidence that helps explain whether offline KPI movement aligns with business-impact proxies such as approval rate, 90-day default behavior, and observed margin.
+Outcome deltas currently live in their own reporting lane. Phase 11 needs to surface them as companion evidence that helps explain whether offline KPI movement aligns with business-impact proxies such as approval rate, 90-day default behavior, and observed margin under a default `treatment vs control` interpretation.
 
 ### 4. Phase 11 must not reopen the acceptance contract
 
-Phases 8-10 already locked seeded fairness, KPI, candidate-quality, and impact-review semantics. Phase 11 should attach telemetry and outcome evidence to those contracts, not replace them or invent a new gating hierarchy.
+Phases 8-10 already locked seeded fairness, KPI, candidate-quality, and impact-review semantics. Phase 11 should attach telemetry and outcome evidence to those contracts, not replace them or invent a new gating hierarchy, new release precedence, or new review style.
 
 ## Context-Locked Operational Interpretation
 
-### Telemetry health should behave like production evidence, not best-effort logging
+### Telemetry health should behave like an operational gate, not a second release-decision engine
 
-The target state for `OPS-01` is a production profile that fails closed when telemetry export is disabled or degraded. That means:
+The target state for `OPS-01` is:
 
-- missing telemetry artifacts must be visible as degraded evidence
-- unhealthy export status must block broad rollout
-- success-rate and ingest-lag metrics must remain machine-readable and deterministic
+- `release_decision` is still computed from the existing KPI and fairness contract
+- telemetry is applied as a separate operational gate
+- degraded telemetry blocks `broad_rollout_allowed`
+- degraded telemetry also blocks `pilot_eligible`
+- telemetry failures are classified explicitly, not inferred from logs
+
+The locked canonical failure reasons are:
+
+- `missing_artifact`
+- `disabled_exporter`
+- `export_failed`
+- `success_rate_below_threshold`
+- `ingest_lag_above_threshold`
 
 ### Release evidence bundles should be canonical, reproducible, and source-of-truth friendly
 
-The target state for `OPS-02` is a stable evidence-pack layer that points to:
+The target state for `OPS-02` is a suite-owned `release_evidence_pack.json` that points to:
 
 - fairness artifacts
 - trajectory artifacts
 - telemetry artifacts
 - seed-summary artifacts
 - milestone acceptance artifacts
+- candidate-quality artifacts
 
-The canonical truth should remain machine-readable. Markdown review remains derived.
+The pack must:
+
+- use `tables/`-relative paths
+- always be written, even when degraded
+- expose `pack_status = complete | degraded`
+- expose `missing_artifacts`, `required_artifacts`, `optional_artifacts`, and `pack_acceptance_eligible`
+
+The canonical truth remains machine-readable. Markdown review remains derived.
 
 ### Outcome feedback should stay comparative and proxy-oriented
 
@@ -135,22 +154,36 @@ The target state for `OPS-03` is not a full online experimentation platform. It 
 - outcome policy summaries
 - policy-arm deltas
 - explicit references to approval, default, and margin movement
+- default `treatment vs control` language
+- descriptive fallback when control is missing
 
 That keeps the phase honest and aligned with current repo capabilities.
 
+### Review should remain explanation-first
+
+The review surface is now locked to this default order:
+
+- `Decision`
+- `Telemetry Readiness`
+- `Release Pack Completeness`
+- `Outcome Feedback Summary`
+- `Supporting Artifacts`
+
+It should open with an explicit evidence-status line such as `complete` or `degraded` plus the primary reason.
+
 ## Recommended Architecture
 
-### A. Treat telemetry health as a first-class production gate input
+### A. Treat telemetry health as a first-class operational gate input
 
-Use `run_monitoring.py` and `run_production_smoke.py` as the authoritative path. Monitoring should emit structured exporter-health evidence, and smoke should fail closed for production-profile semantics whenever telemetry evidence is missing, disabled, unhealthy, or degraded beyond configured thresholds.
+Use `run_monitoring.py` and `run_production_smoke.py` as the authoritative path. Monitoring should emit structured exporter-health evidence, and smoke should fail closed operationally whenever telemetry evidence is missing, disabled, failed, or degraded beyond configured thresholds. The telemetry gate should modify rollout eligibility, not overwrite the shared `release_decision`.
 
-### B. Standardize one release-pack manifest instead of scattering path logic
+### B. Standardize one suite-owned release-pack manifest instead of scattering path logic
 
-Extend suite and challenger outputs so milestone review can rely on one stable evidence manifest or pack summary that references fairness, trajectory, telemetry, seeded KPI contract, and acceptance outputs. This should complement `kpi_contract_snapshot.json` and `milestone_acceptance_summary.json`, not replace them.
+Extend suite outputs so milestone review can rely on one stable `release_evidence_pack.json` that references fairness, trajectory, telemetry, seeded KPI contract, candidate-quality, and acceptance outputs. Smoke and challenger may emit compatible local snapshots, but the milestone-level source of truth remains the suite pack. This should complement `kpi_contract_snapshot.json` and `milestone_acceptance_summary.json`, not replace them.
 
 ### C. Keep outcome feedback machine-readable and release-review aligned
 
-Outcome feedback should continue to emit raw tables and deltas, then add a machine-readable summary artifact that can be linked from release evidence packs and milestone review. Human-readable release review should derive from these machine-readable sources.
+Outcome feedback should continue to emit raw tables and deltas, then add a machine-readable summary artifact that can be linked from release evidence packs and milestone review. Machine-readable outputs should support all arms relative to control when available, while the human-readable review should summarize only the best proxy-improving arm and worst proxy-regressing arm.
 
 ### D. Preserve the seeded acceptance stack from earlier phases
 
@@ -164,6 +197,7 @@ Phase 11 should be additive. Release packs and outcome reports should point to P
 - `kpi_contract_snapshot.json`
 - `milestone_acceptance_summary.json`
 - `release_evidence_pack.json`
+- `release_decision.json`
 - `outcome_policy_summary.csv`
 - `outcome_policy_deltas.json`
 - `outcome_feedback_summary.json`
@@ -172,7 +206,7 @@ Phase 11 should be additive. Release packs and outcome reports should point to P
 
 - `release_review_summary.md`
 
-The canonical source of truth should remain JSON and CSV. The markdown review should stay concise and derived from those artifacts.
+The canonical source of truth should remain JSON and CSV. The markdown review should stay concise, derived from those artifacts, and front-load evidence completeness plus telemetry readiness.
 
 ## Recommended Plan Breakdown
 
@@ -191,7 +225,10 @@ Focus on linking outcome reports to business-impact proxies and release evidence
 ## Risks To Avoid
 
 - treating telemetry as optional metadata in production-profile mode
+- letting degraded telemetry preserve pilot eligibility
 - duplicating acceptance logic outside the Phase 9 contract
+- turning smoke or challenger local evidence snapshots into milestone-level source of truth
+- over-claiming policy impact when the control baseline is missing
 - mixing human-readable summaries into canonical evidence
 - expanding Phase 11 into a full dashboard or experimentation platform
 
