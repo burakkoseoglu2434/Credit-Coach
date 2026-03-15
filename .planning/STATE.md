@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 Phase: 11 of 11 (Release Evidence and Outcome Feedback)
 Plan: 0 of 3 in current phase
 Status: Planned
-Last activity: 2026-03-15 - Phase 11 planned for telemetry fail-closed production profiles, reproducible release evidence packs, and outcome-feedback linkage
+Last activity: 2026-03-15 - Phase 11 context captured for telemetry gating, release-pack ownership, outcome-feedback comparison policy, and review surface decisions
 
 Progress: [█████████░] 91%
 
@@ -59,6 +59,9 @@ Recent decisions affecting current work:
 - Phase 10 complete: milestone review markdown now derives candidate-quality, high-risk tuning, and comparative impact sections from machine-readable artifacts
 - Phase 11 planning started from roadmap requirements, Phase 8-10 contracts, and current telemetry and outcome-feedback seams before `11-CONTEXT.md` existed
 - Phase 11 planning: work will proceed in the order telemetry fail-closed semantics -> reproducible release evidence packs -> outcome-feedback and policy-delta linkage
+- Phase 11 context: telemetry gates broad rollout and pilot eligibility independently from release-decision computation, and degraded telemetry never allows operational rollout
+- Phase 11 context: the canonical release evidence pack belongs to the suite runner, uses `tables/`-relative paths, and always writes explicit completeness metadata
+- Phase 11 context: outcome feedback stays treatment-vs-control by default, falls back to descriptive summaries when control is missing, and review remains explanation-first
 
 ### Pending Todos
 
@@ -72,5 +75,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-15 02:30
-Stopped at: Phase 11 planning complete; next step is execute telemetry hardening, release-pack standardization, and outcome-feedback linkage
+Stopped at: Phase 11 context gathered after initial planning; next step is replan Phase 11 with locked context, then execute telemetry hardening, release-pack standardization, and outcome-feedback linkage
 Resume file: None
