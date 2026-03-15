@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 Phase: 11 of 11 (Release Evidence and Outcome Feedback)
 Plan: 0 of 3 in current phase
 Status: Planned
-Last activity: 2026-03-15 - Phase 10 executed with canonical candidate-quality evidence, bounded high-risk tuning diagnostics, and comparative impact review artifacts
+Last activity: 2026-03-15 - Phase 11 planned for telemetry fail-closed production profiles, reproducible release evidence packs, and outcome-feedback linkage
 
 Progress: [█████████░] 91%
 
@@ -57,6 +57,8 @@ Recent decisions affecting current work:
 - Phase 10 complete: candidate-quality evidence is now canonical in batch, suite, and challenger artifacts under the locked source taxonomy
 - Phase 10 complete: high-risk fast-track activation is explicit, bounded, and labeled as strong evidence or diagnostic-only based on activation, stability, and gate state
 - Phase 10 complete: milestone review markdown now derives candidate-quality, high-risk tuning, and comparative impact sections from machine-readable artifacts
+- Phase 11 planning started from roadmap requirements, Phase 8-10 contracts, and current telemetry and outcome-feedback seams before `11-CONTEXT.md` existed
+- Phase 11 planning: work will proceed in the order telemetry fail-closed semantics -> reproducible release evidence packs -> outcome-feedback and policy-delta linkage
 
 ### Pending Todos
 
@@ -70,5 +72,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-15 02:30
-Stopped at: Phase 10 execution complete; next step is plan and execute Phase 11 under the same v1.1 milestone
+Stopped at: Phase 11 planning complete; next step is execute telemetry hardening, release-pack standardization, and outcome-feedback linkage
 Resume file: None
