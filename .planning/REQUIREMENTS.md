@@ -7,9 +7,9 @@
 
 ### Action Realism & Feasibility Expansion
 
-- [ ] **REC-01**: System can represent behavioral, structural, and institutional recommendation actions through one explicit action taxonomy
-- [ ] **REC-02**: Feasibility rules can block unrealistic financial transitions using monthly-change, income-growth, utilization, and capacity constraints
-- [ ] **REC-03**: Planner can detect action dependencies or conflicts so invalid combinations are rejected before ranking
+- [x] **REC-01**: System can represent behavioral, structural, and institutional recommendation actions through one explicit action taxonomy
+- [x] **REC-02**: Feasibility rules can block unrealistic financial transitions using monthly-change, income-growth, utilization, and capacity constraints
+- [x] **REC-03**: Planner can detect action dependencies or conflicts so invalid combinations are rejected before ranking
 
 ### Behavior-Aware Recourse
 
@@ -52,9 +52,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REC-01 | Phase 12 | Pending |
-| REC-02 | Phase 12 | Pending |
-| REC-03 | Phase 12 | Pending |
+| REC-01 | Phase 12 | Complete |
+| REC-02 | Phase 12 | Complete |
+| REC-03 | Phase 12 | Complete |
 | REC-04 | Phase 13 | Pending |
 | REC-05 | Phase 13 | Pending |
 | REC-06 | Phase 14 | Pending |
@@ -71,4 +71,4 @@
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after opening milestone v1.2*
+*Last updated: 2026-03-15 after completing Phase 12*

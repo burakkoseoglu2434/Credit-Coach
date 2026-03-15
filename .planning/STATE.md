@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 12 is planned under v1.2 - ready to execute action realism and feasibility expansion
+**Current focus:** Phase 12 is complete under v1.2 - next milestone work is Phase 13 behavior-aware recourse planning
 
 ## Current Position
 
 Phase: 12 of 16 (Action Realism & Feasibility Expansion)
 Plan: 3 of 3 in current phase
-Status: Planned
-Last activity: 2026-03-15 - Planned Phase 12: action taxonomy redesign, feasibility realism expansion, and action interaction constraints
+Status: Complete
+Last activity: 2026-03-15 - Executed Phase 12: typed action taxonomy, feasibility realism diagnostics, and action interaction constraints
 
-Progress: [----------] 0%
+Progress: [##--------] 20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 32 (historical import + phases 8-11)
+- Total plans completed: 35 (historical import + phases 8-12)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -29,11 +29,11 @@ Progress: [----------] 0%
 |-------|-------|-------|----------|
 | v1.0 historical baseline | 20 | historical import | n/a |
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
-| v1.2 active milestone | 0 | phases 12-16 planned | n/a |
+| v1.2 active milestone | 3 | phase 12 complete, phases 13-16 pending | n/a |
 
 **Recent Trend:**
 - Last 5 plans: historical data not reconstructed
-- Trend: Stable hardening baseline complete; focus shifts to recommendation realism and learning quality
+- Trend: Recommendation realism foundation is now in place; next work shifts to execution probability and behavior-aware scoring
 
 ## Accumulated Context
 
@@ -59,9 +59,10 @@ Recent decisions affecting current work:
 - Milestone archive: active `v1.1` roadmap and requirements are snapshotted under `.planning/milestones/`
 - Milestone open: `v1.2 Recommendation Quality Hardening` is now active with phases 12-16 covering action realism, behavior-aware recourse, sequential planning, offer optimization, and learning loops
 - Inheritance: `v1.2` explicitly carries forward fairness, reliability, telemetry, and machine-readable evidence contracts from `v1.1`
-- Phase 12 planning: no `12-CONTEXT.md` exists yet, so planning used the locked v1.2 milestone definition, roadmap, requirements, state, and milestone research seed as authoritative context
-- Phase 12 planning: execution order is action taxonomy redesign -> feasibility realism expansion -> dependency and conflict enforcement
-- Phase 12 planning: existing action-space, feasibility, generator, planner, and trajectory seams are reused rather than replaced with a second recourse engine
+- Phase 12 complete: typed action taxonomy now uses a hybrid action unit where `action_key` is user-facing and `feature_name` remains the effect anchor
+- Phase 12 complete: feasibility realism now emits reason-coded clip or reject outcomes, including semantic rejection when clipping destroys the action intent
+- Phase 12 complete: dependency, conflict, and approval-required behavior now flow through one machine-readable constraint layer with `valid | repaired | provisional | invalid` plan states
+- Phase 12 complete: batch evaluation now emits canonical `action_realism_summary.json` plus breakdown artifacts for action types, feasibility rejections, repairs, and approval-pending actions
 
 ### Pending Todos
 
@@ -74,6 +75,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15 15:12
-Stopped at: Phase 12 planned; next step is `$gsd-execute-phase 12`
+Last session: 2026-03-15 17:20
+Stopped at: Phase 12 complete; next step is `$gsd-discuss-phase 13`
 Resume file: None

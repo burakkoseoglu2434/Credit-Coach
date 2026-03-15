@@ -50,9 +50,9 @@ This milestone upgrades the system from a gate-aware recourse engine toward a be
 **Plans**: 3 plans
 
 Plans:
-- [ ] 12-01: Redesign the action taxonomy for behavioral, structural, and institutional plan actions
-- [ ] 12-02: Expand feasibility realism with monthly, income, utilization, and financial-capacity constraints
-- [ ] 12-03: Add action dependency and conflict modeling for incompatible recommendation combinations
+- [x] 12-01: Redesign the action taxonomy for behavioral, structural, and institutional plan actions
+- [x] 12-02: Expand feasibility realism with monthly, income, utilization, and financial-capacity constraints
+- [x] 12-03: Add action dependency and conflict modeling for incompatible recommendation combinations
 
 #### Phase 13: Behavior-Aware Recourse
 **Goal**: Introduce execution probability modeling so recommendations consider the likelihood that a user will actually perform the suggested actions.
@@ -129,7 +129,7 @@ Plans:
 | 9. KPI Contract Unification | v1.1 | 3/3 | Complete | 2026-03-14 |
 | 10. Candidate Quality and Trajectory Tuning | v1.1 | 3/3 | Complete | 2026-03-15 |
 | 11. Release Evidence and Outcome Feedback | v1.1 | 3/3 | Complete | 2026-03-15 |
-| 12. Action Realism & Feasibility Expansion | v1.2 | 0/3 | Pending | - |
+| 12. Action Realism & Feasibility Expansion | v1.2 | 3/3 | Complete | 2026-03-15 |
 | 13. Behavior-Aware Recourse | v1.2 | 0/3 | Pending | - |
 | 14. Sequential Recourse Planning | v1.2 | 0/3 | Pending | - |
 | 15. Policy Optimization Layer | v1.2 | 0/3 | Pending | - |
