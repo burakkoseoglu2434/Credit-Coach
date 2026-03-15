@@ -10,6 +10,7 @@ from credit_coach.cli.run_model_challenger_matrix import (
     _build_variant_release_payloads,
     _select_champion,
 )
+from credit_coach.ops.kpi_contract import build_release_evidence_pack
 
 
 def test_build_variant_model_cfg_logistic_disables_xgboost_flag():
@@ -260,6 +261,33 @@ def test_build_challenger_impact_summary_uses_control_baseline_with_strong_confi
     assert champion["primary_axes"]["denied_high_risk_lift"]["label"] == "helped"
     assert champion["primary_axes"]["denied_reliability_violation_rate"]["label"] == "helped"
     assert champion["source_mix_deltas"]["best_source_dice_rate"] == 0.25
+
+
+def test_challenger_release_evidence_snapshot_uses_tables_relative_paths():
+    snapshot = build_release_evidence_pack(
+        runner_type="challenger",
+        release_decision="GO",
+        acceptance_status="ACCEPTED",
+        evidence_level="seeded_challenger",
+        evidence_status="complete",
+        acceptance_eligible=True,
+        required_artifacts={
+            "kpi_contract_snapshot_json": "tables/kpi_contract_snapshot.json",
+            "challenger_matrix_decision_json": "tables/challenger_matrix_decision.json",
+        },
+        optional_artifacts={
+            "challenger_matrix_variant_summary_csv": "tables/challenger_matrix_variant_summary.csv",
+        },
+        existing_artifacts=[
+            "tables/kpi_contract_snapshot.json",
+            "tables/challenger_matrix_decision.json",
+            "tables/challenger_matrix_variant_summary.csv",
+        ],
+    )
+
+    assert snapshot["pack_status"] == "complete"
+    assert snapshot["pack_acceptance_eligible"] is True
+    assert snapshot["required_artifacts"]["kpi_contract_snapshot_json"].startswith("tables/")
 
 
 def test_select_champion_chooses_lower_violation_score_when_all_fail():

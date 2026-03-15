@@ -18,6 +18,7 @@ from credit_coach.cli.run_phase_experiment_suite import (
 from credit_coach.ops.kpi_contract import (
     LIFT_KPI_THRESHOLD_KEYS,
     RELIABILITY_KPI_THRESHOLD_KEYS,
+    build_release_evidence_pack,
     evaluate_kpi_checks,
     list_failed_kpi_checks,
 )
@@ -315,6 +316,37 @@ def test_release_review_summary_is_derived_from_acceptance_summary() -> None:
     assert "High-Risk Tuning Summary" in review
     assert "Impact Attribution Summary" in review
     assert "release_decision_json" in review
+
+
+def test_release_evidence_pack_marks_missing_required_telemetry_artifact() -> None:
+    pack = build_release_evidence_pack(
+        runner_type="suite",
+        phase="phase-11",
+        milestone="v1.1",
+        release_decision="LIMITED_GO",
+        acceptance_status="PILOT_ONLY",
+        evidence_level="seeded_suite",
+        evidence_status="complete",
+        acceptance_eligible=True,
+        required_artifacts={
+            "kpi_contract_snapshot_json": "tables/kpi_contract_snapshot.json",
+            "milestone_acceptance_summary_json": "tables/milestone_acceptance_summary.json",
+            "telemetry_export_json": "tables/telemetry_export.json",
+        },
+        optional_artifacts={
+            "release_decision_json": "tables/release_decision.json",
+        },
+        existing_artifacts=[
+            "tables/kpi_contract_snapshot.json",
+            "tables/milestone_acceptance_summary.json",
+            "tables/release_decision.json",
+        ],
+    )
+
+    assert pack["pack_status"] == "degraded"
+    assert pack["pack_acceptance_eligible"] is False
+    assert "tables/telemetry_export.json" in pack["missing_artifacts"]
+    assert pack["required_artifacts"]["telemetry_export_json"] == "tables/telemetry_export.json"
 
 
 def test_build_phase_candidate_quality_summary_uses_locked_population_contract() -> None:

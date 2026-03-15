@@ -18,6 +18,7 @@ from credit_coach.ops.kpi_contract import (
     build_comparative_impact_summary,
     build_kpi_contract_snapshot,
     build_milestone_acceptance_summary,
+    build_release_evidence_pack,
     load_kpi_thresholds,
     render_milestone_acceptance_review,
 )
@@ -921,6 +922,7 @@ def main() -> None:
         "generator_policy_impact_json": "tables/generator_policy_impact.json",
         "release_decision_json": "tables/release_decision.json",
         "frozen_model_manifest_json": "tables/frozen_model_manifest.json",
+        "release_evidence_pack_json": "tables/release_evidence_pack.json",
     }
     if release_payload["decision"] == "LIMITED_GO":
         supporting_artifacts["pilot_guardrails_json"] = "tables/pilot_guardrails.json"
@@ -1013,6 +1015,48 @@ def main() -> None:
         _render_release_review_summary(
             milestone_acceptance_summary=milestone_acceptance_summary,
         ),
+        encoding="utf-8",
+    )
+    required_release_artifacts = {
+        "kpi_contract_snapshot_json": "tables/kpi_contract_snapshot.json",
+        "milestone_acceptance_summary_json": "tables/milestone_acceptance_summary.json",
+        "phase_scale_seed_summary_csv": "tables/phase_scale_seed_summary.csv",
+        "phase_scale_aggregate_json": "tables/phase_scale_aggregate.json",
+        "fairness_failure_breakdown_csv": "tables/fairness_failure_breakdown.csv",
+        "candidate_quality_summary_json": "tables/candidate_quality_summary.json",
+        "candidate_source_breakdown_csv": "tables/candidate_source_breakdown.csv",
+        "telemetry_export_json": "tables/telemetry_export.json",
+        "milestone_acceptance_review_md": "tables/milestone_acceptance_review.md",
+    }
+    optional_release_artifacts = {
+        "release_decision_json": "tables/release_decision.json",
+        "release_review_summary_md": "tables/release_review_summary.md",
+        "frozen_model_manifest_json": "tables/frozen_model_manifest.json",
+        "high_risk_tuning_summary_json": "tables/high_risk_tuning_summary.json",
+        "generator_policy_impact_json": "tables/generator_policy_impact.json",
+    }
+    if release_payload["decision"] == "LIMITED_GO":
+        optional_release_artifacts["pilot_guardrails_json"] = "tables/pilot_guardrails.json"
+        optional_release_artifacts["rollback_conditions_json"] = "tables/rollback_conditions.json"
+    release_evidence_pack = build_release_evidence_pack(
+        runner_type="suite",
+        phase=str(args.phase_name),
+        milestone=str(args.milestone),
+        release_decision=str(milestone_acceptance_summary["release_decision"]),
+        acceptance_status=str(milestone_acceptance_summary["acceptance_status"]),
+        evidence_level=str(milestone_acceptance_summary["evidence_level"]),
+        evidence_status=str(milestone_acceptance_summary["evidence_status"]),
+        acceptance_eligible=bool(milestone_acceptance_summary["acceptance_eligible"]),
+        required_artifacts=required_release_artifacts,
+        optional_artifacts=optional_release_artifacts,
+        existing_artifacts=[
+            f"tables/{path.name}"
+            for path in run_ctx.tables_dir.iterdir()
+            if path.is_file()
+        ],
+    )
+    (run_ctx.tables_dir / "release_evidence_pack.json").write_text(
+        json.dumps(release_evidence_pack, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
 

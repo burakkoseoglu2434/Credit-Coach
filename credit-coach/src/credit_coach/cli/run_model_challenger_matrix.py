@@ -21,6 +21,7 @@ from credit_coach.ops.kpi_contract import (
     RELIABILITY_KPI_THRESHOLD_KEYS,
     build_comparative_impact_summary,
     build_kpi_contract_snapshot,
+    build_release_evidence_pack,
     compute_kpi_violation_score,
     load_kpi_thresholds,
     map_release_decision_to_acceptance_status,
@@ -1068,6 +1069,7 @@ def main() -> None:
         "challenger_high_risk_tuning_summary_json": "tables/challenger_high_risk_tuning_summary.json",
         "challenger_impact_summary_json": "tables/challenger_impact_summary.json",
         "challenger_matrix_decision_json": "tables/challenger_matrix_decision.json",
+        "release_evidence_snapshot_json": "tables/release_evidence_snapshot.json",
     }
     if frozen_variant_rows:
         supporting_artifacts["challenger_variant_frozen_models_json"] = "tables/challenger_variant_frozen_models.json"
@@ -1106,6 +1108,44 @@ def main() -> None:
         )
         (run_ctx.tables_dir / "kpi_contract_snapshot.json").write_text(
             json.dumps(champion_snapshot, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        release_evidence_snapshot = build_release_evidence_pack(
+            runner_type="challenger",
+            release_decision=str(champion_snapshot["release_decision"]),
+            acceptance_status=map_release_decision_to_acceptance_status(str(champion_snapshot["release_decision"])),
+            evidence_level=str(champion_snapshot["evidence_level"]),
+            evidence_status=str(champion_snapshot["evidence_status"]),
+            acceptance_eligible=bool(champion_snapshot["acceptance_eligible"]),
+            required_artifacts={
+                "kpi_contract_snapshot_json": "tables/kpi_contract_snapshot.json",
+                "challenger_matrix_decision_json": "tables/challenger_matrix_decision.json",
+                "challenger_matrix_variant_summary_csv": "tables/challenger_matrix_variant_summary.csv",
+                "challenger_matrix_variant_summary_ranked_csv": "tables/challenger_matrix_variant_summary_ranked.csv",
+            },
+            optional_artifacts={
+                "challenger_matrix_runs_csv": "tables/challenger_matrix_runs.csv",
+                "challenger_candidate_source_breakdown_csv": "tables/challenger_candidate_source_breakdown.csv",
+                "challenger_high_risk_tuning_summary_json": "tables/challenger_high_risk_tuning_summary.json",
+                "challenger_impact_summary_json": "tables/challenger_impact_summary.json",
+                **(
+                    {"challenger_variant_frozen_models_json": "tables/challenger_variant_frozen_models.json"}
+                    if frozen_variant_rows
+                    else {}
+                ),
+            },
+            existing_artifacts=[
+                f"tables/{path.name}"
+                for path in run_ctx.tables_dir.iterdir()
+                if path.is_file()
+            ],
+            metadata={
+                "champion_variant": champion_variant,
+                "control_variant": control_variant,
+            },
+        )
+        (run_ctx.tables_dir / "release_evidence_snapshot.json").write_text(
+            json.dumps(release_evidence_snapshot, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
 

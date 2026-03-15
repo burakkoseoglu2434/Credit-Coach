@@ -13,6 +13,7 @@ from credit_coach.ops.kpi_contract import (
     apply_kpi_thresholds_to_args,
     build_kpi_contract_snapshot,
     build_kpi_snapshot,
+    build_release_evidence_pack,
     extract_kpi_thresholds,
     load_kpi_thresholds,
 )
@@ -38,6 +39,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--fairness_csv", type=str, default="")
     p.add_argument("--fairness_stress_csv", type=str, default="")
     p.add_argument("--telemetry_json", type=str, default="")
+    p.add_argument("--release_evidence_pack_json", type=str, default="")
     p.add_argument("--phase_scale_aggregate_json", type=str, default="")
     p.add_argument("--milestone_acceptance_json", type=str, default="")
     p.add_argument("--min_denied_to_approved_lift", type=float, default=None)
@@ -102,6 +104,52 @@ def _resolve_optional_artifact_path(raw: str, *, pattern: str) -> Path | None:
         path = Path(raw)
         return path if path.exists() else None
     return _latest_or_none(pattern)
+
+
+def _load_release_evidence_pack(path: Path | None) -> dict[str, Any]:
+    if path is None or not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _resolve_artifact_from_release_pack(
+    *,
+    pack_payload: dict[str, Any] | None,
+    pack_path: Path | None,
+    artifact_key: str,
+) -> Path | None:
+    if pack_path is None or not isinstance(pack_payload, dict):
+        return None
+    candidates: list[dict[str, Any]] = []
+    required = pack_payload.get("required_artifacts", {})
+    optional = pack_payload.get("optional_artifacts", {})
+    if isinstance(required, dict):
+        candidates.append(required)
+    if isinstance(optional, dict):
+        candidates.append(optional)
+    raw_path = ""
+    for catalog in candidates:
+        if artifact_key in catalog:
+            raw_path = str(catalog.get(artifact_key, "")).strip()
+            break
+    if not raw_path:
+        return None
+    if raw_path.startswith("tables/"):
+        resolved = pack_path.parent.parent / raw_path
+    else:
+        resolved = Path(raw_path)
+    return resolved if resolved.exists() else None
+
+
+def _mirror_artifact(source: Path | None, destination: Path) -> bool:
+    if source is None or not source.exists():
+        return False
+    destination.write_bytes(source.read_bytes())
+    return True
 
 
 def _safe_float(row: pd.Series, key: str, default: float = 0.0) -> float:
@@ -667,12 +715,26 @@ def main() -> None:
         pattern="*/tables/fairness_stress_matrix.csv",
         hint="fairness stress matrix",
     )
-    telemetry_path = _resolve_optional_artifact_path(
-        args.telemetry_json,
-        pattern="*/tables/telemetry_export.json",
+    release_evidence_pack_path = _resolve_optional_artifact_path(
+        args.release_evidence_pack_json,
+        pattern="*/tables/release_evidence_pack.json",
     )
-    phase_scale_aggregate_path = _resolve_optional_path(args.phase_scale_aggregate_json)
-    milestone_acceptance_path = _resolve_optional_path(args.milestone_acceptance_json)
+    release_evidence_pack = _load_release_evidence_pack(release_evidence_pack_path)
+    telemetry_path = _resolve_optional_path(args.telemetry_json) or _resolve_artifact_from_release_pack(
+        pack_payload=release_evidence_pack,
+        pack_path=release_evidence_pack_path,
+        artifact_key="telemetry_export_json",
+    ) or _latest_or_none("*/tables/telemetry_export.json")
+    phase_scale_aggregate_path = _resolve_optional_path(args.phase_scale_aggregate_json) or _resolve_artifact_from_release_pack(
+        pack_payload=release_evidence_pack,
+        pack_path=release_evidence_pack_path,
+        artifact_key="phase_scale_aggregate_json",
+    )
+    milestone_acceptance_path = _resolve_optional_path(args.milestone_acceptance_json) or _resolve_artifact_from_release_pack(
+        pack_payload=release_evidence_pack,
+        pack_path=release_evidence_pack_path,
+        artifact_key="milestone_acceptance_summary_json",
+    )
 
     batch_summary = json.loads(batch_summary_path.read_text(encoding="utf-8"))
     batch_fairness_change_df = pd.read_csv(batch_fairness_change_path)
@@ -706,11 +768,23 @@ def main() -> None:
             "monitoring_summary_csv": str(monitoring_path),
             "fairness_csv": str(fairness_path),
             "fairness_stress_csv": str(fairness_stress_path),
-            "telemetry_json": str(telemetry_path),
+            "telemetry_json": str(telemetry_path) if telemetry_path is not None else "",
+            "release_evidence_pack_json": (
+                str(release_evidence_pack_path) if release_evidence_pack_path is not None else ""
+            ),
             "milestone_acceptance_json": str(milestone_acceptance_path) if milestone_acceptance_path is not None else "",
             "thresholds": resolved_thresholds,
         },
         base_artifact_dir="artifacts/runs",
+    )
+    mirrored_telemetry = _mirror_artifact(telemetry_path, run_ctx.tables_dir / "telemetry_export.json")
+    mirrored_phase_scale = _mirror_artifact(
+        phase_scale_aggregate_path,
+        run_ctx.tables_dir / "phase_scale_aggregate.json",
+    )
+    mirrored_milestone_acceptance = _mirror_artifact(
+        milestone_acceptance_path,
+        run_ctx.tables_dir / "milestone_acceptance_summary.json",
     )
 
     rows = build_smoke_gate_rows(
@@ -731,6 +805,7 @@ def main() -> None:
     out_json = run_ctx.tables_dir / "production_smoke_report.json"
     out_kpi_snapshot = run_ctx.tables_dir / "kpi_snapshot.json"
     out_contract_snapshot = run_ctx.tables_dir / "kpi_contract_snapshot.json"
+    out_release_evidence_snapshot = run_ctx.tables_dir / "release_evidence_snapshot.json"
     gate_df.to_csv(out_csv, index=False)
     release_summary = build_smoke_release_summary(
         batch_summary=batch_summary,
@@ -756,15 +831,15 @@ def main() -> None:
     supporting_artifacts = {
         "production_smoke_report_csv": "tables/production_smoke_report.csv",
         "kpi_snapshot_json": "tables/kpi_snapshot.json",
-        "batch_summary_json": str(batch_summary_path),
-        "batch_fairness_change_csv": str(batch_fairness_change_path),
+        "kpi_contract_snapshot_json": "tables/kpi_contract_snapshot.json",
+        "release_evidence_snapshot_json": "tables/release_evidence_snapshot.json",
     }
-    if telemetry_path is not None:
-        supporting_artifacts["telemetry_export_json"] = str(telemetry_path)
-    if phase_scale_aggregate_path is not None:
-        supporting_artifacts["phase_scale_aggregate_json"] = str(phase_scale_aggregate_path)
-    if milestone_acceptance_path is not None:
-        supporting_artifacts["milestone_acceptance_summary_json"] = str(milestone_acceptance_path)
+    if mirrored_telemetry:
+        supporting_artifacts["telemetry_export_json"] = "tables/telemetry_export.json"
+    if mirrored_phase_scale:
+        supporting_artifacts["phase_scale_aggregate_json"] = "tables/phase_scale_aggregate.json"
+    if mirrored_milestone_acceptance:
+        supporting_artifacts["milestone_acceptance_summary_json"] = "tables/milestone_acceptance_summary.json"
 
     contract_snapshot = build_kpi_contract_snapshot(
         runner_type="smoke",
@@ -812,6 +887,63 @@ def main() -> None:
             indent=2,
             ensure_ascii=False,
         ),
+        encoding="utf-8",
+    )
+    release_evidence_snapshot = build_release_evidence_pack(
+        runner_type="smoke",
+        phase=str(release_summary.get("phase", "")),
+        milestone=str(release_summary.get("milestone", "")),
+        release_decision=str(release_summary["release_decision"]),
+        acceptance_status=str(release_summary.get("acceptance_status", "")),
+        evidence_level=str(release_summary.get("evidence_level", "single_run_fallback")),
+        evidence_status=str(release_summary.get("evidence_status", "degraded")),
+        acceptance_eligible=bool(release_summary.get("acceptance_eligible", False)),
+        required_artifacts={
+            "production_smoke_report_csv": "tables/production_smoke_report.csv",
+            "production_smoke_report_json": "tables/production_smoke_report.json",
+            "kpi_snapshot_json": "tables/kpi_snapshot.json",
+            "kpi_contract_snapshot_json": "tables/kpi_contract_snapshot.json",
+        },
+        optional_artifacts={
+            **({"telemetry_export_json": "tables/telemetry_export.json"} if mirrored_telemetry else {}),
+            **(
+                {"phase_scale_aggregate_json": "tables/phase_scale_aggregate.json"}
+                if mirrored_phase_scale
+                else {}
+            ),
+            **(
+                {"milestone_acceptance_summary_json": "tables/milestone_acceptance_summary.json"}
+                if mirrored_milestone_acceptance
+                else {}
+            ),
+        },
+        existing_artifacts=[
+            "tables/production_smoke_report.csv",
+            "tables/production_smoke_report.json",
+            "tables/kpi_snapshot.json",
+            "tables/kpi_contract_snapshot.json",
+            *(
+                ["tables/telemetry_export.json"]
+                if mirrored_telemetry
+                else []
+            ),
+            *(
+                ["tables/phase_scale_aggregate.json"]
+                if mirrored_phase_scale
+                else []
+            ),
+            *(
+                ["tables/milestone_acceptance_summary.json"]
+                if mirrored_milestone_acceptance
+                else []
+            ),
+        ],
+        metadata={
+            "source_release_evidence_pack_found": bool(release_evidence_pack_path is not None),
+        },
+    )
+    out_release_evidence_snapshot.write_text(
+        json.dumps(release_evidence_snapshot, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
 

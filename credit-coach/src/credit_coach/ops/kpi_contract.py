@@ -758,6 +758,53 @@ def build_milestone_acceptance_summary(
     return summary
 
 
+def build_release_evidence_pack(
+    *,
+    runner_type: str,
+    release_decision: str,
+    acceptance_status: str = "",
+    evidence_level: str = "",
+    evidence_status: str = "",
+    acceptance_eligible: bool = False,
+    phase: str = "",
+    milestone: str = "",
+    required_artifacts: Mapping[str, Any] | None = None,
+    optional_artifacts: Mapping[str, Any] | None = None,
+    existing_artifacts: Iterable[str] | None = None,
+    metadata: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    required = _normalize_supporting_artifacts(required_artifacts)
+    optional = _normalize_supporting_artifacts(optional_artifacts)
+    existing = {str(item) for item in (existing_artifacts or []) if str(item).strip()}
+    missing = [
+        str(path)
+        for path in required.values()
+        if isinstance(path, str) and str(path).strip() and str(path) not in existing
+    ]
+    pack_status = "complete" if not missing else "degraded"
+    pack = {
+        "contract_version": KPI_CONTRACT_VERSION,
+        "runner_type": str(runner_type),
+        "phase": str(phase),
+        "milestone": str(milestone),
+        "release_decision": str(release_decision or "NO_GO"),
+        "acceptance_status": str(acceptance_status or map_release_decision_to_acceptance_status(release_decision)),
+        "evidence_level": str(evidence_level),
+        "evidence_status": str(evidence_status or ("complete" if acceptance_eligible else "degraded")),
+        "pack_status": pack_status,
+        "pack_acceptance_eligible": bool(acceptance_eligible) and pack_status == "complete",
+        "pack_root": "tables",
+        "required_artifacts": required,
+        "optional_artifacts": optional,
+        "missing_artifacts": missing,
+        "pack_generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if isinstance(metadata, Mapping):
+        for key, value in metadata.items():
+            pack[str(key)] = value
+    return pack
+
+
 def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
     supporting_artifacts = summary.get("supporting_artifacts", {})
     if not isinstance(supporting_artifacts, Mapping):

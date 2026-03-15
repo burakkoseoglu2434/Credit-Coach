@@ -6,6 +6,7 @@ import pandas as pd
 
 from credit_coach.cli.run_production_smoke import (
     _kpi_snapshot_from_rows,
+    _resolve_artifact_from_release_pack,
     build_smoke_gate_rows,
     build_smoke_release_summary,
 )
@@ -469,3 +470,25 @@ def test_build_smoke_release_summary_blocks_go_when_telemetry_threshold_fails() 
     assert payload["broad_rollout_allowed"] is False
     assert payload["telemetry_gate_status"] == "degraded"
     assert payload["telemetry_failure_reason"] == "success_rate_below_threshold"
+
+
+def test_resolve_artifact_from_release_pack_uses_tables_relative_contract(tmp_path) -> None:
+    run_dir = tmp_path / "run-001"
+    tables_dir = run_dir / "tables"
+    tables_dir.mkdir(parents=True)
+    target = tables_dir / "milestone_acceptance_summary.json"
+    target.write_text("{}", encoding="utf-8")
+    pack_path = tables_dir / "release_evidence_pack.json"
+    pack_path.write_text("{}", encoding="utf-8")
+
+    resolved = _resolve_artifact_from_release_pack(
+        pack_payload={
+            "required_artifacts": {
+                "milestone_acceptance_summary_json": "tables/milestone_acceptance_summary.json",
+            }
+        },
+        pack_path=pack_path,
+        artifact_key="milestone_acceptance_summary_json",
+    )
+
+    assert resolved == target
