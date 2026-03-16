@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 14 is complete under v1.2 and the next milestone work is Phase 15 policy optimization over institution-side offers and recovery-aware scoring
+**Current focus:** Phase 15 context is now locked under v1.2 and the next milestone work is planning institution-side offer optimization over recovery proxies, acceptance likelihood, and governance-safe ranking
 
 ## Current Position
 
 Phase: 14 of 16 (Sequential Recourse Planning)
 Plan: 3 of 3 in current phase
 Status: Complete
-Last activity: 2026-03-16 - Completed Phase 14 with canonical multi-phase trajectories, weekly-loop checkpoint simulation, and phase-aware optimization evidence
+Last activity: 2026-03-16 - Gathered Phase 15 context for offer contracts, recovery objective, acceptance probability, and evidence semantics
 
 Progress: [######----] 60%
 
@@ -80,6 +80,10 @@ Recent decisions affecting current work:
 - Phase 14 complete: plans now expose canonical `phases[]`, checkpoint metadata, and review-boundary trajectory state under one shared `trajectory.py` seam
 - Phase 14 complete: weekly-loop simulation now drives trajectory checkpoint evidence, soft regression penalties, and machine-readable transition breakdowns
 - Phase 14 complete: planner, suite, challenger, and review surfaces now share phase-aware optimization evidence and policy labels without weakening inherited governance gates
+- Phase 15 context locked: offer-bearing actions remain institutional actions with an added `offer_type` and `offer_terms` layer rather than a second planner stack
+- Phase 15 context locked: recovery optimization uses `expected_recovery_proxy` over `approval_rate`, `default_rate_90d`, and `avg_margin_90d`, but only after inherited gates and short-term trajectory health
+- Phase 15 context locked: `offer_acceptance_probability` stays distinct from `plan_execution_probability`, with `combined_plan_realization_probability` used only for offer-bearing plans
+- Phase 15 context locked: `offer_optimization_summary.json` will be mandatory supporting evidence, non-blocking, and explanation-first in review
 
 ### Pending Todos
 
@@ -93,5 +97,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-16 13:52
-Stopped at: Phase 14 completed; next step is `$gsd-discuss-phase 15` or `$gsd-plan-phase 15 --research`
+Stopped at: Phase 15 context locked; next step is `$gsd-plan-phase 15 --research`
 Resume file: None
