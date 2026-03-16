@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 16 context is now locked under v1.2 and the next work is replanning against the learning-ledger, completeness, and OPE contracts before execution
+**Current focus:** Phase 16 is now replanned under locked context and the next work is executing the learning-ledger logging, completeness tiers, and proxy-vector OPE contracts
 
 ## Current Position
 
 Phase: 16 of 16 (Outcome Feedback & Learning Loop)
 Plan: 0 of 3 in current phase
 Status: Planned
-Last activity: 2026-03-16 - Locked Phase 16 context around learning-ledger logging, completeness tiers, proxy-vector OPE, and a dedicated Learning Loop Summary
+Last activity: 2026-03-16 - Replanned Phase 16 against the locked learning-ledger, completeness-tier, proxy-vector OPE, and Learning Loop Summary contracts
 
 Progress: [########--] 80%
 
@@ -96,6 +96,7 @@ Recent decisions affecting current work:
 - Phase 16 context locked: decision logging is a compact learning ledger with `selection_propensity` plus `propensity_source`, not a duplicated full plan snapshot
 - Phase 16 context locked: completeness is graded as `descriptive_only | partial_learning_ready | learning_ready`, with explicit coverage dimensions and a primary 90-day learning window
 - Phase 16 context locked: OPE remains proxy-vector-first, control-baselined, confidence-aware, and non-blocking, and review gains a separate `Learning Loop Summary`
+- Phase 16 replanned: research and execution prompts now explicitly inherit the compact learning-ledger contract, completeness tiers, 90-day readiness window, and separate learning review surface
 
 ### Pending Todos
 
@@ -108,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16 19:35
-Stopped at: Phase 16 context captured; next step is `$gsd-plan-phase 16 --research`
+Last session: 2026-03-16 19:48
+Stopped at: Phase 16 replanned; next step is `$gsd-execute-phase 16`
 Resume file: None

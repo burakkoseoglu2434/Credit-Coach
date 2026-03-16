@@ -54,7 +54,7 @@ created: 2026-03-16
 - [x] `credit-coach/tests/test_outcome_feedback.py` - extend delayed-outcome tests to cover richer decision context, completeness, and OPE-ready logging semantics
 - [x] `credit-coach/tests/test_audit_chain.py` - protect additive decision logging against audit-chain regressions
 - [x] `credit-coach/tests/test_phase_experiment_suite.py` - verify Phase 16 artifacts can be mirrored and referenced as supporting evidence
-- [x] `credit-coach/tests/test_kpi_contract.py` - protect explanation-first learning-loop review integration
+- [x] `credit-coach/tests/test_kpi_contract.py` - protect explanation-first `Learning Loop Summary` integration beside the existing `Outcome Feedback Summary`
 - [x] `credit-coach/tests/test_off_policy_evaluation.py` - add dedicated IPS / Doubly Robust regression coverage
 
 ---
@@ -64,9 +64,11 @@ created: 2026-03-16
 One human scan is still useful after execution:
 
 - confirm decision logging remains additive and audit-safe despite the repo lacking a migration framework
+- confirm the decision log stays a compact learning ledger and does not duplicate full plan snapshots
 - confirm logged policy metadata is sufficient to interpret control vs treatment vs richer offer-policy arms
-- confirm outcome ingestion distinguishes descriptive missingness from learning-grade complete records
+- confirm outcome ingestion distinguishes `descriptive_only`, `partial_learning_ready`, and `learning_ready` records using explicit coverage dimensions
 - confirm IPS / DR outputs downgrade to tentative or degraded evidence when propensities or reward coverage are insufficient
+- confirm the markdown review keeps `Outcome Feedback Summary` and `Learning Loop Summary` separate
 - confirm learning-loop artifacts remain supporting evidence rather than silently redefining release gates
 
 All core behavior should remain automatically verified.

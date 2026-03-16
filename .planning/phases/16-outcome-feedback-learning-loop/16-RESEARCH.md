@@ -10,7 +10,7 @@ What has to change so Credit Coach can log full recommendation context, ingest d
 
 ## Planning Basis
 
-Phase 16 does **not** yet have a `16-CONTEXT.md`. For this planning pass, the authoritative sources are:
+Phase 16 now has a locked `16-CONTEXT.md`. For this replanning pass, the authoritative sources are:
 
 - `.planning/PROJECT.md`
 - `.planning/ROADMAP.md`
@@ -19,13 +19,14 @@ Phase 16 does **not** yet have a `16-CONTEXT.md`. For this planning pass, the au
 - `.planning/research/v1.2-RECOMMENDATION-QUALITY-HARDENING.md`
 - `.planning/phases/11-release-evidence-and-outcome-feedback/11-CONTEXT.md`
 - `.planning/phases/15-policy-optimization-layer/15-CONTEXT.md`
+- `.planning/phases/16-outcome-feedback-learning-loop/16-CONTEXT.md`
 - `credit-coach/src/credit_coach/cli/run_outcome_feedback.py`
 - `credit-coach/src/credit_coach/storage/repository.py`
 - `credit-coach/src/credit_coach/storage/models.py`
 - `credit-coach/src/credit_coach/data/schema.py`
 - local legacy research notes under `.planning/research/legacy/`
 
-This is enough because the milestone goal and the already-shipped brownfield seams are clear: Phase 16 is about completing the learning loop on top of the existing action, behavior, trajectory, offer, telemetry, and release-evidence contracts.
+This is enough because the milestone goal, the brownfield seams, and the previously gray implementation decisions are now all locked. The remaining work is to replan execution so it explicitly inherits the compact learning-ledger contract, graded completeness semantics, proxy-vector-first OPE, and the separate `Learning Loop Summary` review surface.
 
 ## Executive Summary
 
@@ -42,13 +43,13 @@ But the current seam is still descriptive, not learning-ready.
 Today the repo is missing four capabilities that Phase 16 must close:
 
 1. **Full decision logging context**
-   - recommendation, selected plan, offer terms, execution likelihood, candidate-set identity, and propensity-style policy metadata are not persisted with decision outcomes
+   - recommendation, selected plan, offer terms, execution likelihood, candidate-set identity, and propensity-style policy metadata are not persisted with decision outcomes under one compact learning ledger
 2. **Richer outcome ingestion**
    - the system can ingest defaults and realized margin, but not action completion, offer acceptance, payment behavior, or recovery outcomes as one normalized learning dataset
 3. **Coverage/completeness semantics**
-   - there is no canonical summary for whether the logged decisions have enough complete outcome context to support learning
+   - there is no canonical summary for whether the logged decisions are `descriptive_only`, `partial_learning_ready`, or `learning_ready`
 4. **Off-policy evaluation**
-   - IPS / Doubly Robust style estimation does not exist, so treatment-vs-control outcome summaries remain descriptive rather than reusable for safer policy evaluation
+   - IPS / Doubly Robust style estimation does not exist, so treatment-vs-control outcome summaries remain descriptive rather than reusable for safer policy evaluation over the canonical proxy vector
 
 The correct sequencing is:
 
@@ -198,22 +199,34 @@ The safest path is to add a richer decision-log contract keyed by `decision_id` 
 - `policy_arm`
 - `policy_arm_profile`
 - `candidate_set_id`
-- `propensity`
+- `selection_propensity`
+- `propensity_source`
 - `reason_codes`
 - selected plan / offer summary
 - execution / acceptance / combined realization probabilities
 - timestamps and review metadata
 
-Because of migration risk, this should be done additively.
+Because of migration risk, this should be done additively and remain compact:
+
+- the log is a learning ledger, not a duplicate plan archive
+- full plan truth remains in persisted plan records and existing artifacts
 
 ### B. Introduce a normalized outcome-ingestion summary
 
 `run_outcome_feedback.py` should evolve from “ingest CSV and compute deltas” into:
 
 - ingest richer outcome payloads
-- compute coverage/completeness
+- compute coverage/completeness by dimension
 - materialize a normalized learning-ready dataset
 - still emit descriptive proxy summaries for backward compatibility
+
+The locked completeness contract now gives this phase a concrete target:
+
+- `descriptive_only`
+- `partial_learning_ready`
+- `learning_ready`
+
+with a primary 90-day learning window and explicit coverage dimensions for action completion, offer acceptance, payment behavior, and recovery outcomes.
 
 ### C. Add a dedicated off-policy evaluation module
 
@@ -224,7 +237,10 @@ The repo needs a focused module, likely under `credit-coach/src/credit_coach/eva
 - coverage / positivity diagnostics
 - per-policy-arm comparative summaries
 
-This module should be consumed by `run_outcome_feedback.py` rather than embedded inside repository aggregation logic.
+This module should be consumed by `run_outcome_feedback.py` rather than embedded inside repository aggregation logic. The locked Phase 16 contract also makes two constraints explicit:
+
+- OPE remains proxy-vector-first over `approval_rate`, `default_rate_90d`, and `avg_margin_90d`
+- strong comparative claims require a control baseline plus confidence that does not degrade to `tentative` or `degraded`
 
 ### D. Keep learning evidence non-blocking but reviewable
 
@@ -234,7 +250,11 @@ Phase 16 should likely introduce canonical machine-readable artifacts such as:
 - `outcome_ingestion_summary.json`
 - `off_policy_evaluation.json`
 
-These should integrate into suite/review as supporting artifacts, not as immediate release overrides.
+These should integrate into suite/review as supporting artifacts, not as immediate release overrides. The review surface should gain a dedicated:
+
+- `Learning Loop Summary`
+
+that stays separate from the existing descriptive `Outcome Feedback Summary`.
 
 ## Recommended Execution Order
 
