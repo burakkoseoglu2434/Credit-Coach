@@ -23,8 +23,8 @@
 
 ### Policy Optimization Layer
 
-- [ ] **REC-08**: Institution-side offer actions can appear in candidate plans and be ranked beside user-driven recourse actions
-- [ ] **REC-09**: Offer optimization can improve recovery proxies without increasing risk, fairness, or reliability violations
+- [x] **REC-08**: Institution-side offer actions can appear in candidate plans and be ranked beside user-driven recourse actions
+- [x] **REC-09**: Offer optimization can improve recovery proxies without increasing risk, fairness, or reliability violations
 
 ### Outcome Feedback & Learning Loop
 
@@ -59,8 +59,8 @@
 | REC-05 | Phase 13 | Complete |
 | REC-06 | Phase 14 | Complete |
 | REC-07 | Phase 14 | Complete |
-| REC-08 | Phase 15 | Pending |
-| REC-09 | Phase 15 | Pending |
+| REC-08 | Phase 15 | Complete |
+| REC-09 | Phase 15 | Complete |
 | REC-10 | Phase 16 | Pending |
 | REC-11 | Phase 16 | Pending |
 
@@ -71,4 +71,4 @@
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-16 after completing Phase 14*
+*Last updated: 2026-03-16 after completing Phase 15*

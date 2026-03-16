@@ -95,9 +95,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 15-01: Add institution-side offer actions into the recourse action space
-- [ ] 15-02: Score offers against expected recovery, risk, fairness, and reliability constraints
-- [ ] 15-03: Model user acceptance probability for offers and fold it into expected recovery
+- [x] 15-01: Add institution-side offer actions into the recourse action space
+- [x] 15-02: Score offers against expected recovery, risk, fairness, and reliability constraints
+- [x] 15-03: Model user acceptance probability for offers and fold it into expected recovery
 
 #### Phase 16: Outcome Feedback & Learning Loop
 **Goal**: Enable the system to learn from real-world outcomes.
@@ -132,5 +132,5 @@ Plans:
 | 12. Action Realism & Feasibility Expansion | v1.2 | 3/3 | Complete | 2026-03-15 |
 | 13. Behavior-Aware Recourse | v1.2 | 3/3 | Complete | 2026-03-16 |
 | 14. Sequential Recourse Planning | v1.2 | 3/3 | Complete | 2026-03-16 |
-| 15. Policy Optimization Layer | v1.2 | 0/3 | Pending | - |
+| 15. Policy Optimization Layer | v1.2 | 3/3 | Complete | 2026-03-16 |
 | 16. Outcome Feedback & Learning Loop | v1.2 | 0/3 | Pending | - |
