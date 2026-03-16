@@ -1,6 +1,9 @@
+import { FeatureIcon, type FeatureIconName } from "./FeatureIcon";
+
 type SchemaPreviewCardProps = {
   title: string;
   description: string;
+  icon?: FeatureIconName;
   tone?: "blue" | "green" | "amber";
 };
 
@@ -13,6 +16,7 @@ const toneClasses = {
 export function SchemaPreviewCard({
   title,
   description,
+  icon = "platform",
   tone = "blue",
 }: SchemaPreviewCardProps) {
   return (
@@ -20,7 +24,9 @@ export function SchemaPreviewCard({
       className={`panel overflow-hidden border bg-gradient-to-br p-6 ${toneClasses[tone]}`}
     >
       <div className="flex items-start gap-4">
-        <div className="mt-1 h-12 w-12 shrink-0 rounded-2xl border border-white/10 bg-white/[0.05]" />
+        <div className="mt-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-midnight/40 text-arctic">
+          <FeatureIcon name={icon} />
+        </div>
         <div>
           <div className="font-display text-2xl font-semibold text-white">{title}</div>
           <p className="mt-3 max-w-md text-sm leading-7 text-slate-300">{description}</p>

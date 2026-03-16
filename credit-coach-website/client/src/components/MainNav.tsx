@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 
 import { navLinks } from "@/data/site-content";
 import { useLanguage } from "@/i18n/language";
+import { BrandLogo } from "./BrandLogo";
 import { LanguageToggle } from "./LanguageToggle";
 
 export function MainNav() {
@@ -15,8 +16,8 @@ export function MainNav() {
       <div className="shell flex flex-col gap-4 py-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-cobalt to-ocean shadow-glow">
-              <span className="font-display text-lg font-bold text-white">K</span>
+            <div className="w-[62px] shrink-0 rounded-2xl border border-white/10 bg-white px-2 py-1 shadow-glow">
+              <BrandLogo />
             </div>
             <div>
               <div className="text-xs uppercase tracking-[0.22em] text-arctic/70">Kuantitive</div>

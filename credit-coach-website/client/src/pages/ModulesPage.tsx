@@ -1,6 +1,8 @@
+import { CapabilityCard } from "@/components/CapabilityCard";
 import { PageHero } from "@/components/PageHero";
 import { SectionHeading } from "@/components/SectionHeading";
-import { modules } from "@/data/site-content";
+import { VisualFlow } from "@/components/VisualFlow";
+import { modules, processSteps } from "@/data/site-content";
 import { useLanguage } from "@/i18n/language";
 
 export function ModulesPage() {
@@ -9,45 +11,71 @@ export function ModulesPage() {
   return (
     <div>
       <PageHero
-        eyebrow={text({ tr: "Moduller", en: "Modules" })}
+        eyebrow={text({ tr: "Nasil calisir", en: "How it works" })}
         title={text({
-          tr: "Her modul karar yuzeyini biraz daha ticari ve kullanilabilir hale getirir.",
-          en: "Each module makes the decision surface more commercially useful.",
+          tr: "Tek platform, cok modul, tek karar yuzeyi.",
+          en: "One platform, many modules, one decision surface.",
+        })}
+        supportingNote={text({
+          tr: "Bu sayfa modulleri teknik bileşen olarak degil, ürün akışının parçaları olarak anlatır.",
+          en: "This page explains the modules as parts of a product flow, not just technical components.",
         })}
         description={text({
-          tr: "Bu sayfa daha kisa tutuldu: ne yapar, ne uretir, hangi artifact ile kanitlanir.",
-          en: "This page is intentionally shorter: what it does, what it outputs, and which artifact proves it.",
+          tr: "credit-coach once karari aciklar, sonra uygulanabilir bir yol kurar, en son da bunu ogrenme sinyaliyle besler.",
+          en: "credit-coach first explains the decision, then builds an actionable path, and finally closes the loop with learning signal.",
         })}
-        primaryCta={{ href: "/demo", label: text({ tr: "Ciktilari Gor", en: "See Module Outputs" }) }}
-        secondaryCta={{ href: "/contact", label: text({ tr: "Pilot Konus", en: "Discuss a Pilot" }) }}
+        primaryCta={{ href: "/contact", label: text({ tr: "Demo Talep Et", en: "Request a Demo" }) }}
+        secondaryCta={{ href: "/demo", label: text({ tr: "Demoyu Gor", en: "See Demo" }) }}
       />
 
-      <section className="shell py-20">
-        <SectionHeading
-          eyebrow={text({ tr: "Modul haritasi", en: "Module map" })}
-          title={text({
-            tr: "Risk tespitinden ogrenmeye hazir policy evidence'e.",
-            en: "From risk diagnosis to learning-ready policy evidence.",
-          })}
-          description={text({
-            tr: "Her kart, kullanicinin hissettigi urun degerini tek cumlede anlatir.",
-            en: "Each card explains the user-facing product value in one sentence.",
-          })}
-        />
-        <div className="mt-10 grid gap-5 lg:grid-cols-2">
-          {modules.map((module) => (
-            <div key={module.artifact} className="panel p-7">
-              <div className="text-xs uppercase tracking-[0.18em] text-arctic/55">
-                {text({ tr: "Modul", en: "Module" })}
-              </div>
-              <div className="mt-3 font-display text-2xl font-semibold text-white">
-                {text(module.title)}
-              </div>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400">
-                {text(module.description)}
-              </p>
-            </div>
-          ))}
+      <section className="border-t border-white/5">
+        <div className="shell py-20">
+          <SectionHeading
+            eyebrow={text({ tr: "Akis", en: "Flow" })}
+            title={text({
+              tr: "Bu ekran neden onemli?",
+              en: "Why this matters",
+            })}
+            description={text({
+              tr: "Cunku sistemin yalnizca ne yaptigini degil, kurum is akisi icinde hangi sirayla deger urettigini gosterir.",
+              en: "Because it shows not just what the system does, but the order in which it creates value in a lender workflow.",
+            })}
+          />
+          <div className="mt-10">
+            <VisualFlow
+              steps={processSteps.map((step) => ({
+                title: text(step.title),
+                body: text(step.body),
+              }))}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-white/5 bg-white/[0.02]">
+        <div className="shell py-20">
+          <SectionHeading
+            eyebrow={text({ tr: "Platform katmanlari", en: "Platform layers" })}
+            title={text({
+              tr: "Moduller ana hikayenin yardimci katmanlari olarak konumlanir.",
+              en: "Modules sit beneath the main product story as supporting layers.",
+            })}
+            description={text({
+              tr: "Her modul farkli bir sorunu cozer ama hepsi ayni karar yuzeyini guclendirir.",
+              en: "Each module solves a distinct problem, but all of them reinforce the same decision surface.",
+            })}
+          />
+          <div className="mt-10 grid gap-5 lg:grid-cols-2">
+            {modules.map((module) => (
+              <CapabilityCard
+                key={module.artifact}
+                eyebrow={text({ tr: "Modul", en: "Module" })}
+                title={text(module.title)}
+                description={text(module.description)}
+                icon={module.icon}
+              />
+            ))}
+          </div>
         </div>
       </section>
     </div>

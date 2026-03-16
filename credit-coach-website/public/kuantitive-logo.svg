@@ -1,0 +1,26 @@
+<svg width="320" height="220" viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="kuantitive-blue" x1="186" y1="44" x2="286" y2="18" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0EA5FF"/>
+      <stop offset="1" stop-color="#1E7BFF"/>
+    </linearGradient>
+    <linearGradient id="kuantitive-cyan" x1="172" y1="134" x2="216" y2="134" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0EA5FF"/>
+      <stop offset="1" stop-color="#2FC6FF"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M28 187H78V137" stroke="#0A2D69" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M175 187H225V137" stroke="url(#kuantitive-cyan)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M18 184L74 111L115 143L166 73L225 73L283 19" stroke="#0A2D69" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M166 73H225L283 19" stroke="url(#kuantitive-blue)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M246 38L283 19L279 61L246 38Z" fill="url(#kuantitive-blue)"/>
+
+  <circle cx="18" cy="184" r="10" fill="white" stroke="#0A2D69" stroke-width="10"/>
+  <circle cx="74" cy="111" r="10" fill="white" stroke="#0A2D69" stroke-width="10"/>
+  <circle cx="115" cy="143" r="10" fill="white" stroke="#0A2D69" stroke-width="10"/>
+  <circle cx="166" cy="73" r="10" fill="white" stroke="url(#kuantitive-blue)" stroke-width="10"/>
+  <circle cx="225" cy="73" r="10" fill="white" stroke="url(#kuantitive-blue)" stroke-width="10"/>
+</svg>

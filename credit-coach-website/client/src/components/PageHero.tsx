@@ -5,9 +5,11 @@ import { Link } from "wouter";
 type PageHeroProps = {
   eyebrow: string;
   title: string;
+  supportingNote?: string;
   description: string;
   primaryCta?: { href: string; label: string };
   secondaryCta?: { href: string; label: string };
+  tertiaryCta?: { href: string; label: string };
   badges?: string[];
   aside?: ReactNode;
 };
@@ -15,9 +17,11 @@ type PageHeroProps = {
 export function PageHero({
   eyebrow,
   title,
+  supportingNote,
   description,
   primaryCta,
   secondaryCta,
+  tertiaryCta,
   badges = [],
   aside,
 }: PageHeroProps) {
@@ -34,6 +38,11 @@ export function PageHero({
           >
             <div className="eyebrow">{eyebrow}</div>
             <h1 className="headline max-w-4xl lg:max-w-3xl">{title}</h1>
+            {supportingNote ? (
+              <div className="mt-5 max-w-2xl rounded-[24px] border border-cobalt/20 bg-white/[0.05] px-4 py-3 text-sm font-medium text-arctic">
+                {supportingNote}
+              </div>
+            ) : null}
             <p className="copy mt-6 max-w-3xl">{description}</p>
 
             <div className="mt-8 flex flex-wrap gap-3">
@@ -51,6 +60,14 @@ export function PageHero({
                   className="rounded-full border border-white/15 px-6 py-3 text-sm font-medium text-white transition hover:bg-white/5"
                 >
                   {secondaryCta.label}
+                </Link>
+              ) : null}
+              {tertiaryCta ? (
+                <Link
+                  href={tertiaryCta.href}
+                  className="px-2 py-3 text-sm font-medium text-arctic transition hover:text-white"
+                >
+                  {tertiaryCta.label}
                 </Link>
               ) : null}
             </div>

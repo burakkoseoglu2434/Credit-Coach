@@ -146,7 +146,7 @@ export function InquiryForm() {
               <input
                 {...demoForm.register("useCase")}
                 className={inputClassName}
-                placeholder={text({ tr: "Orn. denied basvuru geri kazanimi", en: "E.g. denied applicant recovery" })}
+                placeholder={text({ tr: "Orn. reddedilen basvurulari geri kazanma", en: "E.g. denied applicant recovery" })}
               />
             </Field>
             <Field
@@ -183,7 +183,7 @@ export function InquiryForm() {
               <input
                 {...investorForm.register("focusArea")}
                 className={inputClassName}
-                placeholder={text({ tr: "Orn. fintech, AI, infra", en: "E.g. fintech, AI, infra" })}
+                placeholder={text({ tr: "Orn. finansal yazilim, yapay zeka, altyapi", en: "E.g. fintech, AI, infra" })}
               />
             </Field>
           </div>
@@ -204,7 +204,7 @@ export function InquiryForm() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-400">
             {text({
-              tr: "Talepler website backend'ine kaydedilir; veritabani yoksa bellek fallback'i kullanilir.",
+              tr: "Talebiniz ilgili ekibe yonlendirilir ve size en uygun gorusme akisi icin kayda alinir.",
               en: "Requests are saved to the website backend and can fall back to memory if a database is not configured yet.",
             })}
           </p>

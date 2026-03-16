@@ -1,11 +1,16 @@
-import { motion } from "framer-motion";
-
-import { ArtifactCard } from "@/components/ArtifactCard";
+import { CapabilityCard } from "@/components/CapabilityCard";
 import { MetricTile } from "@/components/MetricTile";
 import { PageHero } from "@/components/PageHero";
 import { SchemaPreviewCard } from "@/components/SchemaPreviewCard";
 import { SectionHeading } from "@/components/SectionHeading";
-import { modules, proofCards, surfaceCards } from "@/data/site-content";
+import { VisualFlow } from "@/components/VisualFlow";
+import {
+  buyerPaths,
+  homeProblemCards,
+  processSteps,
+  proofPillars,
+  surfaceCards,
+} from "@/data/site-content";
 import { useDemoItem } from "@/hooks/useDemoData";
 import { useLanguage } from "@/i18n/language";
 
@@ -23,176 +28,211 @@ export function HomePage() {
     <div>
       <PageHero
         eyebrow={text({
-          tr: "Lender Karar Istihbarati",
-          en: "Decision Intelligence for Lenders",
+          tr: "Finans kurumlari icin karar platformu",
+          en: "Decision platform for financial institutions",
         })}
         title={text({
           tr: "Kredi karari redde geldigi yerde bitmemeli.",
           en: "Credit decisions should not end at deny.",
         })}
-        description={text({
-          tr: "Kuantitive credit-coach; reddedilen basvurulari uygulanabilir aksiyon planlari, kurum teklifleri ve olculebilir toparlanma firsatlarina donusturur.",
-          en: "Kuantitive's credit-coach turns denied applications into feasible action plans, institution-side offers, and measurable recovery opportunities.",
+        supportingNote={text({
+          tr: "AI destekli kredi mudahale ve teklif optimizasyon platformu.",
+          en: "AI-powered intervention and offer optimization platform for lenders.",
         })}
-        primaryCta={{ href: "/demo", label: text({ tr: "Demo Merkezini Ac", en: "Open Demo Center" }) }}
-        secondaryCta={{ href: "/investor", label: text({ tr: "Yatirimci Ozetini Oku", en: "Read Investor Story" }) }}
+        description={text({
+          tr: "credit-coach, reddedilen veya sinirdaki basvurular icin uygulanabilir bir sonraki adimi, kurum tekliflerini ve olculebilir geri kazanimi ayni urun yuzeyinde bir araya getirir.",
+          en: "credit-coach brings feasible next steps, institution-side offers, and measurable recovery into one product surface for denied or borderline applications.",
+        })}
+        primaryCta={{ href: "/contact", label: text({ tr: "Demo Talep Et", en: "Request a Demo" }) }}
+        secondaryCta={{ href: "/demo", label: text({ tr: "Demoyu Gor", en: "See Demo" }) }}
+        tertiaryCta={{ href: "/investor", label: text({ tr: "Yatirimci Ozetini Oku", en: "Read Investor Story" }) }}
         badges={[
-          text({ tr: "Davranis farkindalikli", en: "Behavior-aware recourse" }),
-          text({ tr: "Offer optimizasyonu", en: "Offer optimization" }),
-          text({ tr: "Learning-loop hazir", en: "Learning-loop ready" }),
-          text({ tr: "Governance-first", en: "Governance-first" }),
+          text({ tr: "Risk ekipleri", en: "Risk teams" }),
+          text({ tr: "Tahsilat ekipleri", en: "Collections" }),
+          text({ tr: "Karar guvencesi", en: "Governance" }),
+          text({ tr: "Tek urun", en: "Single platform" }),
         ]}
         aside={
-          <div className="grid gap-4 sm:grid-cols-2 lg:w-[460px] lg:grid-cols-1">
-            <div className="panel p-5">
-              <div className="text-xs uppercase tracking-[0.2em] text-arctic/60">
-                {text({ tr: "One cikan urun deneyimi", en: "Featured product experience" })}
-              </div>
-              <div className="mt-4 rounded-[24px] border border-white/10 bg-midnight/45 p-4">
-                <div className="font-display text-2xl font-semibold text-white">
-                  {text({ tr: "Musteri Aksiyon Yol Haritasi", en: "Customer Action Roadmap" })}
-                </div>
-                <p className="mt-3 text-sm leading-7 text-slate-300">
-                  {text({
-                    tr: "Her musteri icin kredi profilini zamanla guclendiren kisisel bir ilerleme plani.",
-                    en: "A personalized roadmap that helps each customer improve over time.",
-                  })}
-                </p>
-              </div>
-            </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:w-[470px] lg:grid-cols-1">
+            <SchemaPreviewCard
+              title={text({ tr: "Musteri aksiyon yol haritasi", en: "Customer action roadmap" })}
+              description={text({
+                tr: "Her musteri icin kisisel bir sonraki adimi, checkpoint mantigi ve kurum teklifini ayni yerde toplar.",
+                en: "Brings the next best action, checkpoint logic, and institution-side offers into one view.",
+              })}
+              icon="roadmap"
+            />
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
               <MetricTile
-                label={text({ tr: "4 hafta gate", en: "4-week gate" })}
+                label={text({ tr: "4 haftalik gecis", en: "4-week pass rate" })}
                 value={`${Math.round(((batchContent.trajectory_gate_pass_rate_4w as number) ?? 0) * 100)}%`}
+                context={text({ tr: "Demo gorunumu", en: "Demo snapshot" })}
               />
               <MetricTile
-                label={text({ tr: "Offer kabul", en: "Offer acceptance" })}
+                label={text({ tr: "Ortalama teklif kabul", en: "Offer acceptance" })}
                 value={`${Math.round(((offerMetrics.offer_acceptance_probability_mean as number) ?? 0) * 100)}%`}
+                context={text({ tr: "Ornek portfoy", en: "Sample portfolio" })}
               />
             </div>
           </div>
         }
       />
 
-      <section className="shell py-20">
-        <SectionHeading
-          eyebrow={text({ tr: "Sonuc Katmani", en: "Outcome Layer" })}
-          title={text({
-            tr: "Red ile kayip musteri arasina yerlesen urun katmani.",
-            en: "A product layer between deny and lost customer value.",
-          })}
-          description={text({
-            tr: "Bu sayfada once KPI'lari, sonra cikti semalarini, sonra da urun modullerini goruyorsun.",
-            en: "This page starts with KPIs, then output schemas, then the module map.",
-          })}
-        />
-
-        <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <MetricTile
-            label={text({ tr: "Denied to approved lift", en: "Denied to approved lift" })}
-            value={`${Math.round(((batchContent.denied_to_approved_lift as number) ?? 0) * 100)}%`}
-            hint={text({ tr: "Recourse motorunun ana donusum KPI'i.", en: "The clearest top-line recourse KPI." })}
-            change={text({ tr: "portfoy", en: "portfolio" })}
+      <section className="border-t border-white/5">
+        <div className="shell py-20">
+          <SectionHeading
+            eyebrow={text({ tr: "Problem", en: "Problem" })}
+            title={text({
+              tr: "Red kararindan sonra en degerli alan bos kaliyor.",
+              en: "The most valuable window starts after the denial.",
+            })}
+            description={text({
+              tr: "Bu urun, finans kurumlarinin red kararindan sonra kaybettigi musteri ve gelir alanina odaklanir.",
+              en: "The product focuses on the customer and revenue value that financial institutions lose after a denial.",
+            })}
           />
-          <MetricTile
-            label={text({ tr: "Ortalama PD dususu", en: "Average PD reduction" })}
-            value={`${Math.round(((batchContent.avg_pd_reduction as number) ?? 0) * 100)} bps`}
-            hint={text({ tr: "Donusum artarken risk kalitesi de iyilesiyor.", en: "Shows that risk quality improves alongside conversion." })}
-            change={text({ tr: "risk", en: "risk" })}
-          />
-          <MetricTile
-            label={text({ tr: "Ortalama offer kabul", en: "Offer acceptance mean" })}
-            value={`${Math.round(((offerMetrics.offer_acceptance_probability_mean as number) ?? 0) * 100)}%`}
-            hint={text({ tr: "Kurum teklifleri ayni karar yuzeyine giriyor.", en: "Institution-side offer acceptance becomes part of the same decision surface." })}
-            change={text({ tr: "ticari", en: "commercial" })}
-          />
-          <MetricTile
-            label={text({ tr: "90 gun reward coverage", en: "Reward 90d coverage" })}
-            value={`${Math.round(((learningContent.reward_90d_coverage as number) ?? 0) * 100)}%`}
-            hint={text({ tr: "Sistem ogrenmeye uygun veri toplamaya baslamis durumda.", en: "The system is already collecting learning-grade evidence." })}
-            change={text({ tr: "ogrenme", en: "learning" })}
-          />
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+            {homeProblemCards.map((card) => (
+              <CapabilityCard
+                key={card.title.tr}
+                title={text(card.title)}
+                description={text(card.description)}
+                icon={card.icon}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="shell pb-20">
-        <SectionHeading
-          eyebrow={text({ tr: "Urun yuzeyleri", en: "Product surfaces" })}
-          title={text({
-            tr: "Teknik dosya adlari yerine kullanicinin gordugu urun degeri.",
-            en: "Show product value instead of internal file names.",
-          })}
-          description={text({
-            tr: "Bu blok, sistemin neden anlamli oldugunu bir bakista anlatir.",
-            en: "This block explains why the product matters at a glance.",
-          })}
-        />
-        <div className="mt-10 grid gap-5 lg:grid-cols-3">
-          {surfaceCards.map((card) => (
-            <SchemaPreviewCard
-              key={card.title.tr}
-              title={text(card.title)}
-              description={text(card.description)}
-              tone={card.tone}
+      <section className="border-t border-white/5 bg-white/[0.02]">
+        <div className="shell py-20">
+          <SectionHeading
+            eyebrow={text({ tr: "Cozum", en: "Solution" })}
+            title={text({
+              tr: "Tek platform, cok modül, tek karar yuzeyi.",
+              en: "One platform, many modules, one decision surface.",
+            })}
+            description={text({
+              tr: "credit-coach, musteri aksiyonu, kurum teklifi ve yayin guvencesini ayni urunde birlestirir.",
+              en: "credit-coach combines customer action planning, institution-side offers, and release controls in one platform.",
+            })}
+          />
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+            {surfaceCards.map((card) => (
+              <SchemaPreviewCard
+                key={card.title.tr}
+                title={text(card.title)}
+                description={text(card.description)}
+                icon={card.icon}
+                tone={card.tone}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-white/5">
+        <div className="shell py-20">
+          <SectionHeading
+            eyebrow={text({ tr: "Nasil calisir", en: "How it works" })}
+            title={text({
+              tr: "Aciklamadan kontrollu aksiyona giden urun akisi.",
+              en: "A product flow that moves from explanation to controlled action.",
+            })}
+            description={text({
+              tr: "Bu akista once neden anlasilir, sonra uygulanabilir yol olusturulur, en son ogrenme sinyali uretilir.",
+              en: "The product first explains why, then builds an actionable path, and finally creates learning signal.",
+            })}
+          />
+          <div className="mt-10">
+            <VisualFlow
+              steps={processSteps.map((step) => ({
+                title: text(step.title),
+                body: text(step.body),
+              }))}
             />
-          ))}
+          </div>
         </div>
       </section>
 
-      <section className="shell pb-20">
-        <SectionHeading
-          eyebrow={text({ tr: "Moduller", en: "Modules" })}
-          title={text({
-            tr: "Yedi modul, tek karar yuzeyi.",
-            en: "Seven modules, one decision surface.",
-          })}
-          description={text({
-            tr: "Her kart, teknik detaya bogmadan sundugu urun kabiliyetini anlatir.",
-            en: "Each card describes a product capability without exposing internal implementation details.",
-          })}
-        />
-        <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {modules.slice(0, 6).map((module, index) => (
-            <motion.div
-              key={module.artifact}
-              initial={{ opacity: 0, y: 22 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.2 }}
-              transition={{ delay: index * 0.05, duration: 0.4 }}
-              className="panel p-6"
-            >
-              <div className="text-xs uppercase tracking-[0.18em] text-arctic/55">
-                {text({ tr: "Modul", en: "Module" })} {index + 1}
-              </div>
-              <div className="mt-3 font-display text-2xl font-semibold text-white">
-                {text(module.title)}
-              </div>
-              <p className="mt-4 text-sm leading-7 text-slate-400">{text(module.description)}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      <section className="shell pb-20">
-        <SectionHeading
-          eyebrow={text({ tr: "Kanit", en: "Proof" })}
-          title={text({
-            tr: "Slogan degil, urun seviyesi kanit.",
-            en: "Product proof, not platform jargon.",
-          })}
-          description={text({
-            tr: "Bu kartlar, sistemi teknik olmayan bir dilde anlatan en guclu ozet seti.",
-            en: "These cards are the clearest non-technical summary of what the system delivers.",
-          })}
-        />
-        <div className="mt-10 grid gap-5 lg:grid-cols-4">
-          {proofCards.map((card) => (
-            <ArtifactCard
-              key={card.title.tr}
-              name={text(card.title)}
-              description={text(card.description)}
+      <section className="border-t border-white/5 bg-white/[0.02]">
+        <div className="shell py-20">
+          <SectionHeading
+            eyebrow={text({ tr: "Kanit", en: "Proof" })}
+            title={text({
+              tr: "Urun gucu hem KPI hem release disiplini ile desteklenir.",
+              en: "Product strength is backed by both KPI movement and release discipline.",
+            })}
+            description={text({
+              tr: "Sadece iyi gorunen bir demo degil; olcum, guven, yayin disiplini ve ogrenme katmani birlikte anlatilir.",
+              en: "This is more than a polished demo. Measurement, trust, release, and learning all stay visible.",
+            })}
+          />
+          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <MetricTile
+              label={text({ tr: "Denied to approved lift", en: "Denied to approved lift" })}
+              value={`${Math.round(((batchContent.denied_to_approved_lift as number) ?? 0) * 100)}%`}
+              context={text({ tr: "Temsili offline", en: "Offline demo" })}
+              hint={text({ tr: "Ornek cohort icinde donusum artisini gosterir.", en: "Shows portfolio conversion lift in the representative cohort." })}
             />
-          ))}
+            <MetricTile
+              label={text({ tr: "Ortalama PD dususu", en: "Average PD reduction" })}
+              value={`${Math.round(((batchContent.avg_pd_reduction as number) ?? 0) * 100)} bps`}
+              context={text({ tr: "Temsili benchmark", en: "Representative benchmark" })}
+              hint={text({ tr: "Donusum artarken risk kalitesinin korunup korunmadigini gosterir.", en: "Shows whether risk quality improves alongside conversion." })}
+            />
+            <MetricTile
+              label={text({ tr: "Teklif kabul ortalamasi", en: "Offer acceptance" })}
+              value={`${Math.round(((offerMetrics.offer_acceptance_probability_mean as number) ?? 0) * 100)}%`}
+              context={text({ tr: "Kurgulanmis gorunum", en: "Curated snapshot" })}
+              hint={text({ tr: "Kurum tekliflerinin urun akisi icinde ne kadar ise yaradigini gosterir.", en: "Shows how institution-side offers perform in the product flow." })}
+            />
+            <MetricTile
+              label={text({ tr: "90 gun reward coverage", en: "Reward 90d coverage" })}
+              value={`${Math.round(((learningContent.reward_90d_coverage as number) ?? 0) * 100)}%`}
+              context={text({ tr: "Learning readiness", en: "Learning readiness" })}
+              hint={text({ tr: "Sistemin zamanla ogrenmeye hazir veri toplayip toplamadigini gosterir.", en: "Shows whether the system is collecting learning-grade feedback." })}
+            />
+          </div>
+          <div className="mt-10 grid gap-5 lg:grid-cols-4">
+            {proofPillars.map((item) => (
+              <CapabilityCard
+                key={item.title.tr}
+                title={text(item.title)}
+                description={text(item.description)}
+                icon={item.icon}
+                tone="default"
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-white/5">
+        <div className="shell py-20">
+          <SectionHeading
+            eyebrow={text({ tr: "Bir sonraki adim", en: "Next step" })}
+            title={text({
+              tr: "Hangi aciyla bakiyorsan ona gore giris yolu hazir.",
+              en: "There is a clear next step for each type of visitor.",
+            })}
+            description={text({
+              tr: "Kurum alicisi, yatirimci veya urun meraklisi olmaniza gore farkli ama net bir sonraki adim sunuyoruz.",
+              en: "Whether you are a buyer, investor, or product explorer, the next step is explicit.",
+            })}
+          />
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+            {buyerPaths.map((path) => (
+              <CapabilityCard
+                key={path.title.tr}
+                title={text(path.title)}
+                description={text(path.description)}
+                icon={path.icon}
+                tone="blue"
+                cta={{ href: path.href, label: text(path.cta) }}
+              />
+            ))}
+          </div>
         </div>
       </section>
     </div>

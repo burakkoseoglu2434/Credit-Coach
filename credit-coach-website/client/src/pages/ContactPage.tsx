@@ -40,7 +40,7 @@ export function ContactPage() {
                 en: "The fastest way to move this forward is a focused conversation.",
               })}
               description={text({
-                tr: "Lender use case, canli demo ya da yatirimci gorusmesi; form hepsini ayri kaydeder.",
+                tr: "Kurum kullanim senaryosu, canli demo ya da yatirimci gorusmesi; form hepsini ayri kaydeder.",
                 en: "Tell us whether you are exploring a lender use case, a live demo, or an investor discussion. The backend captures all three.",
               })}
             />
@@ -51,7 +51,7 @@ export function ContactPage() {
                 </div>
                 <p className="mt-3 text-sm leading-7 text-slate-400">
                   {text({
-                    tr: "Underwriting, recovery, recourse veya policy optimization kullanimlarini konusmak icin en dogru giris.",
+                    tr: "Degerlendirme, geri kazanım, aksiyon planlama veya teklif optimizasyonu kullanimlarini konusmak icin en dogru giris.",
                     en: "Best when you want to discuss underwriting, recovery, recourse, or policy optimization use cases.",
                   })}
                 </p>
