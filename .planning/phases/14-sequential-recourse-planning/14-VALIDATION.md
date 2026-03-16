@@ -51,13 +51,13 @@ created: 2026-03-16
 
 ## Wave 0 Requirements
 
-- [x] `credit-coach/tests/test_recourse_redesign.py` - extend canonical plan and serialization coverage for multi-phase trajectory structure
-- [x] `credit-coach/tests/test_sequential_recourse.py` - protect weekly-loop trajectory simulation and checkpoint behavior
+- [x] `credit-coach/tests/test_recourse_redesign.py` - extend canonical plan and serialization coverage for `phases[]` as the trajectory source of truth
+- [x] `credit-coach/tests/test_sequential_recourse.py` - protect weekly-loop trajectory simulation, checkpoint behavior, and review-boundary replan transitions
 - [x] `credit-coach/tests/test_recourse_funnel_kpis.py` - validate phase counts, checkpoint deltas, and trajectory rollout metrics
-- [x] `credit-coach/tests/test_planner_denied_objective.py` - protect phase-aware objective ordering under inherited gates
+- [x] `credit-coach/tests/test_planner_denied_objective.py` - protect short-term-first phase-aware objective ordering under inherited gates
 - [x] `credit-coach/tests/test_batch_candidate_diversity.py` - keep trajectory-supporting artifacts machine-readable in batch outputs
 - [x] `credit-coach/tests/test_phase_experiment_suite.py` - verify seeded trajectory aggregation remains deterministic
-- [x] `credit-coach/tests/test_challenger_matrix_selection.py` - verify challenger comparisons remain stable when phase-aware objective terms are added
+- [x] `credit-coach/tests/test_challenger_matrix_selection.py` - verify challenger comparisons remain stable when phase-aware objective terms and policy labels are added
 
 ---
 
@@ -66,8 +66,12 @@ created: 2026-03-16
 One human scan is still useful after execution:
 
 - confirm trajectory phases read like a canonical plan structure rather than a duplicated reporting view
+- confirm `phases[]` is the canonical semantic layer while flat `actions[]` remains compatibility output
 - confirm week 4, week 12, and week 24 checkpoints are consistent with the serialized trajectory representation
+- confirm checkpoint penalties are soft and reviewable rather than silently hard-invalidating trajectories
+- confirm hybrid phase transitions expose explicit `trajectory_status`, `current_phase`, and `next_review_week` state
 - confirm long-horizon optimization never promotes a trajectory that weakens inherited safety and governance gates
+- confirm high-risk trajectories remain more conservative in early phases than general denied trajectories
 - confirm dynamic simulation extends the weekly coaching seam instead of introducing a disconnected second simulator
 - confirm trajectory evidence remains machine-readable and explanation-first rather than becoming a dashboard-only layer
 

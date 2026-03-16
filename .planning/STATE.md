@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 14 is now planned under v1.2 - next milestone work is executing multi-phase trajectory planning, dynamic simulation, and phase-aware optimization
+**Current focus:** Phase 14 is replanned under v1.2 with locked trajectory, checkpoint, and replan policy decisions - next milestone work is executing multi-phase trajectory planning, dynamic simulation, and phase-aware optimization
 
 ## Current Position
 
 Phase: 14 of 16 (Sequential Recourse Planning)
 Plan: 3 of 3 in current phase
 Status: Planned
-Last activity: 2026-03-16 - Planned Phase 14 from milestone intent and Phase 12-13 brownfield seams
+Last activity: 2026-03-16 - Replanned Phase 14 with locked trajectory shape, checkpoint priority, hybrid replan behavior, and short-term-first optimization policy
 
 Progress: [####------] 40%
 
@@ -74,6 +74,9 @@ Recent decisions affecting current work:
 - Phase 14 planned: canonical trajectory structure should build on existing `phase_id`, `time_months`, checkpoint, and roadmap seams rather than replacing them
 - Phase 14 planned: the weekly coaching loop remains the dynamic simulation grain for checkpoint and partial-execution trajectory behavior
 - Phase 14 planned: phase-aware optimization must remain subordinate to inherited fairness, reliability, telemetry, and acceptance gates
+- Phase 14 context locked: `phases[]` is the canonical trajectory semantic layer, the phase set is fixed, and one action belongs to one primary phase
+- Phase 14 context locked: checkpoint policy is `4w > 12w > 24w` with soft monotonicity expectations and review-boundary replan behavior
+- Phase 14 replanned: execution prompts now inherit hybrid trajectory transitions, short-term-first optimization, conservative high-risk policy, and trajectory policy labels
 
 ### Pending Todos
 
@@ -86,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16 16:05
-Stopped at: Phase 14 planned; next step is `$gsd-execute-phase 14`
+Last session: 2026-03-16 13:52
+Stopped at: Phase 14 replanned with locked context; next step is `$gsd-execute-phase 14`
 Resume file: None

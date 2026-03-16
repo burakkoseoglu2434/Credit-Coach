@@ -1,7 +1,7 @@
 # Phase 14: Sequential Recourse Planning - Research
 
 **Researched:** 2026-03-16
-**Status:** Ready for planning
+**Status:** Ready for replanning
 **Confidence:** HIGH
 
 ## Planning Question
@@ -10,7 +10,7 @@ What has to change so Credit Coach can move from behavior-aware one-shot recomme
 
 ## Planning Basis
 
-Phase 14 does not yet have a locked `14-CONTEXT.md`. For this planning pass, the authoritative sources are:
+Phase 14 now has a locked `14-CONTEXT.md`. For this replanning pass, the authoritative sources are:
 
 - `.planning/PROJECT.md`
 - `.planning/ROADMAP.md`
@@ -21,10 +21,11 @@ Phase 14 does not yet have a locked `14-CONTEXT.md`. For this planning pass, the
 - `.planning/phases/12-action-realism-feasibility-expansion/12-RESEARCH.md`
 - `.planning/phases/13-behavior-aware-recourse/13-CONTEXT.md`
 - `.planning/phases/13-behavior-aware-recourse/13-RESEARCH.md`
+- `.planning/phases/14-sequential-recourse-planning/14-CONTEXT.md`
 - current recommendation code under `credit-coach/src/credit_coach/`
 - current tests under `credit-coach/tests/`
 
-That is sufficient because the milestone already locks the Phase 14 goal and Phase 13 has now completed the execution-probability and partial-execution seams that Phase 14 needs to build on. This pass therefore plans Phase 14 from milestone intent plus brownfield code reality rather than from newly gathered discuss-phase decisions.
+That is sufficient because the milestone goal, the brownfield codebase seam, and the remaining Phase 14 gray areas are now all locked. This pass therefore replans Phase 14 from milestone intent, brownfield code reality, and explicit trajectory decisions rather than from open-ended discovery.
 
 ## Executive Summary
 
@@ -41,11 +42,25 @@ The gap is that these pieces are still mostly descriptive or post-hoc. The core 
 
 The safest brownfield strategy is:
 
-- formalize one canonical multi-phase trajectory contract in schemas and serialization
+- formalize one canonical multi-phase trajectory contract in schemas and serialization, with `phases[]` as the semantic source of truth and `actions[]` preserved for compatibility
 - make generator and planner produce phase-aware trajectories instead of only a flattened action list
-- reuse the weekly coaching loop as the dynamic simulation grain, but make it trajectory-aware
-- keep inherited gate logic authoritative and let phase-aware optimization reorder only eligible plans
+- reuse the weekly coaching loop as the dynamic simulation grain, but make it trajectory-aware and review-driven at phase boundaries
+- keep inherited gate logic authoritative and let phase-aware optimization reorder only eligible plans with short-term health prioritized over long-horizon upside
 - publish stable trajectory evidence that batch, suite, challenger, and release review can aggregate without redefining the KPI contract
+
+The locked context sharpens that strategy further:
+
+- canonical trajectory semantics live in `phases[]`, not in a reporting-only projection
+- the phase vocabulary stays fixed:
+  - `phase_1_stabilize`
+  - `phase_2_build`
+  - `phase_3_optimize`
+- one action belongs to one primary phase; repeated interventions become new steps
+- the primary checkpoint is `4 hafta`, with checkpoint priority ordered as `4w > 12w > 24w`
+- checkpoint regression is handled as soft penalty rather than strict invalidation
+- the trajectory model is hybrid: fixed phases plus review-based adaptive transitions
+- optimizer policy stays short-term-first and becomes more conservative for high-risk trajectories
+- optimizer outputs should remain interpretable through labels such as `stabilize_first`, `balanced_progress`, and `long_horizon_heavy`
 
 ## Existing Assets We Can Reuse
 
@@ -128,7 +143,12 @@ without allowing long-term optimism to hide short-term infeasibility.
 
 ### A. Promote phased trajectory structure into canonical schemas
 
-The cleanest direction is to keep `PlanRecord` as the top-level object, but add explicit trajectory-phase structure instead of relying only on flattened action rows plus derived roadmap JSON. That preserves brownfield compatibility while making phase-aware planning explicit.
+The cleanest direction is to keep `PlanRecord` as the top-level object, but add explicit trajectory-phase structure instead of relying only on flattened action rows plus derived roadmap JSON. The locked context now makes this more specific:
+
+- keep both `actions[]` and `phases[]`
+- treat `phases[]` as canonical trajectory semantics
+- keep the phase set fixed and explicit
+- require phase-level metadata such as `target_pd`, `gate_pass_target`, and `review_week`
 
 Likely touchpoints:
 
@@ -138,15 +158,26 @@ Likely touchpoints:
 
 ### B. Generate trajectories, not only sorted actions
 
-The generator should still be allowed to build action candidates the current way, but Phase 14 should introduce a canonical grouping and sequencing layer so near-, mid-, and long-horizon actions are planned as one trajectory object rather than only as a flat list sorted by month.
+The generator should still be allowed to build action candidates the current way, but Phase 14 should introduce a canonical grouping and sequencing layer so near-, mid-, and long-horizon actions are planned as one trajectory object rather than only as a flat list sorted by month. The context also rules out one ambiguity: a single action should not span multiple phases. If repeated intervention is needed, it should become a new step.
 
 ### C. Reuse the weekly loop as the dynamic trajectory simulator
 
-The right simulation strategy is to keep the weekly coaching loop as the execution grain, then layer time-aware trajectory checkpoints and risk inertia on top of it. That avoids simulator drift and keeps Phase 14 consistent with Phase 13 behavior-aware evidence.
+The right simulation strategy is to keep the weekly coaching loop as the execution grain, then layer time-aware trajectory checkpoints and risk inertia on top of it. Review-driven adaptive transitions should happen at phase boundaries:
+
+- week 4
+- week 12
+- optional week 24 closeout
+
+That avoids simulator drift, keeps Phase 14 consistent with Phase 13 behavior-aware evidence, and matches the locked hybrid replan model.
 
 ### D. Keep optimization gate-first and phase-aware second
 
-The phase-aware objective should only operate after inherited constraint, fairness, reliability, telemetry, and release eligibility semantics. It should not create a second path that can promote unsafe trajectories because their long-run outcome looks good.
+The phase-aware objective should only operate after inherited constraint, fairness, reliability, telemetry, and release eligibility semantics. It should not create a second path that can promote unsafe trajectories because their long-run outcome looks good. The locked policy now makes this explicit:
+
+- early checkpoint health is primary
+- medium-horizon confirmation is secondary
+- long-horizon upside is tertiary
+- high-risk segments get a more conservative version of the same weighting
 
 ### E. Keep evidence machine-readable and seeded
 
@@ -158,6 +189,7 @@ Phase 14 should continue the artifact pattern established in earlier phases:
 - explanation-first markdown derived from those artifacts
 
 Trajectory evidence should therefore live in stable JSON or CSV artifacts rather than only in the release-review markdown.
+Trajectory artifacts should also carry transition state so later phases can reason about `on_track`, `needs_replan`, and `degraded` trajectories without inventing a new tracking layer.
 
 ## Recommended Plan Breakdown
 
@@ -182,4 +214,4 @@ Focus on ranking trajectories by balancing short-term feasibility with longer-ho
 
 ## Recommendation
 
-Proceed with Phase 14 now. The repository is ready: Phase 12 made actions explicit, Phase 13 made follow-through explicit, and the brownfield code already contains enough phase and checkpoint structure to promote sequential planning into a first-class recommendation contract rather than a reporting afterthought.
+Proceed with Phase 14 now. The repository is ready: Phase 12 made actions explicit, Phase 13 made follow-through explicit, and the gray areas that most affect outcome are now locked. The replan should therefore focus on implementing one canonical `phases[]` contract, review-driven transitions, and short-term-first phase-aware optimization rather than reopening scope.
