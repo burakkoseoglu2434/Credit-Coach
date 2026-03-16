@@ -28,7 +28,7 @@ async function createApp() {
     });
 
     app.use(vite.middlewares);
-    app.use("*", async (req, res, next) => {
+    app.use(async (req, res, next) => {
       try {
         const url = req.originalUrl;
         const template = await fs.readFile(path.resolve(rootDir, "index.html"), "utf-8");
@@ -44,7 +44,7 @@ async function createApp() {
 
   const clientDir = path.resolve(rootDir, "dist", "client");
   app.use(express.static(clientDir));
-  app.use("*", (_req, res) => {
+  app.use((_req, res) => {
     res.sendFile(path.resolve(clientDir, "index.html"));
   });
 

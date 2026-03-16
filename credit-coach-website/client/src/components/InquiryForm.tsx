@@ -73,10 +73,10 @@ export function InquiryForm() {
 
   const activeForm =
     kind === "contact"
-      ? (contactForm as UseFormReturn<Record<string, any>>)
+      ? (contactForm as unknown as UseFormReturn<Record<string, any>>)
       : kind === "demo"
-        ? (demoForm as UseFormReturn<Record<string, any>>)
-        : (investorForm as UseFormReturn<Record<string, any>>);
+        ? (demoForm as unknown as UseFormReturn<Record<string, any>>)
+        : (investorForm as unknown as UseFormReturn<Record<string, any>>);
 
   const onSubmit = activeForm.handleSubmit(async (values) => {
     await mutation.mutateAsync(values as Record<string, unknown>);
@@ -104,16 +104,16 @@ export function InquiryForm() {
 
       <form onSubmit={onSubmit} className="mt-6 grid gap-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Name" error={activeForm.formState.errors.name?.message}>
+          <Field label="Name" error={errorText(activeForm.formState.errors.name)}>
             <input {...activeForm.register("name")} className={inputClassName} />
           </Field>
-          <Field label="Company" error={activeForm.formState.errors.company?.message}>
+          <Field label="Company" error={errorText(activeForm.formState.errors.company)}>
             <input {...activeForm.register("company")} className={inputClassName} />
           </Field>
-          <Field label="Role" error={activeForm.formState.errors.role?.message}>
+          <Field label="Role" error={errorText(activeForm.formState.errors.role)}>
             <input {...activeForm.register("role")} className={inputClassName} />
           </Field>
-          <Field label="Email" error={activeForm.formState.errors.email?.message}>
+          <Field label="Email" error={errorText(activeForm.formState.errors.email)}>
             <input type="email" {...activeForm.register("email")} className={inputClassName} />
           </Field>
         </div>
@@ -146,7 +146,7 @@ export function InquiryForm() {
           </div>
         ) : null}
 
-        <Field label="Message" error={activeForm.formState.errors.message?.message}>
+        <Field label="Message" error={errorText(activeForm.formState.errors.message)}>
           <textarea rows={5} {...activeForm.register("message")} className={inputClassName} />
         </Field>
 
@@ -177,6 +177,19 @@ export function InquiryForm() {
       </form>
     </div>
   );
+}
+
+function errorText(error: unknown): string | undefined {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
+  ) {
+    return (error as { message: string }).message;
+  }
+
+  return undefined;
 }
 
 const inputClassName =

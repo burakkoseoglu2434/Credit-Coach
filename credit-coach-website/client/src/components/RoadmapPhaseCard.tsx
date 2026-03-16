@@ -25,7 +25,7 @@ export function RoadmapPhaseCard({ phase }: RoadmapPhaseCardProps) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-[0.22em] text-arctic/55">
-            {phase.phase_id.replaceAll("_", " ")}
+            {phase.phase_id.split("_").join(" ")}
           </div>
           <div className="mt-2 font-display text-2xl font-semibold text-white">
             {phase.phase_title}
