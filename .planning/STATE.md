@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 16 is next under v1.2 and the remaining milestone work is outcome-feedback learning loops, richer decision logging, and off-policy evaluation
+**Current focus:** Phase 16 is now planned under v1.2 and the next work is executing richer decision logging, normalized outcome ingestion, and off-policy evaluation
 
 ## Current Position
 
 Phase: 16 of 16 (Outcome Feedback & Learning Loop)
 Plan: 0 of 3 in current phase
 Status: Planned
-Last activity: 2026-03-16 - Completed Phase 15 around offer-bearing actions, recovery-aware ranking, and offer-policy evidence
+Last activity: 2026-03-16 - Planned Phase 16 around decision logging, outcome ingestion, and off-policy evaluation
 
 Progress: [########--] 80%
 
@@ -90,6 +90,9 @@ Recent decisions affecting current work:
 - Phase 15 complete: institution-side offers now appear as explicit term-bearing institutional actions under the existing typed-action stack, with one active rankable offer branch at most
 - Phase 15 complete: planner and batch evaluation now use distinct offer-acceptance plus combined-realization semantics and publish canonical `offer_optimization_summary.json` evidence
 - Phase 15 complete: suite, challenger, outcome feedback, and milestone review now consume offer-policy evidence under one seeded supporting contract with explanation-first review output
+- Phase 16 planned: decision logging will expand to carry recommendation, offer, execution, propensity, and candidate-set context keyed by `decision_id`
+- Phase 16 planned: outcome feedback will normalize action completion, offer acceptance, payment, default, and recovery signals into learning-ready artifacts with explicit completeness status
+- Phase 16 planned: the repo will add IPS and Doubly Robust off-policy evaluation as supporting learning evidence rather than as a new release gate
 
 ### Pending Todos
 
@@ -102,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16 18:35
-Stopped at: Phase 15 complete; next step is `$gsd-discuss-phase 16` or `$gsd-plan-phase 16 --research`
+Last session: 2026-03-16 19:05
+Stopped at: Phase 16 planned; next step is `$gsd-execute-phase 16`
 Resume file: None
