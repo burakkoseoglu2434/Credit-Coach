@@ -18,8 +18,8 @@
 
 ### Sequential Recourse Planning
 
-- [ ] **REC-06**: Planner can generate phased recommendation trajectories for 0-4 weeks, 1-3 months, and 3-12 months rather than only one-shot plans
-- [ ] **REC-07**: Trajectory simulation can model timing, partial execution, and dynamic risk evolution so short-term improvements do not hide long-term harm
+- [x] **REC-06**: Planner can generate phased recommendation trajectories for 0-4 weeks, 1-3 months, and 3-12 months rather than only one-shot plans
+- [x] **REC-07**: Trajectory simulation can model timing, partial execution, and dynamic risk evolution so short-term improvements do not hide long-term harm
 
 ### Policy Optimization Layer
 
@@ -57,8 +57,8 @@
 | REC-03 | Phase 12 | Complete |
 | REC-04 | Phase 13 | Complete |
 | REC-05 | Phase 13 | Complete |
-| REC-06 | Phase 14 | Pending |
-| REC-07 | Phase 14 | Pending |
+| REC-06 | Phase 14 | Complete |
+| REC-07 | Phase 14 | Complete |
 | REC-08 | Phase 15 | Pending |
 | REC-09 | Phase 15 | Pending |
 | REC-10 | Phase 16 | Pending |
@@ -71,4 +71,4 @@
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-16 after completing Phase 13*
+*Last updated: 2026-03-16 after completing Phase 14*

@@ -80,9 +80,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 14-01: Build a multi-phase planning model for near-, mid-, and longer-horizon actions
-- [ ] 14-02: Add dynamic trajectory simulation with timing, inertia, and partial execution
-- [ ] 14-03: Balance short-term feasibility against long-term risk improvement in the optimization objective
+- [x] 14-01: Build a multi-phase planning model for near-, mid-, and longer-horizon actions
+- [x] 14-02: Add dynamic trajectory simulation with timing, inertia, and partial execution
+- [x] 14-03: Balance short-term feasibility against long-term risk improvement in the optimization objective
 
 #### Phase 15: Policy Optimization Layer
 **Goal**: Integrate institutional offer optimization with recourse planning.
@@ -131,6 +131,6 @@ Plans:
 | 11. Release Evidence and Outcome Feedback | v1.1 | 3/3 | Complete | 2026-03-15 |
 | 12. Action Realism & Feasibility Expansion | v1.2 | 3/3 | Complete | 2026-03-15 |
 | 13. Behavior-Aware Recourse | v1.2 | 3/3 | Complete | 2026-03-16 |
-| 14. Sequential Recourse Planning | v1.2 | 0/3 | Pending | - |
+| 14. Sequential Recourse Planning | v1.2 | 3/3 | Complete | 2026-03-16 |
 | 15. Policy Optimization Layer | v1.2 | 0/3 | Pending | - |
 | 16. Outcome Feedback & Learning Loop | v1.2 | 0/3 | Pending | - |

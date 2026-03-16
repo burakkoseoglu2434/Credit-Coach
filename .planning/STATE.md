@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 14 is replanned under v1.2 with locked trajectory, checkpoint, and replan policy decisions - next milestone work is executing multi-phase trajectory planning, dynamic simulation, and phase-aware optimization
+**Current focus:** Phase 14 is complete under v1.2 and the next milestone work is Phase 15 policy optimization over institution-side offers and recovery-aware scoring
 
 ## Current Position
 
 Phase: 14 of 16 (Sequential Recourse Planning)
 Plan: 3 of 3 in current phase
-Status: Planned
-Last activity: 2026-03-16 - Replanned Phase 14 with locked trajectory shape, checkpoint priority, hybrid replan behavior, and short-term-first optimization policy
+Status: Complete
+Last activity: 2026-03-16 - Completed Phase 14 with canonical multi-phase trajectories, weekly-loop checkpoint simulation, and phase-aware optimization evidence
 
-Progress: [####------] 40%
+Progress: [######----] 60%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 38 (historical import + phases 8-13)
+- Total plans completed: 41 (historical import + phases 8-14)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -29,11 +29,11 @@ Progress: [####------] 40%
 |-------|-------|-------|----------|
 | v1.0 historical baseline | 20 | historical import | n/a |
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
-| v1.2 active milestone | 6 | phases 12-13 complete, phases 14-16 pending | n/a |
+| v1.2 active milestone | 9 | phases 12-14 complete, phases 15-16 pending | n/a |
 
 **Recent Trend:**
 - Last 5 plans: historical data not reconstructed
-- Trend: Behavior-aware evidence is now in place and the roadmap is ready to shift from one-shot plans toward canonical multi-phase trajectories
+- Trend: Sequential planning is now first-class, so the roadmap can move from trajectory representation into institution-side offer optimization
 
 ## Accumulated Context
 
@@ -77,6 +77,9 @@ Recent decisions affecting current work:
 - Phase 14 context locked: `phases[]` is the canonical trajectory semantic layer, the phase set is fixed, and one action belongs to one primary phase
 - Phase 14 context locked: checkpoint policy is `4w > 12w > 24w` with soft monotonicity expectations and review-boundary replan behavior
 - Phase 14 replanned: execution prompts now inherit hybrid trajectory transitions, short-term-first optimization, conservative high-risk policy, and trajectory policy labels
+- Phase 14 complete: plans now expose canonical `phases[]`, checkpoint metadata, and review-boundary trajectory state under one shared `trajectory.py` seam
+- Phase 14 complete: weekly-loop simulation now drives trajectory checkpoint evidence, soft regression penalties, and machine-readable transition breakdowns
+- Phase 14 complete: planner, suite, challenger, and review surfaces now share phase-aware optimization evidence and policy labels without weakening inherited governance gates
 
 ### Pending Todos
 
@@ -90,5 +93,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-16 13:52
-Stopped at: Phase 14 replanned with locked context; next step is `$gsd-execute-phase 14`
+Stopped at: Phase 14 completed; next step is `$gsd-discuss-phase 15` or `$gsd-plan-phase 15 --research`
 Resume file: None
