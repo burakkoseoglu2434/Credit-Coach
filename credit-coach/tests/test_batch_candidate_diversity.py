@@ -5,6 +5,7 @@ from credit_coach.cli.run_batch_recourse_eval import (
     _apply_fairness_segment_cap_boost,
     _build_behavior_aware_artifacts,
     _build_candidate_quality_artifacts,
+    _build_trajectory_artifacts,
     _build_high_risk_profile_activation_summary,
     _apply_high_risk_profile,
     _build_fairness_failure_breakdown,
@@ -257,6 +258,57 @@ def test_build_behavior_aware_artifacts_uses_denied_as_canonical_population():
     assert "execution_probability_breakdown_csv" in summary["supporting_artifacts"]
     assert set(execution_breakdown["population"]) == {"denied", "high_risk_denied"}
     assert set(partial_breakdown["execution_scenario"]) >= {"full_execution", "mixed_execution"}
+
+
+def test_build_trajectory_artifacts_surface_transition_state_and_policy_labels():
+    batch_df = pd.DataFrame(
+        [
+            {
+                "customer_id": "c1",
+                "denied_base": 1,
+                "risk_band": "high",
+                "trajectory_gate_pass_4w": 1,
+                "trajectory_gate_pass_12w": 1,
+                "trajectory_gate_pass_24w": 1,
+                "trajectory_partial_progress": 1,
+                "trajectory_time_to_gate_pass_days": 28.0,
+                "trajectory_soft_regression_penalty": 0.0,
+                "trajectory_status": "on_track",
+                "trajectory_current_phase": "phase_3_optimize",
+                "trajectory_next_review_week": 24,
+                "trajectory_phase_transition_reason": "checkpoint_clear",
+                "trajectory_policy_label": "balanced_progress",
+                "trajectory_policy_score": 0.72,
+            },
+            {
+                "customer_id": "c2",
+                "denied_base": 1,
+                "risk_band": "mid",
+                "trajectory_gate_pass_4w": 0,
+                "trajectory_gate_pass_12w": 0,
+                "trajectory_gate_pass_24w": 1,
+                "trajectory_partial_progress": 1,
+                "trajectory_time_to_gate_pass_days": 168.0,
+                "trajectory_soft_regression_penalty": 0.03,
+                "trajectory_status": "needs_replan",
+                "trajectory_current_phase": "phase_1_stabilize",
+                "trajectory_next_review_week": 4,
+                "trajectory_phase_transition_reason": "missed_actions_streak",
+                "trajectory_policy_label": "long_horizon_heavy",
+                "trajectory_policy_score": 0.21,
+            },
+        ]
+    )
+
+    summary, transition_breakdown, policy_breakdown = _build_trajectory_artifacts(batch_df)
+
+    assert summary["primary_checkpoint_week"] == 4
+    assert summary["canonical_metrics"]["trajectory_gate_pass_rate_24w"] == 1.0
+    assert summary["canonical_metrics"]["trajectory_needs_replan_rate"] == 0.5
+    assert summary["dominant_transition_reason"] in {"checkpoint_clear", "missed_actions_streak"}
+    assert "trajectory_transition_breakdown_csv" in summary["supporting_artifacts"]
+    assert set(transition_breakdown["trajectory_status"]) == {"on_track", "needs_replan"}
+    assert set(policy_breakdown["trajectory_policy_label"]) == {"balanced_progress", "long_horizon_heavy"}
 
 
 def test_stage1_filter_candidate_pool_applies_source_cap():

@@ -269,6 +269,39 @@ def test_choose_best_plan_prefers_non_rejected_when_available():
     assert best.plan_id == "p_needs_review"
 
 
+def test_choose_best_plan_prefers_stabilize_first_over_long_horizon_heavy_when_gates_match():
+    stabilize_first = _mk_plan(
+        "p_stabilize_first",
+        ci_high=0.34,
+        reliability=0.75,
+        worst_margin=-0.02,
+        predicted_pd=0.30,
+        robust_score=2.0,
+        time_months=1,
+    )
+    long_horizon = _mk_plan(
+        "p_long_horizon",
+        ci_high=0.34,
+        reliability=0.75,
+        worst_margin=-0.02,
+        predicted_pd=0.28,
+        robust_score=100.0,
+        time_months=6,
+    )
+
+    best = choose_best_plan(
+        [long_horizon, stabilize_first],
+        base_pd=0.60,
+        tau=0.35,
+        min_reliability=0.70,
+        min_worst_risk_margin=-0.05,
+    )
+
+    assert best.plan_id == "p_stabilize_first"
+    assert best.trajectory_policy_label == "stabilize_first"
+    assert long_horizon.trajectory_policy_label in {"balanced_progress", "long_horizon_heavy"}
+
+
 def test_choose_best_plan_denied_mode_prefers_phase1_when_short_term_enabled():
     slower = _mk_plan(
         "p_slow",

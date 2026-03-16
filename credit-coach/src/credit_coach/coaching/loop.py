@@ -9,6 +9,7 @@ from credit_coach.coaching.messaging import reason_codes
 from credit_coach.coaching.progress import classify_progress
 from credit_coach.coaching.reviewer import evaluate_replan
 from credit_coach.macro.shock_scenarios import scenario_pd_shift
+from credit_coach.recourse.execution_probability import classify_execution_scenario
 
 
 def _default_shock_scenario() -> dict:
@@ -20,6 +21,23 @@ def _planned_actions_this_week(remaining_actions: int, weeks_left: int, max_week
         return 0
     plan = int(math.ceil(remaining_actions / max(1, weeks_left)))
     return int(max(1, min(max_weekly_actions, plan)))
+
+
+def _phase_for_week(week: int) -> str:
+    w = max(1, int(week))
+    if w <= 4:
+        return "phase_1_stabilize"
+    if w <= 12:
+        return "phase_2_build"
+    return "phase_3_optimize"
+
+
+def _next_review_week(week: int, review_weeks: tuple[int, ...]) -> int:
+    w = max(1, int(week))
+    for review_week in review_weeks:
+        if w <= int(review_week):
+            return int(review_week)
+    return int(review_weeks[-1]) if review_weeks else w
 
 
 def run_weekly_coaching_loop(
@@ -44,6 +62,9 @@ def run_weekly_coaching_loop(
     max_weekly_actions: int = 3,
     macro_shock_schedule: dict[int, dict] | None = None,
     min_robust_margin: float | None = None,
+    scheduled_actions_by_week: dict[int, int] | None = None,
+    review_weeks: tuple[int, ...] = (4, 12, 24),
+    financial_inertia: float = 0.18,
 ) -> pd.DataFrame:
     """
     Sequential weekly coaching simulation.
@@ -60,10 +81,25 @@ def run_weekly_coaching_loop(
     adaptive_target = float(max(0.0, min(1.0, target_pd if target_pd is not None else max(0.0, tau - 0.02))))
     remaining_actions = max(0, int(plan_action_count))
     missed_streak = 0
+    review_weeks = tuple(sorted({max(1, int(week)) for week in review_weeks})) or (4, 12, 24)
+    scheduled_actions_by_week = {
+        max(1, int(week)): max(0, int(count))
+        for week, count in (scheduled_actions_by_week or {}).items()
+    }
+    trajectory_status_state = "on_track"
+    current_phase_state = "phase_1_stabilize"
+    next_review_state = _next_review_week(1, review_weeks)
+    phase_transition_reason_state = "initial_plan"
+    replanned_from_phase_state: str | None = None
 
     for w in range(1, weeks + 1):
         weeks_left = weeks - w + 1
-        planned_actions = _planned_actions_this_week(remaining_actions, weeks_left, max_weekly_actions)
+        planned_actions = int(scheduled_actions_by_week.get(w, 0))
+        if planned_actions <= 0:
+            planned_actions = _planned_actions_this_week(remaining_actions, weeks_left, max_weekly_actions)
+        planned_actions = int(min(max(0, planned_actions), max_weekly_actions, remaining_actions))
+        phase_boundary_review = bool(w in review_weeks)
+        phase_for_week = _phase_for_week(w)
 
         shock_scenario = None
         if macro_shock_schedule and w in macro_shock_schedule:
@@ -80,7 +116,8 @@ def run_weekly_coaching_loop(
 
         target_pull = max(0.0, (current_pd - adaptive_target) / max(1, weeks_left))
         action_gain = float(executed_actions) * float(action_effect_per_step)
-        deterministic_improvement = action_gain + (0.5 * target_pull)
+        inertia_dampener = max(0.20, 1.0 - (float(financial_inertia) * max(0.0, current_pd)))
+        deterministic_improvement = (action_gain + (0.5 * target_pull)) * inertia_dampener
         noise = float(rng.normal(loc=0.0, scale=float(max(0.0, execution_noise_std))))
 
         next_pd = float(np.clip(current_pd - deterministic_improvement + shock_delta + noise, 0.0, 1.0))
@@ -107,11 +144,31 @@ def run_weekly_coaching_loop(
             min_robust_margin=min_robust_margin,
         )
 
-        if replan:
-            # Dynamic weekly replan: tighten target and slightly increase remaining plan effort.
+        if replan and phase_boundary_review:
+            # Hybrid transition model: adapt only at canonical review boundaries.
             adaptive_target = float(max(0.0, min(adaptive_target, next_pd - 0.01, tau - 0.01)))
             if remaining_actions > 0:
                 remaining_actions = min(int(plan_action_count), remaining_actions + 1)
+            trajectory_status_state = "needs_replan"
+            current_phase_state = phase_for_week
+            next_review_state = int(w)
+            phase_transition_reason_state = "|".join(replan_reasons) if replan_reasons else "review_boundary_replan"
+            replanned_from_phase_state = phase_for_week
+        elif phase_boundary_review:
+            current_phase_state = _phase_for_week(min(weeks, w + 1))
+            next_review_state = _next_review_week(w + 1, review_weeks)
+            phase_transition_reason_state = "checkpoint_clear"
+            replanned_from_phase_state = None
+
+        execution_scenario = classify_execution_scenario(
+            float(executed_actions / max(1, planned_actions)) if planned_actions > 0 else 1.0
+        )
+        if w == weeks and execution_scenario == "failed_execution" and trajectory_status_state != "needs_replan":
+            trajectory_status_state = "degraded"
+            current_phase_state = phase_for_week
+            next_review_state = int(review_weeks[-1])
+            phase_transition_reason_state = "execution_failed"
+            replanned_from_phase_state = None
 
         msg_codes = reason_codes(
             progress_label=label,
@@ -137,12 +194,18 @@ def run_weekly_coaching_loop(
                 "missed_action": int(missed_action),
                 "missed_actions_streak": int(missed_streak),
                 "execution_rate": float(executed_actions / max(1, planned_actions)) if planned_actions > 0 else 1.0,
+                "execution_scenario": execution_scenario,
                 "shock_delta": shock_delta,
                 "target_pd": adaptive_target,
                 "robust_margin": robust_margin,
+                "phase_boundary_review": int(phase_boundary_review),
+                "current_phase": str(current_phase_state),
+                "next_review_week": int(next_review_state),
+                "trajectory_status": str(trajectory_status_state),
+                "phase_transition_reason": str(phase_transition_reason_state),
+                "replanned_from_phase": str(replanned_from_phase_state or ""),
             }
         )
         current_pd = next_pd
 
     return pd.DataFrame(rows)
-

@@ -184,6 +184,75 @@ def _build_challenger_partial_execution_breakdown(breakdown_frames: list[pd.Data
     return pd.concat([combined, rollup], ignore_index=True, sort=False)
 
 
+def _build_challenger_trajectory_transition_breakdown(breakdown_frames: list[pd.DataFrame]) -> pd.DataFrame:
+    if not breakdown_frames:
+        return pd.DataFrame(
+            columns=[
+                "variant_id",
+                "seed",
+                "population",
+                "risk_band",
+                "trajectory_status",
+                "current_phase",
+                "phase_transition_reason",
+                "count",
+                "mean_next_review_week",
+                "mean_soft_regression_penalty",
+                "share",
+                "breakdown_type",
+            ]
+        )
+    combined = pd.concat(breakdown_frames, ignore_index=True)
+    combined["breakdown_type"] = "variant_seed_population_trajectory_transition"
+    rollup = (
+        combined.groupby(
+            ["variant_id", "population", "risk_band", "trajectory_status", "current_phase", "phase_transition_reason"],
+            dropna=False,
+        )
+        .agg(
+            count=("count", "sum"),
+            mean_next_review_week=("mean_next_review_week", "mean"),
+            mean_soft_regression_penalty=("mean_soft_regression_penalty", "mean"),
+            share=("share", "mean"),
+        )
+        .reset_index()
+    )
+    rollup["seed"] = -1
+    rollup["breakdown_type"] = "variant_population_trajectory_transition_rollup"
+    return pd.concat([combined, rollup], ignore_index=True, sort=False)
+
+
+def _build_challenger_trajectory_policy_label_breakdown(breakdown_frames: list[pd.DataFrame]) -> pd.DataFrame:
+    if not breakdown_frames:
+        return pd.DataFrame(
+            columns=[
+                "variant_id",
+                "seed",
+                "population",
+                "risk_band",
+                "trajectory_policy_label",
+                "count",
+                "mean_policy_score",
+                "share",
+                "breakdown_type",
+            ]
+        )
+    combined = pd.concat(breakdown_frames, ignore_index=True)
+    combined["breakdown_type"] = "variant_seed_population_trajectory_policy_label"
+    rollup = (
+        combined.groupby(["variant_id", "population", "risk_band", "trajectory_policy_label"], dropna=False)
+        .agg(
+            count=("count", "sum"),
+            mean_policy_score=("mean_policy_score", "mean"),
+            share=("share", "mean"),
+        )
+        .reset_index()
+    )
+    rollup["seed"] = -1
+    rollup["breakdown_type"] = "variant_population_trajectory_policy_label_rollup"
+    return pd.concat([combined, rollup], ignore_index=True, sort=False)
+
+
 def _round_metric(value: Any, *, digits: int = 6) -> float:
     try:
         metric = float(value)
@@ -355,6 +424,22 @@ def _aggregate_variant_metrics(df: pd.DataFrame) -> pd.DataFrame:
         "trajectory_gate_pass_rate_24w",
         "trajectory_partial_progress_rate",
         "trajectory_median_time_to_gate_pass_days",
+        "trajectory_soft_regression_penalty_mean",
+        "trajectory_on_track_rate",
+        "trajectory_needs_replan_rate",
+        "trajectory_degraded_rate",
+        "trajectory_stabilize_first_rate",
+        "trajectory_balanced_progress_rate",
+        "trajectory_long_horizon_heavy_rate",
+        "high_risk_denied_trajectory_gate_pass_rate_4w",
+        "high_risk_denied_trajectory_gate_pass_rate_12w",
+        "high_risk_denied_trajectory_gate_pass_rate_24w",
+        "high_risk_denied_trajectory_partial_progress_rate",
+        "high_risk_denied_trajectory_median_time_to_gate_pass_days",
+        "high_risk_denied_trajectory_soft_regression_penalty_mean",
+        "high_risk_denied_trajectory_on_track_rate",
+        "high_risk_denied_trajectory_needs_replan_rate",
+        "high_risk_denied_trajectory_degraded_rate",
         "mean_plan_execution_probability",
         "expected_pd_improvement",
         "partial_execution_rate",
@@ -429,6 +514,98 @@ def _build_challenger_behavior_aware_summary(
         "supporting_artifacts": {
             "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
             "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+        },
+    }
+
+
+def _build_challenger_trajectory_summary(
+    ranked_summary_df: pd.DataFrame,
+    runs_df: pd.DataFrame,
+) -> dict[str, Any]:
+    variants: list[dict[str, Any]] = []
+    for _, row in ranked_summary_df.iterrows():
+        variant_id = str(row.get("variant_id", ""))
+        variant_runs = runs_df[runs_df["variant_id"] == variant_id]
+        dominant_transition_reason = ""
+        if "trajectory_dominant_transition_reason" in variant_runs.columns:
+            reasons = variant_runs["trajectory_dominant_transition_reason"].fillna("").astype(str)
+            reasons = reasons[reasons != ""]
+            if not reasons.empty:
+                dominant_transition_reason = str(reasons.value_counts().idxmax())
+        variants.append(
+            {
+                "variant_id": variant_id,
+                "seed_count": int(row.get("seed_count", len(variant_runs))),
+                "primary_checkpoint_week": 4,
+                "checkpoint_priority_order": [4, 12, 24],
+                "trajectory_gate_pass_rate_4w": _round_metric(
+                    row.get("mean_trajectory_gate_pass_rate_4w", row.get("trajectory_gate_pass_rate_4w", 0.0))
+                ),
+                "trajectory_gate_pass_rate_12w": _round_metric(
+                    row.get("mean_trajectory_gate_pass_rate_12w", row.get("trajectory_gate_pass_rate_12w", 0.0))
+                ),
+                "trajectory_gate_pass_rate_24w": _round_metric(
+                    row.get("mean_trajectory_gate_pass_rate_24w", row.get("trajectory_gate_pass_rate_24w", 0.0))
+                ),
+                "trajectory_partial_progress_rate": _round_metric(
+                    row.get(
+                        "mean_trajectory_partial_progress_rate",
+                        row.get("trajectory_partial_progress_rate", 0.0),
+                    )
+                ),
+                "trajectory_median_time_to_gate_pass_days": _round_metric(
+                    row.get(
+                        "mean_trajectory_median_time_to_gate_pass_days",
+                        row.get("trajectory_median_time_to_gate_pass_days", 0.0),
+                    )
+                ),
+                "trajectory_soft_regression_penalty_mean": _round_metric(
+                    row.get(
+                        "mean_trajectory_soft_regression_penalty_mean",
+                        row.get("trajectory_soft_regression_penalty_mean", 0.0),
+                    )
+                ),
+                "trajectory_on_track_rate": _round_metric(
+                    row.get("mean_trajectory_on_track_rate", row.get("trajectory_on_track_rate", 0.0))
+                ),
+                "trajectory_needs_replan_rate": _round_metric(
+                    row.get("mean_trajectory_needs_replan_rate", row.get("trajectory_needs_replan_rate", 0.0))
+                ),
+                "trajectory_degraded_rate": _round_metric(
+                    row.get("mean_trajectory_degraded_rate", row.get("trajectory_degraded_rate", 0.0))
+                ),
+                "trajectory_stabilize_first_rate": _round_metric(
+                    row.get("mean_trajectory_stabilize_first_rate", row.get("trajectory_stabilize_first_rate", 0.0))
+                ),
+                "trajectory_balanced_progress_rate": _round_metric(
+                    row.get(
+                        "mean_trajectory_balanced_progress_rate",
+                        row.get("trajectory_balanced_progress_rate", 0.0),
+                    )
+                ),
+                "trajectory_long_horizon_heavy_rate": _round_metric(
+                    row.get(
+                        "mean_trajectory_long_horizon_heavy_rate",
+                        row.get("trajectory_long_horizon_heavy_rate", 0.0),
+                    )
+                ),
+                "dominant_transition_reason": dominant_transition_reason,
+                "evidence_status": str(row.get("evidence_status", "degraded")),
+            }
+        )
+    champion_variant = str(ranked_summary_df.iloc[0].get("variant_id", "")) if not ranked_summary_df.empty else ""
+    champion_summary = next((entry for entry in variants if entry["variant_id"] == champion_variant), {})
+    return {
+        "canonical_population": "denied",
+        "primary_checkpoint_week": 4,
+        "checkpoint_priority_order": [4, 12, 24],
+        "champion_variant": champion_variant,
+        "variant_count": int(len(variants)),
+        "variants": variants,
+        "champion_summary": champion_summary,
+        "supporting_artifacts": {
+            "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
+            "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",
         },
     }
 
@@ -863,6 +1040,8 @@ def main() -> None:
     candidate_source_breakdown_frames: list[pd.DataFrame] = []
     execution_probability_breakdown_frames: list[pd.DataFrame] = []
     partial_execution_breakdown_frames: list[pd.DataFrame] = []
+    trajectory_transition_breakdown_frames: list[pd.DataFrame] = []
+    trajectory_policy_label_breakdown_frames: list[pd.DataFrame] = []
 
     for variant in _VARIANTS:
         variant_id = str(variant["variant_id"])
@@ -919,12 +1098,20 @@ def main() -> None:
             candidate_quality_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "candidate_quality_summary.json"
             candidate_source_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "candidate_source_breakdown.csv"
             behavior_aware_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "behavior_aware_summary.json"
+            trajectory_summary_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "trajectory_summary.json"
             execution_probability_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "execution_probability_breakdown.csv"
             partial_execution_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "partial_execution_breakdown.csv"
+            trajectory_transition_breakdown_path = (
+                root / "artifacts" / "runs" / batch_run_id / "tables" / "trajectory_transition_breakdown.csv"
+            )
+            trajectory_policy_label_breakdown_path = (
+                root / "artifacts" / "runs" / batch_run_id / "tables" / "trajectory_policy_label_breakdown.csv"
+            )
             train_metrics = _load_json(train_metrics_path)
             batch_metrics = _load_json(batch_metrics_path)
             candidate_quality_summary = _load_json(candidate_quality_path)
             behavior_aware_summary = _load_json(behavior_aware_path)
+            trajectory_summary = _load_json(trajectory_summary_path)
             candidate_quality_metrics = (
                 candidate_quality_summary.get("canonical_metrics", {})
                 if isinstance(candidate_quality_summary.get("canonical_metrics", {}), dict)
@@ -943,6 +1130,16 @@ def main() -> None:
             secondary_behavior_metrics = (
                 behavior_aware_summary.get("secondary_metrics", {})
                 if isinstance(behavior_aware_summary.get("secondary_metrics", {}), dict)
+                else {}
+            )
+            canonical_trajectory_metrics = (
+                trajectory_summary.get("canonical_metrics", {})
+                if isinstance(trajectory_summary.get("canonical_metrics", {}), dict)
+                else {}
+            )
+            secondary_trajectory_metrics = (
+                trajectory_summary.get("secondary_metrics", {})
+                if isinstance(trajectory_summary.get("secondary_metrics", {}), dict)
                 else {}
             )
             if batch_breakdown_path.exists():
@@ -969,6 +1166,18 @@ def main() -> None:
                     partial_execution_breakdown_df["variant_id"] = variant_id
                     partial_execution_breakdown_df["seed"] = int(seed)
                     partial_execution_breakdown_frames.append(partial_execution_breakdown_df)
+            if trajectory_transition_breakdown_path.exists():
+                trajectory_transition_breakdown_df = pd.read_csv(trajectory_transition_breakdown_path)
+                if not trajectory_transition_breakdown_df.empty:
+                    trajectory_transition_breakdown_df["variant_id"] = variant_id
+                    trajectory_transition_breakdown_df["seed"] = int(seed)
+                    trajectory_transition_breakdown_frames.append(trajectory_transition_breakdown_df)
+            if trajectory_policy_label_breakdown_path.exists():
+                trajectory_policy_label_breakdown_df = pd.read_csv(trajectory_policy_label_breakdown_path)
+                if not trajectory_policy_label_breakdown_df.empty:
+                    trajectory_policy_label_breakdown_df["variant_id"] = variant_id
+                    trajectory_policy_label_breakdown_df["seed"] = int(seed)
+                    trajectory_policy_label_breakdown_frames.append(trajectory_policy_label_breakdown_df)
             raw_p95 = float(batch_metrics.get("latency_p95_ms", 0.0))
             raw_p99 = float(batch_metrics.get("latency_p99_ms", 0.0))
             sync_p95 = batch_metrics.get("sync_latency_p95_ms")
@@ -1104,6 +1313,54 @@ def main() -> None:
                 "trajectory_gate_pass_rate_24w": float(batch_metrics.get("trajectory_gate_pass_rate_24w", 0.0)),
                 "trajectory_partial_progress_rate": float(batch_metrics.get("trajectory_partial_progress_rate", 0.0)),
                 "trajectory_median_time_to_gate_pass_days": float(batch_metrics.get("trajectory_median_time_to_gate_pass_days", 9_999.0)),
+                "trajectory_soft_regression_penalty_mean": float(
+                    canonical_trajectory_metrics.get(
+                        "trajectory_soft_regression_penalty_mean",
+                        batch_metrics.get("trajectory_soft_regression_penalty_mean", 0.0),
+                    )
+                ),
+                "trajectory_on_track_rate": float(
+                    canonical_trajectory_metrics.get(
+                        "trajectory_on_track_rate",
+                        batch_metrics.get("trajectory_on_track_rate", 0.0),
+                    )
+                ),
+                "trajectory_needs_replan_rate": float(
+                    canonical_trajectory_metrics.get(
+                        "trajectory_needs_replan_rate",
+                        batch_metrics.get("trajectory_needs_replan_rate", 0.0),
+                    )
+                ),
+                "trajectory_degraded_rate": float(
+                    canonical_trajectory_metrics.get(
+                        "trajectory_degraded_rate",
+                        batch_metrics.get("trajectory_degraded_rate", 0.0),
+                    )
+                ),
+                "trajectory_dominant_transition_reason": str(
+                    trajectory_summary.get(
+                        "dominant_transition_reason",
+                        batch_metrics.get("trajectory_dominant_transition_reason", ""),
+                    )
+                ),
+                "trajectory_stabilize_first_rate": float(
+                    canonical_trajectory_metrics.get(
+                        "trajectory_stabilize_first_rate",
+                        batch_metrics.get("trajectory_stabilize_first_rate", 0.0),
+                    )
+                ),
+                "trajectory_balanced_progress_rate": float(
+                    canonical_trajectory_metrics.get(
+                        "trajectory_balanced_progress_rate",
+                        batch_metrics.get("trajectory_balanced_progress_rate", 0.0),
+                    )
+                ),
+                "trajectory_long_horizon_heavy_rate": float(
+                    canonical_trajectory_metrics.get(
+                        "trajectory_long_horizon_heavy_rate",
+                        batch_metrics.get("trajectory_long_horizon_heavy_rate", 0.0),
+                    )
+                ),
                 "mean_plan_execution_probability": float(
                     canonical_behavior_metrics.get(
                         "mean_plan_execution_probability",
@@ -1176,6 +1433,60 @@ def main() -> None:
                         batch_metrics.get("high_risk_denied_expected_partial_progress_rate", 0.0),
                     )
                 ),
+                "high_risk_denied_trajectory_gate_pass_rate_4w": float(
+                    secondary_trajectory_metrics.get(
+                        "trajectory_gate_pass_rate_4w",
+                        batch_metrics.get("high_risk_denied_trajectory_gate_pass_rate_4w", 0.0),
+                    )
+                ),
+                "high_risk_denied_trajectory_gate_pass_rate_12w": float(
+                    secondary_trajectory_metrics.get(
+                        "trajectory_gate_pass_rate_12w",
+                        batch_metrics.get("high_risk_denied_trajectory_gate_pass_rate_12w", 0.0),
+                    )
+                ),
+                "high_risk_denied_trajectory_gate_pass_rate_24w": float(
+                    secondary_trajectory_metrics.get(
+                        "trajectory_gate_pass_rate_24w",
+                        batch_metrics.get("high_risk_denied_trajectory_gate_pass_rate_24w", 0.0),
+                    )
+                ),
+                "high_risk_denied_trajectory_partial_progress_rate": float(
+                    secondary_trajectory_metrics.get(
+                        "trajectory_partial_progress_rate",
+                        batch_metrics.get("high_risk_denied_trajectory_partial_progress_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_trajectory_median_time_to_gate_pass_days": float(
+                    secondary_trajectory_metrics.get(
+                        "trajectory_median_time_to_gate_pass_days",
+                        batch_metrics.get("high_risk_denied_trajectory_median_time_to_gate_pass_days", 9_999.0),
+                    )
+                ),
+                "high_risk_denied_trajectory_soft_regression_penalty_mean": float(
+                    secondary_trajectory_metrics.get(
+                        "trajectory_soft_regression_penalty_mean",
+                        batch_metrics.get("high_risk_denied_trajectory_soft_regression_penalty_mean", 0.0),
+                    )
+                ),
+                "high_risk_denied_trajectory_on_track_rate": float(
+                    secondary_trajectory_metrics.get(
+                        "trajectory_on_track_rate",
+                        batch_metrics.get("high_risk_denied_trajectory_on_track_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_trajectory_needs_replan_rate": float(
+                    secondary_trajectory_metrics.get(
+                        "trajectory_needs_replan_rate",
+                        batch_metrics.get("high_risk_denied_trajectory_needs_replan_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_trajectory_degraded_rate": float(
+                    secondary_trajectory_metrics.get(
+                        "trajectory_degraded_rate",
+                        batch_metrics.get("high_risk_denied_trajectory_degraded_rate", 0.0),
+                    )
+                ),
             }
             run_rows.append(row)
 
@@ -1207,6 +1518,16 @@ def main() -> None:
     )
     partial_execution_breakdown_path = run_ctx.tables_dir / "partial_execution_breakdown.csv"
     partial_execution_breakdown_df.to_csv(partial_execution_breakdown_path, index=False)
+    trajectory_transition_breakdown_df = _build_challenger_trajectory_transition_breakdown(
+        trajectory_transition_breakdown_frames
+    )
+    trajectory_transition_breakdown_path = run_ctx.tables_dir / "trajectory_transition_breakdown.csv"
+    trajectory_transition_breakdown_df.to_csv(trajectory_transition_breakdown_path, index=False)
+    trajectory_policy_label_breakdown_df = _build_challenger_trajectory_policy_label_breakdown(
+        trajectory_policy_label_breakdown_frames
+    )
+    trajectory_policy_label_breakdown_path = run_ctx.tables_dir / "trajectory_policy_label_breakdown.csv"
+    trajectory_policy_label_breakdown_df.to_csv(trajectory_policy_label_breakdown_path, index=False)
     release_df = _build_variant_release_payloads(runs_df, thresholds=kpi_thresholds, breakdown_frames=breakdown_frames)
     if not release_df.empty:
         summary_df = summary_df.merge(release_df, on="variant_id", how="left")
@@ -1240,6 +1561,12 @@ def main() -> None:
     behavior_aware_summary_path = run_ctx.tables_dir / "behavior_aware_summary.json"
     behavior_aware_summary_path.write_text(
         json.dumps(behavior_aware_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    trajectory_summary = _build_challenger_trajectory_summary(ranked_summary_df, runs_df)
+    trajectory_summary_path = run_ctx.tables_dir / "trajectory_summary.json"
+    trajectory_summary_path.write_text(
+        json.dumps(trajectory_summary, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
 
@@ -1303,6 +1630,7 @@ def main() -> None:
         "deltas_vs_control": deltas,
         "champion_high_risk_tuning_summary": high_risk_tuning_summary.get("champion_summary", {}),
         "champion_impact_summary": impact_summary.get("champion_summary", {}),
+        "champion_trajectory_summary": trajectory_summary.get("champion_summary", {}),
         "ranked_variants": ranked_variants,
     }
     decision_path = run_ctx.tables_dir / "challenger_matrix_decision.json"
@@ -1316,6 +1644,9 @@ def main() -> None:
         "behavior_aware_summary_json": "tables/behavior_aware_summary.json",
         "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
         "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+        "trajectory_summary_json": "tables/trajectory_summary.json",
+        "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
+        "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",
         "challenger_high_risk_tuning_summary_json": "tables/challenger_high_risk_tuning_summary.json",
         "challenger_impact_summary_json": "tables/challenger_impact_summary.json",
         "challenger_matrix_decision_json": "tables/challenger_matrix_decision.json",
@@ -1354,6 +1685,7 @@ def main() -> None:
                 "variant_count": int(ranked_summary_df.shape[0]),
                 "high_risk_tuning_summary": high_risk_tuning_summary.get("champion_summary", {}),
                 "behavior_aware_summary": behavior_aware_summary.get("champion_summary", {}),
+                "trajectory_summary": trajectory_summary.get("champion_summary", {}),
                 "impact_attribution_summary": impact_summary.get("champion_summary", {}),
             },
         )
@@ -1380,6 +1712,9 @@ def main() -> None:
                 "behavior_aware_summary_json": "tables/behavior_aware_summary.json",
                 "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
                 "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+                "trajectory_summary_json": "tables/trajectory_summary.json",
+                "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
+                "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",
                 "challenger_high_risk_tuning_summary_json": "tables/challenger_high_risk_tuning_summary.json",
                 "challenger_impact_summary_json": "tables/challenger_impact_summary.json",
                 **(

@@ -32,6 +32,14 @@ from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_act
 from credit_coach.recourse.execution_probability import annotate_plan_execution_probability
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.generator import generate_nine_plans
+from credit_coach.recourse.trajectory import (
+    attach_canonical_trajectory,
+    build_canonical_phases,
+    build_nominal_trajectory_checkpoints,
+    phase_id_for_month,
+    phase_title,
+    predict_plan_pd_at_month,
+)
 from credit_coach.safety.validator import validate_plan
 from credit_coach.storage.repository import save_plan
 from credit_coach.utils.run_context import create_run_context, load_config
@@ -312,64 +320,11 @@ def _plan_proximity_l1(plan: PlanRecord) -> float:
 
 
 def _phase_id_for_month(month: int) -> str:
-    m = max(1, int(month))
-    if m <= 1:
-        return "phase_1_stabilize"
-    if m <= 3:
-        return "phase_2_build"
-    return "phase_3_optimize"
+    return phase_id_for_month(month)
 
 
 def _phase_title(phase_id: str) -> str:
-    mapping = {
-        "phase_1_stabilize": "Ilk 4 Hafta - Stabilizasyon",
-        "phase_2_build": "1-3 Ay - Guclendirme",
-        "phase_3_optimize": "3-6 Ay - Optimizasyon",
-    }
-    return mapping.get(str(phase_id), str(phase_id))
-
-
-def _apply_plan_until_month(
-    row: pd.Series,
-    plan: PlanRecord,
-    *,
-    month: int,
-) -> pd.Series:
-    m = max(1, int(month))
-    x = row.copy()
-    ordered_actions = sorted(
-        list(plan.actions),
-        key=lambda a: (
-            _safe_int(getattr(a, "time_months", 0), 0),
-            str(getattr(a, "feature_name", "")),
-        ),
-    )
-    for action in ordered_actions:
-        feature = str(getattr(action, "feature_name", "")).strip()
-        if not feature or feature not in x.index:
-            continue
-        action_month = max(1, _safe_int(getattr(action, "time_months", m), m))
-        if action_month > m:
-            continue
-        try:
-            x[feature] = float(getattr(action, "target_value"))
-        except Exception:
-            continue
-    return x
-
-
-def _predict_plan_pd_at_month(
-    *,
-    row: pd.Series,
-    plan: PlanRecord,
-    month: int,
-    model,
-    calibrator,
-    feature_cols: list[str],
-) -> float:
-    x_m = _apply_plan_until_month(row, plan, month=month)
-    x_input = pd.DataFrame([x_m[feature_cols].values], columns=feature_cols)
-    return float(predict_proba_pd(model, calibrator, x_input)[0])
+    return phase_title(phase_id)
 
 
 def _build_customer_roadmap(
@@ -384,109 +339,101 @@ def _build_customer_roadmap(
     calibrator,
     feature_cols: list[str],
 ) -> dict:
-    phase_windows = {
-        "phase_1_stabilize": {"months": [1], "weeks": "1-4"},
-        "phase_2_build": {"months": [2, 3], "weeks": "5-12"},
-        "phase_3_optimize": {"months": [4, 5, 6], "weeks": "13-24"},
-    }
-    phase_steps: dict[str, list[dict]] = {
-        "phase_1_stabilize": [],
-        "phase_2_build": [],
-        "phase_3_optimize": [],
-    }
-
-    for action in sorted(
-        list(best.actions),
-        key=lambda a: (
-            _safe_int(getattr(a, "time_months", 0), 0),
-            str(getattr(a, "feature_name", "")),
-        ),
-    ):
-        m = max(1, _safe_int(getattr(action, "time_months", 1), 1))
-        phase_id = _phase_id_for_month(m)
-        phase_steps.setdefault(phase_id, [])
-        phase_steps[phase_id].append(
-            {
-                "action_key": str(getattr(action, "action_key", "") or ""),
-                "action_class": str(getattr(action, "action_class", "") or ""),
-                "action_title": str(getattr(action, "action_title", "") or ""),
-                "action_group_id": str(getattr(action, "action_group_id", "") or ""),
-                "composite_action": int(bool(getattr(action, "composite_action", False))),
-                "feature_name": str(getattr(action, "feature_name", "")),
-                "current_value": _safe_float(getattr(action, "current_value", 0.0), 0.0),
-                "target_value": _safe_float(getattr(action, "target_value", 0.0), 0.0),
-                "delta": _safe_float(getattr(action, "delta", 0.0), 0.0),
-                "time_months": int(m),
-                "estimated_cost_usd": _safe_float(getattr(action, "estimated_cost_usd", 0.0), 0.0),
-                "checkpoint_metric": str(getattr(action, "checkpoint_metric", "") or ""),
-                "requires_institutional_approval": int(
-                    bool(getattr(action, "requires_institutional_approval", False))
-                ),
-                "approval_pending_semantic_only": int(
-                    bool(getattr(action, "approval_pending_semantic_only", False))
-                ),
-                "action_status": str(getattr(action, "action_status", "") or ""),
-                "action_status_reason": str(getattr(action, "action_status_reason", "") or ""),
-                "diagnostic_flags": list(getattr(action, "diagnostic_flags", [])),
-                "action_execution_probability": (
-                    _safe_float(getattr(action, "action_execution_probability", 0.0), 0.0)
-                    if getattr(action, "action_execution_probability", None) is not None
-                    else None
-                ),
-                "approval_dependent_probability": (
-                    _safe_float(getattr(action, "approval_dependent_probability", 0.0), 0.0)
-                    if getattr(action, "approval_dependent_probability", None) is not None
-                    else None
-                ),
-                "action_group_execution_probability": (
-                    _safe_float(getattr(action, "action_group_execution_probability", 0.0), 0.0)
-                    if getattr(action, "action_group_execution_probability", None) is not None
-                    else None
-                ),
-            }
+    if not list(getattr(best, "phases", [])):
+        best.phases = build_canonical_phases(
+            best.actions,
+            base_pd=base_pd,
+            predicted_pd=getattr(best, "predicted_pd", None),
+            tau=tau,
+        )
+    if not list(getattr(best, "trajectory_checkpoints", [])):
+        best.trajectory_checkpoints = build_nominal_trajectory_checkpoints(
+            row=row,
+            plan=best,
+            base_pd=base_pd,
+            tau=tau,
+            model=model,
+            calibrator=calibrator,
+            feature_cols=feature_cols,
         )
 
     phases: list[dict] = []
-    for phase_id in ("phase_1_stabilize", "phase_2_build", "phase_3_optimize"):
-        steps = phase_steps.get(phase_id, [])
-        phase_cost = float(sum(float(s.get("estimated_cost_usd", 0.0)) for s in steps))
+    for phase in list(getattr(best, "phases", [])):
+        steps = []
+        for action in list(getattr(phase, "steps", [])):
+            steps.append(
+                {
+                    "action_key": str(getattr(action, "action_key", "") or ""),
+                    "action_class": str(getattr(action, "action_class", "") or ""),
+                    "action_title": str(getattr(action, "action_title", "") or ""),
+                    "action_group_id": str(getattr(action, "action_group_id", "") or ""),
+                    "composite_action": int(bool(getattr(action, "composite_action", False))),
+                    "feature_name": str(getattr(action, "feature_name", "")),
+                    "current_value": _safe_float(getattr(action, "current_value", 0.0), 0.0),
+                    "target_value": _safe_float(getattr(action, "target_value", 0.0), 0.0),
+                    "delta": _safe_float(getattr(action, "delta", 0.0), 0.0),
+                    "time_months": int(max(1, _safe_int(getattr(action, "time_months", 1), 1))),
+                    "estimated_cost_usd": _safe_float(getattr(action, "estimated_cost_usd", 0.0), 0.0),
+                    "checkpoint_metric": str(getattr(action, "checkpoint_metric", "") or ""),
+                    "requires_institutional_approval": int(
+                        bool(getattr(action, "requires_institutional_approval", False))
+                    ),
+                    "approval_pending_semantic_only": int(
+                        bool(getattr(action, "approval_pending_semantic_only", False))
+                    ),
+                    "action_status": str(getattr(action, "action_status", "") or ""),
+                    "action_status_reason": str(getattr(action, "action_status_reason", "") or ""),
+                    "diagnostic_flags": list(getattr(action, "diagnostic_flags", [])),
+                    "action_execution_probability": (
+                        _safe_float(getattr(action, "action_execution_probability", 0.0), 0.0)
+                        if getattr(action, "action_execution_probability", None) is not None
+                        else None
+                    ),
+                    "approval_dependent_probability": (
+                        _safe_float(getattr(action, "approval_dependent_probability", 0.0), 0.0)
+                        if getattr(action, "approval_dependent_probability", None) is not None
+                        else None
+                    ),
+                    "action_group_execution_probability": (
+                        _safe_float(getattr(action, "action_group_execution_probability", 0.0), 0.0)
+                        if getattr(action, "action_group_execution_probability", None) is not None
+                        else None
+                    ),
+                }
+            )
         phases.append(
             {
-                "phase_id": phase_id,
-                "phase_title": _phase_title(phase_id),
-                "target_window_weeks": str(phase_windows[phase_id]["weeks"]),
-                "target_window_months": list(phase_windows[phase_id]["months"]),
+                "phase_id": str(getattr(phase, "phase_id", "") or ""),
+                "phase_title": str(getattr(phase, "phase_title", "") or ""),
+                "target_window_weeks": str(getattr(phase, "target_window_weeks", "") or ""),
+                "target_window_months": list(getattr(phase, "target_window_months", [])),
+                "review_week": int(_safe_int(getattr(phase, "review_week", 4), 4)),
+                "target_pd": (
+                    _safe_float(getattr(phase, "target_pd", 0.0), 0.0)
+                    if getattr(phase, "target_pd", None) is not None
+                    else None
+                ),
+                "gate_pass_target": bool(getattr(phase, "gate_pass_target", False)),
                 "action_count": int(len(steps)),
-                "phase_cost_usd": float(phase_cost),
+                "phase_cost_usd": float(sum(float(step.get("estimated_cost_usd", 0.0)) for step in steps)),
                 "steps": steps,
             }
         )
 
     checkpoints: list[dict] = []
-    for week, month in ((4, 1), (12, 3), (24, 6)):
-        pd_hat = _predict_plan_pd_at_month(
-            row=row,
-            plan=best,
-            month=month,
-            model=model,
-            calibrator=calibrator,
-            feature_cols=feature_cols,
-        )
+    for checkpoint in list(getattr(best, "trajectory_checkpoints", [])):
         checkpoints.append(
             {
-                "week": int(week),
-                "month": int(month),
-                "predicted_pd": float(pd_hat),
-                "pd_delta_vs_base": float(base_pd - pd_hat),
-                "gate_pass_estimate": int(pd_hat <= float(tau)),
+                "week": int(_safe_int(getattr(checkpoint, "week", 0), 0)),
+                "month": int(_safe_int(getattr(checkpoint, "month", 0), 0)),
+                "phase_id": str(getattr(checkpoint, "phase_id", "") or ""),
+                "checkpoint_label": str(getattr(checkpoint, "checkpoint_label", "") or ""),
+                "predicted_pd": _safe_float(getattr(checkpoint, "predicted_pd", base_pd), base_pd),
+                "pd_delta_vs_base": _safe_float(getattr(checkpoint, "pd_delta_vs_base", 0.0), 0.0),
+                "gate_pass_estimate": int(_safe_int(getattr(checkpoint, "gate_pass_estimate", 0), 0)),
+                "checkpoint_priority": int(_safe_int(getattr(checkpoint, "checkpoint_priority", 0), 0)),
             }
         )
-
-    review_week = 4
-    for cp in checkpoints:
-        if int(cp.get("gate_pass_estimate", 0)) == 1:
-            review_week = int(cp.get("week", 4))
-            break
 
     return {
         "customer_id": str(customer_id),
@@ -496,9 +443,13 @@ def _build_customer_roadmap(
         "best_plan_source": str(best_source),
         "best_status": str(best.status),
         "best_constraint_status": str(getattr(best, "constraint_status", "valid") or "valid"),
+        "trajectory_status": str(getattr(best, "trajectory_status", "on_track") or "on_track"),
+        "current_phase": str(getattr(best, "current_phase", "phase_1_stabilize") or "phase_1_stabilize"),
+        "phase_transition_reason": str(getattr(best, "phase_transition_reason", "initial_plan") or "initial_plan"),
+        "replanned_from_phase": str(getattr(best, "replanned_from_phase", "") or ""),
         "phases": phases,
         "checkpoints": checkpoints,
-        "next_review_week": int(review_week),
+        "next_review_week": int(_safe_int(getattr(best, "next_review_week", 4), 4)),
     }
 
 
@@ -548,6 +499,18 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                 "diagnostic_flags": list(getattr(action, "diagnostic_flags", [])),
             }
         )
+    canonical_phases = list(getattr(plan, "phases", [])) or build_canonical_phases(
+        plan.actions,
+        predicted_pd=getattr(plan, "predicted_pd", None),
+    )
+    phases_json = json.dumps(
+        [phase.model_dump(mode="json") for phase in canonical_phases],
+        ensure_ascii=False,
+    )
+    checkpoints_json = json.dumps(
+        [checkpoint.model_dump(mode="json") for checkpoint in list(getattr(plan, "trajectory_checkpoints", []))],
+        ensure_ascii=False,
+    )
     return {
         "plan_id": plan.plan_id,
         "horizon": plan.horizon_months,
@@ -571,6 +534,8 @@ def _plan_to_row(plan: PlanRecord) -> dict:
         "phase_3_action_count": int(phase_3_count),
         "proximity_l1": _plan_proximity_l1(plan),
         "timeline_steps_json": json.dumps(timeline_steps, ensure_ascii=False),
+        "phases_json": phases_json,
+        "trajectory_checkpoints_json": checkpoints_json,
         "constraint_status": str(getattr(plan, "constraint_status", "valid") or "valid"),
         "constraint_reason": str(getattr(plan, "constraint_reason", "") or ""),
         "constraint_trace_json": json.dumps(getattr(plan, "constraint_trace", []), ensure_ascii=False),
@@ -589,6 +554,17 @@ def _plan_to_row(plan: PlanRecord) -> dict:
         "executable_action_count": int(getattr(plan, "executable_action_count", 0) or 0),
         "executable_action_group_count": int(getattr(plan, "executable_action_group_count", 0) or 0),
         "approval_pending_action_count": int(getattr(plan, "approval_pending_action_count", 0) or 0),
+        "trajectory_status": str(getattr(plan, "trajectory_status", "on_track") or "on_track"),
+        "current_phase": str(getattr(plan, "current_phase", "") or ""),
+        "next_review_week": int(_safe_int(getattr(plan, "next_review_week", 4), 4)),
+        "phase_transition_reason": str(getattr(plan, "phase_transition_reason", "") or ""),
+        "replanned_from_phase": str(getattr(plan, "replanned_from_phase", "") or ""),
+        "trajectory_policy_label": str(getattr(plan, "trajectory_policy_label", "") or ""),
+        "trajectory_policy_score": (
+            _safe_float(getattr(plan, "trajectory_policy_score", 0.0), 0.0)
+            if getattr(plan, "trajectory_policy_score", None) is not None
+            else None
+        ),
         "status": plan.status,
         "status_reason": plan.status_reason,
     }
@@ -692,12 +668,22 @@ def _dice_plan_record(
         constraint_trace=list(constraint_result.trace),
         status="PENDING",
     )
-    return annotate_plan_execution_probability(
+    annotate_plan_execution_probability(
         plan,
         base_pd=base_pd,
         customer_context={str(k): row.get(k) for k in row.index},
         segment_context=segment_context,
     )
+    attach_canonical_trajectory(
+        plan,
+        row=row,
+        base_pd=base_pd,
+        tau=tau,
+        model=model,
+        calibrator=calibrator,
+        feature_cols=feature_cols,
+    )
+    return plan
 
 
 def _candidate_rank_tuple(plan: PlanRecord) -> tuple:

@@ -10,6 +10,9 @@ from credit_coach.cli.run_phase_experiment_suite import (
     _build_phase_candidate_source_breakdown,
     _build_phase_fairness_breakdown,
     _build_phase_high_risk_tuning_summary,
+    _build_phase_trajectory_policy_label_breakdown,
+    _build_phase_trajectory_summary,
+    _build_phase_trajectory_transition_breakdown,
     _build_suite_impact_attribution_summary,
     _kpi_checks,
     _render_release_review_summary,
@@ -302,6 +305,20 @@ def test_release_review_summary_is_derived_from_acceptance_summary() -> None:
                 "default_rate_90d_delta": 0.0,
                 "avg_margin_90d_delta": 0.0,
             },
+            "trajectory_summary": {
+                "primary_checkpoint_week": 4,
+                "canonical_metrics": {
+                    "trajectory_gate_pass_rate_4w": 0.12,
+                    "trajectory_gate_pass_rate_12w": 0.18,
+                    "trajectory_gate_pass_rate_24w": 0.22,
+                    "trajectory_partial_progress_rate": 0.31,
+                    "trajectory_soft_regression_penalty_mean": 0.05,
+                    "trajectory_on_track_rate": 0.66,
+                    "trajectory_needs_replan_rate": 0.20,
+                    "trajectory_degraded_rate": 0.14,
+                },
+                "dominant_transition_reason": "phase_1_checkpoint_missed",
+            },
         }
     )
     assert "PILOT_ONLY" in review
@@ -310,6 +327,8 @@ def test_release_review_summary_is_derived_from_acceptance_summary() -> None:
     assert "Telemetry Readiness" in review
     assert "Release Pack Completeness" in review
     assert "Outcome Feedback Summary" in review
+    assert "Trajectory Summary" in review
+    assert "phase_1_checkpoint_missed" in review
     assert "release_decision_json" in review
 
 
@@ -436,6 +455,71 @@ def test_build_phase_behavior_aware_summary_uses_locked_population_contract() ->
     assert "partial_execution_breakdown_csv" in summary["supporting_artifacts"]
 
 
+def test_build_phase_trajectory_summary_uses_locked_checkpoint_contract() -> None:
+    scale_df = pd.DataFrame(
+        [
+            {
+                "trajectory_gate_pass_rate_4w": 0.20,
+                "trajectory_gate_pass_rate_12w": 0.25,
+                "trajectory_gate_pass_rate_24w": 0.30,
+                "trajectory_partial_progress_rate": 0.40,
+                "trajectory_median_time_to_gate_pass_days": 56.0,
+                "trajectory_soft_regression_penalty_mean": 0.08,
+                "trajectory_on_track_rate": 0.70,
+                "trajectory_needs_replan_rate": 0.20,
+                "trajectory_degraded_rate": 0.10,
+                "trajectory_stabilize_first_rate": 0.50,
+                "trajectory_balanced_progress_rate": 0.35,
+                "trajectory_long_horizon_heavy_rate": 0.15,
+                "high_risk_denied_trajectory_gate_pass_rate_4w": 0.12,
+                "high_risk_denied_trajectory_gate_pass_rate_12w": 0.16,
+                "high_risk_denied_trajectory_gate_pass_rate_24w": 0.18,
+                "high_risk_denied_trajectory_partial_progress_rate": 0.24,
+                "high_risk_denied_trajectory_median_time_to_gate_pass_days": 70.0,
+                "high_risk_denied_trajectory_soft_regression_penalty_mean": 0.10,
+                "high_risk_denied_trajectory_on_track_rate": 0.55,
+                "high_risk_denied_trajectory_needs_replan_rate": 0.30,
+                "high_risk_denied_trajectory_degraded_rate": 0.15,
+                "trajectory_dominant_transition_reason": "phase_1_checkpoint_missed",
+            },
+            {
+                "trajectory_gate_pass_rate_4w": 0.10,
+                "trajectory_gate_pass_rate_12w": 0.15,
+                "trajectory_gate_pass_rate_24w": 0.20,
+                "trajectory_partial_progress_rate": 0.30,
+                "trajectory_median_time_to_gate_pass_days": 84.0,
+                "trajectory_soft_regression_penalty_mean": 0.12,
+                "trajectory_on_track_rate": 0.60,
+                "trajectory_needs_replan_rate": 0.25,
+                "trajectory_degraded_rate": 0.15,
+                "trajectory_stabilize_first_rate": 0.45,
+                "trajectory_balanced_progress_rate": 0.30,
+                "trajectory_long_horizon_heavy_rate": 0.25,
+                "high_risk_denied_trajectory_gate_pass_rate_4w": 0.08,
+                "high_risk_denied_trajectory_gate_pass_rate_12w": 0.12,
+                "high_risk_denied_trajectory_gate_pass_rate_24w": 0.16,
+                "high_risk_denied_trajectory_partial_progress_rate": 0.20,
+                "high_risk_denied_trajectory_median_time_to_gate_pass_days": 91.0,
+                "high_risk_denied_trajectory_soft_regression_penalty_mean": 0.14,
+                "high_risk_denied_trajectory_on_track_rate": 0.48,
+                "high_risk_denied_trajectory_needs_replan_rate": 0.34,
+                "high_risk_denied_trajectory_degraded_rate": 0.18,
+                "trajectory_dominant_transition_reason": "phase_1_checkpoint_missed",
+            },
+        ]
+    )
+
+    summary = _build_phase_trajectory_summary(scale_df)
+
+    assert summary["primary_checkpoint_week"] == 4
+    assert summary["checkpoint_priority_order"] == [4, 12, 24]
+    assert summary["canonical_metrics"]["trajectory_gate_pass_rate_4w"] == 0.15
+    assert summary["canonical_metrics"]["trajectory_soft_regression_penalty_mean"] == 0.1
+    assert summary["secondary_metrics"]["trajectory_on_track_rate"] == 0.515
+    assert summary["dominant_transition_reason"] == "phase_1_checkpoint_missed"
+    assert "trajectory_transition_breakdown_csv" in summary["supporting_artifacts"]
+
+
 def test_build_phase_candidate_source_breakdown_emits_seed_and_rollup_views() -> None:
     breakdown = _build_phase_candidate_source_breakdown(
         [
@@ -482,6 +566,55 @@ def test_build_phase_candidate_source_breakdown_emits_seed_and_rollup_views() ->
     ]
     assert int(denied_rollup.iloc[0]["count"]) == 11
     assert float(denied_rollup.iloc[0]["share"]) == 0.55
+
+
+def test_phase_trajectory_breakdowns_emit_seed_and_rollup_views() -> None:
+    transition_breakdown = _build_phase_trajectory_transition_breakdown(
+        [
+            pd.DataFrame(
+                [
+                    {
+                        "seed": 42,
+                        "population": "denied",
+                        "risk_band": "mid",
+                        "trajectory_status": "needs_replan",
+                        "current_phase": "phase_1_stabilize",
+                        "phase_transition_reason": "phase_1_checkpoint_missed",
+                        "count": 6,
+                        "mean_next_review_week": 12.0,
+                        "mean_soft_regression_penalty": 0.12,
+                        "share": 0.30,
+                    }
+                ]
+            )
+        ]
+    )
+    policy_breakdown = _build_phase_trajectory_policy_label_breakdown(
+        [
+            pd.DataFrame(
+                [
+                    {
+                        "seed": 42,
+                        "population": "denied",
+                        "risk_band": "mid",
+                        "trajectory_policy_label": "stabilize_first",
+                        "count": 8,
+                        "mean_policy_score": 0.67,
+                        "share": 0.40,
+                    }
+                ]
+            )
+        ]
+    )
+
+    assert set(transition_breakdown["breakdown_type"]) == {
+        "seed_population_trajectory_transition",
+        "population_trajectory_transition_rollup",
+    }
+    assert set(policy_breakdown["breakdown_type"]) == {
+        "seed_population_trajectory_policy_label",
+        "population_trajectory_policy_label_rollup",
+    }
 
 
 def test_build_phase_high_risk_tuning_summary_marks_low_activation_as_diagnostic() -> None:

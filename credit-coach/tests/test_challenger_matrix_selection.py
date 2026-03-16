@@ -7,6 +7,7 @@ from credit_coach.cli.run_model_challenger_matrix import (
     _build_challenger_behavior_aware_summary,
     _build_challenger_candidate_source_breakdown,
     _build_challenger_impact_summary,
+    _build_challenger_trajectory_summary,
     _build_variant_model_cfg,
     _build_variant_release_payloads,
     _select_champion,
@@ -97,6 +98,11 @@ def test_aggregate_variant_metrics_carries_candidate_quality_means():
                 "failed_execution_rate": 0.15,
                 "mixed_execution_rate": 0.40,
                 "expected_partial_progress_rate": 0.22,
+                "trajectory_soft_regression_penalty_mean": 0.08,
+                "trajectory_on_track_rate": 0.62,
+                "trajectory_needs_replan_rate": 0.24,
+                "trajectory_degraded_rate": 0.14,
+                "trajectory_stabilize_first_rate": 0.50,
             },
             {
                 "variant_id": "control",
@@ -113,6 +119,11 @@ def test_aggregate_variant_metrics_carries_candidate_quality_means():
                 "failed_execution_rate": 0.05,
                 "mixed_execution_rate": 0.30,
                 "expected_partial_progress_rate": 0.28,
+                "trajectory_soft_regression_penalty_mean": 0.12,
+                "trajectory_on_track_rate": 0.58,
+                "trajectory_needs_replan_rate": 0.28,
+                "trajectory_degraded_rate": 0.16,
+                "trajectory_stabilize_first_rate": 0.46,
             },
         ]
     )
@@ -124,6 +135,8 @@ def test_aggregate_variant_metrics_carries_candidate_quality_means():
     assert float(summary.iloc[0]["mean_best_source_dice_rate"]) == 0.4
     assert float(summary.iloc[0]["mean_plan_execution_probability"]) == 0.5
     assert float(summary.iloc[0]["mean_expected_pd_improvement"]) == 0.04
+    assert float(summary.iloc[0]["mean_trajectory_soft_regression_penalty_mean"]) == 0.1
+    assert float(summary.iloc[0]["mean_trajectory_on_track_rate"]) == 0.6
 
 
 def test_build_challenger_behavior_aware_summary_exposes_champion_metrics():
@@ -150,6 +163,47 @@ def test_build_challenger_behavior_aware_summary_exposes_champion_metrics():
     assert summary["champion_summary"]["mean_plan_execution_probability"] == 0.62
     assert summary["champion_summary"]["failed_execution_rate"] == 0.08
     assert "execution_probability_breakdown_csv" in summary["supporting_artifacts"]
+
+
+def test_build_challenger_trajectory_summary_exposes_champion_metrics() -> None:
+    ranked_summary_df = pd.DataFrame(
+        [
+            {
+                "variant_id": "challenger",
+                "seed_count": 5,
+                "mean_trajectory_gate_pass_rate_4w": 0.18,
+                "mean_trajectory_gate_pass_rate_12w": 0.24,
+                "mean_trajectory_gate_pass_rate_24w": 0.31,
+                "mean_trajectory_partial_progress_rate": 0.38,
+                "mean_trajectory_median_time_to_gate_pass_days": 63.0,
+                "mean_trajectory_soft_regression_penalty_mean": 0.07,
+                "mean_trajectory_on_track_rate": 0.61,
+                "mean_trajectory_needs_replan_rate": 0.23,
+                "mean_trajectory_degraded_rate": 0.16,
+                "mean_trajectory_stabilize_first_rate": 0.54,
+                "mean_trajectory_balanced_progress_rate": 0.31,
+                "mean_trajectory_long_horizon_heavy_rate": 0.15,
+                "evidence_status": "complete",
+            }
+        ]
+    )
+    runs_df = pd.DataFrame(
+        [
+            {
+                "variant_id": "challenger",
+                "seed": 42,
+                "trajectory_dominant_transition_reason": "phase_1_checkpoint_missed",
+            }
+        ]
+    )
+
+    summary = _build_challenger_trajectory_summary(ranked_summary_df, runs_df)
+
+    assert summary["champion_variant"] == "challenger"
+    assert summary["champion_summary"]["trajectory_gate_pass_rate_4w"] == 0.18
+    assert summary["champion_summary"]["trajectory_stabilize_first_rate"] == 0.54
+    assert summary["champion_summary"]["dominant_transition_reason"] == "phase_1_checkpoint_missed"
+    assert "trajectory_transition_breakdown_csv" in summary["supporting_artifacts"]
 
 
 def test_build_challenger_candidate_source_breakdown_emits_variant_rollups():

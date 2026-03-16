@@ -192,6 +192,42 @@ class PlanAction(BaseModel):
     )
 
 
+class TrajectoryPhase(BaseModel):
+    """
+    Recourse planinin canonical cok-fazli trajectory bucket'i.
+    """
+
+    phase_id: Literal["phase_1_stabilize", "phase_2_build", "phase_3_optimize"] = Field(
+        ...,
+        description="Canonical faz kimligi",
+    )
+    phase_title: str = Field(..., description="Insan-okunur faz basligi")
+    target_window_weeks: str = Field(..., description="Canonical hafta penceresi")
+    target_window_months: list[int] = Field(default_factory=list, description="Canonical ay penceresi")
+    review_week: int = Field(..., ge=1, description="Bu faz icin canonical review haftasi")
+    target_pd: float | None = Field(default=None, ge=0.0, le=1.0, description="Faz bazli hedef PD")
+    gate_pass_target: bool = Field(default=False, description="Faz sonunda gate-pass bekleniyor mu")
+    steps: list[PlanAction] = Field(default_factory=list, description="Bu faza ait canonical step listesi")
+
+
+class TrajectoryCheckpoint(BaseModel):
+    """
+    Canonical trajectory checkpoint kaydi.
+    """
+
+    week: int = Field(..., ge=1, description="Checkpoint haftasi")
+    month: int = Field(..., ge=1, description="Checkpoint ay eslesmesi")
+    phase_id: Literal["phase_1_stabilize", "phase_2_build", "phase_3_optimize"] = Field(
+        ...,
+        description="Checkpoint'in bagli oldugu canonical faz",
+    )
+    checkpoint_label: str | None = Field(default=None, description="Kisa checkpoint etiketi")
+    predicted_pd: float | None = Field(default=None, ge=0.0, le=1.0, description="Checkpoint PD tahmini")
+    pd_delta_vs_base: float | None = Field(default=None, description="Base PD'ye gore iyilesme")
+    gate_pass_estimate: int = Field(default=0, ge=0, le=1, description="Checkpoint gate-pass tahmini")
+    checkpoint_priority: int = Field(default=0, ge=0, description="4w > 12w > 24w oncelik sirasi")
+
+
 class LocalReason(BaseModel):
     """
     Local explanation reason kaydi (SHAP/fallback).
@@ -253,6 +289,14 @@ class PlanRecord(BaseModel):
         ..., description="Recourse stratejisi"
     )
     actions: list[PlanAction] = Field(default_factory=list, description="Aksiyon listesi")
+    phases: list[TrajectoryPhase] = Field(
+        default_factory=list,
+        description="Canonical cok-fazli trajectory katmani; actions[] compatibility icin korunur",
+    )
+    trajectory_checkpoints: list[TrajectoryCheckpoint] = Field(
+        default_factory=list,
+        description="Canonical 4w/12w/24w trajectory checkpoint listesi",
+    )
 
     # Risk metrikleri
     predicted_pd: float | None = Field(None, ge=0.0, le=1.0, description="f(x', z_t)")
@@ -318,6 +362,35 @@ class PlanRecord(BaseModel):
         default=0,
         ge=0,
         description="Ordinary winner scoring disinda kalan approval-dependent aksiyon sayisi",
+    )
+    trajectory_status: Literal["on_track", "needs_replan", "degraded"] = Field(
+        default="on_track",
+        description="Hybrid trajectory transition durumu",
+    )
+    current_phase: str | None = Field(
+        default=None,
+        description="Trajectory'nin su anki canonical fazi",
+    )
+    next_review_week: int | None = Field(
+        default=None,
+        ge=1,
+        description="Bir sonraki canonical trajectory review haftasi",
+    )
+    phase_transition_reason: str | None = Field(
+        default=None,
+        description="Son phase transition veya review sonucunun reason code'u",
+    )
+    replanned_from_phase: str | None = Field(
+        default=None,
+        description="Varsa trajectory'nin replan edildigi onceki faz",
+    )
+    trajectory_policy_label: Literal["stabilize_first", "balanced_progress", "long_horizon_heavy"] | None = Field(
+        default=None,
+        description="Phase-aware optimizer tarafindan verilen policy label",
+    )
+    trajectory_policy_score: float | None = Field(
+        default=None,
+        description="Phase-aware optimizer tarafindan hesaplanan trajectory skoru",
     )
 
     status: Literal["APPROVED", "NEEDS_REVIEW", "REJECTED", "PENDING"] = Field(

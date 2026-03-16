@@ -321,6 +321,9 @@ def test_plan_trajectory_metrics_uses_time_layered_actions():
     assert float(out["trajectory_pd_24w"]) <= float(out["trajectory_pd_12w"])
     assert int(out["trajectory_gate_pass_24w"]) == 1
     assert int(out["trajectory_partial_progress"]) == 1
+    assert str(out["trajectory_status"]) in {"on_track", "needs_replan", "degraded"}
+    assert str(out["trajectory_current_phase"]) != ""
+    assert int(out["trajectory_next_review_week"]) >= 4
 
 
 def test_plan_row_serialization_keeps_typed_action_fields():
@@ -363,7 +366,15 @@ def test_plan_row_serialization_keeps_typed_action_fields():
     )
     row = _plan_to_row(plan)
     steps = pd.read_json(StringIO(row["timeline_steps_json"]))
+    phases = pd.read_json(StringIO(row["phases_json"]))
+    checkpoints = pd.read_json(StringIO(row["trajectory_checkpoints_json"]))
     assert set(steps["action_key"]) == {"refinance"}
     assert set(steps["action_class"]) == {"structural"}
     assert set(steps["action_group_id"]) == {"refinance:m3"}
     assert int(row["phase_2_action_count"]) == 2
+    assert list(phases["phase_id"]) == [
+        "phase_1_stabilize",
+        "phase_2_build",
+        "phase_3_optimize",
+    ]
+    assert checkpoints.empty

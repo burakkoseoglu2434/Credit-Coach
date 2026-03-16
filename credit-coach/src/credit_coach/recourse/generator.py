@@ -26,6 +26,7 @@ from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.execution_probability import annotate_plan_execution_probability
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.region_targets import get_target_pd
+from credit_coach.recourse.trajectory import attach_canonical_trajectory, phase_id_for_month
 from credit_coach.safety.statistical import estimate_prediction_ci
 
 
@@ -73,12 +74,7 @@ def _horizon_scale(horizon_months: int) -> float:
 
 
 def _phase_id_for_month(month: int) -> str:
-    m = max(1, int(month))
-    if m <= 1:
-        return "phase_1_stabilize"
-    if m <= 3:
-        return "phase_2_build"
-    return "phase_3_optimize"
+    return phase_id_for_month(month)
 
 
 def _week_window_for_month(month: int) -> tuple[int, int]:
@@ -1384,12 +1380,22 @@ def generate_plan_record(
         constraint_trace=list(constraint_result.trace),
         status="PENDING",
     )
-    return annotate_plan_execution_probability(
+    annotate_plan_execution_probability(
         plan,
         base_pd=row_base_pd,
         customer_context=_build_action_context(row),
         segment_context=segment_context,
     )
+    attach_canonical_trajectory(
+        plan,
+        row=row,
+        base_pd=row_base_pd,
+        tau=cfg.tau,
+        model=model,
+        calibrator=calibrator,
+        feature_cols=feature_cols,
+    )
+    return plan
 
 
 def generate_nine_plans(

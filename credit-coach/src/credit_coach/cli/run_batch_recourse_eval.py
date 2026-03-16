@@ -46,6 +46,12 @@ from credit_coach.recourse.execution_probability import (
 )
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.generator import PlanGenConfig, generate_nine_plans, generate_plan_record
+from credit_coach.recourse.trajectory import (
+    apply_plan_until_month,
+    phase_id_for_month,
+    phase_title,
+    predict_plan_pd_at_month,
+)
 from credit_coach.safety.validator import validate_plan
 from credit_coach.utils.hashing import hash_config, hash_file
 from credit_coach.utils.run_context import create_run_context, load_config
@@ -789,21 +795,11 @@ def _plan_proximity_l1(plan: PlanRecord) -> float:
 
 
 def _phase_id_for_month(month: int) -> str:
-    m = max(1, int(month))
-    if m <= 1:
-        return "phase_1_stabilize"
-    if m <= 3:
-        return "phase_2_build"
-    return "phase_3_optimize"
+    return phase_id_for_month(month)
 
 
 def _phase_title(phase_id: str) -> str:
-    mapping = {
-        "phase_1_stabilize": "Ilk 4 Hafta - Stabilizasyon",
-        "phase_2_build": "1-3 Ay - Guclendirme",
-        "phase_3_optimize": "3-6 Ay - Optimizasyon",
-    }
-    return mapping.get(str(phase_id), str(phase_id))
+    return phase_title(phase_id)
 
 
 def _apply_plan_until_month(
@@ -812,27 +808,7 @@ def _apply_plan_until_month(
     *,
     month: int,
 ) -> pd.Series:
-    m = max(1, int(month))
-    x = row.copy()
-    ordered_actions = sorted(
-        list(plan.actions),
-        key=lambda a: (
-            _safe_int(getattr(a, "time_months", 0), 0),
-            _safe_str(getattr(a, "feature_name", "")),
-        ),
-    )
-    for action in ordered_actions:
-        feat = _safe_str(getattr(action, "feature_name", ""), "")
-        if not feat or feat not in x.index:
-            continue
-        action_month = max(1, _safe_int(getattr(action, "time_months", m), m))
-        if action_month > m:
-            continue
-        try:
-            x[feat] = float(getattr(action, "target_value"))
-        except Exception:
-            continue
-    return x
+    return apply_plan_until_month(row, plan, month=month)
 
 
 def _predict_plan_pd_at_month(
@@ -844,9 +820,28 @@ def _predict_plan_pd_at_month(
     calibrator: Any,
     feature_cols: list[str],
 ) -> float:
-    x_m = _apply_plan_until_month(row, plan, month=month)
-    x_input = pd.DataFrame([x_m[feature_cols].values], columns=feature_cols)
-    return float(predict_proba_pd(model, calibrator, x_input)[0])
+    return predict_plan_pd_at_month(
+        row=row,
+        plan=plan,
+        month=month,
+        model=model,
+        calibrator=calibrator,
+        feature_cols=feature_cols,
+    )
+
+
+def _scheduled_actions_by_week(plan: PlanRecord) -> dict[int, int]:
+    scheduled: dict[int, int] = {}
+    for action in list(plan.actions):
+        week = max(
+            1,
+            _safe_int(
+                getattr(action, "week_start", None),
+                _safe_int(max(1, getattr(action, "time_months", 1)) * 4 - 3, 1),
+            ),
+        )
+        scheduled[week] = int(scheduled.get(week, 0) + 1)
+    return scheduled
 
 
 def _plan_trajectory_metrics(
@@ -859,31 +854,73 @@ def _plan_trajectory_metrics(
     calibrator: Any,
     feature_cols: list[str],
     partial_progress_min_pd_delta: float = 0.05,
+    random_state: int = 42,
+    max_weekly_actions: int = 3,
+    min_robust_margin: float | None = None,
 ) -> dict[str, Any]:
-    pd_4w = _predict_plan_pd_at_month(
-        row=row,
-        plan=plan,
-        month=1,
-        model=model,
-        calibrator=calibrator,
-        feature_cols=feature_cols,
+    action_count = max(0, int(len(plan.actions)))
+    if action_count <= 0:
+        return {
+            "trajectory_pd_4w": float(base_pd),
+            "trajectory_pd_12w": float(base_pd),
+            "trajectory_pd_24w": float(base_pd),
+            "trajectory_gate_pass_4w": 0,
+            "trajectory_gate_pass_12w": 0,
+            "trajectory_gate_pass_24w": 0,
+            "trajectory_pd_delta_24w": 0.0,
+            "trajectory_partial_progress": 0,
+            "trajectory_time_to_gate_pass_days": np.nan,
+            "trajectory_phase_1_action_count": 0,
+            "trajectory_phase_2_action_count": 0,
+            "trajectory_phase_3_action_count": 0,
+            "trajectory_status": "degraded",
+            "trajectory_current_phase": "phase_1_stabilize",
+            "trajectory_next_review_week": 4,
+            "trajectory_phase_transition_reason": "no_actions",
+            "trajectory_replanned_from_phase": "",
+            "trajectory_soft_regression_penalty": 0.0,
+        }
+
+    raw_plan_probability = getattr(plan, "plan_execution_probability", None)
+    plan_execution_probability = (
+        _safe_float(raw_plan_probability, 1.0) if raw_plan_probability is not None else 1.0
     )
-    pd_12w = _predict_plan_pd_at_month(
-        row=row,
-        plan=plan,
-        month=3,
-        model=model,
-        calibrator=calibrator,
-        feature_cols=feature_cols,
+    nominal_pd_improvement = max(
+        0.0,
+        _safe_float(
+            getattr(plan, "nominal_pd_improvement", None),
+            max(0.0, float(base_pd) - _safe_float(getattr(plan, "predicted_pd", base_pd), float(base_pd))),
+        ),
     )
-    pd_24w = _predict_plan_pd_at_month(
-        row=row,
-        plan=plan,
-        month=6,
-        model=model,
-        calibrator=calibrator,
-        feature_cols=feature_cols,
+    loop_df = run_weekly_coaching_loop(
+        base_pd=float(base_pd),
+        tau=float(tau),
+        weeks=24,
+        macro_shock_week=0,
+        plan_action_count=action_count,
+        target_pd=_safe_float(getattr(plan, "predicted_pd", tau), float(tau)),
+        action_dropout_prob=min(max(1.0 - float(plan_execution_probability), 0.02), 0.95),
+        action_effect_per_step=max(0.002, nominal_pd_improvement / max(1, action_count)),
+        max_weekly_actions=max(1, int(max_weekly_actions)),
+        random_state=int(random_state),
+        min_robust_margin=min_robust_margin,
+        scheduled_actions_by_week=_scheduled_actions_by_week(plan),
+        review_weeks=(4, 12, 24),
+        financial_inertia=0.18,
     )
+
+    def _checkpoint_row(week: int) -> pd.Series:
+        match = loop_df[pd.to_numeric(loop_df["week"], errors="coerce").fillna(0).astype(int) == int(week)]
+        if not match.empty:
+            return match.iloc[-1]
+        return loop_df.iloc[-1]
+
+    cp_4w = _checkpoint_row(4)
+    cp_12w = _checkpoint_row(12)
+    cp_24w = _checkpoint_row(24)
+    pd_4w = float(cp_4w.get("predicted_pd", base_pd))
+    pd_12w = float(cp_12w.get("predicted_pd", base_pd))
+    pd_24w = float(cp_24w.get("predicted_pd", base_pd))
     pass_4w = int(pd_4w <= float(tau))
     pass_12w = int(pd_12w <= float(tau))
     pass_24w = int(pd_24w <= float(tau))
@@ -909,6 +946,16 @@ def _plan_trajectory_metrics(
             phase_2_count += 1
         else:
             phase_3_count += 1
+    regression_tolerance = 0.01
+    soft_regression_penalty = max(0.0, pd_12w - (pd_4w + regression_tolerance)) + max(
+        0.0,
+        pd_24w - (pd_12w + regression_tolerance),
+    )
+    trajectory_status = str(cp_24w.get("trajectory_status", "on_track") or "on_track")
+    current_phase = str(cp_24w.get("current_phase", "phase_3_optimize") or "phase_3_optimize")
+    next_review_week = int(_safe_int(cp_24w.get("next_review_week", 24), 24))
+    phase_transition_reason = str(cp_24w.get("phase_transition_reason", "") or "")
+    replanned_from_phase = str(cp_24w.get("replanned_from_phase", "") or "")
     return {
         "trajectory_pd_4w": float(pd_4w),
         "trajectory_pd_12w": float(pd_12w),
@@ -922,6 +969,12 @@ def _plan_trajectory_metrics(
         "trajectory_phase_1_action_count": int(phase_1_count),
         "trajectory_phase_2_action_count": int(phase_2_count),
         "trajectory_phase_3_action_count": int(phase_3_count),
+        "trajectory_status": trajectory_status,
+        "trajectory_current_phase": current_phase,
+        "trajectory_next_review_week": int(next_review_week),
+        "trajectory_phase_transition_reason": phase_transition_reason,
+        "trajectory_replanned_from_phase": replanned_from_phase,
+        "trajectory_soft_regression_penalty": float(soft_regression_penalty),
     }
 
 
@@ -960,6 +1013,11 @@ def _simulate_plan_execution_behavior(
             "final_simulated_pd": float(base_pd),
             "missed_action": 0,
             "missed_actions_streak": 0,
+            "trajectory_status": "degraded",
+            "current_phase": "phase_1_stabilize",
+            "next_review_week": 4,
+            "phase_transition_reason": "no_actions",
+            "replanned_from_phase": "",
         }
 
     weeks = max(4, min(24, int(getattr(plan, "horizon_months", 6) or 6) * 4))
@@ -976,6 +1034,9 @@ def _simulate_plan_execution_behavior(
         max_weekly_actions=max(1, int(max_weekly_actions)),
         random_state=int(random_state),
         min_robust_margin=min_robust_margin,
+        scheduled_actions_by_week=_scheduled_actions_by_week(plan),
+        review_weeks=(4, 12, 24),
+        financial_inertia=0.18,
     )
     if loop_df.empty:
         return {
@@ -988,6 +1049,11 @@ def _simulate_plan_execution_behavior(
             "final_simulated_pd": float(base_pd),
             "missed_action": 0,
             "missed_actions_streak": 0,
+            "trajectory_status": "degraded",
+            "current_phase": "phase_1_stabilize",
+            "next_review_week": 4,
+            "phase_transition_reason": "empty_simulation",
+            "replanned_from_phase": "",
         }
 
     mean_execution_rate = float(pd.to_numeric(loop_df["execution_rate"], errors="coerce").fillna(0.0).mean())
@@ -1006,6 +1072,11 @@ def _simulate_plan_execution_behavior(
         "missed_actions_streak": int(
             pd.to_numeric(loop_df["missed_actions_streak"], errors="coerce").fillna(0.0).max()
         ),
+        "trajectory_status": str(loop_df["trajectory_status"].iloc[-1]),
+        "current_phase": str(loop_df["current_phase"].iloc[-1]),
+        "next_review_week": int(pd.to_numeric(loop_df["next_review_week"], errors="coerce").fillna(24).iloc[-1]),
+        "phase_transition_reason": str(loop_df["phase_transition_reason"].iloc[-1]),
+        "replanned_from_phase": str(loop_df["replanned_from_phase"].iloc[-1]),
     }
 
 
@@ -1151,6 +1222,200 @@ def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, A
         },
     }
     return summary, execution_probability_breakdown, partial_execution_breakdown
+
+
+def _build_trajectory_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any], pd.DataFrame, pd.DataFrame]:
+    metric_fields = (
+        "trajectory_gate_pass_rate_4w",
+        "trajectory_gate_pass_rate_12w",
+        "trajectory_gate_pass_rate_24w",
+        "trajectory_partial_progress_rate",
+        "trajectory_median_time_to_gate_pass_days",
+        "trajectory_soft_regression_penalty_mean",
+        "trajectory_on_track_rate",
+        "trajectory_needs_replan_rate",
+        "trajectory_degraded_rate",
+    )
+    empty_summary = {
+        "canonical_population": "denied",
+        "secondary_population": "high_risk_denied",
+        "primary_checkpoint_week": 4,
+        "checkpoint_priority_order": [4, 12, 24],
+        "canonical_metrics": {field: 0.0 for field in metric_fields},
+        "secondary_metrics": {field: 0.0 for field in metric_fields},
+        "dominant_transition_reason": "",
+        "supporting_artifacts": {
+            "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
+            "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",
+            "trajectory_gate_by_risk_band_csv": "tables/trajectory_gate_by_risk_band.csv",
+            "trajectory_gate_by_income_band_csv": "tables/trajectory_gate_by_income_band.csv",
+            "trajectory_phase_action_mix_csv": "tables/trajectory_phase_action_mix.csv",
+        },
+    }
+    if batch_df.empty:
+        return (
+            empty_summary,
+            pd.DataFrame(
+                columns=[
+                    "population",
+                    "risk_band",
+                    "trajectory_status",
+                    "current_phase",
+                    "phase_transition_reason",
+                    "count",
+                    "share",
+                    "mean_next_review_week",
+                    "mean_soft_regression_penalty",
+                ]
+            ),
+            pd.DataFrame(
+                columns=[
+                    "population",
+                    "risk_band",
+                    "trajectory_policy_label",
+                    "count",
+                    "share",
+                    "mean_policy_score",
+                ]
+            ),
+        )
+
+    work = batch_df.copy()
+    work["risk_band"] = work.get("risk_band", pd.Series(dtype=object)).fillna("").astype(str)
+    work["trajectory_status"] = work.get("trajectory_status", pd.Series(dtype=object)).fillna("degraded").astype(str)
+    work["current_phase"] = work.get("trajectory_current_phase", pd.Series(dtype=object)).fillna("").astype(str)
+    work["phase_transition_reason"] = (
+        work.get("trajectory_phase_transition_reason", pd.Series(dtype=object)).fillna("").astype(str)
+    )
+    work["trajectory_policy_label"] = (
+        work.get("trajectory_policy_label", pd.Series(dtype=object)).fillna("").astype(str)
+    )
+
+    def _population_rows(frame: pd.DataFrame, population: str) -> pd.DataFrame:
+        rows = frame.copy()
+        rows["population"] = population
+        return rows
+
+    denied_rows = work[work.get("denied_base", pd.Series(dtype=float)).astype(int) == 1].copy()
+    high_risk_denied_rows = denied_rows[denied_rows["risk_band"].str.lower() == "high"].copy()
+
+    def _metrics(rows: pd.DataFrame) -> dict[str, float]:
+        if rows.empty:
+            return {field: 0.0 for field in metric_fields}
+        return {
+            "trajectory_gate_pass_rate_4w": _round_metric(rows["trajectory_gate_pass_4w"].astype(float).mean()),
+            "trajectory_gate_pass_rate_12w": _round_metric(rows["trajectory_gate_pass_12w"].astype(float).mean()),
+            "trajectory_gate_pass_rate_24w": _round_metric(rows["trajectory_gate_pass_24w"].astype(float).mean()),
+            "trajectory_partial_progress_rate": _round_metric(rows["trajectory_partial_progress"].astype(float).mean()),
+            "trajectory_median_time_to_gate_pass_days": _round_metric(
+                pd.to_numeric(rows["trajectory_time_to_gate_pass_days"], errors="coerce").dropna().median()
+            ),
+            "trajectory_soft_regression_penalty_mean": _round_metric(
+                pd.to_numeric(rows["trajectory_soft_regression_penalty"], errors="coerce").fillna(0.0).mean()
+            ),
+            "trajectory_on_track_rate": _round_metric((rows["trajectory_status"] == "on_track").astype(float).mean()),
+            "trajectory_needs_replan_rate": _round_metric((rows["trajectory_status"] == "needs_replan").astype(float).mean()),
+            "trajectory_degraded_rate": _round_metric((rows["trajectory_status"] == "degraded").astype(float).mean()),
+        }
+
+    transition_frames: list[pd.DataFrame] = []
+    for population, rows in (
+        ("denied", denied_rows),
+        ("high_risk_denied", high_risk_denied_rows),
+    ):
+        if rows.empty:
+            continue
+        grouped = (
+            _population_rows(rows, population)
+            .groupby(
+                ["population", "risk_band", "trajectory_status", "current_phase", "phase_transition_reason"],
+                dropna=False,
+            )
+            .agg(
+                count=("customer_id", "nunique"),
+                mean_next_review_week=("trajectory_next_review_week", "mean"),
+                mean_soft_regression_penalty=("trajectory_soft_regression_penalty", "mean"),
+            )
+            .reset_index()
+        )
+        grouped["share"] = grouped["count"] / max(1, int(len(rows)))
+        transition_frames.append(grouped)
+    transition_breakdown = (
+        pd.concat(transition_frames, ignore_index=True)
+        if transition_frames
+        else pd.DataFrame(
+            columns=[
+                "population",
+                "risk_band",
+                "trajectory_status",
+                "current_phase",
+                "phase_transition_reason",
+                "count",
+                "mean_next_review_week",
+                "mean_soft_regression_penalty",
+                "share",
+            ]
+        )
+    )
+
+    policy_frames: list[pd.DataFrame] = []
+    for population, rows in (
+        ("denied", denied_rows),
+        ("high_risk_denied", high_risk_denied_rows),
+    ):
+        if rows.empty:
+            continue
+        grouped = (
+            _population_rows(rows, population)
+            .groupby(["population", "risk_band", "trajectory_policy_label"], dropna=False)
+            .agg(
+                count=("customer_id", "nunique"),
+                mean_policy_score=("trajectory_policy_score", "mean"),
+            )
+            .reset_index()
+        )
+        grouped["share"] = grouped["count"] / max(1, int(len(rows)))
+        policy_frames.append(grouped)
+    policy_breakdown = (
+        pd.concat(policy_frames, ignore_index=True)
+        if policy_frames
+        else pd.DataFrame(
+            columns=[
+                "population",
+                "risk_band",
+                "trajectory_policy_label",
+                "count",
+                "mean_policy_score",
+                "share",
+            ]
+        )
+    )
+
+    dominant_transition_reason = ""
+    if not transition_breakdown.empty:
+        dominant_transition_reason = str(
+            transition_breakdown.sort_values(["count", "share"], ascending=[False, False]).iloc[0][
+                "phase_transition_reason"
+            ]
+        )
+
+    summary = {
+        "canonical_population": "denied",
+        "secondary_population": "high_risk_denied",
+        "primary_checkpoint_week": 4,
+        "checkpoint_priority_order": [4, 12, 24],
+        "canonical_metrics": _metrics(denied_rows),
+        "secondary_metrics": _metrics(high_risk_denied_rows),
+        "dominant_transition_reason": dominant_transition_reason,
+        "supporting_artifacts": {
+            "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
+            "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",
+            "trajectory_gate_by_risk_band_csv": "tables/trajectory_gate_by_risk_band.csv",
+            "trajectory_gate_by_income_band_csv": "tables/trajectory_gate_by_income_band.csv",
+            "trajectory_phase_action_mix_csv": "tables/trajectory_phase_action_mix.csv",
+        },
+    }
+    return summary, transition_breakdown, policy_breakdown
 
 
 def _plan_trajectory_steps(plan: PlanRecord) -> list[dict[str, Any]]:
@@ -3274,6 +3539,8 @@ def main() -> None:
             "best_missed_action": 0,
             "best_missed_actions_streak": 0,
             "best_timeline_steps_json": "[]",
+            "best_phases_json": "[]",
+            "best_trajectory_checkpoints_json": "[]",
             "best_ci_high": np.nan,
             "best_reliability": np.nan,
             "best_worst_risk_margin": np.nan,
@@ -3289,6 +3556,14 @@ def main() -> None:
             "trajectory_phase_1_action_count": 0,
             "trajectory_phase_2_action_count": 0,
             "trajectory_phase_3_action_count": 0,
+            "trajectory_status": "degraded",
+            "trajectory_current_phase": "phase_1_stabilize",
+            "trajectory_next_review_week": 4,
+            "trajectory_phase_transition_reason": "no_plan_selected",
+            "trajectory_replanned_from_phase": "",
+            "trajectory_soft_regression_penalty": 0.0,
+            "trajectory_policy_label": "",
+            "trajectory_policy_score": 0.0,
             "denied_not_approved_root_cause": "",
             "approved_plan_count": 0,
             "internal_plan_count": 0,
@@ -3932,6 +4207,16 @@ def main() -> None:
                 _plan_trajectory_steps(best),
                 ensure_ascii=False,
             )
+            out["best_phases_json"] = json.dumps(
+                [phase.model_dump(mode="json") for phase in list(getattr(best, "phases", []))],
+                ensure_ascii=False,
+            )
+            out["best_trajectory_checkpoints_json"] = json.dumps(
+                [checkpoint.model_dump(mode="json") for checkpoint in list(getattr(best, "trajectory_checkpoints", []))],
+                ensure_ascii=False,
+            )
+            out["trajectory_policy_label"] = str(getattr(best, "trajectory_policy_label", "") or "")
+            out["trajectory_policy_score"] = _safe_float(getattr(best, "trajectory_policy_score", 0.0), 0.0)
             behavior_metrics = _simulate_plan_execution_behavior(
                 row=row,
                 plan=best,
@@ -3969,6 +4254,11 @@ def main() -> None:
             out["best_expected_partial_progress"] = int(behavior_metrics["expected_partial_progress"])
             out["best_missed_action"] = int(behavior_metrics["missed_action"])
             out["best_missed_actions_streak"] = int(behavior_metrics["missed_actions_streak"])
+            out["trajectory_status"] = str(behavior_metrics["trajectory_status"])
+            out["trajectory_current_phase"] = str(behavior_metrics["current_phase"])
+            out["trajectory_next_review_week"] = int(behavior_metrics["next_review_week"])
+            out["trajectory_phase_transition_reason"] = str(behavior_metrics["phase_transition_reason"])
+            out["trajectory_replanned_from_phase"] = str(behavior_metrics["replanned_from_phase"])
             if trajectory_enabled:
                 out.update(
                     _plan_trajectory_metrics(
@@ -3980,6 +4270,25 @@ def main() -> None:
                         calibrator=calibrator,
                         feature_cols=feature_cols,
                         partial_progress_min_pd_delta=trajectory_partial_progress_min_pd_delta,
+                        random_state=int(args.sample_seed) + int(i),
+                        max_weekly_actions=int(
+                            (
+                                search_profile.get("search_cfg", {})
+                                if isinstance(search_profile.get("search_cfg", {}), dict)
+                                else {}
+                            ).get("weekly_optimizer", {})
+                            .get("max_weekly_actions", 3)
+                            if isinstance(
+                                (
+                                    search_profile.get("search_cfg", {})
+                                    if isinstance(search_profile.get("search_cfg", {}), dict)
+                                    else {}
+                                ).get("weekly_optimizer", {}),
+                                dict,
+                            )
+                            else 3
+                        ),
+                        min_robust_margin=min_worst_margin_f,
                     )
                 )
             out["high_risk_bridge_hit"] = int(
@@ -4657,6 +4966,18 @@ def main() -> None:
     execution_probability_breakdown.to_csv(execution_probability_breakdown_out, index=False)
     partial_execution_breakdown_out = run_ctx.tables_dir / "partial_execution_breakdown.csv"
     partial_execution_breakdown.to_csv(partial_execution_breakdown_out, index=False)
+    trajectory_summary, trajectory_transition_breakdown, trajectory_policy_label_breakdown = _build_trajectory_artifacts(
+        batch_df
+    )
+    trajectory_summary_out = run_ctx.tables_dir / "trajectory_summary.json"
+    trajectory_summary_out.write_text(
+        json.dumps(trajectory_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    trajectory_transition_breakdown_out = run_ctx.tables_dir / "trajectory_transition_breakdown.csv"
+    trajectory_transition_breakdown.to_csv(trajectory_transition_breakdown_out, index=False)
+    trajectory_policy_label_breakdown_out = run_ctx.tables_dir / "trajectory_policy_label_breakdown.csv"
+    trajectory_policy_label_breakdown.to_csv(trajectory_policy_label_breakdown_out, index=False)
 
     err_df = batch_df[batch_df["error_type"] != ""]
     err_counts = (
@@ -4944,12 +5265,55 @@ def main() -> None:
         "trajectory_gate_pass_rate_24w": float(trajectory_gate_pass_rate_24w),
         "trajectory_partial_progress_rate": float(trajectory_partial_progress_rate),
         "trajectory_median_time_to_gate_pass_days": float(trajectory_median_time_to_gate_pass_days),
+        "trajectory_soft_regression_penalty_mean": float(
+            trajectory_summary["canonical_metrics"]["trajectory_soft_regression_penalty_mean"]
+        ),
+        "trajectory_on_track_rate": float(trajectory_summary["canonical_metrics"]["trajectory_on_track_rate"]),
+        "trajectory_needs_replan_rate": float(trajectory_summary["canonical_metrics"]["trajectory_needs_replan_rate"]),
+        "trajectory_degraded_rate": float(trajectory_summary["canonical_metrics"]["trajectory_degraded_rate"]),
+        "trajectory_dominant_transition_reason": str(trajectory_summary["dominant_transition_reason"]),
+        "high_risk_denied_trajectory_gate_pass_rate_4w": float(
+            trajectory_summary["secondary_metrics"]["trajectory_gate_pass_rate_4w"]
+        ),
+        "high_risk_denied_trajectory_gate_pass_rate_12w": float(
+            trajectory_summary["secondary_metrics"]["trajectory_gate_pass_rate_12w"]
+        ),
+        "high_risk_denied_trajectory_gate_pass_rate_24w": float(
+            trajectory_summary["secondary_metrics"]["trajectory_gate_pass_rate_24w"]
+        ),
+        "high_risk_denied_trajectory_partial_progress_rate": float(
+            trajectory_summary["secondary_metrics"]["trajectory_partial_progress_rate"]
+        ),
+        "high_risk_denied_trajectory_median_time_to_gate_pass_days": float(
+            trajectory_summary["secondary_metrics"]["trajectory_median_time_to_gate_pass_days"]
+        ),
+        "high_risk_denied_trajectory_soft_regression_penalty_mean": float(
+            trajectory_summary["secondary_metrics"]["trajectory_soft_regression_penalty_mean"]
+        ),
+        "high_risk_denied_trajectory_on_track_rate": float(
+            trajectory_summary["secondary_metrics"]["trajectory_on_track_rate"]
+        ),
+        "high_risk_denied_trajectory_needs_replan_rate": float(
+            trajectory_summary["secondary_metrics"]["trajectory_needs_replan_rate"]
+        ),
+        "high_risk_denied_trajectory_degraded_rate": float(
+            trajectory_summary["secondary_metrics"]["trajectory_degraded_rate"]
+        ),
         "trajectory_phase_1_action_count_p50": float(trajectory_phase_mix.iloc[0]["phase_1_action_count_p50"]),
         "trajectory_phase_2_action_count_p50": float(trajectory_phase_mix.iloc[0]["phase_2_action_count_p50"]),
         "trajectory_phase_3_action_count_p50": float(trajectory_phase_mix.iloc[0]["phase_3_action_count_p50"]),
         "trajectory_phase_1_action_count_p95": float(trajectory_phase_mix.iloc[0]["phase_1_action_count_p95"]),
         "trajectory_phase_2_action_count_p95": float(trajectory_phase_mix.iloc[0]["phase_2_action_count_p95"]),
         "trajectory_phase_3_action_count_p95": float(trajectory_phase_mix.iloc[0]["phase_3_action_count_p95"]),
+        "trajectory_stabilize_first_rate": float(
+            (batch_df["trajectory_policy_label"].astype(str) == "stabilize_first").mean()
+        ),
+        "trajectory_balanced_progress_rate": float(
+            (batch_df["trajectory_policy_label"].astype(str) == "balanced_progress").mean()
+        ),
+        "trajectory_long_horizon_heavy_rate": float(
+            (batch_df["trajectory_policy_label"].astype(str) == "long_horizon_heavy").mean()
+        ),
         "denied_reliability_violation_rate": float(denied_diag_metrics.get("denied_reliability_violation_rate", 0.0)),
         "denied_ci_violation_rate": float(denied_diag_metrics.get("denied_ci_violation_rate", 0.0)),
         "denied_worst_margin_violation_rate": float(denied_diag_metrics.get("denied_worst_margin_violation_rate", 0.0)),

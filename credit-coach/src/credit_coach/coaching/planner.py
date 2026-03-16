@@ -25,6 +25,13 @@ def _safe_float(v, default: float = 0.0) -> float:
         return float(default)
 
 
+def _safe_int(v, default: int = 0) -> int:
+    try:
+        return int(v)
+    except Exception:
+        return int(default)
+
+
 def _plan_cost(plan: PlanRecord) -> float:
     total = 0.0
     for action in plan.actions:
@@ -58,6 +65,117 @@ def _expected_pd_improvement(plan: PlanRecord, *, base_pd: float | None, tau: fl
     if explicit is not None:
         return max(0.0, _safe_float(explicit, 0.0))
     return float(_plan_execution_probability(plan) * _nominal_pd_improvement(plan, base_pd=base_pd, tau=tau))
+
+
+def _phase_action_shares(plan: PlanRecord) -> tuple[float, float, float]:
+    actions = list(plan.actions)
+    if not actions:
+        return 0.0, 0.0, 0.0
+    total = float(len(actions))
+    phase1 = sum(1 for action in actions if _safe_int(getattr(action, "time_months", 1), 1) <= 1)
+    phase2 = sum(1 for action in actions if _safe_int(getattr(action, "time_months", 1), 1) <= 3)
+    return float(phase1 / total), float(phase2 / total), 1.0
+
+
+def _trajectory_checkpoint_pds(plan: PlanRecord, *, base_pd: float | None, tau: float | None) -> tuple[float, float, float]:
+    checkpoint_map: dict[int, float] = {}
+    for checkpoint in list(getattr(plan, "trajectory_checkpoints", [])):
+        week = _safe_int(getattr(checkpoint, "week", 0), 0)
+        predicted_pd = getattr(checkpoint, "predicted_pd", None)
+        if week > 0 and predicted_pd is not None:
+            checkpoint_map[int(week)] = _safe_float(predicted_pd, 1.0)
+    if checkpoint_map:
+        pd4 = checkpoint_map.get(4, checkpoint_map.get(12, checkpoint_map.get(24, _safe_float(base_pd, 1.0))))
+        pd12 = checkpoint_map.get(12, checkpoint_map.get(24, pd4))
+        pd24 = checkpoint_map.get(24, checkpoint_map.get(12, pd12))
+        return float(pd4), float(pd12), float(pd24)
+
+    starting_pd = _safe_float(base_pd, _safe_float(tau, 1.0))
+    final_pd = _safe_float(getattr(plan, "predicted_pd", None), starting_pd)
+    total_improvement = max(0.0, starting_pd - final_pd)
+    phase1_share, phase2_share, _ = _phase_action_shares(plan)
+    pd4 = starting_pd - (total_improvement * max(0.15, phase1_share))
+    pd12 = starting_pd - (total_improvement * max(0.45, phase2_share))
+    pd24 = final_pd
+    return float(pd4), float(pd12), float(pd24)
+
+
+def _phase_aware_priority_score(
+    plan: PlanRecord,
+    *,
+    base_pd: float | None,
+    tau: float | None,
+    segment_context: dict[str, Any] | None = None,
+) -> float:
+    pd4, pd12, pd24 = _trajectory_checkpoint_pds(plan, base_pd=base_pd, tau=tau)
+    starting_pd = _safe_float(base_pd, max(pd4, pd12, pd24))
+    early_improvement = max(0.0, starting_pd - pd4)
+    mid_improvement = max(0.0, starting_pd - pd12)
+    long_improvement = max(0.0, starting_pd - pd24)
+    pass4 = 1.0 if tau is not None and pd4 <= float(tau) else 0.0
+    pass12 = 1.0 if tau is not None and pd12 <= float(tau) else 0.0
+    pass24 = 1.0 if tau is not None and pd24 <= float(tau) else 0.0
+    regression_tolerance = 0.01
+    regression_penalty = max(0.0, pd12 - (pd4 + regression_tolerance)) + max(0.0, pd24 - (pd12 + regression_tolerance))
+    phase1_share, phase2_share, _ = _phase_action_shares(plan)
+    early_health_ok = bool(pass4 > 0.0 or early_improvement >= max(0.03, 0.35 * max(long_improvement, 0.01)))
+    risk_band = str((segment_context or {}).get("risk_band", "")).strip().lower()
+    if risk_band == "high":
+        weights = (0.70, 0.20, 0.10)
+    else:
+        weights = (0.55, 0.30, 0.15)
+    long_bonus_multiplier = 1.0 if early_health_ok else 0.20
+    score = (
+        (weights[0] * ((early_improvement * 100.0) + (8.0 * pass4) + (5.0 * phase1_share)))
+        + (weights[1] * ((mid_improvement * 100.0) + (5.0 * pass12) + (3.0 * phase2_share)))
+        + (weights[2] * long_bonus_multiplier * ((long_improvement * 100.0) + (4.0 * pass24)))
+        - (35.0 * regression_penalty)
+    )
+    if not early_health_ok:
+        score -= 8.0
+    return float(score)
+
+
+def _trajectory_policy_label(
+    plan: PlanRecord,
+    *,
+    base_pd: float | None,
+    tau: float | None,
+    segment_context: dict[str, Any] | None = None,
+) -> str:
+    pd4, pd12, pd24 = _trajectory_checkpoint_pds(plan, base_pd=base_pd, tau=tau)
+    starting_pd = _safe_float(base_pd, max(pd4, pd12, pd24))
+    early_improvement = max(0.0, starting_pd - pd4)
+    long_improvement = max(0.0, starting_pd - pd24)
+    phase1_share, _, _ = _phase_action_shares(plan)
+    early_gate_ok = bool(tau is not None and pd4 <= float(tau))
+    early_health_ok = bool(early_gate_ok or early_improvement >= max(0.03, 0.35 * max(long_improvement, 0.01)))
+    if not early_health_ok and long_improvement > max(0.05, early_improvement + 0.02):
+        return "long_horizon_heavy"
+    if early_gate_ok or phase1_share >= 0.5:
+        return "stabilize_first"
+    return "balanced_progress"
+
+
+def _annotate_trajectory_policy(
+    plan: PlanRecord,
+    *,
+    base_pd: float | None,
+    tau: float | None,
+    segment_context: dict[str, Any] | None = None,
+) -> None:
+    plan.trajectory_policy_score = _phase_aware_priority_score(
+        plan,
+        base_pd=base_pd,
+        tau=tau,
+        segment_context=segment_context,
+    )
+    plan.trajectory_policy_label = _trajectory_policy_label(
+        plan,
+        base_pd=base_pd,
+        tau=tau,
+        segment_context=segment_context,
+    )
 
 
 def _short_term_action_signal(plan: PlanRecord, short_term_cfg: dict | None) -> float:
@@ -420,6 +538,7 @@ def _denied_sort_key(
         -ci_margin,
         -rel_margin,
         -worst_margin,
+        -_safe_float(getattr(plan, "trajectory_policy_score", 0.0), 0.0),
         -_expected_pd_improvement(plan, base_pd=base_pd, tau=tau),
         -_plan_execution_probability(plan),
         int(len(plan.actions)),
@@ -482,6 +601,7 @@ def _high_risk_sort_key(
         _constraint_priority(plan),
         _status_priority(plan.status),
         float(high_violation),
+        -_safe_float(getattr(plan, "trajectory_policy_score", 0.0), 0.0),
         -_expected_pd_improvement(plan, base_pd=base_pd, tau=tau),
         -_plan_execution_probability(plan),
         -float(base_priority),
@@ -505,6 +625,13 @@ def choose_best_plan(
 ) -> PlanRecord:
     if not plans:
         raise ValueError("No plans provided")
+    for plan in plans:
+        _annotate_trajectory_policy(
+            plan,
+            base_pd=base_pd,
+            tau=tau,
+            segment_context=segment_context,
+        )
     candidates = _prefer_non_rejected(_prefer_constraint_eligible(plans))
 
     # fairness_penalty remains part of generator scoring, but plan selection
@@ -559,6 +686,7 @@ def choose_best_plan(
                 min_reliability=min_reliability,
                 min_worst_risk_margin=min_worst_risk_margin,
             ),
+            -_safe_float(getattr(p, "trajectory_policy_score", 0.0), 0.0),
             -_expected_pd_improvement(p, base_pd=base_pd, tau=tau),
             -_plan_execution_probability(p),
             int(len(p.actions)),

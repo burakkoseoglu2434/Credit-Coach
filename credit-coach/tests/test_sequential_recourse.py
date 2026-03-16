@@ -55,3 +55,25 @@ def test_weekly_loop_supports_mixed_execution_paths():
     mean_execution_rate = float(out["execution_rate"].mean())
     assert 0.0 < mean_execution_rate < 1.0
     assert classify_execution_scenario(mean_execution_rate) == "mixed_execution"
+
+
+def test_weekly_loop_emits_phase_boundary_transition_state():
+    out = run_weekly_coaching_loop(
+        base_pd=0.52,
+        tau=0.35,
+        weeks=24,
+        macro_shock_week=0,
+        plan_action_count=6,
+        action_dropout_prob=1.0,
+        random_state=11,
+        max_missed_actions=1,
+        scheduled_actions_by_week={1: 2, 5: 2, 13: 2},
+    )
+    assert "trajectory_status" in out.columns
+    assert "current_phase" in out.columns
+    assert "next_review_week" in out.columns
+    assert "phase_transition_reason" in out.columns
+    week4 = out[out["week"] == 4].iloc[-1]
+    assert str(week4["trajectory_status"]) == "needs_replan"
+    assert str(week4["current_phase"]) == "phase_1_stabilize"
+    assert int(week4["next_review_week"]) == 4

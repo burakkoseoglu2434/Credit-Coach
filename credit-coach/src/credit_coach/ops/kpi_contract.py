@@ -818,6 +818,12 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
     behavior_aware = summary.get("behavior_aware_summary", {})
     if not isinstance(behavior_aware, Mapping):
         behavior_aware = {}
+    trajectory = summary.get("trajectory_summary", {})
+    if not isinstance(trajectory, Mapping):
+        trajectory = {}
+    trajectory_metrics = trajectory.get("canonical_metrics", trajectory)
+    if not isinstance(trajectory_metrics, Mapping):
+        trajectory_metrics = {}
 
     def _safe_float(value: Any) -> float:
         try:
@@ -905,6 +911,19 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
         f"- Mixed execution rate: {_safe_float(behavior_aware.get('mixed_execution_rate', 0.0)):.6f}",
         f"- Failed execution rate: {_safe_float(behavior_aware.get('failed_execution_rate', 0.0)):.6f}",
         f"- Expected partial progress rate: {_safe_float(behavior_aware.get('expected_partial_progress_rate', 0.0)):.6f}",
+        "",
+        "## Trajectory Summary",
+        "",
+        f"- Primary checkpoint week: {int(_safe_float(trajectory.get('primary_checkpoint_week', 4.0)))}",
+        f"- trajectory_gate_pass_rate_4w: {_safe_float(trajectory_metrics.get('trajectory_gate_pass_rate_4w', 0.0)):.6f}",
+        f"- trajectory_gate_pass_rate_12w: {_safe_float(trajectory_metrics.get('trajectory_gate_pass_rate_12w', 0.0)):.6f}",
+        f"- trajectory_gate_pass_rate_24w: {_safe_float(trajectory_metrics.get('trajectory_gate_pass_rate_24w', 0.0)):.6f}",
+        f"- trajectory_partial_progress_rate: {_safe_float(trajectory_metrics.get('trajectory_partial_progress_rate', 0.0)):.6f}",
+        f"- trajectory_soft_regression_penalty_mean: {_safe_float(trajectory_metrics.get('trajectory_soft_regression_penalty_mean', 0.0)):.6f}",
+        f"- trajectory_on_track_rate: {_safe_float(trajectory_metrics.get('trajectory_on_track_rate', 0.0)):.6f}",
+        f"- trajectory_needs_replan_rate: {_safe_float(trajectory_metrics.get('trajectory_needs_replan_rate', 0.0)):.6f}",
+        f"- trajectory_degraded_rate: {_safe_float(trajectory_metrics.get('trajectory_degraded_rate', 0.0)):.6f}",
+        f"- dominant_transition_reason: {trajectory.get('dominant_transition_reason', '') or 'none'}",
     ]
     if supporting_artifacts:
         lines.extend(["", "## Supporting Artifacts", ""])

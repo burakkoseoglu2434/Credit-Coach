@@ -222,3 +222,15 @@ def test_generate_plan_record_emits_execution_probability_contract():
     assert int(plan.executable_action_group_count) >= 1
     assert all(action.action_group_execution_probability is not None for action in plan.actions)
     assert all(action.action_execution_probability is not None for action in plan.actions)
+    assert [phase.phase_id for phase in plan.phases] == [
+        "phase_1_stabilize",
+        "phase_2_build",
+        "phase_3_optimize",
+    ]
+    assert int(plan.phases[0].review_week) == 4
+    assert int(plan.phases[1].review_week) == 12
+    assert int(plan.phases[2].review_week) == 24
+    assert [checkpoint.week for checkpoint in plan.trajectory_checkpoints] == [4, 12, 24]
+    assert str(plan.trajectory_status) == "on_track"
+    assert str(plan.current_phase) == "phase_1_stabilize"
+    assert int(plan.next_review_week or 0) == 4
