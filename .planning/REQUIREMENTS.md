@@ -28,8 +28,8 @@
 
 ### Outcome Feedback & Learning Loop
 
-- [ ] **REC-10**: Decision logging can persist recommendation, offer, and context details needed for downstream learning
-- [ ] **REC-11**: Outcome ingestion and off-policy evaluation can learn from action completion, payment behavior, default events, and recovery results
+- [x] **REC-10**: Decision logging can persist recommendation, offer, and context details needed for downstream learning
+- [x] **REC-11**: Outcome ingestion and off-policy evaluation can learn from action completion, payment behavior, default events, and recovery results
 
 ## Future Requirements
 
@@ -61,8 +61,8 @@
 | REC-07 | Phase 14 | Complete |
 | REC-08 | Phase 15 | Complete |
 | REC-09 | Phase 15 | Complete |
-| REC-10 | Phase 16 | Pending |
-| REC-11 | Phase 16 | Pending |
+| REC-10 | Phase 16 | Complete |
+| REC-11 | Phase 16 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 11 total
@@ -71,4 +71,4 @@
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-16 after completing Phase 15*
+*Last updated: 2026-03-16 after completing Phase 16*

@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
 - ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
-- 🎯 **v1.2 Recommendation Quality Hardening** - Phases 12-16 (active)
+- ✅ **v1.2 Recommendation Quality Hardening** - Phases 12-16 (completed 2026-03-16)
 
 <details>
 <summary>✅ v1.0 Brownfield Baseline (Phases 1-7) - SHIPPED 2026-03-10</summary>
@@ -33,7 +33,7 @@ Historical archive: `.planning/milestones/v1.1-ROADMAP.md`
 
 </details>
 
-### 🎯 v1.2 Recommendation Quality Hardening (Active)
+### ✅ v1.2 Recommendation Quality Hardening (Completed 2026-03-16)
 
 **Milestone Goal:** Improve the real-world validity, feasibility, and behavioral realism of recourse recommendations by expanding action semantics, modeling action execution probability, enabling sequential trajectory planning, introducing offer policy optimization, and establishing outcome feedback loops.
 
@@ -110,9 +110,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 16-01: Expand decision logging to capture recommendation, offer, and execution context
-- [ ] 16-02: Build an outcome-ingestion pipeline for action completion, payment behavior, default, and recovery signals
-- [ ] 16-03: Add off-policy evaluation tooling such as IPS and doubly robust reporting
+- [x] 16-01: Expand decision logging to capture recommendation, offer, and execution context
+- [x] 16-02: Build an outcome-ingestion pipeline for action completion, payment behavior, default, and recovery signals
+- [x] 16-03: Add off-policy evaluation tooling such as IPS and doubly robust reporting
 
 ## Progress
 
@@ -133,4 +133,4 @@ Plans:
 | 13. Behavior-Aware Recourse | v1.2 | 3/3 | Complete | 2026-03-16 |
 | 14. Sequential Recourse Planning | v1.2 | 3/3 | Complete | 2026-03-16 |
 | 15. Policy Optimization Layer | v1.2 | 3/3 | Complete | 2026-03-16 |
-| 16. Outcome Feedback & Learning Loop | v1.2 | 0/3 | Pending | - |
+| 16. Outcome Feedback & Learning Loop | v1.2 | 3/3 | Complete | 2026-03-16 |

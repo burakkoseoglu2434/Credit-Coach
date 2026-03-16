@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 16 is now replanned under locked context and the next work is executing the learning-ledger logging, completeness tiers, and proxy-vector OPE contracts
+**Current focus:** `v1.2 Recommendation Quality Hardening` is now complete and the next work is auditing the milestone before archival
 
 ## Current Position
 
 Phase: 16 of 16 (Outcome Feedback & Learning Loop)
-Plan: 0 of 3 in current phase
-Status: Planned
-Last activity: 2026-03-16 - Replanned Phase 16 against the locked learning-ledger, completeness-tier, proxy-vector OPE, and Learning Loop Summary contracts
+Plan: 3 of 3 in current phase
+Status: Complete
+Last activity: 2026-03-16 - Completed Phase 16 with learning-ledger logging, graded completeness artifacts, and proxy-vector off-policy evaluation
 
-Progress: [########--] 80%
+Progress: [##########] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 44 (historical import + phases 8-15)
+- Total plans completed: 47 (historical import + phases 8-16)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -29,11 +29,11 @@ Progress: [########--] 80%
 |-------|-------|-------|----------|
 | v1.0 historical baseline | 20 | historical import | n/a |
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
-| v1.2 active milestone | 12 | phases 12-15 complete, phase 16 pending | n/a |
+| v1.2 completed milestone | 15 | phases 12-16 complete | n/a |
 
 **Recent Trend:**
 - Last 5 plans: historical data not reconstructed
-- Trend: Offer optimization is now first-class, so the roadmap can finish the learning loop on top of typed actions, behavior-aware ranking, trajectories, and offer-policy evidence
+- Trend: The learning loop is now closed on top of typed actions, behavior-aware ranking, trajectories, and offer-policy evidence, so the next step is milestone audit rather than more v1.2 build-out
 
 ## Accumulated Context
 
@@ -97,6 +97,9 @@ Recent decisions affecting current work:
 - Phase 16 context locked: completeness is graded as `descriptive_only | partial_learning_ready | learning_ready`, with explicit coverage dimensions and a primary 90-day learning window
 - Phase 16 context locked: OPE remains proxy-vector-first, control-baselined, confidence-aware, and non-blocking, and review gains a separate `Learning Loop Summary`
 - Phase 16 replanned: research and execution prompts now explicitly inherit the compact learning-ledger contract, completeness tiers, 90-day readiness window, and separate learning review surface
+- Phase 16 complete: decision logging now persists compact learning-ledger context, emits machine-readable completeness summaries, and reuses the audit-safe repository seam
+- Phase 16 complete: outcome ingestion now classifies records as `descriptive_only | partial_learning_ready | learning_ready` under a primary 90-day reward window
+- Phase 16 complete: IPS and Doubly Robust off-policy evaluation now ship as confidence-aware supporting evidence, and review exposes them in a dedicated `Learning Loop Summary`
 
 ### Pending Todos
 
@@ -110,5 +113,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-16 19:48
-Stopped at: Phase 16 replanned; next step is `$gsd-execute-phase 16`
+Stopped at: Phase 16 complete; next step is `$gsd-audit-milestone`
 Resume file: None
