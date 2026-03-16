@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 14 is next under v1.2 - the recommendation engine is now behavior-aware and the next milestone work is multi-phase trajectory planning
+**Current focus:** Phase 14 is now planned under v1.2 - next milestone work is executing multi-phase trajectory planning, dynamic simulation, and phase-aware optimization
 
 ## Current Position
 
 Phase: 14 of 16 (Sequential Recourse Planning)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-03-16 - Completed Phase 13 execution probability, expected-utility ranking, and partial-execution evidence
+Plan: 3 of 3 in current phase
+Status: Planned
+Last activity: 2026-03-16 - Planned Phase 14 from milestone intent and Phase 12-13 brownfield seams
 
 Progress: [####------] 40%
 
@@ -33,7 +33,7 @@ Progress: [####------] 40%
 
 **Recent Trend:**
 - Last 5 plans: historical data not reconstructed
-- Trend: Behavior-aware ranking and robustness evidence are now in place; the next slice shifts to sequential, multi-phase planning
+- Trend: Behavior-aware evidence is now in place and the roadmap is ready to shift from one-shot plans toward canonical multi-phase trajectories
 
 ## Accumulated Context
 
@@ -71,6 +71,9 @@ Recent decisions affecting current work:
 - Phase 13 complete: generated actions and plans now carry explicit execution-likelihood metadata through a shared `execution_probability.py` seam
 - Phase 13 complete: planner ranking now uses expected PD improvement as a behavior-aware ordering signal only after inherited constraint and governance gates
 - Phase 13 complete: batch, suite, challenger, and milestone review artifacts now expose canonical behavior-aware summaries and partial-execution evidence without redefining acceptance gates
+- Phase 14 planned: canonical trajectory structure should build on existing `phase_id`, `time_months`, checkpoint, and roadmap seams rather than replacing them
+- Phase 14 planned: the weekly coaching loop remains the dynamic simulation grain for checkpoint and partial-execution trajectory behavior
+- Phase 14 planned: phase-aware optimization must remain subordinate to inherited fairness, reliability, telemetry, and acceptance gates
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16 15:35
-Stopped at: Phase 13 complete; next step is `$gsd-discuss-phase 14` or `$gsd-plan-phase 14 --research`
+Last session: 2026-03-16 16:05
+Stopped at: Phase 14 planned; next step is `$gsd-execute-phase 14`
 Resume file: None
