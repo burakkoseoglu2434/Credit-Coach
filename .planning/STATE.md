@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 12 is complete under v1.2 - next milestone work is Phase 13 behavior-aware recourse planning
+**Current focus:** Phase 13 is planned under v1.2 - next milestone work is execution-probability modeling, expected-utility scoring, and partial-execution simulation
 
 ## Current Position
 
-Phase: 12 of 16 (Action Realism & Feasibility Expansion)
+Phase: 13 of 16 (Behavior-Aware Recourse)
 Plan: 3 of 3 in current phase
-Status: Complete
-Last activity: 2026-03-15 - Executed Phase 12: typed action taxonomy, feasibility realism diagnostics, and action interaction constraints
+Status: Planned
+Last activity: 2026-03-16 - Planned Phase 13: execution probability, expected utility, and partial-execution simulation
 
 Progress: [##--------] 20%
 
@@ -29,11 +29,11 @@ Progress: [##--------] 20%
 |-------|-------|-------|----------|
 | v1.0 historical baseline | 20 | historical import | n/a |
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
-| v1.2 active milestone | 3 | phase 12 complete, phases 13-16 pending | n/a |
+| v1.2 active milestone | 3 | phase 12 complete, phase 13 planned, phases 14-16 pending | n/a |
 
 **Recent Trend:**
 - Last 5 plans: historical data not reconstructed
-- Trend: Recommendation realism foundation is now in place; next work shifts to execution probability and behavior-aware scoring
+- Trend: Recommendation realism foundation is in place; the next slice shifts to behavior-aware scoring and execution-likelihood evidence
 
 ## Accumulated Context
 
@@ -63,6 +63,8 @@ Recent decisions affecting current work:
 - Phase 12 complete: feasibility realism now emits reason-coded clip or reject outcomes, including semantic rejection when clipping destroys the action intent
 - Phase 12 complete: dependency, conflict, and approval-required behavior now flow through one machine-readable constraint layer with `valid | repaired | provisional | invalid` plan states
 - Phase 12 complete: batch evaluation now emits canonical `action_realism_summary.json` plus breakdown artifacts for action types, feasibility rejections, repairs, and approval-pending actions
+- Phase 13 planned: execution probability will extend the typed-action and serialized-plan contracts rather than creating a second planner stack
+- Phase 13 planned: expected utility and partial-execution evidence will remain subordinate to inherited fairness, reliability, telemetry, and acceptance gates
 
 ### Pending Todos
 
@@ -75,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15 17:20
-Stopped at: Phase 12 complete; next step is `$gsd-discuss-phase 13`
+Last session: 2026-03-16 11:40
+Stopped at: Phase 13 planned; next step is `$gsd-execute-phase 13`
 Resume file: None
