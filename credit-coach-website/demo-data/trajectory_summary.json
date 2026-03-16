@@ -1,0 +1,27 @@
+{
+  "primary_checkpoint_week": 4,
+  "checkpoint_priority_order": [4, 12, 24],
+  "canonical_metrics": {
+    "trajectory_gate_pass_rate_4w": 0.44,
+    "trajectory_gate_pass_rate_12w": 0.57,
+    "trajectory_gate_pass_rate_24w": 0.66,
+    "trajectory_partial_progress_rate": 0.73,
+    "trajectory_median_time_to_gate_pass_days": 49,
+    "trajectory_soft_regression_penalty_mean": 0.07,
+    "trajectory_on_track_rate": 0.69,
+    "trajectory_needs_replan_rate": 0.22,
+    "trajectory_degraded_rate": 0.09,
+    "trajectory_stabilize_first_rate": 0.51,
+    "trajectory_balanced_progress_rate": 0.35,
+    "trajectory_long_horizon_heavy_rate": 0.14
+  },
+  "secondary_metrics": {
+    "trajectory_on_track_rate": 0.56,
+    "trajectory_needs_replan_rate": 0.29,
+    "trajectory_degraded_rate": 0.15
+  },
+  "dominant_transition_reason": "phase_1_checkpoint_missed",
+  "supporting_artifacts": {
+    "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv"
+  }
+}

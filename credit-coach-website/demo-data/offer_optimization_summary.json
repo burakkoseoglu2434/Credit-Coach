@@ -1,0 +1,22 @@
+{
+  "canonical_population": "denied",
+  "seed_count": 5,
+  "canonical_metrics": {
+    "offer_plan_rate": 0.37,
+    "rankable_offer_rate": 0.29,
+    "offer_acceptance_probability_mean": 0.51,
+    "combined_plan_realization_probability_mean": 0.31,
+    "expected_recovery_proxy": 4.6,
+    "approval_rate_proxy_delta": 0.028,
+    "default_rate_90d_proxy_delta": -0.013,
+    "avg_margin_90d_proxy_delta": 18.4,
+    "governance_safe_offer_rate": 0.91,
+    "dominant_offer_type": "installment_terms"
+  },
+  "supporting_artifacts": {
+    "offer_type_breakdown_csv": "tables/offer_type_breakdown.csv",
+    "offer_policy_arm_breakdown_csv": "tables/offer_policy_arm_breakdown.csv",
+    "offer_acceptance_breakdown_csv": "tables/offer_acceptance_breakdown.csv",
+    "offer_proxy_impact_breakdown_csv": "tables/offer_proxy_impact_breakdown.csv"
+  }
+}

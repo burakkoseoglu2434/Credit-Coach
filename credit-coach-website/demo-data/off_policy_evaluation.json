@@ -1,0 +1,31 @@
+{
+  "comparison_status": "treatment_vs_control",
+  "ope_confidence": "strong",
+  "preferred_policy_signal": {
+    "policy_arm": "installment_policy_v2",
+    "signal": "supports_treatment",
+    "why": "The treatment arm improves approval and margin proxies while improving 90-day default proxy."
+  },
+  "comparisons": [
+    {
+      "control_policy_arm": "control",
+      "treatment_policy_arm": "installment_policy_v2",
+      "ope_confidence": "strong",
+      "metric_labels": {
+        "approval_rate": "supports_treatment",
+        "default_rate_90d": "supports_treatment",
+        "avg_margin_90d": "supports_treatment"
+      }
+    },
+    {
+      "control_policy_arm": "control",
+      "treatment_policy_arm": "discount_policy_aggressive",
+      "ope_confidence": "tentative",
+      "metric_labels": {
+        "approval_rate": "supports_treatment",
+        "default_rate_90d": "mixed",
+        "avg_margin_90d": "supports_control"
+      }
+    }
+  ]
+}

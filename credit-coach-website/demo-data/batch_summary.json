@@ -1,0 +1,16 @@
+{
+  "denied_to_approved_lift": 0.184,
+  "before_approval_rate": 0.112,
+  "after_approval_rate": 0.296,
+  "approval_rate_lift": 0.184,
+  "avg_pd_reduction": 0.096,
+  "high_risk_reachability_rate": 0.41,
+  "denied_high_risk_lift": 0.092,
+  "trajectory_gate_pass_rate_4w": 0.44,
+  "trajectory_gate_pass_rate_12w": 0.57,
+  "trajectory_gate_pass_rate_24w": 0.66,
+  "trajectory_partial_progress_rate": 0.73,
+  "denied_count": 1000,
+  "denied_with_gate_pass_plan": 442,
+  "batch_summary_story": "A denied-customer cohort shows meaningful uplift while preserving a strong early-checkpoint posture."
+}

@@ -1,0 +1,24 @@
+{
+  "canonical_population": "denied",
+  "secondary_population": "high_risk_denied",
+  "canonical_metrics": {
+    "mean_plan_execution_probability": 0.61,
+    "expected_pd_improvement": 0.071,
+    "partial_execution_rate": 0.54,
+    "failed_execution_rate": 0.14,
+    "mixed_execution_rate": 0.36,
+    "expected_partial_progress_rate": 0.63
+  },
+  "secondary_metrics": {
+    "mean_plan_execution_probability": 0.53,
+    "expected_pd_improvement": 0.052,
+    "partial_execution_rate": 0.59,
+    "failed_execution_rate": 0.19,
+    "mixed_execution_rate": 0.39,
+    "expected_partial_progress_rate": 0.51
+  },
+  "supporting_artifacts": {
+    "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
+    "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv"
+  }
+}

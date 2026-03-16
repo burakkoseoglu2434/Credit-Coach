@@ -1,0 +1,23 @@
+{
+  "candidate_quality_population": "denied",
+  "candidate_quality_secondary_population": "high_risk_denied",
+  "canonical_metrics": {
+    "candidate_pool_diversity_index": 0.67,
+    "candidate_source_entropy": 0.59,
+    "best_source_internal_rate": 0.38,
+    "best_source_dice_rate": 0.24,
+    "best_source_rule_rate": 0.18,
+    "best_source_fallback_rate": 0.20
+  },
+  "secondary_metrics": {
+    "candidate_pool_diversity_index": 0.49,
+    "candidate_source_entropy": 0.43,
+    "best_source_internal_rate": 0.42,
+    "best_source_dice_rate": 0.21,
+    "best_source_rule_rate": 0.12,
+    "best_source_fallback_rate": 0.25
+  },
+  "supporting_artifacts": {
+    "candidate_source_breakdown_csv": "tables/candidate_source_breakdown.csv"
+  }
+}

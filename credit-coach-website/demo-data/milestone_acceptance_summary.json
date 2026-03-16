@@ -1,0 +1,40 @@
+{
+  "phase": "v1.2",
+  "milestone": "Recommendation Quality Hardening",
+  "contract_version": "phase16.v1",
+  "runner_type": "suite",
+  "evidence_level": "seeded_suite",
+  "acceptance_eligible": true,
+  "acceptance_status": "ACCEPTED",
+  "release_decision": "GO",
+  "broad_rollout_allowed": true,
+  "pilot_eligible": true,
+  "lift_pass": true,
+  "reliability_pass": true,
+  "fairness_seed_pass_count": 5,
+  "worst_primary_fairness_gap": 0.011,
+  "telemetry_gate_status": "healthy",
+  "telemetry_failure_reason": "",
+  "telemetry_success_rate": 0.995,
+  "telemetry_ingest_lag_s": 11.2,
+  "model_version": "cc_v1_2_0316",
+  "model_freeze_mode": "explicit_manifest",
+  "release_pack_summary": {
+    "pack_status": "complete",
+    "pack_acceptance_eligible": true,
+    "required_artifacts": {
+      "kpi_contract_snapshot_json": "tables/kpi_contract_snapshot.json",
+      "milestone_acceptance_summary_json": "tables/milestone_acceptance_summary.json"
+    },
+    "optional_artifacts": {
+      "offer_optimization_summary_json": "tables/offer_optimization_summary.json",
+      "off_policy_evaluation_json": "tables/off_policy_evaluation.json"
+    },
+    "missing_artifacts": []
+  },
+  "supporting_artifacts": {
+    "customer_roadmap_json": "tables/customer_roadmap.json",
+    "batch_summary_json": "tables/batch_summary.json",
+    "offer_optimization_summary_json": "tables/offer_optimization_summary.json"
+  }
+}

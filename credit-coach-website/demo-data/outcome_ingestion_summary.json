@@ -1,0 +1,27 @@
+{
+  "window_days": 90,
+  "primary_learning_window_days": 90,
+  "total_records": 1524,
+  "decision_log_completeness": 0.915,
+  "reward_90d_coverage": 0.742,
+  "default_90d_coverage": 0.781,
+  "margin_90d_coverage": 0.754,
+  "has_action_completion_rate": 0.623,
+  "has_offer_acceptance_rate": 0.447,
+  "has_payment_behavior_rate": 0.802,
+  "has_recovery_outcome_rate": 0.695,
+  "learning_readiness_status_distribution": {
+    "descriptive_only": {
+      "count": 214,
+      "share": 0.14
+    },
+    "partial_learning_ready": {
+      "count": 501,
+      "share": 0.329
+    },
+    "learning_ready": {
+      "count": 809,
+      "share": 0.531
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "total_decisions": 1800,
+  "complete_decision_logs": 1647,
+  "decision_log_completeness": 0.915,
+  "policy_metadata_coverage": 0.942,
+  "selection_propensity_coverage": 0.901,
+  "candidate_set_coverage": 0.934,
+  "reason_code_coverage": 0.962,
+  "recommended_plan_rate": 0.883,
+  "propensity_source_breakdown": {
+    "randomized": 0.41,
+    "policy_heuristic": 0.37,
+    "model_backfilled": 0.22
+  }
+}
