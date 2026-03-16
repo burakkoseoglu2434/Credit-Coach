@@ -67,9 +67,10 @@ created: 2026-03-16
 One human scan is still useful after execution:
 
 - confirm execution probability fields read like interpretable recommendation evidence rather than opaque model internals
+- confirm approval-dependent or `provisional` actions do not surface as ordinary executable winners with synthetic probabilities
 - confirm expected utility never promotes gate-ineligible plans over safe ones
 - confirm partial-execution simulation reuses the existing coaching semantics instead of introducing a disconnected second behavior model
-- confirm behavior-aware summaries remain concise and machine-readable enough for later seeded aggregation
+- confirm behavior-aware summaries remain concise, machine-readable, and clearly supporting rather than acting like a second acceptance gate
 
 All core behavior should remain automatically verified.
 

@@ -1,21 +1,22 @@
 # Phase 13: Behavior-Aware Recourse - Research
 
 **Researched:** 2026-03-16
-**Status:** Ready for planning
+**Status:** Ready for replanning
 **Confidence:** HIGH
 
 ## Planning Question
 
 What has to change so Credit Coach can rank recommendations by expected real-world execution likelihood rather than only nominal offline impact?
 
-## Planning Assumption
+## Planning Basis
 
-This phase does not yet have a `13-CONTEXT.md`. For this planning pass, the authoritative inputs are:
+This phase now has a locked `13-CONTEXT.md`. For this replanning pass, the authoritative inputs are:
 
 - `.planning/PROJECT.md`
 - `.planning/ROADMAP.md`
 - `.planning/REQUIREMENTS.md`
 - `.planning/STATE.md`
+- `.planning/phases/13-behavior-aware-recourse/13-CONTEXT.md`
 - `.planning/research/v1.2-RECOMMENDATION-QUALITY-HARDENING.md`
 - `.planning/phases/12-action-realism-feasibility-expansion/12-CONTEXT.md`
 - `.planning/phases/12-action-realism-feasibility-expansion/12-RESEARCH.md`
@@ -23,7 +24,7 @@ This phase does not yet have a `13-CONTEXT.md`. For this planning pass, the auth
 - current recommendation code under `credit-coach/src/credit_coach/`
 - current tests under `credit-coach/tests/`
 
-That is sufficient because the milestone contract is already locked at the roadmap and requirements level. The remaining work is brownfield design against the existing typed-action, feasibility, planner, batch-evaluation, and sequential-coaching seams.
+That is sufficient because the milestone contract and the Phase 13 gray-area decisions are now both locked. The remaining work is brownfield execution planning against the existing typed-action, feasibility, planner, batch-evaluation, and sequential-coaching seams.
 
 ## Executive Summary
 
@@ -36,6 +37,15 @@ The right implementation strategy is:
 - update planner ranking to use expected utility under the inherited gate contracts
 - reuse the existing weekly coaching loop and trajectory evidence seams to simulate partial execution, failed steps, and mixed execution rather than inventing an unrelated simulator
 - publish machine-readable behavior-aware artifacts that batch, suite, and challenger flows can aggregate
+
+The locked context narrows that strategy further:
+
+- canonical probability units are `action_execution_probability` and `plan_execution_probability`
+- composite actions aggregate first at the `action_group_id` level rather than pretending each row is independent
+- approval-dependent or `provisional` actions remain non-winner evidence rather than ordinary executable actions
+- the primary expected-utility term is `expected_pd_improvement = plan_execution_probability × nominal_pd_improvement`
+- the weekly coaching loop is the canonical simulation grain
+- `behavior_aware_summary.json` is mandatory supporting evidence, but not a release or acceptance gate in Phase 13
 
 Phase 13 should not yet redesign the time horizon model; that is Phase 14. It should make the existing one-shot or short phased plans behavior-aware enough that later sequential trajectory planning can build on them.
 
@@ -137,7 +147,7 @@ Execution probability and partial execution should enrich the existing plan mode
 
 ### A heuristic seam is acceptable if the contract is explicit
 
-The requirement is that actions and plans carry execution probability grounded in context. That can begin as a deterministic or rules-based estimator if the interface is clean, testable, and replaceable by a learned model later.
+The requirement is that actions and plans carry execution probability grounded in context. That can begin as a deterministic or rules-based estimator if the interface is clean, testable, and replaceable by a learned model later. The locked input family is intentionally narrow: typed action metadata, timing, feasibility or constraint state, plan complexity, and lightweight customer context.
 
 ### Execution likelihood must remain subordinate to inherited gates
 
@@ -165,7 +175,7 @@ This avoids scattering probability logic across generator, planner, and batch co
 
 ### B. Attach execution likelihood at generation time
 
-`PlanAction` and `PlanRecord` should carry execution-aware fields so downstream modules can use them consistently. Generator is the best place to resolve action-level values because it already knows action type, timing, feasibility state, and plan composition.
+`PlanAction` and `PlanRecord` should carry execution-aware fields so downstream modules can use them consistently. Generator is the best place to resolve action-level values because it already knows action type, timing, feasibility state, and plan composition. The context also locks one subtlety: composite actions should aggregate at the `action_group_id` level before rolling into plan-level probability, and approval-dependent actions should degrade explicitly rather than masquerading as ordinary executable actions.
 
 ### C. Keep expected utility inside the existing planner seam
 
@@ -176,7 +186,7 @@ This avoids scattering probability logic across generator, planner, and batch co
 - inherited gate margins
 - high-risk prioritization
 
-The planner should prefer likely actions when nominal impact is similar, rather than discarding gate-safe plans purely because their offline effect looks smaller.
+The planner should prefer likely actions when nominal impact is similar, rather than discarding gate-safe plans purely because their offline effect looks smaller. The locked context now makes this precise: use expected utility after eligibility filters, keep `denied_high_risk_lift` as the primary nominal high-risk signal, and treat low execution probability as a ranking penalty rather than a new reject rule.
 
 ### D. Reuse the weekly coaching loop for partial execution
 
@@ -200,7 +210,7 @@ and companion breakdowns such as:
 - `partial_execution_breakdown.csv`
 - `execution_probability_breakdown.csv`
 
-Batch evaluation should emit them first, and suite or challenger should aggregate from those stable artifacts rather than recomputing incompatible summaries.
+Batch evaluation should emit them first, and suite or challenger should aggregate from those stable artifacts rather than recomputing incompatible summaries. The locked review surface should remain concise and explanation-first under a `Behavior-Aware Summary` section.
 
 ## Recommended Plan Breakdown
 

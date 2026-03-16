@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 13 context is now locked under v1.2 - next milestone work is replanning and then executing execution-probability modeling, expected-utility scoring, and partial-execution simulation
+**Current focus:** Phase 13 is replanned under v1.2 - next milestone work is executing execution-probability modeling, expected-utility scoring, and partial-execution simulation
 
 ## Current Position
 
 Phase: 13 of 16 (Behavior-Aware Recourse)
 Plan: 3 of 3 in current phase
 Status: Planned
-Last activity: 2026-03-16 - Captured Phase 13 context: execution probability contract, expected utility ordering, partial-execution semantics, and behavior-aware evidence
+Last activity: 2026-03-16 - Replanned Phase 13 with locked context for execution probability, expected utility, and partial-execution evidence
 
 Progress: [##--------] 20%
 
@@ -29,7 +29,7 @@ Progress: [##--------] 20%
 |-------|-------|-------|----------|
 | v1.0 historical baseline | 20 | historical import | n/a |
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
-| v1.2 active milestone | 3 | phase 12 complete, phase 13 planned, phases 14-16 pending | n/a |
+| v1.2 active milestone | 3 | phase 12 complete, phase 13 replanned, phases 14-16 pending | n/a |
 
 **Recent Trend:**
 - Last 5 plans: historical data not reconstructed
@@ -67,6 +67,7 @@ Recent decisions affecting current work:
 - Phase 13 planned: expected utility and partial-execution evidence will remain subordinate to inherited fairness, reliability, telemetry, and acceptance gates
 - Phase 13 context locked: canonical probability units are action- and plan-level, composite actions aggregate through `action_group_id`, and approval-dependent actions remain non-winner evidence
 - Phase 13 context locked: weekly coaching loop is the canonical partial-execution seam and `behavior_aware_summary.json` is the mandatory non-blocking supporting artifact
+- Phase 13 replanned: research and execution prompts now explicitly inherit the locked probability, expected-utility, simulation, and artifact decisions
 
 ### Pending Todos
 
@@ -79,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16 12:25
-Stopped at: Phase 13 context captured; next step is `$gsd-plan-phase 13 --research`
+Last session: 2026-03-16 12:40
+Stopped at: Phase 13 replanned; next step is `$gsd-execute-phase 13`
 Resume file: None
