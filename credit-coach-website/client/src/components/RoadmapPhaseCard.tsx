@@ -1,3 +1,5 @@
+import { useLanguage } from "@/i18n/language";
+
 type RoadmapStep = {
   action_key: string;
   action_class: string;
@@ -20,6 +22,8 @@ type RoadmapPhaseCardProps = {
 };
 
 export function RoadmapPhaseCard({ phase }: RoadmapPhaseCardProps) {
+  const { text } = useLanguage();
+
   return (
     <div className="panel p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -32,7 +36,9 @@ export function RoadmapPhaseCard({ phase }: RoadmapPhaseCardProps) {
           </div>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-right">
-          <div className="text-xs uppercase tracking-[0.18em] text-arctic/55">Target PD</div>
+          <div className="text-xs uppercase tracking-[0.18em] text-arctic/55">
+            {text({ tr: "Hedef PD", en: "Target PD" })}
+          </div>
           <div className="mt-1 font-display text-2xl font-semibold text-white">
             {phase.target_pd.toFixed(2)}
           </div>
@@ -56,14 +62,22 @@ export function RoadmapPhaseCard({ phase }: RoadmapPhaseCardProps) {
             <div className="mt-3 font-medium text-white">{step.action_title}</div>
             <p className="mt-2 text-sm leading-6 text-slate-400">{step.detail}</p>
             <div className="mt-4 grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
-              <div>Action key: <span className="text-white">{step.action_key}</span></div>
-              <div>Timeline: <span className="text-white">{step.time_months} months</span></div>
               <div>
-                Execution probability:{" "}
+                {text({ tr: "Action key", en: "Action key" })}:{" "}
+                <span className="text-white">{step.action_key}</span>
+              </div>
+              <div>
+                {text({ tr: "Zamanlama", en: "Timeline" })}:{" "}
+                <span className="text-white">
+                  {step.time_months} {text({ tr: "ay", en: "months" })}
+                </span>
+              </div>
+              <div>
+                {text({ tr: "Gerceklesme olasiligi", en: "Execution probability" })}:{" "}
                 <span className="text-white">
                   {step.plan_execution_probability !== undefined
                     ? `${Math.round(step.plan_execution_probability * 100)}%`
-                    : "n/a"}
+                    : text({ tr: "yok", en: "n/a" })}
                 </span>
               </div>
             </div>

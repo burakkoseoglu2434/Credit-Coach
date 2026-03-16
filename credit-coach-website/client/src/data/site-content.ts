@@ -1,90 +1,241 @@
-export const navLinks = [
-  { href: "/product", label: "Product" },
-  { href: "/modules", label: "Modules" },
-  { href: "/demo", label: "Demo Center" },
-  { href: "/proof", label: "Proof" },
-  { href: "/investor", label: "Investor" },
-  { href: "/contact", label: "Contact" },
-];
+import type { LocalizedText } from "@/i18n/language";
 
 export const modules = [
   {
-    title: "Risk & Explainability",
-    description:
-      "Moves the credit flow beyond approve / deny by exposing why a customer is off-policy and what can shift risk safely.",
-    output: "risk drivers, decision rationale, PD context",
+    title: {
+      tr: "Karar Icgorusu",
+      en: "Decision Insight",
+    },
+    description: {
+      tr: "Musterinin neden reddedildigini ve guvenli toparlanmanin nereden baslayabilecegini aciklar.",
+      en: "Clarifies why a customer was declined and where safe recovery can begin.",
+    },
     artifact: "batch_summary.json",
   },
   {
-    title: "Recourse Planning",
-    description:
-      "Generates real-world action plans instead of abstract feature edits, across behavioral, structural, and institutional levers.",
-    output: "customer roadmap, phased actions, action mix",
+    title: {
+      tr: "Musteri Aksiyon Plani",
+      en: "Customer Action Planning",
+    },
+    description: {
+      tr: "Her musteri icin uygulanabilir ve asamali bir sonraki adim plani olusturur.",
+      en: "Builds a practical next-step plan for each customer.",
+    },
     artifact: "customer_roadmap.json",
   },
   {
-    title: "Behavior-Aware Ranking",
-    description:
-      "Scores plans by both expected impact and likelihood of execution, so recommendations stay grounded in real borrower behavior.",
-    output: "execution probability, expected PD improvement",
+    title: {
+      tr: "Akilli Onceliklendirme",
+      en: "Smart Prioritization",
+    },
+    description: {
+      tr: "Musterilerin gercekte uygulama ihtimali daha yuksek olan adimlari one cikarir.",
+      en: "Prioritizes the actions customers are most likely to complete.",
+    },
     artifact: "behavior_aware_summary.json",
   },
   {
-    title: "Sequential Trajectories",
-    description:
-      "Builds phase-based improvement paths with 4w, 12w, and 24w checkpoints instead of forcing a one-shot plan.",
-    output: "trajectory health, checkpoint performance, replan signals",
+    title: {
+      tr: "Asamali Ilerleme",
+      en: "Guided Progress",
+    },
+    description: {
+      tr: "Tek seferlik tavsiye yerine checkpoint'lerle ilerleyen yonlendirilmis bir yol sunar.",
+      en: "Turns one-time recommendations into a guided journey with checkpoints.",
+    },
     artifact: "trajectory_summary.json",
   },
   {
-    title: "Offer Optimization",
-    description:
-      "Adds institution-side offers into the same decision surface and optimizes them against approval, default, and margin proxies.",
-    output: "offer mix, acceptance probability, recovery proxy deltas",
+    title: {
+      tr: "Teklif Stratejisi",
+      en: "Offer Strategy",
+    },
+    description: {
+      tr: "Kurum tekliflerini geri kazanimi artiracak sekilde karar surecine dahil eder.",
+      en: "Brings institution-side offers into the decision flow to improve recovery.",
+    },
     artifact: "offer_optimization_summary.json",
   },
   {
-    title: "Learning Loop",
-    description:
-      "Logs decision context, tracks delayed outcomes, and produces confidence-aware off-policy learning signals for future policy improvement.",
-    output: "decision coverage, reward coverage, OPE confidence",
+    title: {
+      tr: "Ogrenme Sinyalleri",
+      en: "Learning Signals",
+    },
+    description: {
+      tr: "Gercek sonuclari gelecekteki karar kalitesini artiracak sinyallere donusturur.",
+      en: "Turns real outcomes into signals that improve future decisions.",
+    },
     artifact: "off_policy_evaluation.json",
   },
   {
-    title: "Governance & Release Evidence",
-    description:
-      "Keeps fairness, reliability, telemetry, and acceptance evidence explicit so recommendations never outrun governance.",
-    output: "acceptance summary, release pack, human-readable review",
+    title: {
+      tr: "Karar Guvencesi",
+      en: "Decision Governance",
+    },
+    description: {
+      tr: "Her onerinin aciklanabilir, izlenebilir ve kontrollu kalmasini saglar.",
+      en: "Keeps every recommendation reviewable, traceable, and controlled.",
+    },
     artifact: "milestone_acceptance_summary.json",
   },
 ];
 
+export const surfaceCards = [
+  {
+    title: {
+      tr: "Musteri Aksiyon Yol Haritasi",
+      en: "Customer Action Roadmap",
+    },
+    description: {
+      tr: "Her musteri icin kredi profilini zamanla guclendiren kisisel bir ilerleme plani sunar.",
+      en: "A personalized roadmap that helps each customer improve over time.",
+    },
+    tone: "blue" as const,
+  },
+  {
+    title: {
+      tr: "Portfoy Icgoruleri",
+      en: "Portfolio Insights",
+    },
+    description: {
+      tr: "Hangi stratejilerin donusumu artirirken risk kalitesini korudugunu gosterir.",
+      en: "Shows which strategies improve conversion while protecting risk quality.",
+    },
+    tone: "green" as const,
+  },
+  {
+    title: {
+      tr: "Teklif Optimizasyonu",
+      en: "Offer Optimization",
+    },
+    description: {
+      tr: "Kurum tekliflerinin kabul ve geri kazanima etkisini acikca gorunur kilar.",
+      en: "Makes the impact of institution-side offers on acceptance and recovery visible.",
+    },
+    tone: "amber" as const,
+  },
+];
+
+export const proofCards = [
+  {
+    title: {
+      tr: "Musteri Aksiyon Yol Haritasi",
+      en: "Customer Action Roadmap",
+    },
+    description: {
+      tr: "Her musteri icin bir sonraki en iyi adimi net ve uygulanabilir hale getirir.",
+      en: "Makes the next best action clear and practical for each customer.",
+    },
+  },
+  {
+    title: {
+      tr: "Portfoy Icgoruleri",
+      en: "Portfolio Insights",
+    },
+    description: {
+      tr: "Portfoy genelinde hangi yaklasimlarin ise yaradigini yonetime acikca gosterir.",
+      en: "Shows leadership which approaches are working across the portfolio.",
+    },
+  },
+  {
+    title: {
+      tr: "Teklif Optimizasyonu",
+      en: "Offer Optimization",
+    },
+    description: {
+      tr: "Kurum tekliflerinin gelir, kabul ve geri kazanima etkisini olculebilir kilar.",
+      en: "Measures how institution-side offers affect revenue, acceptance, and recovery.",
+    },
+  },
+  {
+    title: {
+      tr: "Karar Guvencesi",
+      en: "Decision Governance",
+    },
+    description: {
+      tr: "Kararlari aciklanabilir, denetlenebilir ve guvenle yayina alinabilir halde tutar.",
+      en: "Keeps decisions explainable, reviewable, and ready for safe rollout.",
+    },
+  },
+];
+
+export const navLinks: Array<{ href: string; label: LocalizedText }> = [
+  { href: "/product", label: { tr: "Urun", en: "Product" } },
+  { href: "/modules", label: { tr: "Moduller", en: "Modules" } },
+  { href: "/demo", label: { tr: "Demo Merkezi", en: "Demo Center" } },
+  { href: "/proof", label: { tr: "Kanit", en: "Proof" } },
+  { href: "/investor", label: { tr: "Yatirimci", en: "Investor" } },
+  { href: "/contact", label: { tr: "Iletisim", en: "Contact" } },
+];
+
 export const processSteps = [
   {
-    title: "Diagnose the decline",
-    body: "Credit Coach starts with risk, explanation, and segment context rather than treating every denied applicant as the same problem.",
+    title: {
+      tr: "Red nedenini cikar",
+      en: "Diagnose the decline",
+    },
+    body: {
+      tr: "Her reddedilen basvuruyu ayni gormez; risk, neden ve segment baglamiyla baslar.",
+      en: "Starts with risk, explanation, and segment context instead of treating every denied customer the same.",
+    },
   },
   {
-    title: "Generate feasible next steps",
-    body: "The engine produces behavioral, structural, and institutional actions that can be sequenced over time.",
+    title: {
+      tr: "Uygulanabilir adim uret",
+      en: "Generate feasible next steps",
+    },
+    body: {
+      tr: "Davranissal, yapisal ve kurumsal aksiyonlari fazlara yayarak uretir.",
+      en: "Produces behavioral, structural, and institutional actions that can be sequenced over time.",
+    },
   },
   {
-    title: "Filter through governance",
-    body: "Fairness, reliability, telemetry, and operational controls stay upstream of any recommendation or promotion decision.",
+    title: {
+      tr: "Governance filtresinden gecir",
+      en: "Filter through governance",
+    },
+    body: {
+      tr: "Fairness, reliability, telemetry ve operasyonel kontroller kararlarin onunde kalir.",
+      en: "Fairness, reliability, telemetry, and operational controls stay upstream of recommendation or promotion.",
+    },
   },
   {
-    title: "Optimize the commercial path",
-    body: "Institution-side offers can join customer actions in the same plan when they improve recovery proxies without violating governance.",
+    title: {
+      tr: "Ticari yolu optimize et",
+      en: "Optimize the commercial path",
+    },
+    body: {
+      tr: "Kurum teklifleri, governance'i bozmadan ayni plana eklenebilir.",
+      en: "Institution-side offers can join customer actions when they improve recovery proxies safely.",
+    },
   },
   {
-    title: "Learn from outcomes",
-    body: "Decision logs, delayed outcomes, and off-policy evaluation close the loop so policy improvement becomes evidence-based.",
+    title: {
+      tr: "Sonuclardan ogren",
+      en: "Learn from outcomes",
+    },
+    body: {
+      tr: "Karar log'lari, gecikmeli sonuclar ve OPE ile policy iyilestirmesi kanita dayanir.",
+      en: "Decision logs, delayed outcomes, and off-policy evaluation close the loop for evidence-based policy improvement.",
+    },
   },
 ];
 
 export const investorHighlights = [
-  "This is not just a scoring model. It is a decision-intelligence layer that sits after deny and before lost customer value.",
-  "The strongest wedge is lender recovery of denied or near-prime customers under governance constraints.",
-  "The technical core already exists: recommendation quality, behavior-aware ranking, phased trajectories, offer optimization, and learning-loop evidence are shipped.",
-  "The commercial gap is productization, operator surfaces, and go-to-market packaging, which is exactly where a website and product shell become strategically useful.",
+  {
+    tr: "Bu yalnizca bir scoring modeli degil; deny sonrasina yerlesen bir karar-istihbarati katmani.",
+    en: "This is not just a scoring model. It is a decision-intelligence layer that sits after deny.",
+  },
+  {
+    tr: "En guclu wedge, governance sinirlari icinde denied veya near-prime musteri geri kazanimi.",
+    en: "The strongest wedge is lender recovery of denied or near-prime customers under governance constraints.",
+  },
+  {
+    tr: "Teknik cekirdek zaten var: recommendation quality, behavior-aware ranking, trajectories, offers ve learning evidence ship edildi.",
+    en: "The technical core already exists: recommendation quality, behavior-aware ranking, trajectories, offers, and learning evidence are shipped.",
+  },
+  {
+    tr: "Ticari bosluk productization, operator surface ve GTM paketlemesinde. Bu da website ve product shell'i kritik kiliyor.",
+    en: "The commercial gap is productization, operator surfaces, and go-to-market packaging.",
+  },
 ];

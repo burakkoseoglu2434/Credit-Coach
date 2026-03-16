@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useForm, type UseFormReturn } from "react-hook-form";
 
+import { useLanguage } from "@/i18n/language";
 import { postJson } from "@/lib/api";
 import {
   contactRequestSchema,
@@ -15,14 +16,15 @@ import {
 
 type InquiryKind = "contact" | "demo" | "investor";
 
-const tabs: { id: InquiryKind; label: string }[] = [
-  { id: "contact", label: "General Contact" },
-  { id: "demo", label: "Request a Demo" },
-  { id: "investor", label: "Investor Intro" },
-];
-
 export function InquiryForm() {
   const [kind, setKind] = useState<InquiryKind>("demo");
+  const { lang, text } = useLanguage();
+
+  const tabs: { id: InquiryKind; label: string }[] = [
+    { id: "contact", label: text({ tr: "Genel Iletisim", en: "General Contact" }) },
+    { id: "demo", label: text({ tr: "Demo Talebi", en: "Request a Demo" }) },
+    { id: "investor", label: text({ tr: "Yatirimci Girisi", en: "Investor Intro" }) },
+  ];
 
   const endpoint = useMemo(() => {
     if (kind === "contact") return "/api/contact";
@@ -104,28 +106,55 @@ export function InquiryForm() {
 
       <form onSubmit={onSubmit} className="mt-6 grid gap-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Name" error={errorText(activeForm.formState.errors.name)}>
-            <input {...activeForm.register("name")} className={inputClassName} />
+          <Field label={text({ tr: "Ad Soyad", en: "Name" })} error={errorText(activeForm.formState.errors.name, lang)}>
+            <input
+              {...activeForm.register("name")}
+              className={inputClassName}
+              placeholder={text({ tr: "Adinizi girin", en: "Enter your name" })}
+            />
           </Field>
-          <Field label="Company" error={errorText(activeForm.formState.errors.company)}>
-            <input {...activeForm.register("company")} className={inputClassName} />
+          <Field label={text({ tr: "Sirket", en: "Company" })} error={errorText(activeForm.formState.errors.company, lang)}>
+            <input
+              {...activeForm.register("company")}
+              className={inputClassName}
+              placeholder={text({ tr: "Sirket adini girin", en: "Enter company name" })}
+            />
           </Field>
-          <Field label="Role" error={errorText(activeForm.formState.errors.role)}>
-            <input {...activeForm.register("role")} className={inputClassName} />
+          <Field label={text({ tr: "Rol", en: "Role" })} error={errorText(activeForm.formState.errors.role, lang)}>
+            <input
+              {...activeForm.register("role")}
+              className={inputClassName}
+              placeholder={text({ tr: "Rolunuzu girin", en: "Enter your role" })}
+            />
           </Field>
-          <Field label="Email" error={errorText(activeForm.formState.errors.email)}>
-            <input type="email" {...activeForm.register("email")} className={inputClassName} />
+          <Field label={text({ tr: "E-posta", en: "Email" })} error={errorText(activeForm.formState.errors.email, lang)}>
+            <input
+              type="email"
+              {...activeForm.register("email")}
+              className={inputClassName}
+              placeholder={text({ tr: "E-posta adresiniz", en: "Your email address" })}
+            />
           </Field>
         </div>
 
         {kind === "demo" ? (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Primary use case" error={demoForm.formState.errors.useCase?.message}>
-              <input {...demoForm.register("useCase")} className={inputClassName} />
+            <Field
+              label={text({ tr: "Ana kullanim alani", en: "Primary use case" })}
+              error={errorText(demoForm.formState.errors.useCase, lang)}
+            >
+              <input
+                {...demoForm.register("useCase")}
+                className={inputClassName}
+                placeholder={text({ tr: "Orn. denied basvuru geri kazanimi", en: "E.g. denied applicant recovery" })}
+              />
             </Field>
-            <Field label="Team size" error={demoForm.formState.errors.teamSize?.message}>
+            <Field
+              label={text({ tr: "Takim buyuklugu", en: "Team size" })}
+              error={errorText(demoForm.formState.errors.teamSize, lang)}
+            >
               <select {...demoForm.register("teamSize")} className={inputClassName}>
-                <option value="">Select team size</option>
+                <option value="">{text({ tr: "Takim buyuklugu secin", en: "Select team size" })}</option>
                 <option value="1-10">1-10</option>
                 <option value="11-50">11-50</option>
                 <option value="51-200">51-200</option>
@@ -137,41 +166,68 @@ export function InquiryForm() {
 
         {kind === "investor" ? (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Fund or firm" error={investorForm.formState.errors.fundName?.message}>
-              <input {...investorForm.register("fundName")} className={inputClassName} />
+            <Field
+              label={text({ tr: "Fon veya kurum", en: "Fund or firm" })}
+              error={errorText(investorForm.formState.errors.fundName, lang)}
+            >
+              <input
+                {...investorForm.register("fundName")}
+                className={inputClassName}
+                placeholder={text({ tr: "Fon veya kurum adini girin", en: "Enter fund or firm name" })}
+              />
             </Field>
-            <Field label="Focus area" error={investorForm.formState.errors.focusArea?.message}>
-              <input {...investorForm.register("focusArea")} className={inputClassName} />
+            <Field
+              label={text({ tr: "Yatirim odagi", en: "Focus area" })}
+              error={errorText(investorForm.formState.errors.focusArea, lang)}
+            >
+              <input
+                {...investorForm.register("focusArea")}
+                className={inputClassName}
+                placeholder={text({ tr: "Orn. fintech, AI, infra", en: "E.g. fintech, AI, infra" })}
+              />
             </Field>
           </div>
         ) : null}
 
-        <Field label="Message" error={errorText(activeForm.formState.errors.message)}>
-          <textarea rows={5} {...activeForm.register("message")} className={inputClassName} />
+        <Field label={text({ tr: "Mesaj", en: "Message" })} error={errorText(activeForm.formState.errors.message, lang)}>
+          <textarea
+            rows={5}
+            {...activeForm.register("message")}
+            className={inputClassName}
+            placeholder={text({
+              tr: "Kisaca neyi gormek istediginizi veya neyi cozmeye calistiginizi yazin",
+              en: "Share what you want to see or the problem you are trying to solve",
+            })}
+          />
         </Field>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-400">
-            Requests are saved to the website backend and can fall back to memory if a database is not configured yet.
+            {text({
+              tr: "Talepler website backend'ine kaydedilir; veritabani yoksa bellek fallback'i kullanilir.",
+              en: "Requests are saved to the website backend and can fall back to memory if a database is not configured yet.",
+            })}
           </p>
           <button
             type="submit"
             disabled={mutation.isPending}
             className="rounded-full bg-gradient-to-r from-cobalt to-signal px-6 py-3 text-sm font-semibold text-midnight transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {mutation.isPending ? "Sending..." : "Send request"}
+            {mutation.isPending
+              ? text({ tr: "Gonderiliyor...", en: "Sending..." })
+              : text({ tr: "Talebi Gonder", en: "Send request" })}
           </button>
         </div>
 
         {mutation.isSuccess ? (
           <div className="rounded-2xl border border-signal/30 bg-signal/10 px-4 py-3 text-sm text-signal">
-            {mutation.data.message}
+            {translateServerMessage(mutation.data.message, lang)}
           </div>
         ) : null}
 
         {mutation.isError ? (
           <div className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {(mutation.error as Error).message}
+            {translateServerMessage((mutation.error as Error).message, lang)}
           </div>
         ) : null}
       </form>
@@ -179,17 +235,50 @@ export function InquiryForm() {
   );
 }
 
-function errorText(error: unknown): string | undefined {
+function errorText(error: unknown, lang: "tr" | "en"): string | undefined {
   if (
     typeof error === "object" &&
     error !== null &&
     "message" in error &&
     typeof (error as { message?: unknown }).message === "string"
   ) {
-    return (error as { message: string }).message;
+    return translateError((error as { message: string }).message, lang);
   }
 
   return undefined;
+}
+
+function translateError(message: string, lang: "tr" | "en") {
+  if (lang === "en") return message;
+
+  const translations: Record<string, string> = {
+    "Please enter a name.": "Lutfen adinizi girin.",
+    "Please enter a company name.": "Lutfen sirket adini girin.",
+    "Please enter your role.": "Lutfen rolunuzu girin.",
+    "Please enter a valid email.": "Lutfen gecerli bir e-posta girin.",
+    "Please share a bit more context.": "Lutfen biraz daha baglam paylasin.",
+    "Please describe the primary use case.": "Lutfen ana kullanim alanini yazin.",
+    "Please select a team size.": "Lutfen takim buyuklugunu secin.",
+    "Please enter a fund or firm name.": "Lutfen fon veya kurum adini girin.",
+    "Please share your focus area.": "Lutfen yatirim odaginizi yazin.",
+  };
+
+  return translations[message] ?? message;
+}
+
+function translateServerMessage(message: string, lang: "tr" | "en") {
+  if (lang === "en") return message;
+
+  const translations: Record<string, string> = {
+    "Contact request saved.": "Iletisim talebi kaydedildi.",
+    "Demo request saved.": "Demo talebi kaydedildi.",
+    "Investor inquiry saved.": "Yatirimci talebi kaydedildi.",
+    "Validation failed.": "Dogrulama basarisiz oldu.",
+    "Unexpected error.": "Beklenmeyen bir hata olustu.",
+    "Request failed": "Istek basarisiz oldu.",
+  };
+
+  return translations[message] ?? message;
 }
 
 const inputClassName =
