@@ -116,6 +116,74 @@ def _build_challenger_candidate_source_breakdown(breakdown_frames: list[pd.DataF
     return pd.concat([combined, rollup], ignore_index=True, sort=False)
 
 
+def _build_challenger_execution_probability_breakdown(breakdown_frames: list[pd.DataFrame]) -> pd.DataFrame:
+    if not breakdown_frames:
+        return pd.DataFrame(
+            columns=[
+                "variant_id",
+                "seed",
+                "population",
+                "risk_band",
+                "best_source",
+                "count",
+                "mean_plan_execution_probability",
+                "expected_pd_improvement",
+                "nominal_pd_improvement",
+                "breakdown_type",
+            ]
+        )
+    combined = pd.concat(breakdown_frames, ignore_index=True)
+    combined["breakdown_type"] = "variant_seed_probability_population_source"
+    rollup = (
+        combined.groupby(["variant_id", "population", "risk_band", "best_source"], dropna=False)
+        .agg(
+            count=("count", "sum"),
+            mean_plan_execution_probability=("mean_plan_execution_probability", "mean"),
+            expected_pd_improvement=("expected_pd_improvement", "mean"),
+            nominal_pd_improvement=("nominal_pd_improvement", "mean"),
+        )
+        .reset_index()
+    )
+    rollup["seed"] = -1
+    rollup["breakdown_type"] = "variant_probability_population_source_rollup"
+    return pd.concat([combined, rollup], ignore_index=True, sort=False)
+
+
+def _build_challenger_partial_execution_breakdown(breakdown_frames: list[pd.DataFrame]) -> pd.DataFrame:
+    if not breakdown_frames:
+        return pd.DataFrame(
+            columns=[
+                "variant_id",
+                "seed",
+                "population",
+                "risk_band",
+                "execution_scenario",
+                "count",
+                "share",
+                "mean_execution_rate",
+                "expected_partial_progress_rate",
+                "max_missed_actions_streak",
+                "breakdown_type",
+            ]
+        )
+    combined = pd.concat(breakdown_frames, ignore_index=True)
+    combined["breakdown_type"] = "variant_seed_population_execution_scenario"
+    rollup = (
+        combined.groupby(["variant_id", "population", "risk_band", "execution_scenario"], dropna=False)
+        .agg(
+            count=("count", "sum"),
+            share=("share", "mean"),
+            mean_execution_rate=("mean_execution_rate", "mean"),
+            expected_partial_progress_rate=("expected_partial_progress_rate", "mean"),
+            max_missed_actions_streak=("max_missed_actions_streak", "max"),
+        )
+        .reset_index()
+    )
+    rollup["seed"] = -1
+    rollup["breakdown_type"] = "variant_population_execution_scenario_rollup"
+    return pd.concat([combined, rollup], ignore_index=True, sort=False)
+
+
 def _round_metric(value: Any, *, digits: int = 6) -> float:
     try:
         metric = float(value)
@@ -287,19 +355,82 @@ def _aggregate_variant_metrics(df: pd.DataFrame) -> pd.DataFrame:
         "trajectory_gate_pass_rate_24w",
         "trajectory_partial_progress_rate",
         "trajectory_median_time_to_gate_pass_days",
+        "mean_plan_execution_probability",
+        "expected_pd_improvement",
+        "partial_execution_rate",
+        "failed_execution_rate",
+        "mixed_execution_rate",
+        "expected_partial_progress_rate",
+        "high_risk_denied_mean_plan_execution_probability",
+        "high_risk_denied_expected_pd_improvement",
+        "high_risk_denied_partial_execution_rate",
+        "high_risk_denied_failed_execution_rate",
+        "high_risk_denied_mixed_execution_rate",
+        "high_risk_denied_expected_partial_progress_rate",
     ]
     available = [c for c in metric_cols if c in df.columns]
     grouped = (
         df.groupby("variant_id", dropna=False)[available]
         .mean(numeric_only=True)
         .reset_index()
-        .rename(columns={c: f"mean_{c}" for c in available})
+        .rename(columns={c: (c if str(c).startswith("mean_") else f"mean_{c}") for c in available})
     )
     numeric_cols = [col for col in grouped.columns if col != "variant_id"]
     if numeric_cols:
         grouped[numeric_cols] = grouped[numeric_cols].round(6)
     grouped["seed_count"] = df.groupby("variant_id").size().values
     return grouped
+
+
+def _build_challenger_behavior_aware_summary(
+    ranked_summary_df: pd.DataFrame,
+    runs_df: pd.DataFrame,
+) -> dict[str, Any]:
+    variants: list[dict[str, Any]] = []
+    for _, row in ranked_summary_df.iterrows():
+        variant_id = str(row.get("variant_id", ""))
+        variant_runs = runs_df[runs_df["variant_id"] == variant_id]
+        variants.append(
+            {
+                "variant_id": variant_id,
+                "seed_count": int(row.get("seed_count", len(variant_runs))),
+                "mean_plan_execution_probability": _round_metric(
+                    row.get("mean_mean_plan_execution_probability", row.get("mean_plan_execution_probability", 0.0))
+                ),
+                "expected_pd_improvement": _round_metric(
+                    row.get("mean_expected_pd_improvement", row.get("expected_pd_improvement", 0.0))
+                ),
+                "partial_execution_rate": _round_metric(
+                    row.get("mean_partial_execution_rate", row.get("partial_execution_rate", 0.0))
+                ),
+                "failed_execution_rate": _round_metric(
+                    row.get("mean_failed_execution_rate", row.get("failed_execution_rate", 0.0))
+                ),
+                "mixed_execution_rate": _round_metric(
+                    row.get("mean_mixed_execution_rate", row.get("mixed_execution_rate", 0.0))
+                ),
+                "expected_partial_progress_rate": _round_metric(
+                    row.get(
+                        "mean_expected_partial_progress_rate",
+                        row.get("expected_partial_progress_rate", 0.0),
+                    )
+                ),
+                "evidence_status": str(row.get("evidence_status", "degraded")),
+            }
+        )
+    champion_variant = str(ranked_summary_df.iloc[0].get("variant_id", "")) if not ranked_summary_df.empty else ""
+    champion_summary = next((entry for entry in variants if entry["variant_id"] == champion_variant), {})
+    return {
+        "canonical_population": "denied",
+        "champion_variant": champion_variant,
+        "variant_count": int(len(variants)),
+        "variants": variants,
+        "champion_summary": champion_summary,
+        "supporting_artifacts": {
+            "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
+            "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+        },
+    }
 
 
 def _seed_direction_consistent(values: pd.Series) -> bool:
@@ -730,6 +861,8 @@ def main() -> None:
     breakdown_frames: list[pd.DataFrame] = []
     frozen_variant_rows: list[dict[str, Any]] = []
     candidate_source_breakdown_frames: list[pd.DataFrame] = []
+    execution_probability_breakdown_frames: list[pd.DataFrame] = []
+    partial_execution_breakdown_frames: list[pd.DataFrame] = []
 
     for variant in _VARIANTS:
         variant_id = str(variant["variant_id"])
@@ -785,9 +918,13 @@ def main() -> None:
             batch_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "fairness_failure_breakdown.csv"
             candidate_quality_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "candidate_quality_summary.json"
             candidate_source_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "candidate_source_breakdown.csv"
+            behavior_aware_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "behavior_aware_summary.json"
+            execution_probability_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "execution_probability_breakdown.csv"
+            partial_execution_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "partial_execution_breakdown.csv"
             train_metrics = _load_json(train_metrics_path)
             batch_metrics = _load_json(batch_metrics_path)
             candidate_quality_summary = _load_json(candidate_quality_path)
+            behavior_aware_summary = _load_json(behavior_aware_path)
             candidate_quality_metrics = (
                 candidate_quality_summary.get("canonical_metrics", {})
                 if isinstance(candidate_quality_summary.get("canonical_metrics", {}), dict)
@@ -796,6 +933,16 @@ def main() -> None:
             secondary_candidate_quality_metrics = (
                 candidate_quality_summary.get("secondary_metrics", {})
                 if isinstance(candidate_quality_summary.get("secondary_metrics", {}), dict)
+                else {}
+            )
+            canonical_behavior_metrics = (
+                behavior_aware_summary.get("canonical_metrics", {})
+                if isinstance(behavior_aware_summary.get("canonical_metrics", {}), dict)
+                else {}
+            )
+            secondary_behavior_metrics = (
+                behavior_aware_summary.get("secondary_metrics", {})
+                if isinstance(behavior_aware_summary.get("secondary_metrics", {}), dict)
                 else {}
             )
             if batch_breakdown_path.exists():
@@ -810,6 +957,18 @@ def main() -> None:
                     candidate_source_breakdown_df["variant_id"] = variant_id
                     candidate_source_breakdown_df["seed"] = int(seed)
                     candidate_source_breakdown_frames.append(candidate_source_breakdown_df)
+            if execution_probability_breakdown_path.exists():
+                execution_probability_breakdown_df = pd.read_csv(execution_probability_breakdown_path)
+                if not execution_probability_breakdown_df.empty:
+                    execution_probability_breakdown_df["variant_id"] = variant_id
+                    execution_probability_breakdown_df["seed"] = int(seed)
+                    execution_probability_breakdown_frames.append(execution_probability_breakdown_df)
+            if partial_execution_breakdown_path.exists():
+                partial_execution_breakdown_df = pd.read_csv(partial_execution_breakdown_path)
+                if not partial_execution_breakdown_df.empty:
+                    partial_execution_breakdown_df["variant_id"] = variant_id
+                    partial_execution_breakdown_df["seed"] = int(seed)
+                    partial_execution_breakdown_frames.append(partial_execution_breakdown_df)
             raw_p95 = float(batch_metrics.get("latency_p95_ms", 0.0))
             raw_p99 = float(batch_metrics.get("latency_p99_ms", 0.0))
             sync_p95 = batch_metrics.get("sync_latency_p95_ms")
@@ -945,6 +1104,78 @@ def main() -> None:
                 "trajectory_gate_pass_rate_24w": float(batch_metrics.get("trajectory_gate_pass_rate_24w", 0.0)),
                 "trajectory_partial_progress_rate": float(batch_metrics.get("trajectory_partial_progress_rate", 0.0)),
                 "trajectory_median_time_to_gate_pass_days": float(batch_metrics.get("trajectory_median_time_to_gate_pass_days", 9_999.0)),
+                "mean_plan_execution_probability": float(
+                    canonical_behavior_metrics.get(
+                        "mean_plan_execution_probability",
+                        batch_metrics.get("mean_plan_execution_probability", 0.0),
+                    )
+                ),
+                "expected_pd_improvement": float(
+                    canonical_behavior_metrics.get(
+                        "expected_pd_improvement",
+                        batch_metrics.get("expected_pd_improvement", 0.0),
+                    )
+                ),
+                "partial_execution_rate": float(
+                    canonical_behavior_metrics.get(
+                        "partial_execution_rate",
+                        batch_metrics.get("partial_execution_rate", 0.0),
+                    )
+                ),
+                "failed_execution_rate": float(
+                    canonical_behavior_metrics.get(
+                        "failed_execution_rate",
+                        batch_metrics.get("failed_execution_rate", 0.0),
+                    )
+                ),
+                "mixed_execution_rate": float(
+                    canonical_behavior_metrics.get(
+                        "mixed_execution_rate",
+                        batch_metrics.get("mixed_execution_rate", 0.0),
+                    )
+                ),
+                "expected_partial_progress_rate": float(
+                    canonical_behavior_metrics.get(
+                        "expected_partial_progress_rate",
+                        batch_metrics.get("expected_partial_progress_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_mean_plan_execution_probability": float(
+                    secondary_behavior_metrics.get(
+                        "mean_plan_execution_probability",
+                        batch_metrics.get("high_risk_denied_mean_plan_execution_probability", 0.0),
+                    )
+                ),
+                "high_risk_denied_expected_pd_improvement": float(
+                    secondary_behavior_metrics.get(
+                        "expected_pd_improvement",
+                        batch_metrics.get("high_risk_denied_expected_pd_improvement", 0.0),
+                    )
+                ),
+                "high_risk_denied_partial_execution_rate": float(
+                    secondary_behavior_metrics.get(
+                        "partial_execution_rate",
+                        batch_metrics.get("high_risk_denied_partial_execution_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_failed_execution_rate": float(
+                    secondary_behavior_metrics.get(
+                        "failed_execution_rate",
+                        batch_metrics.get("high_risk_denied_failed_execution_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_mixed_execution_rate": float(
+                    secondary_behavior_metrics.get(
+                        "mixed_execution_rate",
+                        batch_metrics.get("high_risk_denied_mixed_execution_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_expected_partial_progress_rate": float(
+                    secondary_behavior_metrics.get(
+                        "expected_partial_progress_rate",
+                        batch_metrics.get("high_risk_denied_expected_partial_progress_rate", 0.0),
+                    )
+                ),
             }
             run_rows.append(row)
 
@@ -966,6 +1197,16 @@ def main() -> None:
     source_breakdown_df = _build_challenger_candidate_source_breakdown(candidate_source_breakdown_frames)
     source_breakdown_path = run_ctx.tables_dir / "challenger_candidate_source_breakdown.csv"
     source_breakdown_df.to_csv(source_breakdown_path, index=False)
+    execution_probability_breakdown_df = _build_challenger_execution_probability_breakdown(
+        execution_probability_breakdown_frames
+    )
+    execution_probability_breakdown_path = run_ctx.tables_dir / "execution_probability_breakdown.csv"
+    execution_probability_breakdown_df.to_csv(execution_probability_breakdown_path, index=False)
+    partial_execution_breakdown_df = _build_challenger_partial_execution_breakdown(
+        partial_execution_breakdown_frames
+    )
+    partial_execution_breakdown_path = run_ctx.tables_dir / "partial_execution_breakdown.csv"
+    partial_execution_breakdown_df.to_csv(partial_execution_breakdown_path, index=False)
     release_df = _build_variant_release_payloads(runs_df, thresholds=kpi_thresholds, breakdown_frames=breakdown_frames)
     if not release_df.empty:
         summary_df = summary_df.merge(release_df, on="variant_id", how="left")
@@ -993,6 +1234,12 @@ def main() -> None:
     impact_summary_path = run_ctx.tables_dir / "challenger_impact_summary.json"
     impact_summary_path.write_text(
         json.dumps(impact_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    behavior_aware_summary = _build_challenger_behavior_aware_summary(ranked_summary_df, runs_df)
+    behavior_aware_summary_path = run_ctx.tables_dir / "behavior_aware_summary.json"
+    behavior_aware_summary_path.write_text(
+        json.dumps(behavior_aware_summary, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
 
@@ -1066,6 +1313,9 @@ def main() -> None:
         "challenger_matrix_variant_summary_csv": "tables/challenger_matrix_variant_summary.csv",
         "challenger_matrix_variant_summary_ranked_csv": "tables/challenger_matrix_variant_summary_ranked.csv",
         "challenger_candidate_source_breakdown_csv": "tables/challenger_candidate_source_breakdown.csv",
+        "behavior_aware_summary_json": "tables/behavior_aware_summary.json",
+        "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
+        "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
         "challenger_high_risk_tuning_summary_json": "tables/challenger_high_risk_tuning_summary.json",
         "challenger_impact_summary_json": "tables/challenger_impact_summary.json",
         "challenger_matrix_decision_json": "tables/challenger_matrix_decision.json",
@@ -1103,6 +1353,7 @@ def main() -> None:
                 "champion_variant": champion_variant,
                 "variant_count": int(ranked_summary_df.shape[0]),
                 "high_risk_tuning_summary": high_risk_tuning_summary.get("champion_summary", {}),
+                "behavior_aware_summary": behavior_aware_summary.get("champion_summary", {}),
                 "impact_attribution_summary": impact_summary.get("champion_summary", {}),
             },
         )
@@ -1126,6 +1377,9 @@ def main() -> None:
             optional_artifacts={
                 "challenger_matrix_runs_csv": "tables/challenger_matrix_runs.csv",
                 "challenger_candidate_source_breakdown_csv": "tables/challenger_candidate_source_breakdown.csv",
+                "behavior_aware_summary_json": "tables/behavior_aware_summary.json",
+                "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
+                "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
                 "challenger_high_risk_tuning_summary_json": "tables/challenger_high_risk_tuning_summary.json",
                 "challenger_impact_summary_json": "tables/challenger_impact_summary.json",
                 **(

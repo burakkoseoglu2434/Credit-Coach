@@ -3,6 +3,7 @@ from __future__ import annotations
 from credit_coach.cli.run_batch_recourse_eval import (
     _apply_phase1_feature_boost,
     _apply_fairness_segment_cap_boost,
+    _build_behavior_aware_artifacts,
     _build_candidate_quality_artifacts,
     _build_high_risk_profile_activation_summary,
     _apply_high_risk_profile,
@@ -190,6 +191,72 @@ def test_build_candidate_quality_artifacts_uses_denied_as_canonical_population()
     assert summary["secondary_metrics"]["best_source_internal_rate"] == 1.0
     assert set(breakdown["population"]) == {"denied", "high_risk_denied"}
     assert set(breakdown["candidate_source"]) == {"internal", "dice", "rule", "fallback"}
+
+
+def test_build_behavior_aware_artifacts_uses_denied_as_canonical_population():
+    batch_df = pd.DataFrame(
+        [
+            {
+                "customer_id": "c1",
+                "denied_base": 1,
+                "risk_band": "high",
+                "best_source": "internal",
+                "best_plan_execution_probability": 0.70,
+                "best_nominal_pd_improvement": 0.10,
+                "best_expected_pd_improvement": 0.07,
+                "best_partial_execution": 0,
+                "best_failed_execution": 0,
+                "best_mixed_execution": 0,
+                "best_expected_partial_progress": 1,
+                "best_execution_rate": 1.0,
+                "best_execution_scenario": "full_execution",
+                "best_missed_actions_streak": 0,
+            },
+            {
+                "customer_id": "c2",
+                "denied_base": 1,
+                "risk_band": "mid",
+                "best_source": "dice",
+                "best_plan_execution_probability": 0.40,
+                "best_nominal_pd_improvement": 0.08,
+                "best_expected_pd_improvement": 0.032,
+                "best_partial_execution": 1,
+                "best_failed_execution": 0,
+                "best_mixed_execution": 1,
+                "best_expected_partial_progress": 1,
+                "best_execution_rate": 0.5,
+                "best_execution_scenario": "mixed_execution",
+                "best_missed_actions_streak": 2,
+            },
+            {
+                "customer_id": "c3",
+                "denied_base": 0,
+                "risk_band": "high",
+                "best_source": "rule",
+                "best_plan_execution_probability": 0.90,
+                "best_nominal_pd_improvement": 0.02,
+                "best_expected_pd_improvement": 0.018,
+                "best_partial_execution": 0,
+                "best_failed_execution": 0,
+                "best_mixed_execution": 0,
+                "best_expected_partial_progress": 0,
+                "best_execution_rate": 1.0,
+                "best_execution_scenario": "full_execution",
+                "best_missed_actions_streak": 0,
+            },
+        ]
+    )
+
+    summary, execution_breakdown, partial_breakdown = _build_behavior_aware_artifacts(batch_df)
+
+    assert summary["canonical_population"] == "denied"
+    assert summary["secondary_population"] == "high_risk_denied"
+    assert summary["canonical_metrics"]["mean_plan_execution_probability"] == 0.55
+    assert summary["canonical_metrics"]["mixed_execution_rate"] == 0.5
+    assert summary["secondary_metrics"]["mean_plan_execution_probability"] == 0.7
+    assert "execution_probability_breakdown_csv" in summary["supporting_artifacts"]
+    assert set(execution_breakdown["population"]) == {"denied", "high_risk_denied"}
+    assert set(partial_breakdown["execution_scenario"]) >= {"full_execution", "mixed_execution"}
 
 
 def test_stage1_filter_candidate_pool_applies_source_cap():

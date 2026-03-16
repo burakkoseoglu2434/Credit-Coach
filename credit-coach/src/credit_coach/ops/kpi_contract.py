@@ -815,6 +815,9 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
     outcome_feedback = summary.get("outcome_feedback_summary", {})
     if not isinstance(outcome_feedback, Mapping):
         outcome_feedback = {}
+    behavior_aware = summary.get("behavior_aware_summary", {})
+    if not isinstance(behavior_aware, Mapping):
+        behavior_aware = {}
 
     def _safe_float(value: Any) -> float:
         try:
@@ -894,6 +897,14 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
         f"- approval_rate delta: {_safe_float(outcome_feedback.get('approval_rate_delta', 0.0)):.6f}",
         f"- default_rate_90d delta: {_safe_float(outcome_feedback.get('default_rate_90d_delta', 0.0)):.6f}",
         f"- avg_margin_90d delta: {_safe_float(outcome_feedback.get('avg_margin_90d_delta', 0.0)):.6f}",
+        "",
+        "## Behavior-Aware Summary",
+        "",
+        f"- Mean plan execution probability: {_safe_float(behavior_aware.get('mean_plan_execution_probability', 0.0)):.6f}",
+        f"- Expected PD improvement: {_safe_float(behavior_aware.get('expected_pd_improvement', 0.0)):.6f}",
+        f"- Mixed execution rate: {_safe_float(behavior_aware.get('mixed_execution_rate', 0.0)):.6f}",
+        f"- Failed execution rate: {_safe_float(behavior_aware.get('failed_execution_rate', 0.0)):.6f}",
+        f"- Expected partial progress rate: {_safe_float(behavior_aware.get('expected_partial_progress_rate', 0.0)):.6f}",
     ]
     if supporting_artifacts:
         lines.extend(["", "## Supporting Artifacts", ""])

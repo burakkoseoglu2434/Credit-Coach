@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pandas as pd
 
 from credit_coach.cli.run_phase_experiment_suite import (
+    _build_phase_behavior_aware_summary,
     _build_phase_candidate_quality_summary,
     _build_phase_candidate_source_breakdown,
     _build_phase_fairness_breakdown,
@@ -389,6 +390,50 @@ def test_build_phase_candidate_quality_summary_uses_locked_population_contract()
     assert summary["canonical_metrics"]["best_source_internal_rate"] == 0.45
     assert summary["secondary_metrics"]["candidate_pool_diversity_index"] == 0.30
     assert summary["secondary_metrics"]["best_source_dice_rate"] == 0.35
+
+
+def test_build_phase_behavior_aware_summary_uses_locked_population_contract() -> None:
+    scale_df = pd.DataFrame(
+        [
+            {
+                "mean_plan_execution_probability": 0.60,
+                "expected_pd_improvement": 0.05,
+                "partial_execution_rate": 0.40,
+                "failed_execution_rate": 0.10,
+                "mixed_execution_rate": 0.30,
+                "expected_partial_progress_rate": 0.50,
+                "high_risk_denied_mean_plan_execution_probability": 0.55,
+                "high_risk_denied_expected_pd_improvement": 0.04,
+                "high_risk_denied_partial_execution_rate": 0.45,
+                "high_risk_denied_failed_execution_rate": 0.15,
+                "high_risk_denied_mixed_execution_rate": 0.30,
+                "high_risk_denied_expected_partial_progress_rate": 0.40,
+            },
+            {
+                "mean_plan_execution_probability": 0.40,
+                "expected_pd_improvement": 0.03,
+                "partial_execution_rate": 0.60,
+                "failed_execution_rate": 0.20,
+                "mixed_execution_rate": 0.40,
+                "expected_partial_progress_rate": 0.30,
+                "high_risk_denied_mean_plan_execution_probability": 0.35,
+                "high_risk_denied_expected_pd_improvement": 0.02,
+                "high_risk_denied_partial_execution_rate": 0.65,
+                "high_risk_denied_failed_execution_rate": 0.25,
+                "high_risk_denied_mixed_execution_rate": 0.40,
+                "high_risk_denied_expected_partial_progress_rate": 0.20,
+            },
+        ]
+    )
+
+    summary = _build_phase_behavior_aware_summary(scale_df)
+
+    assert summary["canonical_population"] == "denied"
+    assert summary["secondary_population"] == "high_risk_denied"
+    assert summary["canonical_metrics"]["mean_plan_execution_probability"] == 0.5
+    assert summary["canonical_metrics"]["mixed_execution_rate"] == 0.35
+    assert summary["secondary_metrics"]["mean_plan_execution_probability"] == 0.45
+    assert "partial_execution_breakdown_csv" in summary["supporting_artifacts"]
 
 
 def test_build_phase_candidate_source_breakdown_emits_seed_and_rollup_views() -> None:

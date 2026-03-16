@@ -41,6 +41,9 @@ def _mk_plan(
     p.ci_high = ci_high
     p.reliability = reliability
     p.robust_worst_risk_margin = worst_margin
+    p.plan_execution_probability = 0.5
+    p.nominal_pd_improvement = max(0.0, 0.60 - predicted_pd)
+    p.expected_pd_improvement = float(p.plan_execution_probability * p.nominal_pd_improvement)
     return p
 
 
@@ -344,3 +347,84 @@ def test_choose_best_plan_prefers_non_provisional_constraint_status_when_scores_
         denied_objective_cfg={"enabled": True},
     )
     assert best.plan_id == "p_valid"
+
+
+def test_choose_best_plan_uses_expected_pd_improvement_after_gate_filters():
+    lower_expected = _mk_plan(
+        "p_lower_expected",
+        ci_high=0.34,
+        reliability=0.78,
+        worst_margin=-0.02,
+        predicted_pd=0.30,
+        robust_score=50.0,
+        status="NEEDS_REVIEW",
+    )
+    lower_expected.plan_execution_probability = 0.25
+    lower_expected.nominal_pd_improvement = 0.05
+    lower_expected.expected_pd_improvement = 0.0125
+
+    higher_expected = _mk_plan(
+        "p_higher_expected",
+        ci_high=0.34,
+        reliability=0.78,
+        worst_margin=-0.02,
+        predicted_pd=0.30,
+        robust_score=50.0,
+        status="NEEDS_REVIEW",
+    )
+    higher_expected.plan_execution_probability = 0.80
+    higher_expected.nominal_pd_improvement = 0.05
+    higher_expected.expected_pd_improvement = 0.04
+
+    best = choose_best_plan(
+        [lower_expected, higher_expected],
+        base_pd=0.35,
+        tau=0.35,
+        min_reliability=0.70,
+        min_worst_risk_margin=-0.05,
+        denied_mode=True,
+        denied_objective_cfg={"enabled": True},
+    )
+    assert best.plan_id == "p_higher_expected"
+
+
+def test_choose_best_plan_high_risk_uses_execution_probability_as_non_blocking_tiebreak():
+    lower_probability = _mk_plan(
+        "p_lower_probability",
+        ci_high=0.60,
+        reliability=0.62,
+        worst_margin=-0.04,
+        predicted_pd=0.58,
+        robust_score=10.0,
+        status="NEEDS_REVIEW",
+    )
+    higher_probability = _mk_plan(
+        "p_higher_probability",
+        ci_high=0.60,
+        reliability=0.62,
+        worst_margin=-0.04,
+        predicted_pd=0.58,
+        robust_score=10.0,
+        status="NEEDS_REVIEW",
+    )
+    lower_probability.plan_execution_probability = 0.25
+    lower_probability.nominal_pd_improvement = 0.32
+    lower_probability.expected_pd_improvement = 0.08
+    higher_probability.plan_execution_probability = 0.75
+    higher_probability.nominal_pd_improvement = 0.32
+    higher_probability.expected_pd_improvement = 0.24
+
+    best = choose_best_plan(
+        [lower_probability, higher_probability],
+        base_pd=0.90,
+        tau=0.35,
+        min_reliability=0.60,
+        min_worst_risk_margin=-0.10,
+        denied_mode=True,
+        segment_context={"risk_band": "high"},
+        denied_objective_cfg={
+            "enabled": True,
+            "high_risk_objective": {"enabled": True},
+        },
+    )
+    assert best.plan_id == "p_higher_probability"

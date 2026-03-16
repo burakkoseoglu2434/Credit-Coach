@@ -32,6 +32,34 @@ def _plan_cost(plan: PlanRecord) -> float:
     return float(total)
 
 
+def _plan_execution_probability(plan: PlanRecord) -> float:
+    execution_probability = getattr(plan, "plan_execution_probability", None)
+    if execution_probability is None:
+        return 0.0
+    return max(0.0, min(1.0, _safe_float(execution_probability, 0.0)))
+
+
+def _nominal_pd_improvement(plan: PlanRecord, *, base_pd: float | None, tau: float | None) -> float:
+    explicit = getattr(plan, "nominal_pd_improvement", None)
+    if explicit is not None:
+        return max(0.0, _safe_float(explicit, 0.0))
+    predicted_pd = getattr(plan, "predicted_pd", None)
+    if predicted_pd is None:
+        return 0.0
+    if base_pd is not None:
+        return max(0.0, float(base_pd) - float(predicted_pd))
+    if tau is not None:
+        return max(0.0, float(tau) - float(predicted_pd))
+    return 0.0
+
+
+def _expected_pd_improvement(plan: PlanRecord, *, base_pd: float | None, tau: float | None) -> float:
+    explicit = getattr(plan, "expected_pd_improvement", None)
+    if explicit is not None:
+        return max(0.0, _safe_float(explicit, 0.0))
+    return float(_plan_execution_probability(plan) * _nominal_pd_improvement(plan, base_pd=base_pd, tau=tau))
+
+
 def _short_term_action_signal(plan: PlanRecord, short_term_cfg: dict | None) -> float:
     short_term_cfg = short_term_cfg or {}
     if not bool(short_term_cfg.get("enabled", False)):
@@ -338,6 +366,7 @@ def _high_risk_priority_score(
 def _denied_sort_key(
     plan: PlanRecord,
     *,
+    base_pd: float | None,
     tau: float | None,
     min_reliability: float | None,
     min_worst_risk_margin: float | None,
@@ -391,6 +420,8 @@ def _denied_sort_key(
         -ci_margin,
         -rel_margin,
         -worst_margin,
+        -_expected_pd_improvement(plan, base_pd=base_pd, tau=tau),
+        -_plan_execution_probability(plan),
         int(len(plan.actions)),
         _plan_cost(plan),
         plan.predicted_pd or 1.0,
@@ -451,6 +482,8 @@ def _high_risk_sort_key(
         _constraint_priority(plan),
         _status_priority(plan.status),
         float(high_violation),
+        -_expected_pd_improvement(plan, base_pd=base_pd, tau=tau),
+        -_plan_execution_probability(plan),
         -float(base_priority),
         int(len(plan.actions)),
         _plan_cost(plan),
@@ -506,6 +539,7 @@ def choose_best_plan(
             candidates,
             key=lambda p: _denied_sort_key(
                 p,
+                base_pd=base_pd,
                 tau=tau,
                 min_reliability=min_reliability,
                 min_worst_risk_margin=min_worst_risk_margin,
@@ -525,6 +559,8 @@ def choose_best_plan(
                 min_reliability=min_reliability,
                 min_worst_risk_margin=min_worst_risk_margin,
             ),
+            -_expected_pd_improvement(p, base_pd=base_pd, tau=tau),
+            -_plan_execution_probability(p),
             int(len(p.actions)),
             _plan_cost(p),
             p.predicted_pd or 1.0,

@@ -409,6 +409,158 @@ def _build_phase_candidate_quality_summary(scale_df: pd.DataFrame) -> dict[str, 
     }
 
 
+def _build_phase_behavior_aware_summary(scale_df: pd.DataFrame) -> dict[str, Any]:
+    metric_fields = (
+        "mean_plan_execution_probability",
+        "expected_pd_improvement",
+        "partial_execution_rate",
+        "failed_execution_rate",
+        "mixed_execution_rate",
+        "expected_partial_progress_rate",
+    )
+    secondary_fields = tuple(f"high_risk_denied_{field}" for field in metric_fields)
+    if scale_df.empty:
+        return {
+            "canonical_population": "denied",
+            "secondary_population": "high_risk_denied",
+            "seed_count": 0,
+            "canonical_metrics": {field: 0.0 for field in metric_fields},
+            "secondary_metrics": {field.replace("high_risk_denied_", ""): 0.0 for field in secondary_fields},
+            "supporting_artifacts": {
+                "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
+                "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+            },
+        }
+    canonical_metrics = {
+        field: _round_metric(pd.to_numeric(scale_df.get(field, pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean())
+        for field in metric_fields
+    }
+    secondary_metrics = {
+        field.replace("high_risk_denied_", ""): _round_metric(
+            pd.to_numeric(scale_df.get(field, pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean()
+        )
+        for field in secondary_fields
+    }
+    return {
+        "canonical_population": "denied",
+        "secondary_population": "high_risk_denied",
+        "seed_count": int(len(scale_df)),
+        "canonical_metrics": canonical_metrics,
+        "secondary_metrics": secondary_metrics,
+        "supporting_artifacts": {
+            "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
+            "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+        },
+    }
+
+
+def _build_phase_execution_probability_breakdown(seed_breakdowns: list[pd.DataFrame]) -> pd.DataFrame:
+    if not seed_breakdowns:
+        return pd.DataFrame(
+            columns=[
+                "seed",
+                "population",
+                "risk_band",
+                "best_source",
+                "count",
+                "mean_plan_execution_probability",
+                "expected_pd_improvement",
+                "nominal_pd_improvement",
+                "breakdown_type",
+            ]
+        )
+    frames: list[pd.DataFrame] = []
+    for breakdown_df in seed_breakdowns:
+        if breakdown_df.empty or "seed" not in breakdown_df.columns:
+            continue
+        working = breakdown_df.copy()
+        working["breakdown_type"] = "seed_probability_population_source"
+        frames.append(working)
+    if not frames:
+        return pd.DataFrame(
+            columns=[
+                "seed",
+                "population",
+                "risk_band",
+                "best_source",
+                "count",
+                "mean_plan_execution_probability",
+                "expected_pd_improvement",
+                "nominal_pd_improvement",
+                "breakdown_type",
+            ]
+        )
+    combined = pd.concat(frames, ignore_index=True)
+    rollup = (
+        combined.groupby(["population", "risk_band", "best_source"], dropna=False)
+        .agg(
+            count=("count", "sum"),
+            mean_plan_execution_probability=("mean_plan_execution_probability", "mean"),
+            expected_pd_improvement=("expected_pd_improvement", "mean"),
+            nominal_pd_improvement=("nominal_pd_improvement", "mean"),
+        )
+        .reset_index()
+    )
+    rollup["seed"] = -1
+    rollup["breakdown_type"] = "population_probability_source_rollup"
+    return pd.concat([combined, rollup], ignore_index=True, sort=False)
+
+
+def _build_phase_partial_execution_breakdown(seed_breakdowns: list[pd.DataFrame]) -> pd.DataFrame:
+    if not seed_breakdowns:
+        return pd.DataFrame(
+            columns=[
+                "seed",
+                "population",
+                "risk_band",
+                "execution_scenario",
+                "count",
+                "share",
+                "mean_execution_rate",
+                "expected_partial_progress_rate",
+                "max_missed_actions_streak",
+                "breakdown_type",
+            ]
+        )
+    frames: list[pd.DataFrame] = []
+    for breakdown_df in seed_breakdowns:
+        if breakdown_df.empty or "seed" not in breakdown_df.columns:
+            continue
+        working = breakdown_df.copy()
+        working["breakdown_type"] = "seed_population_execution_scenario"
+        frames.append(working)
+    if not frames:
+        return pd.DataFrame(
+            columns=[
+                "seed",
+                "population",
+                "risk_band",
+                "execution_scenario",
+                "count",
+                "share",
+                "mean_execution_rate",
+                "expected_partial_progress_rate",
+                "max_missed_actions_streak",
+                "breakdown_type",
+            ]
+        )
+    combined = pd.concat(frames, ignore_index=True)
+    rollup = (
+        combined.groupby(["population", "risk_band", "execution_scenario"], dropna=False)
+        .agg(
+            count=("count", "sum"),
+            share=("share", "mean"),
+            mean_execution_rate=("mean_execution_rate", "mean"),
+            expected_partial_progress_rate=("expected_partial_progress_rate", "mean"),
+            max_missed_actions_streak=("max_missed_actions_streak", "max"),
+        )
+        .reset_index()
+    )
+    rollup["seed"] = -1
+    rollup["breakdown_type"] = "population_execution_scenario_rollup"
+    return pd.concat([combined, rollup], ignore_index=True, sort=False)
+
+
 def _build_phase_candidate_source_breakdown(seed_breakdowns: list[pd.DataFrame]) -> pd.DataFrame:
     if not seed_breakdowns:
         return pd.DataFrame(
@@ -715,6 +867,8 @@ def main() -> None:
     scale_rows: list[dict[str, Any]] = []
     seed_breakdowns: list[pd.DataFrame] = []
     seed_candidate_source_breakdowns: list[pd.DataFrame] = []
+    seed_execution_probability_breakdowns: list[pd.DataFrame] = []
+    seed_partial_execution_breakdowns: list[pd.DataFrame] = []
     for seed in seeds:
         run_id, run_log = _run_cmd(
             cmd=_batch_cmd(
@@ -738,6 +892,15 @@ def main() -> None:
         candidate_source_breakdown = _load_csv(
             root / "artifacts" / "runs" / run_id / "tables" / "candidate_source_breakdown.csv"
         )
+        behavior_aware_summary = _load_json(
+            root / "artifacts" / "runs" / run_id / "tables" / "behavior_aware_summary.json"
+        )
+        execution_probability_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "execution_probability_breakdown.csv"
+        )
+        partial_execution_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "partial_execution_breakdown.csv"
+        )
         canonical_candidate_metrics = (
             candidate_quality_summary.get("canonical_metrics", {})
             if isinstance(candidate_quality_summary.get("canonical_metrics", {}), dict)
@@ -746,6 +909,16 @@ def main() -> None:
         secondary_candidate_metrics = (
             candidate_quality_summary.get("secondary_metrics", {})
             if isinstance(candidate_quality_summary.get("secondary_metrics", {}), dict)
+            else {}
+        )
+        canonical_behavior_metrics = (
+            behavior_aware_summary.get("canonical_metrics", {})
+            if isinstance(behavior_aware_summary.get("canonical_metrics", {}), dict)
+            else {}
+        )
+        secondary_behavior_metrics = (
+            behavior_aware_summary.get("secondary_metrics", {})
+            if isinstance(behavior_aware_summary.get("secondary_metrics", {}), dict)
             else {}
         )
         snapshot = _seed_contract_snapshot(summary, fair_row, thresholds)
@@ -841,6 +1014,78 @@ def main() -> None:
                         summary.get("high_risk_denied_best_source_fallback_rate", 0.0),
                     )
                 ),
+                "mean_plan_execution_probability": float(
+                    canonical_behavior_metrics.get(
+                        "mean_plan_execution_probability",
+                        summary.get("mean_plan_execution_probability", 0.0),
+                    )
+                ),
+                "expected_pd_improvement": float(
+                    canonical_behavior_metrics.get(
+                        "expected_pd_improvement",
+                        summary.get("expected_pd_improvement", 0.0),
+                    )
+                ),
+                "partial_execution_rate": float(
+                    canonical_behavior_metrics.get(
+                        "partial_execution_rate",
+                        summary.get("partial_execution_rate", 0.0),
+                    )
+                ),
+                "failed_execution_rate": float(
+                    canonical_behavior_metrics.get(
+                        "failed_execution_rate",
+                        summary.get("failed_execution_rate", 0.0),
+                    )
+                ),
+                "mixed_execution_rate": float(
+                    canonical_behavior_metrics.get(
+                        "mixed_execution_rate",
+                        summary.get("mixed_execution_rate", 0.0),
+                    )
+                ),
+                "expected_partial_progress_rate": float(
+                    canonical_behavior_metrics.get(
+                        "expected_partial_progress_rate",
+                        summary.get("expected_partial_progress_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_mean_plan_execution_probability": float(
+                    secondary_behavior_metrics.get(
+                        "mean_plan_execution_probability",
+                        summary.get("high_risk_denied_mean_plan_execution_probability", 0.0),
+                    )
+                ),
+                "high_risk_denied_expected_pd_improvement": float(
+                    secondary_behavior_metrics.get(
+                        "expected_pd_improvement",
+                        summary.get("high_risk_denied_expected_pd_improvement", 0.0),
+                    )
+                ),
+                "high_risk_denied_partial_execution_rate": float(
+                    secondary_behavior_metrics.get(
+                        "partial_execution_rate",
+                        summary.get("high_risk_denied_partial_execution_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_failed_execution_rate": float(
+                    secondary_behavior_metrics.get(
+                        "failed_execution_rate",
+                        summary.get("high_risk_denied_failed_execution_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_mixed_execution_rate": float(
+                    secondary_behavior_metrics.get(
+                        "mixed_execution_rate",
+                        summary.get("high_risk_denied_mixed_execution_rate", 0.0),
+                    )
+                ),
+                "high_risk_denied_expected_partial_progress_rate": float(
+                    secondary_behavior_metrics.get(
+                        "expected_partial_progress_rate",
+                        summary.get("high_risk_denied_expected_partial_progress_rate", 0.0),
+                    )
+                ),
             }
         )
         if not breakdown_df.empty:
@@ -850,6 +1095,12 @@ def main() -> None:
         if not candidate_source_breakdown.empty:
             candidate_source_breakdown["seed"] = int(seed)
             seed_candidate_source_breakdowns.append(candidate_source_breakdown)
+        if not execution_probability_breakdown.empty:
+            execution_probability_breakdown["seed"] = int(seed)
+            seed_execution_probability_breakdowns.append(execution_probability_breakdown)
+        if not partial_execution_breakdown.empty:
+            partial_execution_breakdown["seed"] = int(seed)
+            seed_partial_execution_breakdowns.append(partial_execution_breakdown)
 
     scale_df = pd.DataFrame(scale_rows).sort_values("seed").reset_index(drop=True)
     scale_path = run_ctx.tables_dir / "phase_scale_seed_summary.csv"
@@ -866,6 +1117,22 @@ def main() -> None:
     phase_candidate_source_breakdown = _build_phase_candidate_source_breakdown(seed_candidate_source_breakdowns)
     candidate_source_breakdown_path = run_ctx.tables_dir / "candidate_source_breakdown.csv"
     phase_candidate_source_breakdown.to_csv(candidate_source_breakdown_path, index=False)
+    phase_behavior_aware_summary = _build_phase_behavior_aware_summary(scale_df)
+    behavior_aware_summary_path = run_ctx.tables_dir / "behavior_aware_summary.json"
+    behavior_aware_summary_path.write_text(
+        json.dumps(phase_behavior_aware_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    phase_execution_probability_breakdown = _build_phase_execution_probability_breakdown(
+        seed_execution_probability_breakdowns
+    )
+    execution_probability_breakdown_path = run_ctx.tables_dir / "execution_probability_breakdown.csv"
+    phase_execution_probability_breakdown.to_csv(execution_probability_breakdown_path, index=False)
+    phase_partial_execution_breakdown = _build_phase_partial_execution_breakdown(
+        seed_partial_execution_breakdowns
+    )
+    partial_execution_breakdown_path = run_ctx.tables_dir / "partial_execution_breakdown.csv"
+    phase_partial_execution_breakdown.to_csv(partial_execution_breakdown_path, index=False)
 
     aggregate = {
         "seed_count": int(len(scale_df)),
@@ -921,6 +1188,30 @@ def main() -> None:
         "mean_high_risk_denied_best_source_fallback_rate": float(
             scale_df["high_risk_denied_best_source_fallback_rate"].mean()
         ),
+        "mean_plan_execution_probability": float(scale_df["mean_plan_execution_probability"].mean()),
+        "mean_expected_pd_improvement": float(scale_df["expected_pd_improvement"].mean()),
+        "mean_partial_execution_rate": float(scale_df["partial_execution_rate"].mean()),
+        "mean_failed_execution_rate": float(scale_df["failed_execution_rate"].mean()),
+        "mean_mixed_execution_rate": float(scale_df["mixed_execution_rate"].mean()),
+        "mean_expected_partial_progress_rate": float(scale_df["expected_partial_progress_rate"].mean()),
+        "mean_high_risk_denied_plan_execution_probability": float(
+            scale_df["high_risk_denied_mean_plan_execution_probability"].mean()
+        ),
+        "mean_high_risk_denied_expected_pd_improvement": float(
+            scale_df["high_risk_denied_expected_pd_improvement"].mean()
+        ),
+        "mean_high_risk_denied_partial_execution_rate": float(
+            scale_df["high_risk_denied_partial_execution_rate"].mean()
+        ),
+        "mean_high_risk_denied_failed_execution_rate": float(
+            scale_df["high_risk_denied_failed_execution_rate"].mean()
+        ),
+        "mean_high_risk_denied_mixed_execution_rate": float(
+            scale_df["high_risk_denied_mixed_execution_rate"].mean()
+        ),
+        "mean_high_risk_denied_expected_partial_progress_rate": float(
+            scale_df["high_risk_denied_expected_partial_progress_rate"].mean()
+        ),
     }
     (run_ctx.tables_dir / "phase_scale_aggregate.json").write_text(json.dumps(aggregate, indent=2, ensure_ascii=False), encoding="utf-8")
     release_payload = evaluate_release_decision(aggregate, thresholds)
@@ -953,6 +1244,9 @@ def main() -> None:
         "fairness_failure_breakdown_csv": "tables/fairness_failure_breakdown.csv",
         "candidate_quality_summary_json": "tables/candidate_quality_summary.json",
         "candidate_source_breakdown_csv": "tables/candidate_source_breakdown.csv",
+        "behavior_aware_summary_json": "tables/behavior_aware_summary.json",
+        "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
+        "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
         "high_risk_tuning_summary_json": "tables/high_risk_tuning_summary.json",
         "generator_policy_impact_json": "tables/generator_policy_impact.json",
         "release_decision_json": "tables/release_decision.json",
@@ -1014,6 +1308,7 @@ def main() -> None:
             "train_run_id": str(train_run_id),
             "frozen_model_manifest_path": "tables/frozen_model_manifest.json",
             "candidate_quality_summary": phase_candidate_quality_summary,
+            "behavior_aware_summary": phase_behavior_aware_summary,
             "high_risk_tuning_summary": phase_high_risk_tuning_summary,
             "impact_attribution_summary": impact_attribution_summary,
             "outcome_feedback_summary": outcome_feedback_summary,
@@ -1040,6 +1335,7 @@ def main() -> None:
         missing_artifacts=missing_artifacts,
         metadata={
             "candidate_quality_summary": phase_candidate_quality_summary,
+            "behavior_aware_summary": phase_behavior_aware_summary,
             "high_risk_tuning_summary": phase_high_risk_tuning_summary,
             "impact_attribution_summary": impact_attribution_summary,
             "outcome_feedback_summary": outcome_feedback_summary,
@@ -1068,6 +1364,9 @@ def main() -> None:
         "fairness_failure_breakdown_csv": "tables/fairness_failure_breakdown.csv",
         "candidate_quality_summary_json": "tables/candidate_quality_summary.json",
         "candidate_source_breakdown_csv": "tables/candidate_source_breakdown.csv",
+        "behavior_aware_summary_json": "tables/behavior_aware_summary.json",
+        "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
+        "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
         "telemetry_export_json": "tables/telemetry_export.json",
         "milestone_acceptance_review_md": "tables/milestone_acceptance_review.md",
     }

@@ -14,6 +14,7 @@ import pandas as pd
 
 from credit_coach.causality.action_constraints import causal_penalty
 from credit_coach.causality.graph_utils import load_graph
+from credit_coach.coaching.loop import run_weekly_coaching_loop
 from credit_coach.coaching.planner import choose_best_plan
 from credit_coach.data.ingest import load_feature_contract
 from credit_coach.data.schema import PlanAction, PlanRecord
@@ -39,6 +40,10 @@ from credit_coach.recourse.action_space import (
 )
 from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions, generate_dice_like_baseline
+from credit_coach.recourse.execution_probability import (
+    annotate_plan_execution_probability,
+    classify_execution_scenario,
+)
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.generator import PlanGenConfig, generate_nine_plans, generate_plan_record
 from credit_coach.safety.validator import validate_plan
@@ -918,6 +923,234 @@ def _plan_trajectory_metrics(
         "trajectory_phase_2_action_count": int(phase_2_count),
         "trajectory_phase_3_action_count": int(phase_3_count),
     }
+
+
+def _simulate_plan_execution_behavior(
+    *,
+    row: pd.Series,
+    plan: PlanRecord,
+    base_pd: float,
+    tau: float,
+    model: Any,
+    calibrator: Any,
+    feature_cols: list[str],
+    random_state: int,
+    partial_progress_min_pd_delta: float,
+    max_weekly_actions: int = 3,
+    min_robust_margin: float | None = None,
+) -> dict[str, Any]:
+    action_count = max(0, int(len(plan.actions)))
+    plan_execution_probability = _safe_float(getattr(plan, "plan_execution_probability", 0.0), 0.0)
+    nominal_pd_improvement = max(
+        0.0,
+        _safe_float(getattr(plan, "nominal_pd_improvement", 0.0), 0.0),
+    )
+    expected_pd_improvement = max(
+        0.0,
+        _safe_float(getattr(plan, "expected_pd_improvement", 0.0), 0.0),
+    )
+    if action_count <= 0:
+        return {
+            "execution_rate": 0.0,
+            "execution_scenario": "failed_execution",
+            "mixed_execution": 0,
+            "failed_execution": 1,
+            "partial_execution": 1,
+            "expected_partial_progress": 0,
+            "final_simulated_pd": float(base_pd),
+            "missed_action": 0,
+            "missed_actions_streak": 0,
+        }
+
+    weeks = max(4, min(24, int(getattr(plan, "horizon_months", 6) or 6) * 4))
+    action_dropout_prob = _clamp(1.0 - float(plan_execution_probability), lo=0.02, hi=0.95)
+    action_effect_per_step = max(0.002, nominal_pd_improvement / max(1, action_count))
+    loop_df = run_weekly_coaching_loop(
+        base_pd=float(base_pd),
+        tau=float(tau),
+        weeks=weeks,
+        plan_action_count=action_count,
+        target_pd=_safe_float(getattr(plan, "predicted_pd", tau), float(tau)),
+        action_dropout_prob=action_dropout_prob,
+        action_effect_per_step=action_effect_per_step,
+        max_weekly_actions=max(1, int(max_weekly_actions)),
+        random_state=int(random_state),
+        min_robust_margin=min_robust_margin,
+    )
+    if loop_df.empty:
+        return {
+            "execution_rate": 0.0,
+            "execution_scenario": "failed_execution",
+            "mixed_execution": 0,
+            "failed_execution": 1,
+            "partial_execution": 1,
+            "expected_partial_progress": 0,
+            "final_simulated_pd": float(base_pd),
+            "missed_action": 0,
+            "missed_actions_streak": 0,
+        }
+
+    mean_execution_rate = float(pd.to_numeric(loop_df["execution_rate"], errors="coerce").fillna(0.0).mean())
+    execution_scenario = classify_execution_scenario(mean_execution_rate)
+    final_pd = float(pd.to_numeric(loop_df["predicted_pd"], errors="coerce").fillna(base_pd).iloc[-1])
+    expected_partial_progress = int(max(0.0, float(base_pd) - final_pd) >= float(partial_progress_min_pd_delta))
+    return {
+        "execution_rate": float(mean_execution_rate),
+        "execution_scenario": str(execution_scenario),
+        "mixed_execution": int(execution_scenario == "mixed_execution"),
+        "failed_execution": int(execution_scenario == "failed_execution"),
+        "partial_execution": int(execution_scenario != "full_execution"),
+        "expected_partial_progress": int(expected_partial_progress),
+        "final_simulated_pd": float(final_pd),
+        "missed_action": int(pd.to_numeric(loop_df["missed_action"], errors="coerce").fillna(0.0).iloc[-1]),
+        "missed_actions_streak": int(
+            pd.to_numeric(loop_df["missed_actions_streak"], errors="coerce").fillna(0.0).max()
+        ),
+    }
+
+
+def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any], pd.DataFrame, pd.DataFrame]:
+    metric_fields = (
+        "mean_plan_execution_probability",
+        "expected_pd_improvement",
+        "partial_execution_rate",
+        "failed_execution_rate",
+        "mixed_execution_rate",
+        "expected_partial_progress_rate",
+    )
+    empty_summary = {
+        "canonical_population": "denied",
+        "secondary_population": "high_risk_denied",
+        "canonical_metrics": {field: 0.0 for field in metric_fields},
+        "secondary_metrics": {field: 0.0 for field in metric_fields},
+        "supporting_artifacts": {
+            "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
+            "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+        },
+    }
+    if batch_df.empty:
+        return (
+            empty_summary,
+            pd.DataFrame(
+                columns=[
+                    "population",
+                    "risk_band",
+                    "best_source",
+                    "count",
+                    "mean_plan_execution_probability",
+                    "expected_pd_improvement",
+                    "nominal_pd_improvement",
+                ]
+            ),
+            pd.DataFrame(
+                columns=[
+                    "population",
+                    "risk_band",
+                    "execution_scenario",
+                    "count",
+                    "share",
+                    "mean_execution_rate",
+                    "expected_partial_progress_rate",
+                    "max_missed_actions_streak",
+                ]
+            ),
+        )
+
+    denied_rows = batch_df[batch_df["denied_base"].astype(int) == 1].copy()
+    high_risk_denied_rows = batch_df[
+        (batch_df["denied_base"].astype(int) == 1)
+        & (batch_df["risk_band"].astype(str).str.lower() == "high")
+    ].copy()
+
+    def _metrics(frame: pd.DataFrame) -> dict[str, float]:
+        if frame.empty:
+            return {field: 0.0 for field in metric_fields}
+        return {
+            "mean_plan_execution_probability": _round_metric(frame["best_plan_execution_probability"].astype(float).mean()),
+            "expected_pd_improvement": _round_metric(frame["best_expected_pd_improvement"].astype(float).mean()),
+            "partial_execution_rate": _round_metric(frame["best_partial_execution"].astype(float).mean()),
+            "failed_execution_rate": _round_metric(frame["best_failed_execution"].astype(float).mean()),
+            "mixed_execution_rate": _round_metric(frame["best_mixed_execution"].astype(float).mean()),
+            "expected_partial_progress_rate": _round_metric(frame["best_expected_partial_progress"].astype(float).mean()),
+        }
+
+    execution_probability_breakdown_rows: list[dict[str, Any]] = []
+    partial_execution_breakdown_rows: list[dict[str, Any]] = []
+    for population, frame in (("denied", denied_rows), ("high_risk_denied", high_risk_denied_rows)):
+        if frame.empty:
+            continue
+        grouped = (
+            frame.groupby(["risk_band", "best_source"], dropna=False)
+            .agg(
+                count=("customer_id", "size"),
+                mean_plan_execution_probability=("best_plan_execution_probability", "mean"),
+                expected_pd_improvement=("best_expected_pd_improvement", "mean"),
+                nominal_pd_improvement=("best_nominal_pd_improvement", "mean"),
+            )
+            .reset_index()
+        )
+        grouped["population"] = population
+        execution_probability_breakdown_rows.extend(grouped.to_dict(orient="records"))
+
+        scenario_rollup = (
+            frame.groupby(["risk_band", "best_execution_scenario"], dropna=False)
+            .agg(
+                count=("customer_id", "size"),
+                mean_execution_rate=("best_execution_rate", "mean"),
+                expected_partial_progress_rate=("best_expected_partial_progress", "mean"),
+                max_missed_actions_streak=("best_missed_actions_streak", "max"),
+            )
+            .reset_index()
+            .rename(columns={"best_execution_scenario": "execution_scenario"})
+        )
+        total = max(1, int(frame.shape[0]))
+        scenario_rollup["share"] = scenario_rollup["count"].astype(float) / float(total)
+        scenario_rollup["population"] = population
+        partial_execution_breakdown_rows.extend(scenario_rollup.to_dict(orient="records"))
+
+    execution_probability_breakdown = (
+        pd.DataFrame(execution_probability_breakdown_rows)
+        if execution_probability_breakdown_rows
+        else pd.DataFrame(
+            columns=[
+                "population",
+                "risk_band",
+                "best_source",
+                "count",
+                "mean_plan_execution_probability",
+                "expected_pd_improvement",
+                "nominal_pd_improvement",
+            ]
+        )
+    )
+    partial_execution_breakdown = (
+        pd.DataFrame(partial_execution_breakdown_rows)
+        if partial_execution_breakdown_rows
+        else pd.DataFrame(
+            columns=[
+                "population",
+                "risk_band",
+                "execution_scenario",
+                "count",
+                "share",
+                "mean_execution_rate",
+                "expected_partial_progress_rate",
+                "max_missed_actions_streak",
+            ]
+        )
+    )
+
+    summary = {
+        "canonical_population": "denied",
+        "secondary_population": "high_risk_denied",
+        "canonical_metrics": _metrics(denied_rows),
+        "secondary_metrics": _metrics(high_risk_denied_rows),
+        "supporting_artifacts": {
+            "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
+            "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+        },
+    }
+    return summary, execution_probability_breakdown, partial_execution_breakdown
 
 
 def _plan_trajectory_steps(plan: PlanRecord) -> list[dict[str, Any]]:
@@ -2618,7 +2851,9 @@ def _dice_plan_record(
     cpen = float(causal_penalty(actions, graph, penalty_weight=causal_weight)) if graph else 0.0
     score = float((max(0.0, tau - pred_pd) * 100.0) - (cost * 0.001) - cpen)
 
-    return PlanRecord(
+    base_input = pd.DataFrame([row[feature_cols].values], columns=feature_cols)
+    base_pd = float(predict_proba_pd(model, calibrator, base_input)[0])
+    plan = PlanRecord(
         plan_id=f"{run_id}_{customer_id}_{source_tag}_{idx}",
         customer_id=customer_id,
         run_id=run_id,
@@ -2632,6 +2867,12 @@ def _dice_plan_record(
         constraint_reason=constraint_result.reason,
         constraint_trace=list(constraint_result.trace),
         status="PENDING",
+    )
+    return annotate_plan_execution_probability(
+        plan,
+        base_pd=base_pd,
+        customer_context={str(k): row.get(k) for k in row.index},
+        segment_context=segment_context,
     )
 
 
@@ -3020,6 +3261,18 @@ def main() -> None:
             "best_cost_usd": 0.0,
             "best_proximity_l1": 0.0,
             "best_robust_score": 0.0,
+            "best_plan_execution_probability": 0.0,
+            "best_mean_action_execution_probability": 0.0,
+            "best_nominal_pd_improvement": 0.0,
+            "best_expected_pd_improvement": 0.0,
+            "best_execution_scenario": "failed_execution",
+            "best_execution_rate": 0.0,
+            "best_partial_execution": 1,
+            "best_mixed_execution": 0,
+            "best_failed_execution": 1,
+            "best_expected_partial_progress": 0,
+            "best_missed_action": 0,
+            "best_missed_actions_streak": 0,
             "best_timeline_steps_json": "[]",
             "best_ci_high": np.nan,
             "best_reliability": np.nan,
@@ -3649,6 +3902,22 @@ def main() -> None:
             out["best_cost_usd"] = _plan_cost(best)
             out["best_proximity_l1"] = _plan_proximity_l1(best)
             out["best_robust_score"] = float(best.robust_score if best.robust_score is not None else (best.score or 0.0))
+            out["best_plan_execution_probability"] = _safe_float(
+                getattr(best, "plan_execution_probability", 0.0),
+                0.0,
+            )
+            out["best_mean_action_execution_probability"] = _safe_float(
+                getattr(best, "mean_action_execution_probability", 0.0),
+                0.0,
+            )
+            out["best_nominal_pd_improvement"] = _safe_float(
+                getattr(best, "nominal_pd_improvement", 0.0),
+                0.0,
+            )
+            out["best_expected_pd_improvement"] = _safe_float(
+                getattr(best, "expected_pd_improvement", 0.0),
+                0.0,
+            )
             out["best_ci_high"] = float(best.ci_high) if best.ci_high is not None else np.nan
             out["best_reliability"] = float(best.reliability) if best.reliability is not None else np.nan
             out["best_worst_risk_margin"] = (
@@ -3663,6 +3932,43 @@ def main() -> None:
                 _plan_trajectory_steps(best),
                 ensure_ascii=False,
             )
+            behavior_metrics = _simulate_plan_execution_behavior(
+                row=row,
+                plan=best,
+                base_pd=base_pd_i,
+                tau=tau,
+                model=model,
+                calibrator=calibrator,
+                feature_cols=feature_cols,
+                random_state=int(args.sample_seed) + int(i),
+                partial_progress_min_pd_delta=trajectory_partial_progress_min_pd_delta,
+                max_weekly_actions=int(
+                    (
+                        search_profile.get("search_cfg", {})
+                        if isinstance(search_profile.get("search_cfg", {}), dict)
+                        else {}
+                    ).get("weekly_optimizer", {})
+                    .get("max_weekly_actions", 3)
+                    if isinstance(
+                        (
+                            search_profile.get("search_cfg", {})
+                            if isinstance(search_profile.get("search_cfg", {}), dict)
+                            else {}
+                        ).get("weekly_optimizer", {}),
+                        dict,
+                    )
+                    else 3
+                ),
+                min_robust_margin=min_worst_margin_f,
+            )
+            out["best_execution_scenario"] = str(behavior_metrics["execution_scenario"])
+            out["best_execution_rate"] = float(behavior_metrics["execution_rate"])
+            out["best_partial_execution"] = int(behavior_metrics["partial_execution"])
+            out["best_mixed_execution"] = int(behavior_metrics["mixed_execution"])
+            out["best_failed_execution"] = int(behavior_metrics["failed_execution"])
+            out["best_expected_partial_progress"] = int(behavior_metrics["expected_partial_progress"])
+            out["best_missed_action"] = int(behavior_metrics["missed_action"])
+            out["best_missed_actions_streak"] = int(behavior_metrics["missed_actions_streak"])
             if trajectory_enabled:
                 out.update(
                     _plan_trajectory_metrics(
@@ -4339,6 +4645,18 @@ def main() -> None:
     )
     candidate_source_breakdown_out = run_ctx.tables_dir / "candidate_source_breakdown.csv"
     candidate_source_breakdown.to_csv(candidate_source_breakdown_out, index=False)
+    behavior_aware_summary, execution_probability_breakdown, partial_execution_breakdown = _build_behavior_aware_artifacts(
+        batch_df
+    )
+    behavior_aware_summary_out = run_ctx.tables_dir / "behavior_aware_summary.json"
+    behavior_aware_summary_out.write_text(
+        json.dumps(behavior_aware_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    execution_probability_breakdown_out = run_ctx.tables_dir / "execution_probability_breakdown.csv"
+    execution_probability_breakdown.to_csv(execution_probability_breakdown_out, index=False)
+    partial_execution_breakdown_out = run_ctx.tables_dir / "partial_execution_breakdown.csv"
+    partial_execution_breakdown.to_csv(partial_execution_breakdown_out, index=False)
 
     err_df = batch_df[batch_df["error_type"] != ""]
     err_counts = (
@@ -4721,6 +5039,42 @@ def main() -> None:
         ),
         "high_risk_denied_best_source_fallback_rate": float(
             candidate_quality_summary["secondary_metrics"]["best_source_fallback_rate"]
+        ),
+        "mean_plan_execution_probability": float(
+            behavior_aware_summary["canonical_metrics"]["mean_plan_execution_probability"]
+        ),
+        "expected_pd_improvement": float(
+            behavior_aware_summary["canonical_metrics"]["expected_pd_improvement"]
+        ),
+        "partial_execution_rate": float(
+            behavior_aware_summary["canonical_metrics"]["partial_execution_rate"]
+        ),
+        "failed_execution_rate": float(
+            behavior_aware_summary["canonical_metrics"]["failed_execution_rate"]
+        ),
+        "mixed_execution_rate": float(
+            behavior_aware_summary["canonical_metrics"]["mixed_execution_rate"]
+        ),
+        "expected_partial_progress_rate": float(
+            behavior_aware_summary["canonical_metrics"]["expected_partial_progress_rate"]
+        ),
+        "high_risk_denied_mean_plan_execution_probability": float(
+            behavior_aware_summary["secondary_metrics"]["mean_plan_execution_probability"]
+        ),
+        "high_risk_denied_expected_pd_improvement": float(
+            behavior_aware_summary["secondary_metrics"]["expected_pd_improvement"]
+        ),
+        "high_risk_denied_partial_execution_rate": float(
+            behavior_aware_summary["secondary_metrics"]["partial_execution_rate"]
+        ),
+        "high_risk_denied_failed_execution_rate": float(
+            behavior_aware_summary["secondary_metrics"]["failed_execution_rate"]
+        ),
+        "high_risk_denied_mixed_execution_rate": float(
+            behavior_aware_summary["secondary_metrics"]["mixed_execution_rate"]
+        ),
+        "high_risk_denied_expected_partial_progress_rate": float(
+            behavior_aware_summary["secondary_metrics"]["expected_partial_progress_rate"]
         ),
         "high_risk_profile_applied_rate": float(batch_df["high_risk_profile_applied"].astype(int).mean()),
         "fairness_cap_boost_applied_rate": float(batch_df["fairness_cap_boost_applied"].astype(int).mean()),

@@ -4,6 +4,7 @@ import pandas as pd
 
 from credit_coach.cli.run_model_challenger_matrix import (
     _aggregate_variant_metrics,
+    _build_challenger_behavior_aware_summary,
     _build_challenger_candidate_source_breakdown,
     _build_challenger_impact_summary,
     _build_variant_model_cfg,
@@ -90,6 +91,12 @@ def test_aggregate_variant_metrics_carries_candidate_quality_means():
                 "best_source_dice_rate": 0.30,
                 "best_source_rule_rate": 0.10,
                 "best_source_fallback_rate": 0.10,
+                "mean_plan_execution_probability": 0.40,
+                "expected_pd_improvement": 0.03,
+                "partial_execution_rate": 0.55,
+                "failed_execution_rate": 0.15,
+                "mixed_execution_rate": 0.40,
+                "expected_partial_progress_rate": 0.22,
             },
             {
                 "variant_id": "control",
@@ -100,6 +107,12 @@ def test_aggregate_variant_metrics_carries_candidate_quality_means():
                 "best_source_dice_rate": 0.50,
                 "best_source_rule_rate": 0.10,
                 "best_source_fallback_rate": 0.10,
+                "mean_plan_execution_probability": 0.60,
+                "expected_pd_improvement": 0.05,
+                "partial_execution_rate": 0.35,
+                "failed_execution_rate": 0.05,
+                "mixed_execution_rate": 0.30,
+                "expected_partial_progress_rate": 0.28,
             },
         ]
     )
@@ -109,6 +122,34 @@ def test_aggregate_variant_metrics_carries_candidate_quality_means():
     assert float(summary.iloc[0]["mean_candidate_source_entropy"]) == 0.3
     assert float(summary.iloc[0]["mean_high_risk_profile_applied_rate"]) == 0.07
     assert float(summary.iloc[0]["mean_best_source_dice_rate"]) == 0.4
+    assert float(summary.iloc[0]["mean_plan_execution_probability"]) == 0.5
+    assert float(summary.iloc[0]["mean_expected_pd_improvement"]) == 0.04
+
+
+def test_build_challenger_behavior_aware_summary_exposes_champion_metrics():
+    ranked_summary_df = pd.DataFrame(
+        [
+            {
+                "variant_id": "challenger",
+                "seed_count": 5,
+                "mean_plan_execution_probability": 0.62,
+                "mean_expected_pd_improvement": 0.041,
+                "mean_partial_execution_rate": 0.36,
+                "mean_failed_execution_rate": 0.08,
+                "mean_mixed_execution_rate": 0.28,
+                "mean_expected_partial_progress_rate": 0.44,
+                "evidence_status": "complete",
+            }
+        ]
+    )
+    runs_df = pd.DataFrame([{"variant_id": "challenger", "seed": 42}])
+
+    summary = _build_challenger_behavior_aware_summary(ranked_summary_df, runs_df)
+
+    assert summary["champion_variant"] == "challenger"
+    assert summary["champion_summary"]["mean_plan_execution_probability"] == 0.62
+    assert summary["champion_summary"]["failed_execution_rate"] == 0.08
+    assert "execution_probability_breakdown_csv" in summary["supporting_artifacts"]
 
 
 def test_build_challenger_candidate_source_breakdown_emits_variant_rollups():
