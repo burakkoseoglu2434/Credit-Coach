@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 16 is now planned under v1.2 and the next work is executing richer decision logging, normalized outcome ingestion, and off-policy evaluation
+**Current focus:** Phase 16 context is now locked under v1.2 and the next work is replanning against the learning-ledger, completeness, and OPE contracts before execution
 
 ## Current Position
 
 Phase: 16 of 16 (Outcome Feedback & Learning Loop)
 Plan: 0 of 3 in current phase
 Status: Planned
-Last activity: 2026-03-16 - Planned Phase 16 around decision logging, outcome ingestion, and off-policy evaluation
+Last activity: 2026-03-16 - Locked Phase 16 context around learning-ledger logging, completeness tiers, proxy-vector OPE, and a dedicated Learning Loop Summary
 
 Progress: [########--] 80%
 
@@ -93,6 +93,9 @@ Recent decisions affecting current work:
 - Phase 16 planned: decision logging will expand to carry recommendation, offer, execution, propensity, and candidate-set context keyed by `decision_id`
 - Phase 16 planned: outcome feedback will normalize action completion, offer acceptance, payment, default, and recovery signals into learning-ready artifacts with explicit completeness status
 - Phase 16 planned: the repo will add IPS and Doubly Robust off-policy evaluation as supporting learning evidence rather than as a new release gate
+- Phase 16 context locked: decision logging is a compact learning ledger with `selection_propensity` plus `propensity_source`, not a duplicated full plan snapshot
+- Phase 16 context locked: completeness is graded as `descriptive_only | partial_learning_ready | learning_ready`, with explicit coverage dimensions and a primary 90-day learning window
+- Phase 16 context locked: OPE remains proxy-vector-first, control-baselined, confidence-aware, and non-blocking, and review gains a separate `Learning Loop Summary`
 
 ### Pending Todos
 
@@ -105,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16 19:05
-Stopped at: Phase 16 planned; next step is `$gsd-execute-phase 16`
+Last session: 2026-03-16 19:35
+Stopped at: Phase 16 context captured; next step is `$gsd-plan-phase 16 --research`
 Resume file: None
