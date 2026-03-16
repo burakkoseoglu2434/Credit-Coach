@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 13 is planned under v1.2 - next milestone work is execution-probability modeling, expected-utility scoring, and partial-execution simulation
+**Current focus:** Phase 13 context is now locked under v1.2 - next milestone work is replanning and then executing execution-probability modeling, expected-utility scoring, and partial-execution simulation
 
 ## Current Position
 
 Phase: 13 of 16 (Behavior-Aware Recourse)
 Plan: 3 of 3 in current phase
 Status: Planned
-Last activity: 2026-03-16 - Planned Phase 13: execution probability, expected utility, and partial-execution simulation
+Last activity: 2026-03-16 - Captured Phase 13 context: execution probability contract, expected utility ordering, partial-execution semantics, and behavior-aware evidence
 
 Progress: [##--------] 20%
 
@@ -65,6 +65,8 @@ Recent decisions affecting current work:
 - Phase 12 complete: batch evaluation now emits canonical `action_realism_summary.json` plus breakdown artifacts for action types, feasibility rejections, repairs, and approval-pending actions
 - Phase 13 planned: execution probability will extend the typed-action and serialized-plan contracts rather than creating a second planner stack
 - Phase 13 planned: expected utility and partial-execution evidence will remain subordinate to inherited fairness, reliability, telemetry, and acceptance gates
+- Phase 13 context locked: canonical probability units are action- and plan-level, composite actions aggregate through `action_group_id`, and approval-dependent actions remain non-winner evidence
+- Phase 13 context locked: weekly coaching loop is the canonical partial-execution seam and `behavior_aware_summary.json` is the mandatory non-blocking supporting artifact
 
 ### Pending Todos
 
@@ -77,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16 11:40
-Stopped at: Phase 13 planned; next step is `$gsd-execute-phase 13`
+Last session: 2026-03-16 12:25
+Stopped at: Phase 13 context captured; next step is `$gsd-plan-phase 13 --research`
 Resume file: None
