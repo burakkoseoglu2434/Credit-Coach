@@ -13,8 +13,8 @@
 
 ### Behavior-Aware Recourse
 
-- [ ] **REC-04**: Each candidate action or plan can carry an estimated execution probability grounded in customer or plan context
-- [ ] **REC-05**: Planner scoring can use expected utility and partial-execution behavior without weakening fairness, reliability, or telemetry inheritance
+- [x] **REC-04**: Each candidate action or plan can carry an estimated execution probability grounded in customer or plan context
+- [x] **REC-05**: Planner scoring can use expected utility and partial-execution behavior without weakening fairness, reliability, or telemetry inheritance
 
 ### Sequential Recourse Planning
 
@@ -55,8 +55,8 @@
 | REC-01 | Phase 12 | Complete |
 | REC-02 | Phase 12 | Complete |
 | REC-03 | Phase 12 | Complete |
-| REC-04 | Phase 13 | Pending |
-| REC-05 | Phase 13 | Pending |
+| REC-04 | Phase 13 | Complete |
+| REC-05 | Phase 13 | Complete |
 | REC-06 | Phase 14 | Pending |
 | REC-07 | Phase 14 | Pending |
 | REC-08 | Phase 15 | Pending |
@@ -71,4 +71,4 @@
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after completing Phase 12*
+*Last updated: 2026-03-16 after completing Phase 13*

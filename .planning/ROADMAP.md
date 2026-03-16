@@ -65,9 +65,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 13-01: Add an action-execution probability model and planner integration
-- [ ] 13-02: Update planner scoring to use expected utility under gate constraints
-- [ ] 13-03: Simulate partial execution, failed steps, and mixed-execution scenarios
+- [x] 13-01: Add an action-execution probability model and planner integration
+- [x] 13-02: Update planner scoring to use expected utility under gate constraints
+- [x] 13-03: Simulate partial execution, failed steps, and mixed-execution scenarios
 
 #### Phase 14: Sequential Recourse Planning
 **Goal**: Transition from single-plan recommendations to multi-phase improvement trajectories.
@@ -130,7 +130,7 @@ Plans:
 | 10. Candidate Quality and Trajectory Tuning | v1.1 | 3/3 | Complete | 2026-03-15 |
 | 11. Release Evidence and Outcome Feedback | v1.1 | 3/3 | Complete | 2026-03-15 |
 | 12. Action Realism & Feasibility Expansion | v1.2 | 3/3 | Complete | 2026-03-15 |
-| 13. Behavior-Aware Recourse | v1.2 | 0/3 | Pending | - |
+| 13. Behavior-Aware Recourse | v1.2 | 3/3 | Complete | 2026-03-16 |
 | 14. Sequential Recourse Planning | v1.2 | 0/3 | Pending | - |
 | 15. Policy Optimization Layer | v1.2 | 0/3 | Pending | - |
 | 16. Outcome Feedback & Learning Loop | v1.2 | 0/3 | Pending | - |

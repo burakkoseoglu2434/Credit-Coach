@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
-**Current focus:** Phase 13 is replanned under v1.2 - next milestone work is executing execution-probability modeling, expected-utility scoring, and partial-execution simulation
+**Current focus:** Phase 14 is next under v1.2 - the recommendation engine is now behavior-aware and the next milestone work is multi-phase trajectory planning
 
 ## Current Position
 
-Phase: 13 of 16 (Behavior-Aware Recourse)
-Plan: 3 of 3 in current phase
-Status: Planned
-Last activity: 2026-03-16 - Replanned Phase 13 with locked context for execution probability, expected utility, and partial-execution evidence
+Phase: 14 of 16 (Sequential Recourse Planning)
+Plan: 0 of 3 in current phase
+Status: Ready to plan
+Last activity: 2026-03-16 - Completed Phase 13 execution probability, expected-utility ranking, and partial-execution evidence
 
-Progress: [##--------] 20%
+Progress: [####------] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 35 (historical import + phases 8-12)
+- Total plans completed: 38 (historical import + phases 8-13)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -29,11 +29,11 @@ Progress: [##--------] 20%
 |-------|-------|-------|----------|
 | v1.0 historical baseline | 20 | historical import | n/a |
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
-| v1.2 active milestone | 3 | phase 12 complete, phase 13 replanned, phases 14-16 pending | n/a |
+| v1.2 active milestone | 6 | phases 12-13 complete, phases 14-16 pending | n/a |
 
 **Recent Trend:**
 - Last 5 plans: historical data not reconstructed
-- Trend: Recommendation realism foundation is in place; the next slice shifts to behavior-aware scoring and execution-likelihood evidence
+- Trend: Behavior-aware ranking and robustness evidence are now in place; the next slice shifts to sequential, multi-phase planning
 
 ## Accumulated Context
 
@@ -68,6 +68,9 @@ Recent decisions affecting current work:
 - Phase 13 context locked: canonical probability units are action- and plan-level, composite actions aggregate through `action_group_id`, and approval-dependent actions remain non-winner evidence
 - Phase 13 context locked: weekly coaching loop is the canonical partial-execution seam and `behavior_aware_summary.json` is the mandatory non-blocking supporting artifact
 - Phase 13 replanned: research and execution prompts now explicitly inherit the locked probability, expected-utility, simulation, and artifact decisions
+- Phase 13 complete: generated actions and plans now carry explicit execution-likelihood metadata through a shared `execution_probability.py` seam
+- Phase 13 complete: planner ranking now uses expected PD improvement as a behavior-aware ordering signal only after inherited constraint and governance gates
+- Phase 13 complete: batch, suite, challenger, and milestone review artifacts now expose canonical behavior-aware summaries and partial-execution evidence without redefining acceptance gates
 
 ### Pending Todos
 
@@ -80,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16 12:40
-Stopped at: Phase 13 replanned; next step is `$gsd-execute-phase 13`
+Last session: 2026-03-16 15:35
+Stopped at: Phase 13 complete; next step is `$gsd-discuss-phase 14` or `$gsd-plan-phase 14 --research`
 Resume file: None
