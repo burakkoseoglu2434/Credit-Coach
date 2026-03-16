@@ -7,6 +7,7 @@ from credit_coach.ops.kpi_contract import (
     apply_kpi_thresholds_to_args,
     extract_kpi_thresholds,
     load_kpi_thresholds,
+    render_milestone_acceptance_review,
 )
 
 
@@ -77,3 +78,61 @@ def test_apply_and_extract_kpi_thresholds():
         DEFAULT_KPI_THRESHOLDS["max_denied_reliability_violation_rate"]
     )
     assert bool(out["require_telemetry_enabled"]) is True
+
+
+def test_render_milestone_acceptance_review_includes_learning_loop_summary() -> None:
+    review = render_milestone_acceptance_review(
+        {
+            "acceptance_status": "ACCEPTED",
+            "release_decision": "GO",
+            "evidence_level": "seeded_suite",
+            "acceptance_eligible": True,
+            "broad_rollout_allowed": True,
+            "phase": "phase-16",
+            "milestone": "v1.2",
+            "model_version": "model-001",
+            "model_freeze_mode": "explicit_model_version",
+            "telemetry_gate_status": "healthy",
+            "telemetry_failure_reason": "",
+            "telemetry_success_rate": 1.0,
+            "telemetry_ingest_lag_s": 5.0,
+            "pilot_eligible": False,
+            "release_pack_summary": {
+                "pack_status": "complete",
+                "pack_acceptance_eligible": True,
+                "required_artifacts": {},
+                "optional_artifacts": {},
+                "missing_artifacts": [],
+            },
+            "outcome_feedback_summary": {
+                "comparison_status": "treatment_vs_control",
+                "outcome_feedback_confidence": "strong",
+                "best_proxy_improving_arm": {"policy_arm": "treatment"},
+                "worst_proxy_regressing_arm": {"policy_arm": "control"},
+                "approval_rate_delta": 0.02,
+                "default_rate_90d_delta": -0.01,
+                "avg_margin_90d_delta": 10.0,
+            },
+            "learning_loop_summary": {
+                "decision_log_completeness": 0.9,
+                "learning_readiness_status_distribution": {
+                    "descriptive_only": {"count": 2, "share": 0.1},
+                    "partial_learning_ready": {"count": 4, "share": 0.2},
+                    "learning_ready": {"count": 14, "share": 0.7},
+                },
+                "reward_90d_coverage": 0.7,
+                "ope_confidence": "strong",
+                "comparison_status": "treatment_vs_control",
+                "preferred_policy_signal": {"policy_arm": "treatment", "signal": "supports_treatment"},
+                "preferred_policy_metric_labels": {
+                    "approval_rate": "supports_treatment",
+                    "default_rate_90d": "supports_treatment",
+                    "avg_margin_90d": "mixed",
+                },
+            },
+        }
+    )
+
+    assert "Learning Loop Summary" in review
+    assert "Decision log completeness: 0.900000" in review
+    assert "approval_rate OPE label: supports_treatment" in review

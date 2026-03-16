@@ -42,7 +42,7 @@ from credit_coach.recourse.trajectory import (
     predict_plan_pd_at_month,
 )
 from credit_coach.safety.validator import validate_plan
-from credit_coach.storage.repository import save_plan
+from credit_coach.storage.repository import build_decision_logging_summary, save_plan
 from credit_coach.utils.run_context import create_run_context, load_config
 from credit_coach.xai.shap_local import compute_local_reason_bundle
 
@@ -326,6 +326,67 @@ def _phase_id_for_month(month: int) -> str:
 
 def _phase_title(phase_id: str) -> str:
     return phase_title(phase_id)
+
+
+def _decision_log_record(
+    *,
+    run_id: str,
+    customer_id: str,
+    plan: PlanRecord,
+) -> dict:
+    policy_arm = str(getattr(plan, "offer_policy_arm", "") or "control")
+    if policy_arm == "control":
+        policy_arm_profile = {
+            "offer_family": "control",
+            "scoring_profile": "control",
+            "term_generation_rule": "",
+        }
+    else:
+        policy_arm_profile = {
+            "offer_family": str(getattr(plan, "offer_family", "") or ""),
+            "scoring_profile": str(getattr(plan, "offer_scoring_profile", "") or ""),
+            "term_generation_rule": str(getattr(plan, "term_generation_rule", "") or ""),
+        }
+    reason_codes = []
+    if str(plan.status_reason or "").strip():
+        reason_codes.extend(piece for piece in str(plan.status_reason).split("|") if piece)
+    if not reason_codes:
+        reason_codes = ["selected_best_plan"]
+    return {
+        "decision_id": f"{run_id}_{customer_id}",
+        "run_id": str(run_id),
+        "customer_id": str(customer_id),
+        "policy_arm": policy_arm,
+        "policy_arm_profile": policy_arm_profile,
+        "candidate_set_id": f"{run_id}:{customer_id}",
+        "selected_plan_id": str(plan.plan_id),
+        "selected_plan_status": str(plan.status),
+        "selected_offer_type": str(getattr(plan, "dominant_offer_type", "") or ""),
+        "selection_propensity": 1.0,
+        "propensity_source": "deterministic_fallback",
+        "reason_codes": reason_codes,
+        "recommended_plan_flag": True,
+        "selected_plan_policy_label": str(getattr(plan, "trajectory_policy_label", "") or ""),
+        "trajectory_status": str(getattr(plan, "trajectory_status", "") or ""),
+        "decision_status": str(plan.status),
+        "approved": bool(str(plan.status) == "APPROVED"),
+        "predicted_pd": _safe_float(getattr(plan, "predicted_pd", None), 0.0),
+        "plan_execution_probability": (
+            _safe_float(getattr(plan, "plan_execution_probability", 0.0), 0.0)
+            if getattr(plan, "plan_execution_probability", None) is not None
+            else None
+        ),
+        "offer_acceptance_probability": (
+            _safe_float(getattr(plan, "offer_acceptance_probability", 0.0), 0.0)
+            if getattr(plan, "offer_acceptance_probability", None) is not None
+            else None
+        ),
+        "combined_plan_realization_probability": (
+            _safe_float(getattr(plan, "combined_plan_realization_probability", 0.0), 0.0)
+            if getattr(plan, "combined_plan_realization_probability", None) is not None
+            else None
+        ),
+    }
 
 
 def _build_customer_roadmap(
@@ -1151,6 +1212,19 @@ def main() -> None:
     roadmap_steps_df = pd.DataFrame(roadmap_steps_rows)
     roadmap_steps_csv = run_ctx.tables_dir / "customer_roadmap_steps.csv"
     roadmap_steps_df.to_csv(roadmap_steps_csv, index=False)
+    decision_log_record = _decision_log_record(
+        run_id=run_ctx.run_id,
+        customer_id=str(args.customer_id),
+        plan=best,
+    )
+    decision_log_summary = build_decision_logging_summary([decision_log_record])
+    decision_log_out = run_ctx.tables_dir / "decision_log_record.json"
+    decision_log_summary_out = run_ctx.tables_dir / "decision_logging_summary.json"
+    decision_log_out.write_text(json.dumps(decision_log_record, indent=2, ensure_ascii=False), encoding="utf-8")
+    decision_log_summary_out.write_text(
+        json.dumps(decision_log_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
     cp_week4 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 4), {})
     cp_week12 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 12), {})
     cp_week24 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 24), {})
@@ -1203,6 +1277,9 @@ def main() -> None:
         "search_time_budget_ms": int(time_budget_ms),
         "search_elapsed_ms": float((time.perf_counter() - recourse_start_ts) * 1000.0),
         "fairness_penalty": float(fairness_penalty),
+        "decision_id": str(decision_log_record["decision_id"]),
+        "selection_propensity": float(decision_log_record["selection_propensity"]),
+        "decision_log_completeness": float(decision_log_summary.get("decision_log_completeness", 0.0)),
     }
     run_ctx.save_metrics(summary)
 
@@ -1217,6 +1294,7 @@ def main() -> None:
     logger.info("DiCE outputs: %s %s %s backend=%s", dice_csv, dice_json, dice_tel_json, dice_backend)
     logger.info("Candidate pool outputs: %s %s", pool_csv, pool_json)
     logger.info("Roadmap outputs: %s %s", roadmap_json, roadmap_steps_csv)
+    logger.info("Decision logging outputs: %s %s", decision_log_out, decision_log_summary_out)
     logger.info("Adverse action reasons: %s", adverse_out)
 
 

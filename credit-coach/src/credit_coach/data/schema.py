@@ -536,9 +536,54 @@ class DecisionOutcomeRecord(BaseModel):
     run_id: str = Field(..., description="Kararin uretildigi run")
     customer_id: str = Field(..., description="Musteri kimligi")
     policy_arm: str = Field(default="control", description="control | treatment")
+    policy_arm_profile: dict[str, str] = Field(
+        default_factory=dict,
+        description="Policy arm'in offer family / scoring profile / term rule ozet profili",
+    )
+    candidate_set_id: str = Field(default="", description="Secim yapilan candidate set kimligi")
+    selected_plan_id: str = Field(default="", description="Winner veya secilen plan kimligi")
+    selected_plan_status: str = Field(default="", description="Winner plan durumu")
+    selected_offer_type: str | None = Field(default=None, description="Secilen offer tipi varsa")
+    selection_propensity: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Secilen policy / plan arm'inin propensity degeri",
+    )
+    propensity_source: str = Field(
+        default="deterministic_fallback",
+        description="Propensity'nin kaynagi: randomized | heuristic | deterministic_fallback",
+    )
+    reason_codes: list[str] = Field(
+        default_factory=list,
+        description="Karari ve secilen plani aciklayan compact reason code listesi",
+    )
+    recommended_plan_flag: bool = Field(default=False, description="Karar icin loggable bir recommendation secildi mi")
+    selected_plan_policy_label: str | None = Field(
+        default=None,
+        description="Trajectory policy label gibi kisa plan etiketi",
+    )
+    trajectory_status: str | None = Field(
+        default=None,
+        description="Planin trajectory durumu: on_track | needs_replan | degraded",
+    )
     decision_status: str = Field(default="UNKNOWN", description="APPROVED | NEEDS_REVIEW | REJECTED | UNKNOWN")
     approved: bool = Field(default=False, description="Karar sonucu onaylandi mi")
     predicted_pd: float | None = Field(default=None, ge=0.0, le=1.0)
+    plan_execution_probability: float | None = Field(default=None, ge=0.0, le=1.0)
+    offer_acceptance_probability: float | None = Field(default=None, ge=0.0, le=1.0)
+    combined_plan_realization_probability: float | None = Field(default=None, ge=0.0, le=1.0)
+    action_completed: bool | None = Field(default=None, description="Aksiyonlar gercekte tamamlandi mi")
+    offer_accepted: bool | None = Field(default=None, description="Institutional offer kabul edildi mi")
+    observed_payment_ratio_90d: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="90 gun icinde beklenen odemenin gerceklesen orani",
+    )
+    observed_recovery_amount_90d: float | None = Field(
+        default=None,
+        description="90 gun icindeki gerceklesen recovery tutari",
+    )
     observed_default_30d: int | None = Field(default=None, ge=0, le=1)
     observed_default_60d: int | None = Field(default=None, ge=0, le=1)
     observed_default_90d: int | None = Field(default=None, ge=0, le=1)

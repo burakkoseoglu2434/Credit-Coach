@@ -27,6 +27,7 @@ from credit_coach.storage.db import get_session
 from credit_coach.storage.models import (
     AuditEventORM,
     CustomerSnapshotORM,
+    DecisionOutcomeContextORM,
     DecisionOutcomeORM,
     MacroSnapshotORM,
     ModelRunORM,
@@ -35,6 +36,9 @@ from credit_coach.storage.models import (
 from credit_coach.utils.hashing import hash_chain_event
 
 logger = logging.getLogger(__name__)
+
+CANONICAL_PROXY_METRICS = ["approval_rate", "default_rate_90d", "avg_margin_90d"]
+LEARNING_READINESS_STATES = ["descriptive_only", "partial_learning_ready", "learning_ready"]
 
 
 def _build_audit_envelope(
@@ -49,6 +53,268 @@ def _build_audit_envelope(
         "run_id": run_id,
         "payload": payload,
     }
+
+
+def _clean_str(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _to_bool(value: Any) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(int(value))
+    normalized = str(value).strip().lower()
+    if normalized in {"", "nan", "none", "null"}:
+        return None
+    if normalized in {"1", "true", "yes", "y"}:
+        return True
+    if normalized in {"0", "false", "no", "n"}:
+        return False
+    return None
+
+
+def _normalize_reason_codes(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [_clean_str(item) for item in value if _clean_str(item)]
+    if isinstance(value, tuple):
+        return [_clean_str(item) for item in value if _clean_str(item)]
+    raw = _clean_str(value)
+    if not raw:
+        return []
+    if raw.startswith("["):
+        try:
+            loaded = json.loads(raw)
+            if isinstance(loaded, list):
+                return [_clean_str(item) for item in loaded if _clean_str(item)]
+        except Exception:
+            pass
+    parts = [piece.strip() for piece in raw.replace(",", "|").split("|")]
+    return [piece for piece in parts if piece]
+
+
+def _normalize_policy_arm_profile(value: Any) -> dict[str, str]:
+    if isinstance(value, dict):
+        return {str(key): _clean_str(val) for key, val in value.items() if _clean_str(val)}
+    raw = _clean_str(value)
+    if not raw:
+        return {}
+    try:
+        loaded = json.loads(raw)
+        if isinstance(loaded, dict):
+            return {str(key): _clean_str(val) for key, val in loaded.items() if _clean_str(val)}
+    except Exception:
+        pass
+    return {}
+
+
+def _safe_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    try:
+        return float(value)
+    except Exception:
+        return None
+
+
+def _frame_from_records(records: pd.DataFrame | list[dict[str, Any]]) -> pd.DataFrame:
+    if isinstance(records, pd.DataFrame):
+        return records.copy(deep=True)
+    return pd.DataFrame(list(records))
+
+
+def build_learning_dataset_frame(
+    records: pd.DataFrame | list[dict[str, Any]],
+    *,
+    window_days: int = 90,
+) -> pd.DataFrame:
+    _ = int(window_days)
+    df = _frame_from_records(records)
+    expected_defaults: dict[str, Any] = {
+        "decision_id": "",
+        "run_id": "",
+        "customer_id": "",
+        "policy_arm": "control",
+        "candidate_set_id": "",
+        "selected_plan_id": "",
+        "selected_plan_status": "",
+        "selected_offer_type": "",
+        "selection_propensity": None,
+        "propensity_source": "",
+        "reason_codes": None,
+        "recommended_plan_flag": False,
+        "selected_plan_policy_label": "",
+        "trajectory_status": "",
+        "approved": False,
+        "predicted_pd": None,
+        "plan_execution_probability": None,
+        "offer_acceptance_probability": None,
+        "combined_plan_realization_probability": None,
+        "action_completed": None,
+        "offer_accepted": None,
+        "observed_payment_ratio_90d": None,
+        "observed_recovery_amount_90d": None,
+        "observed_default_30d": None,
+        "observed_default_60d": None,
+        "observed_default_90d": None,
+        "observed_margin_90d": None,
+    }
+    for column, default in expected_defaults.items():
+        if column not in df.columns:
+            df[column] = default
+
+    for column in ["decision_id", "run_id", "customer_id", "policy_arm", "candidate_set_id", "selected_plan_id", "selected_plan_status", "selected_offer_type", "propensity_source", "selected_plan_policy_label", "trajectory_status"]:
+        df[column] = df[column].map(_clean_str)
+
+    df["reason_codes_list"] = df["reason_codes"].map(_normalize_reason_codes)
+    df["reason_codes_count"] = df["reason_codes_list"].map(len).astype(int)
+    df["selection_propensity"] = pd.to_numeric(df["selection_propensity"], errors="coerce")
+    for column in [
+        "predicted_pd",
+        "plan_execution_probability",
+        "offer_acceptance_probability",
+        "combined_plan_realization_probability",
+        "observed_payment_ratio_90d",
+        "observed_recovery_amount_90d",
+        "observed_margin_90d",
+    ]:
+        df[column] = pd.to_numeric(df[column], errors="coerce")
+    for column in ["observed_default_30d", "observed_default_60d", "observed_default_90d"]:
+        df[column] = pd.to_numeric(df[column], errors="coerce")
+    for column in ["recommended_plan_flag", "approved", "action_completed", "offer_accepted"]:
+        df[column] = df[column].map(_to_bool)
+
+    df["policy_metadata_complete"] = (
+        df["policy_arm"].ne("")
+        & df["selection_propensity"].notna()
+        & df["propensity_source"].ne("")
+    )
+    df["decision_log_complete"] = (
+        df["policy_metadata_complete"]
+        & df["candidate_set_id"].ne("")
+        & df["selected_plan_id"].ne("")
+        & df["selected_plan_status"].ne("")
+        & (df["reason_codes_count"] > 0)
+    )
+    df["has_action_completion"] = df["action_completed"].notna()
+    df["has_offer_acceptance"] = df["offer_accepted"].notna()
+    df["has_payment_behavior"] = df["observed_payment_ratio_90d"].notna()
+    df["has_recovery_outcome"] = df["observed_recovery_amount_90d"].notna()
+    df["has_default_90d_outcome"] = df["observed_default_90d"].notna()
+    df["has_margin_90d_outcome"] = df["observed_margin_90d"].notna()
+    df["has_reward_proxy_90d"] = df["has_default_90d_outcome"] | df["has_margin_90d_outcome"]
+
+    df["learning_readiness_status"] = "descriptive_only"
+    df.loc[df["decision_log_complete"] | df["has_reward_proxy_90d"], "learning_readiness_status"] = "partial_learning_ready"
+    df.loc[df["decision_log_complete"] & df["policy_metadata_complete"] & df["has_reward_proxy_90d"], "learning_readiness_status"] = "learning_ready"
+
+    return df
+
+
+def build_decision_logging_summary(records: pd.DataFrame | list[dict[str, Any]]) -> dict[str, Any]:
+    df = build_learning_dataset_frame(records)
+    total = int(len(df))
+    complete_count = int(df["decision_log_complete"].astype(bool).sum()) if total else 0
+    return {
+        "total_decisions": total,
+        "complete_decision_logs": complete_count,
+        "decision_log_completeness": float(complete_count / max(1, total)),
+        "policy_metadata_coverage": float(df["policy_metadata_complete"].astype(bool).mean()) if total else 0.0,
+        "selection_propensity_coverage": float(df["selection_propensity"].notna().mean()) if total else 0.0,
+        "candidate_set_coverage": float(df["candidate_set_id"].ne("").mean()) if total else 0.0,
+        "reason_code_coverage": float((df["reason_codes_count"] > 0).mean()) if total else 0.0,
+        "recommended_plan_rate": float(df["recommended_plan_flag"].fillna(False).astype(bool).mean()) if total else 0.0,
+        "propensity_source_breakdown": (
+            df["propensity_source"].replace("", "missing").value_counts(dropna=False).to_dict() if total else {}
+        ),
+    }
+
+
+def build_outcome_ingestion_summary(
+    records: pd.DataFrame | list[dict[str, Any]],
+    *,
+    window_days: int = 90,
+) -> dict[str, Any]:
+    df = build_learning_dataset_frame(records, window_days=window_days)
+    total = int(len(df))
+    status_distribution: dict[str, dict[str, float | int]] = {}
+    for status in LEARNING_READINESS_STATES:
+        count = int((df["learning_readiness_status"] == status).sum()) if total else 0
+        status_distribution[status] = {
+            "count": count,
+            "share": float(count / max(1, total)),
+        }
+    return {
+        "window_days": int(window_days),
+        "total_records": total,
+        "primary_learning_window_days": 90,
+        "decision_log_completeness": float(df["decision_log_complete"].astype(bool).mean()) if total else 0.0,
+        "reward_90d_coverage": float(df["has_reward_proxy_90d"].astype(bool).mean()) if total else 0.0,
+        "default_90d_coverage": float(df["has_default_90d_outcome"].astype(bool).mean()) if total else 0.0,
+        "margin_90d_coverage": float(df["has_margin_90d_outcome"].astype(bool).mean()) if total else 0.0,
+        "has_action_completion_rate": float(df["has_action_completion"].astype(bool).mean()) if total else 0.0,
+        "has_offer_acceptance_rate": float(df["has_offer_acceptance"].astype(bool).mean()) if total else 0.0,
+        "has_payment_behavior_rate": float(df["has_payment_behavior"].astype(bool).mean()) if total else 0.0,
+        "has_recovery_outcome_rate": float(df["has_recovery_outcome"].astype(bool).mean()) if total else 0.0,
+        "learning_readiness_status_distribution": status_distribution,
+    }
+
+
+def _load_decision_outcome_rows() -> list[dict[str, Any]]:
+    with get_session() as session:
+        outcome_rows = session.query(DecisionOutcomeORM).all()
+        context_rows = session.query(DecisionOutcomeContextORM).all()
+
+    context_by_decision_id = {str(row.decision_id): row for row in context_rows}
+    rows: list[dict[str, Any]] = []
+    for row in outcome_rows:
+        context = context_by_decision_id.get(str(row.decision_id))
+        rows.append(
+            {
+                "decision_id": str(row.decision_id),
+                "run_id": str(row.run_id),
+                "customer_id": str(row.customer_id),
+                "policy_arm": str(row.policy_arm),
+                "policy_arm_profile": context.policy_arm_profile if context is not None else _policy_arm_profile(str(row.policy_arm)),
+                "candidate_set_id": _clean_str(getattr(context, "candidate_set_id", "")),
+                "selected_plan_id": _clean_str(getattr(context, "selected_plan_id", "")),
+                "selected_plan_status": _clean_str(getattr(context, "selected_plan_status", "")),
+                "selected_offer_type": _clean_str(getattr(context, "selected_offer_type", "")),
+                "selection_propensity": _safe_float(getattr(context, "selection_propensity", None)),
+                "propensity_source": _clean_str(getattr(context, "propensity_source", "")),
+                "reason_codes": list(getattr(context, "reason_codes", [])) if context is not None else [],
+                "recommended_plan_flag": bool(getattr(context, "recommended_plan_flag", False)) if context is not None else False,
+                "selected_plan_policy_label": _clean_str(getattr(context, "selected_plan_policy_label", "")),
+                "trajectory_status": _clean_str(getattr(context, "trajectory_status", "")),
+                "decision_status": str(row.decision_status),
+                "approved": bool(row.approved),
+                "predicted_pd": _safe_float(row.predicted_pd),
+                "plan_execution_probability": _safe_float(getattr(context, "plan_execution_probability", None)),
+                "offer_acceptance_probability": _safe_float(getattr(context, "offer_acceptance_probability", None)),
+                "combined_plan_realization_probability": _safe_float(
+                    getattr(context, "combined_plan_realization_probability", None)
+                ),
+                "action_completed": getattr(context, "action_completed", None),
+                "offer_accepted": getattr(context, "offer_accepted", None),
+                "observed_payment_ratio_90d": _safe_float(getattr(context, "observed_payment_ratio_90d", None)),
+                "observed_recovery_amount_90d": _safe_float(getattr(context, "observed_recovery_amount_90d", None)),
+                "observed_default_30d": row.observed_default_30d,
+                "observed_default_60d": row.observed_default_60d,
+                "observed_default_90d": row.observed_default_90d,
+                "observed_margin_90d": _safe_float(row.observed_margin_90d),
+                "observed_at": row.observed_at,
+            }
+        )
+    return rows
 
 
 def _latest_event_hash(session: Session) -> str | None:
@@ -290,6 +556,83 @@ def save_decision_outcome(record: DecisionOutcomeRecord) -> int:
             session.flush()
             record_id = int(orm.id)
             action = "created"
+        context_existing = (
+            session.query(DecisionOutcomeContextORM)
+            .filter(DecisionOutcomeContextORM.decision_id == record.decision_id)
+            .first()
+        )
+        context_payload = {
+            "run_id": record.run_id,
+            "customer_id": record.customer_id,
+            "candidate_set_id": _clean_str(record.candidate_set_id),
+            "policy_arm_profile": _normalize_policy_arm_profile(record.policy_arm_profile),
+            "selected_plan_id": _clean_str(record.selected_plan_id),
+            "selected_plan_status": _clean_str(record.selected_plan_status),
+            "selected_offer_type": _clean_str(record.selected_offer_type),
+            "selection_propensity": _safe_float(record.selection_propensity),
+            "propensity_source": _clean_str(record.propensity_source),
+            "reason_codes": _normalize_reason_codes(record.reason_codes),
+            "recommended_plan_flag": bool(record.recommended_plan_flag),
+            "selected_plan_policy_label": _clean_str(record.selected_plan_policy_label),
+            "trajectory_status": _clean_str(record.trajectory_status),
+            "plan_execution_probability": _safe_float(record.plan_execution_probability),
+            "offer_acceptance_probability": _safe_float(record.offer_acceptance_probability),
+            "combined_plan_realization_probability": _safe_float(record.combined_plan_realization_probability),
+            "action_completed": _to_bool(record.action_completed),
+            "offer_accepted": _to_bool(record.offer_accepted),
+            "observed_payment_ratio_90d": _safe_float(record.observed_payment_ratio_90d),
+            "observed_recovery_amount_90d": _safe_float(record.observed_recovery_amount_90d),
+        }
+        if context_existing is not None:
+            context_existing.run_id = str(context_payload["run_id"])
+            context_existing.customer_id = str(context_payload["customer_id"])
+            context_existing.candidate_set_id = context_payload["candidate_set_id"] or None
+            context_existing.policy_arm_profile = dict(context_payload["policy_arm_profile"])
+            context_existing.selected_plan_id = context_payload["selected_plan_id"] or None
+            context_existing.selected_plan_status = context_payload["selected_plan_status"] or None
+            context_existing.selected_offer_type = context_payload["selected_offer_type"] or None
+            context_existing.selection_propensity = context_payload["selection_propensity"]
+            context_existing.propensity_source = context_payload["propensity_source"] or None
+            context_existing.reason_codes = list(context_payload["reason_codes"])
+            context_existing.recommended_plan_flag = bool(context_payload["recommended_plan_flag"])
+            context_existing.selected_plan_policy_label = context_payload["selected_plan_policy_label"] or None
+            context_existing.trajectory_status = context_payload["trajectory_status"] or None
+            context_existing.plan_execution_probability = context_payload["plan_execution_probability"]
+            context_existing.offer_acceptance_probability = context_payload["offer_acceptance_probability"]
+            context_existing.combined_plan_realization_probability = context_payload[
+                "combined_plan_realization_probability"
+            ]
+            context_existing.action_completed = context_payload["action_completed"]
+            context_existing.offer_accepted = context_payload["offer_accepted"]
+            context_existing.observed_payment_ratio_90d = context_payload["observed_payment_ratio_90d"]
+            context_existing.observed_recovery_amount_90d = context_payload["observed_recovery_amount_90d"]
+        else:
+            context_existing = DecisionOutcomeContextORM(
+                decision_id=record.decision_id,
+                run_id=record.run_id,
+                customer_id=record.customer_id,
+            )
+            context_existing.candidate_set_id = context_payload["candidate_set_id"] or None
+            context_existing.policy_arm_profile = dict(context_payload["policy_arm_profile"])
+            context_existing.selected_plan_id = context_payload["selected_plan_id"] or None
+            context_existing.selected_plan_status = context_payload["selected_plan_status"] or None
+            context_existing.selected_offer_type = context_payload["selected_offer_type"] or None
+            context_existing.selection_propensity = context_payload["selection_propensity"]
+            context_existing.propensity_source = context_payload["propensity_source"] or None
+            context_existing.reason_codes = list(context_payload["reason_codes"])
+            context_existing.recommended_plan_flag = bool(context_payload["recommended_plan_flag"])
+            context_existing.selected_plan_policy_label = context_payload["selected_plan_policy_label"] or None
+            context_existing.trajectory_status = context_payload["trajectory_status"] or None
+            context_existing.plan_execution_probability = context_payload["plan_execution_probability"]
+            context_existing.offer_acceptance_probability = context_payload["offer_acceptance_probability"]
+            context_existing.combined_plan_realization_probability = context_payload[
+                "combined_plan_realization_probability"
+            ]
+            context_existing.action_completed = context_payload["action_completed"]
+            context_existing.offer_accepted = context_payload["offer_accepted"]
+            context_existing.observed_payment_ratio_90d = context_payload["observed_payment_ratio_90d"]
+            context_existing.observed_recovery_amount_90d = context_payload["observed_recovery_amount_90d"]
+            session.add(context_existing)
         _append_audit_event(
             session=session,
             event_type="decision_outcome_saved",
@@ -300,11 +643,27 @@ def save_decision_outcome(record: DecisionOutcomeRecord) -> int:
                 "approved": bool(record.approved),
                 "decision_status": str(record.decision_status),
                 "observed_default_90d": record.observed_default_90d,
+                "selected_plan_id": _clean_str(record.selected_plan_id),
+                "candidate_set_id": _clean_str(record.candidate_set_id),
+                "selection_propensity": _safe_float(record.selection_propensity),
+                "propensity_source": _clean_str(record.propensity_source),
                 "action": action,
             },
         )
         session.commit()
     return record_id
+
+
+def summarize_decision_logging() -> dict[str, Any]:
+    return build_decision_logging_summary(_load_decision_outcome_rows())
+
+
+def load_decision_learning_dataset(*, window_days: int = 90) -> pd.DataFrame:
+    return build_learning_dataset_frame(_load_decision_outcome_rows(), window_days=window_days)
+
+
+def summarize_outcome_ingestion(*, window_days: int = 90) -> dict[str, Any]:
+    return build_outcome_ingestion_summary(_load_decision_outcome_rows(), window_days=window_days)
 
 
 def summarize_decision_outcomes(*, window_days: int = 90) -> pd.DataFrame:

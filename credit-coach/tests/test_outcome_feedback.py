@@ -4,9 +4,12 @@ from credit_coach.data.schema import DecisionOutcomeRecord
 from credit_coach.storage import db as db_module
 from credit_coach.storage.db import init_db
 from credit_coach.storage.repository import (
+    load_decision_learning_dataset,
     compute_policy_outcome_deltas,
     save_decision_outcome,
+    summarize_decision_logging,
     summarize_decision_outcomes,
+    summarize_outcome_ingestion,
 )
 
 
@@ -122,3 +125,72 @@ def test_outcome_feedback_falls_back_to_baseline_missing_without_control(monkeyp
     assert deltas["outcome_feedback_confidence"] == "tentative"
     assert deltas["comparisons"] == []
     assert deltas["policy_arm_summaries"][0]["policy_arm"] == "treatment"
+
+
+def test_decision_logging_and_learning_readiness_summaries(monkeypatch, tmp_path):
+    _init_test_db(monkeypatch, tmp_path)
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d1",
+            run_id="r16",
+            customer_id="c1",
+            policy_arm="control",
+            policy_arm_profile={
+                "offer_family": "control",
+                "scoring_profile": "control",
+                "term_generation_rule": "",
+            },
+            candidate_set_id="r16:c1",
+            selected_plan_id="plan-1",
+            selected_plan_status="APPROVED",
+            selected_offer_type="installment_terms",
+            selection_propensity=1.0,
+            propensity_source="deterministic_fallback",
+            reason_codes=["selected_best_plan"],
+            recommended_plan_flag=True,
+            selected_plan_policy_label="stabilize_first",
+            trajectory_status="on_track",
+            approved=True,
+            predicted_pd=0.21,
+            plan_execution_probability=0.72,
+            offer_acceptance_probability=0.48,
+            combined_plan_realization_probability=0.3456,
+            action_completed=True,
+            offer_accepted=True,
+            observed_payment_ratio_90d=0.92,
+            observed_recovery_amount_90d=140.0,
+            observed_default_90d=0,
+            observed_margin_90d=95.0,
+        )
+    )
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d2",
+            run_id="r16",
+            customer_id="c2",
+            policy_arm="treatment",
+            candidate_set_id="",
+            selected_plan_id="",
+            selected_plan_status="",
+            selection_propensity=1.0,
+            propensity_source="deterministic_fallback",
+            reason_codes=[],
+            recommended_plan_flag=False,
+            approved=False,
+            observed_default_90d=None,
+            observed_margin_90d=None,
+        )
+    )
+
+    decision_logging = summarize_decision_logging()
+    ingestion = summarize_outcome_ingestion(window_days=90)
+    learning_df = load_decision_learning_dataset(window_days=90)
+
+    assert decision_logging["total_decisions"] == 2
+    assert decision_logging["complete_decision_logs"] == 1
+    assert decision_logging["decision_log_completeness"] == 0.5
+    assert ingestion["reward_90d_coverage"] == 0.5
+    assert ingestion["learning_readiness_status_distribution"]["learning_ready"]["count"] == 1
+    assert ingestion["learning_readiness_status_distribution"]["partial_learning_ready"]["count"] == 0
+    assert ingestion["learning_readiness_status_distribution"]["descriptive_only"]["count"] == 1
+    assert set(learning_df["learning_readiness_status"]) == {"learning_ready", "descriptive_only"}

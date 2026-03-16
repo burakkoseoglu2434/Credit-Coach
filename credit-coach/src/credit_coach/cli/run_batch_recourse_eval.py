@@ -53,6 +53,7 @@ from credit_coach.recourse.trajectory import (
     predict_plan_pd_at_month,
 )
 from credit_coach.safety.validator import validate_plan
+from credit_coach.storage.repository import build_decision_logging_summary
 from credit_coach.utils.hashing import hash_config, hash_file
 from credit_coach.utils.run_context import create_run_context, load_config
 from credit_coach.xai.shap_local import compute_local_topk_reasons
@@ -149,6 +150,96 @@ def _safe_str(v: Any, default: str = "") -> str:
     if isinstance(v, float) and np.isnan(v):
         return default
     return str(v)
+
+
+def _split_reason_codes(value: Any) -> list[str]:
+    raw = _safe_str(value, "")
+    if not raw:
+        return []
+    return [piece.strip() for piece in raw.replace(",", "|").split("|") if piece.strip()]
+
+
+def _build_decision_log_records(batch_df: pd.DataFrame, *, run_id: str) -> pd.DataFrame:
+    if batch_df.empty:
+        return pd.DataFrame(
+            columns=[
+                "decision_id",
+                "run_id",
+                "customer_id",
+                "policy_arm",
+                "policy_arm_profile",
+                "candidate_set_id",
+                "selected_plan_id",
+                "selected_plan_status",
+                "selected_offer_type",
+                "selection_propensity",
+                "propensity_source",
+                "reason_codes",
+                "recommended_plan_flag",
+                "selected_plan_policy_label",
+                "trajectory_status",
+                "decision_status",
+                "approved",
+                "predicted_pd",
+                "plan_execution_probability",
+                "offer_acceptance_probability",
+                "combined_plan_realization_probability",
+            ]
+        )
+
+    records: list[dict[str, Any]] = []
+    for row in batch_df.to_dict(orient="records"):
+        customer_id = _safe_str(row.get("customer_id", ""))
+        selected_plan_id = _safe_str(row.get("best_plan_id", ""))
+        selected_offer_type = _safe_str(row.get("best_offer_type", ""))
+        policy_arm = _safe_str(row.get("best_offer_policy_arm", "")) or "control"
+        if policy_arm == "control":
+            policy_arm_profile = {
+                "offer_family": "control",
+                "scoring_profile": "control",
+                "term_generation_rule": "",
+            }
+        else:
+            policy_arm_profile = {
+                "offer_family": _safe_str(row.get("best_offer_family", "")),
+                "scoring_profile": _safe_str(row.get("best_offer_scoring_profile", "")),
+                "term_generation_rule": _safe_str(row.get("best_term_generation_rule", "")),
+            }
+        reason_codes = _split_reason_codes(row.get("best_status_reason", "")) or ["selected_best_plan"]
+        records.append(
+            {
+                "decision_id": f"{run_id}_{customer_id}",
+                "run_id": str(run_id),
+                "customer_id": customer_id,
+                "policy_arm": policy_arm,
+                "policy_arm_profile": policy_arm_profile,
+                "candidate_set_id": f"{run_id}:{customer_id}",
+                "selected_plan_id": selected_plan_id,
+                "selected_plan_status": _safe_str(row.get("best_status", "")),
+                "selected_offer_type": selected_offer_type,
+                "selection_propensity": 1.0,
+                "propensity_source": "deterministic_fallback",
+                "reason_codes": reason_codes,
+                "recommended_plan_flag": bool(selected_plan_id),
+                "selected_plan_policy_label": _safe_str(row.get("trajectory_policy_label", "")),
+                "trajectory_status": _safe_str(row.get("trajectory_status", "")),
+                "decision_status": _safe_str(row.get("best_status", "")),
+                "approved": bool(_safe_str(row.get("best_status", "")) == "APPROVED"),
+                "predicted_pd": _safe_float(row.get("best_candidate_pd", None), 0.0),
+                "plan_execution_probability": _safe_float(row.get("best_plan_execution_probability", None), 0.0),
+                "offer_acceptance_probability": (
+                    _safe_float(row.get("best_offer_acceptance_probability", None), 0.0)
+                    if int(_safe_int(row.get("best_offer_plan", 0), 0)) == 1
+                    else None
+                ),
+                "combined_plan_realization_probability": (
+                    _safe_float(row.get("best_combined_plan_realization_probability", None), 0.0)
+                    if int(_safe_int(row.get("best_offer_plan", 0), 0)) == 1
+                    else None
+                ),
+            }
+        )
+    return pd.DataFrame(records)
 
 
 def _round_metric(value: Any, *, digits: int = 6) -> float:
@@ -5332,6 +5423,23 @@ def main() -> None:
     trajectory_transition_breakdown.to_csv(trajectory_transition_breakdown_out, index=False)
     trajectory_policy_label_breakdown_out = run_ctx.tables_dir / "trajectory_policy_label_breakdown.csv"
     trajectory_policy_label_breakdown.to_csv(trajectory_policy_label_breakdown_out, index=False)
+    decision_log_records = _build_decision_log_records(batch_df, run_id=run_ctx.run_id)
+    decision_log_records_csv = decision_log_records.copy(deep=True)
+    if not decision_log_records_csv.empty:
+        decision_log_records_csv["policy_arm_profile"] = decision_log_records_csv["policy_arm_profile"].map(
+            lambda value: json.dumps(value, ensure_ascii=False) if isinstance(value, dict) else "{}"
+        )
+        decision_log_records_csv["reason_codes"] = decision_log_records_csv["reason_codes"].map(
+            lambda value: json.dumps(value, ensure_ascii=False) if isinstance(value, list) else "[]"
+        )
+    decision_log_records_out = run_ctx.tables_dir / "decision_log_records.csv"
+    decision_log_records_csv.to_csv(decision_log_records_out, index=False)
+    decision_logging_summary = build_decision_logging_summary(decision_log_records)
+    decision_logging_summary_out = run_ctx.tables_dir / "decision_logging_summary.json"
+    decision_logging_summary_out.write_text(
+        json.dumps(decision_logging_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
     err_df = batch_df[batch_df["error_type"] != ""]
     err_counts = (
@@ -5970,6 +6078,14 @@ def main() -> None:
         json.dumps(action_realism_summary, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+    summary["decision_log_total"] = int(decision_logging_summary.get("total_decisions", 0))
+    summary["complete_decision_logs"] = int(decision_logging_summary.get("complete_decision_logs", 0))
+    summary["decision_log_completeness"] = float(decision_logging_summary.get("decision_log_completeness", 0.0))
+    summary["selection_propensity_coverage"] = float(
+        decision_logging_summary.get("selection_propensity_coverage", 0.0)
+    )
+    summary["candidate_set_coverage"] = float(decision_logging_summary.get("candidate_set_coverage", 0.0))
+    summary["reason_code_coverage"] = float(decision_logging_summary.get("reason_code_coverage", 0.0))
 
     summary_json = run_ctx.tables_dir / "batch_summary.json"
     summary_json.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")

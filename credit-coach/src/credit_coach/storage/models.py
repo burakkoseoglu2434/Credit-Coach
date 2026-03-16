@@ -249,6 +249,68 @@ class DecisionOutcomeORM(Base):
 
 
 # ------------------------------------------------------------------ #
+# DecisionOutcomeContextORM
+# ------------------------------------------------------------------ #
+class DecisionOutcomeContextORM(Base):
+    """
+    Additive companion table for richer decision logging and delayed learning fields.
+
+    The main `decision_outcomes` table stays thin and backward-compatible.
+    This table carries the compact learning ledger plus richer delayed outcome context
+    without requiring destructive schema changes on the core outcome table.
+    """
+
+    __tablename__ = "decision_outcome_contexts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    decision_id: Mapped[str] = mapped_column(String(120), nullable=False, unique=True, index=True)
+    run_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    customer_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    candidate_set_id: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
+    policy_arm_profile_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    selected_plan_id: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
+    selected_plan_status: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    selected_offer_type: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    selection_propensity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    propensity_source: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    reason_codes_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    recommended_plan_flag: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    selected_plan_policy_label: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    trajectory_status: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    plan_execution_probability: Mapped[float | None] = mapped_column(Float, nullable=True)
+    offer_acceptance_probability: Mapped[float | None] = mapped_column(Float, nullable=True)
+    combined_plan_realization_probability: Mapped[float | None] = mapped_column(Float, nullable=True)
+    action_completed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    offer_accepted: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    observed_payment_ratio_90d: Mapped[float | None] = mapped_column(Float, nullable=True)
+    observed_recovery_amount_90d: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, index=True)
+
+    @property
+    def policy_arm_profile(self) -> dict:
+        return json.loads(self.policy_arm_profile_json or "{}")
+
+    @policy_arm_profile.setter
+    def policy_arm_profile(self, value: dict) -> None:
+        self.policy_arm_profile_json = json.dumps(value or {}, ensure_ascii=False)
+
+    @property
+    def reason_codes(self) -> list[str]:
+        return json.loads(self.reason_codes_json or "[]")
+
+    @reason_codes.setter
+    def reason_codes(self, value: list[str]) -> None:
+        self.reason_codes_json = json.dumps(value or [], ensure_ascii=False)
+
+    def __repr__(self) -> str:
+        return (
+            f"<DecisionOutcomeContext decision_id={self.decision_id} "
+            f"plan={self.selected_plan_id} propensity={self.selection_propensity}>"
+        )
+
+
+# ------------------------------------------------------------------ #
 # AuditEventORM
 # ------------------------------------------------------------------ #
 class AuditEventORM(Base):

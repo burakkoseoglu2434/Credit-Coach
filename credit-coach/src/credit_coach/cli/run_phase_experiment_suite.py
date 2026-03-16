@@ -8,7 +8,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import pandas as pd
 
@@ -29,6 +29,7 @@ from credit_coach.ops.release_decision import (
     evaluate_release_decision,
     evaluate_seed_kpi_contract,
 )
+from credit_coach.storage.repository import CANONICAL_PROXY_METRICS
 from credit_coach.utils.run_context import create_run_context, load_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s")
@@ -203,6 +204,98 @@ def _round_metric(value: Any, *, digits: int = 6) -> float:
     if pd.isna(metric):
         return 0.0
     return round(metric, digits)
+
+
+def _build_phase_decision_logging_summary(seed_summaries: list[dict[str, Any]]) -> dict[str, Any]:
+    if not seed_summaries:
+        return {
+            "seed_count": 0,
+            "total_decisions": 0,
+            "complete_decision_logs": 0,
+            "decision_log_completeness": 0.0,
+            "policy_metadata_coverage": 0.0,
+            "selection_propensity_coverage": 0.0,
+            "candidate_set_coverage": 0.0,
+            "reason_code_coverage": 0.0,
+            "recommended_plan_rate": 0.0,
+            "propensity_source_breakdown": {},
+        }
+
+    total_decisions = int(sum(int(summary.get("total_decisions", 0)) for summary in seed_summaries))
+    complete_decision_logs = int(sum(int(summary.get("complete_decision_logs", 0)) for summary in seed_summaries))
+    weighted_denominator = max(1, total_decisions)
+
+    def _weighted_average(key: str) -> float:
+        numerator = 0.0
+        for summary in seed_summaries:
+            total = int(summary.get("total_decisions", 0))
+            numerator += float(summary.get(key, 0.0)) * float(total)
+        return _round_metric(numerator / float(weighted_denominator))
+
+    propensity_source_breakdown: dict[str, int] = {}
+    for summary in seed_summaries:
+        breakdown = summary.get("propensity_source_breakdown", {})
+        if not isinstance(breakdown, dict):
+            continue
+        for key, value in breakdown.items():
+            propensity_source_breakdown[str(key)] = propensity_source_breakdown.get(str(key), 0) + int(value)
+
+    return {
+        "seed_count": int(len(seed_summaries)),
+        "total_decisions": total_decisions,
+        "complete_decision_logs": complete_decision_logs,
+        "decision_log_completeness": _weighted_average("decision_log_completeness"),
+        "policy_metadata_coverage": _weighted_average("policy_metadata_coverage"),
+        "selection_propensity_coverage": _weighted_average("selection_propensity_coverage"),
+        "candidate_set_coverage": _weighted_average("candidate_set_coverage"),
+        "reason_code_coverage": _weighted_average("reason_code_coverage"),
+        "recommended_plan_rate": _weighted_average("recommended_plan_rate"),
+        "propensity_source_breakdown": propensity_source_breakdown,
+    }
+
+
+def _build_learning_loop_summary(
+    *,
+    decision_logging_summary: Mapping[str, Any] | None,
+    outcome_ingestion_summary: Mapping[str, Any] | None,
+    off_policy_evaluation: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    decision_logging = dict(decision_logging_summary or {})
+    ingestion = dict(outcome_ingestion_summary or {})
+    ope = dict(off_policy_evaluation or {})
+    readiness_distribution = (
+        ingestion.get("learning_readiness_status_distribution", {})
+        if isinstance(ingestion.get("learning_readiness_status_distribution", {}), dict)
+        else {}
+    )
+    preferred_policy_signal = ope.get("preferred_policy_signal", {})
+    if not isinstance(preferred_policy_signal, Mapping):
+        preferred_policy_signal = {}
+    preferred_policy_arm = str(preferred_policy_signal.get("policy_arm", ""))
+    preferred_metric_labels: dict[str, str] = {}
+    comparisons = ope.get("comparisons", [])
+    if isinstance(comparisons, list):
+        for comparison in comparisons:
+            if not isinstance(comparison, Mapping):
+                continue
+            if str(comparison.get("policy_arm", "")) != preferred_policy_arm:
+                continue
+            labels = comparison.get("metric_labels", {})
+            if isinstance(labels, Mapping):
+                preferred_metric_labels = {str(key): str(value) for key, value in labels.items()}
+            break
+    return {
+        "decision_log_completeness": _round_metric(decision_logging.get("decision_log_completeness", 0.0)),
+        "decision_log_total": int(decision_logging.get("total_decisions", 0)),
+        "complete_decision_logs": int(decision_logging.get("complete_decision_logs", 0)),
+        "learning_readiness_status_distribution": readiness_distribution,
+        "reward_90d_coverage": _round_metric(ingestion.get("reward_90d_coverage", 0.0)),
+        "ope_confidence": str(ope.get("ope_confidence", "tentative")),
+        "comparison_status": str(ope.get("comparison_status", "not_available")),
+        "preferred_policy_signal": dict(preferred_policy_signal),
+        "preferred_policy_metric_labels": preferred_metric_labels,
+        "canonical_proxy_metrics": list(ope.get("canonical_proxy_metrics", CANONICAL_PROXY_METRICS)),
+    }
 
 
 def _kpi_checks(summary: dict[str, Any], fair_row: dict[str, Any], thresholds: dict[str, Any]) -> tuple[bool, str]:
@@ -1121,6 +1214,9 @@ def main() -> None:
     outcome_feedback_summary_source = _latest_optional_artifact("*/tables/outcome_feedback_summary.json")
     outcome_policy_summary_source = _latest_optional_artifact("*/tables/outcome_policy_summary.csv")
     outcome_policy_deltas_source = _latest_optional_artifact("*/tables/outcome_policy_deltas.json")
+    outcome_ingestion_summary_source = _latest_optional_artifact("*/tables/outcome_ingestion_summary.json")
+    off_policy_evaluation_source = _latest_optional_artifact("*/tables/off_policy_evaluation.json")
+    outcome_learning_dataset_source = _latest_optional_artifact("*/tables/outcome_learning_dataset.csv")
     mirrored_outcome_feedback = _mirror_artifact(
         outcome_feedback_summary_source,
         run_ctx.tables_dir / "outcome_feedback_summary.json",
@@ -1133,9 +1229,31 @@ def main() -> None:
         outcome_policy_deltas_source,
         run_ctx.tables_dir / "outcome_policy_deltas.json",
     )
+    mirrored_outcome_ingestion_summary = _mirror_artifact(
+        outcome_ingestion_summary_source,
+        run_ctx.tables_dir / "outcome_ingestion_summary.json",
+    )
+    mirrored_off_policy_evaluation = _mirror_artifact(
+        off_policy_evaluation_source,
+        run_ctx.tables_dir / "off_policy_evaluation.json",
+    )
+    mirrored_outcome_learning_dataset = _mirror_artifact(
+        outcome_learning_dataset_source,
+        run_ctx.tables_dir / "outcome_learning_dataset.csv",
+    )
     outcome_feedback_summary = (
         json.loads((run_ctx.tables_dir / "outcome_feedback_summary.json").read_text(encoding="utf-8"))
         if mirrored_outcome_feedback
+        else {}
+    )
+    outcome_ingestion_summary = (
+        json.loads((run_ctx.tables_dir / "outcome_ingestion_summary.json").read_text(encoding="utf-8"))
+        if mirrored_outcome_ingestion_summary
+        else {}
+    )
+    off_policy_evaluation = (
+        json.loads((run_ctx.tables_dir / "off_policy_evaluation.json").read_text(encoding="utf-8"))
+        if mirrored_off_policy_evaluation
         else {}
     )
 
@@ -1231,6 +1349,7 @@ def main() -> None:
     seed_trajectory_gate_by_risk_breakdowns: list[pd.DataFrame] = []
     seed_trajectory_gate_by_income_breakdowns: list[pd.DataFrame] = []
     seed_trajectory_phase_action_mix_breakdowns: list[pd.DataFrame] = []
+    seed_decision_logging_summaries: list[dict[str, Any]] = []
     for seed in seeds:
         run_id, run_log = _run_cmd(
             cmd=_batch_cmd(
@@ -1293,6 +1412,9 @@ def main() -> None:
         )
         trajectory_phase_action_mix = _load_csv(
             root / "artifacts" / "runs" / run_id / "tables" / "trajectory_phase_action_mix.csv"
+        )
+        decision_logging_summary = _load_json(
+            root / "artifacts" / "runs" / run_id / "tables" / "decision_logging_summary.json"
         )
         canonical_candidate_metrics = (
             candidate_quality_summary.get("canonical_metrics", {})
@@ -1466,6 +1588,7 @@ def main() -> None:
                     )
                 ),
                 "high_risk_profile_applied_rate": float(summary.get("high_risk_profile_applied_rate", 0.0)),
+                "decision_log_completeness": float(decision_logging_summary.get("decision_log_completeness", 0.0)),
                 "candidate_quality_population": str(candidate_quality_summary.get("canonical_population", "denied")),
                 "candidate_quality_secondary_population": str(
                     candidate_quality_summary.get("secondary_population", "high_risk_denied")
@@ -1683,6 +1806,8 @@ def main() -> None:
         if not trajectory_phase_action_mix.empty:
             trajectory_phase_action_mix["seed"] = int(seed)
             seed_trajectory_phase_action_mix_breakdowns.append(trajectory_phase_action_mix)
+        if decision_logging_summary:
+            seed_decision_logging_summaries.append(dict(decision_logging_summary))
 
     scale_df = pd.DataFrame(scale_rows).sort_values("seed").reset_index(drop=True)
     scale_path = run_ctx.tables_dir / "phase_scale_seed_summary.csv"
@@ -1808,6 +1933,17 @@ def main() -> None:
     )
     trajectory_phase_action_mix_path = run_ctx.tables_dir / "trajectory_phase_action_mix.csv"
     phase_trajectory_phase_action_mix.to_csv(trajectory_phase_action_mix_path, index=False)
+    phase_decision_logging_summary = _build_phase_decision_logging_summary(seed_decision_logging_summaries)
+    decision_logging_summary_path = run_ctx.tables_dir / "decision_logging_summary.json"
+    decision_logging_summary_path.write_text(
+        json.dumps(phase_decision_logging_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    learning_loop_summary = _build_learning_loop_summary(
+        decision_logging_summary=phase_decision_logging_summary,
+        outcome_ingestion_summary=outcome_ingestion_summary,
+        off_policy_evaluation=off_policy_evaluation,
+    )
 
     aggregate = {
         "seed_count": int(len(scale_df)),
@@ -1833,6 +1969,7 @@ def main() -> None:
         "mean_high_stress_fairness_gap_after": float(scale_df["high_stress_fairness_gap_after"].mean()),
         "max_fairness_guard_demotion_count": int(scale_df["fairness_guard_demotion_count"].max()),
         "mean_error_rate": float(scale_df["error_rate"].mean()),
+        "decision_log_completeness": float(phase_decision_logging_summary["decision_log_completeness"]),
         "mean_trajectory_gate_pass_rate_4w": float(scale_df["trajectory_gate_pass_rate_4w"].mean()),
         "mean_trajectory_gate_pass_rate_12w": float(scale_df["trajectory_gate_pass_rate_12w"].mean()),
         "mean_trajectory_gate_pass_rate_24w": float(scale_df["trajectory_gate_pass_rate_24w"].mean()),
@@ -1982,12 +2119,19 @@ def main() -> None:
         "trajectory_phase_action_mix_csv": "tables/trajectory_phase_action_mix.csv",
         "high_risk_tuning_summary_json": "tables/high_risk_tuning_summary.json",
         "generator_policy_impact_json": "tables/generator_policy_impact.json",
+        "decision_logging_summary_json": "tables/decision_logging_summary.json",
         "release_decision_json": "tables/release_decision.json",
         "frozen_model_manifest_json": "tables/frozen_model_manifest.json",
         "release_evidence_pack_json": "tables/release_evidence_pack.json",
     }
     if mirrored_outcome_feedback:
         supporting_artifacts["outcome_feedback_summary_json"] = "tables/outcome_feedback_summary.json"
+    if mirrored_outcome_ingestion_summary:
+        supporting_artifacts["outcome_ingestion_summary_json"] = "tables/outcome_ingestion_summary.json"
+    if mirrored_off_policy_evaluation:
+        supporting_artifacts["off_policy_evaluation_json"] = "tables/off_policy_evaluation.json"
+    if mirrored_outcome_learning_dataset:
+        supporting_artifacts["outcome_learning_dataset_csv"] = "tables/outcome_learning_dataset.csv"
     if mirrored_outcome_policy_summary:
         supporting_artifacts["outcome_policy_summary_csv"] = "tables/outcome_policy_summary.csv"
     if mirrored_outcome_policy_deltas:
@@ -2046,7 +2190,11 @@ def main() -> None:
             "trajectory_summary": phase_trajectory_summary,
             "high_risk_tuning_summary": phase_high_risk_tuning_summary,
             "impact_attribution_summary": impact_attribution_summary,
+            "decision_logging_summary": phase_decision_logging_summary,
             "outcome_feedback_summary": outcome_feedback_summary,
+            "outcome_ingestion_summary": outcome_ingestion_summary,
+            "off_policy_evaluation": off_policy_evaluation,
+            "learning_loop_summary": learning_loop_summary,
         },
     )
     (run_ctx.tables_dir / "kpi_contract_snapshot.json").write_text(
@@ -2075,7 +2223,11 @@ def main() -> None:
             "trajectory_summary": phase_trajectory_summary,
             "high_risk_tuning_summary": phase_high_risk_tuning_summary,
             "impact_attribution_summary": impact_attribution_summary,
+            "decision_logging_summary": phase_decision_logging_summary,
             "outcome_feedback_summary": outcome_feedback_summary,
+            "outcome_ingestion_summary": outcome_ingestion_summary,
+            "off_policy_evaluation": off_policy_evaluation,
+            "learning_loop_summary": learning_loop_summary,
         },
     )
     milestone_acceptance_review = render_milestone_acceptance_review(milestone_acceptance_summary)
@@ -2121,12 +2273,19 @@ def main() -> None:
         "frozen_model_manifest_json": "tables/frozen_model_manifest.json",
         "high_risk_tuning_summary_json": "tables/high_risk_tuning_summary.json",
         "generator_policy_impact_json": "tables/generator_policy_impact.json",
+        "decision_logging_summary_json": "tables/decision_logging_summary.json",
         "trajectory_gate_by_risk_band_csv": "tables/trajectory_gate_by_risk_band.csv",
         "trajectory_gate_by_income_band_csv": "tables/trajectory_gate_by_income_band.csv",
         "trajectory_phase_action_mix_csv": "tables/trajectory_phase_action_mix.csv",
     }
     if mirrored_outcome_feedback:
         optional_release_artifacts["outcome_feedback_summary_json"] = "tables/outcome_feedback_summary.json"
+    if mirrored_outcome_ingestion_summary:
+        optional_release_artifacts["outcome_ingestion_summary_json"] = "tables/outcome_ingestion_summary.json"
+    if mirrored_off_policy_evaluation:
+        optional_release_artifacts["off_policy_evaluation_json"] = "tables/off_policy_evaluation.json"
+    if mirrored_outcome_learning_dataset:
+        optional_release_artifacts["outcome_learning_dataset_csv"] = "tables/outcome_learning_dataset.csv"
     if mirrored_outcome_policy_summary:
         optional_release_artifacts["outcome_policy_summary_csv"] = "tables/outcome_policy_summary.csv"
     if mirrored_outcome_policy_deltas:
@@ -2214,6 +2373,9 @@ def main() -> None:
             "scale_mean_high_risk_profile_applied_rate": float(scale_df["high_risk_profile_applied_rate"].mean()),
             "scale_mean_candidate_pool_diversity_index": float(scale_df["candidate_pool_diversity_index"].mean()),
             "scale_mean_candidate_source_entropy": float(scale_df["candidate_source_entropy"].mean()),
+            "decision_log_completeness": float(phase_decision_logging_summary["decision_log_completeness"]),
+            "reward_90d_coverage": float(learning_loop_summary["reward_90d_coverage"]),
+            "ope_confidence": str(learning_loop_summary["ope_confidence"]),
         }
     )
 

@@ -8,8 +8,10 @@ from credit_coach.cli.run_phase_experiment_suite import (
     _build_phase_behavior_aware_summary,
     _build_phase_candidate_quality_summary,
     _build_phase_candidate_source_breakdown,
+    _build_phase_decision_logging_summary,
     _build_phase_fairness_breakdown,
     _build_phase_high_risk_tuning_summary,
+    _build_learning_loop_summary,
     _build_phase_offer_optimization_summary,
     _build_phase_trajectory_policy_label_breakdown,
     _build_phase_trajectory_summary,
@@ -306,6 +308,26 @@ def test_release_review_summary_is_derived_from_acceptance_summary() -> None:
                 "default_rate_90d_delta": 0.0,
                 "avg_margin_90d_delta": 0.0,
             },
+            "learning_loop_summary": {
+                "decision_log_completeness": 0.95,
+                "learning_readiness_status_distribution": {
+                    "descriptive_only": {"count": 5, "share": 0.1},
+                    "partial_learning_ready": {"count": 10, "share": 0.2},
+                    "learning_ready": {"count": 35, "share": 0.7},
+                },
+                "reward_90d_coverage": 0.7,
+                "ope_confidence": "strong",
+                "comparison_status": "treatment_vs_control",
+                "preferred_policy_signal": {
+                    "policy_arm": "treatment",
+                    "signal": "supports_treatment",
+                },
+                "preferred_policy_metric_labels": {
+                    "approval_rate": "supports_treatment",
+                    "default_rate_90d": "supports_treatment",
+                    "avg_margin_90d": "mixed",
+                },
+            },
             "offer_optimization_summary": {
                 "canonical_metrics": {
                     "offer_plan_rate": 0.42,
@@ -342,10 +364,12 @@ def test_release_review_summary_is_derived_from_acceptance_summary() -> None:
     assert "Telemetry Readiness" in review
     assert "Release Pack Completeness" in review
     assert "Outcome Feedback Summary" in review
+    assert "Learning Loop Summary" in review
     assert "Offer Optimization Summary" in review
     assert "Trajectory Summary" in review
     assert "installment_terms" in review
     assert "phase_1_checkpoint_missed" in review
+    assert "supports_treatment" in review
     assert "release_decision_json" in review
 
 
@@ -723,3 +747,77 @@ def test_build_suite_impact_attribution_summary_is_tentative_without_control_bas
     assert summary["comparative_impact_confidence"] == "tentative"
     assert summary["diagnostic_only"] is True
     assert summary["diagnostic_reason"] == "control_variant_baseline_not_available_in_suite_runner"
+
+
+def test_phase_decision_logging_summary_aggregates_weighted_coverage() -> None:
+    summary = _build_phase_decision_logging_summary(
+        [
+            {
+                "total_decisions": 10,
+                "complete_decision_logs": 8,
+                "decision_log_completeness": 0.8,
+                "policy_metadata_coverage": 0.9,
+                "selection_propensity_coverage": 1.0,
+                "candidate_set_coverage": 0.8,
+                "reason_code_coverage": 0.7,
+                "recommended_plan_rate": 0.6,
+                "propensity_source_breakdown": {"deterministic_fallback": 10},
+            },
+            {
+                "total_decisions": 20,
+                "complete_decision_logs": 10,
+                "decision_log_completeness": 0.5,
+                "policy_metadata_coverage": 0.6,
+                "selection_propensity_coverage": 1.0,
+                "candidate_set_coverage": 0.5,
+                "reason_code_coverage": 0.4,
+                "recommended_plan_rate": 0.3,
+                "propensity_source_breakdown": {"deterministic_fallback": 20},
+            },
+        ]
+    )
+
+    assert summary["seed_count"] == 2
+    assert summary["total_decisions"] == 30
+    assert summary["complete_decision_logs"] == 18
+    assert float(summary["decision_log_completeness"]) == 0.6
+    assert summary["propensity_source_breakdown"]["deterministic_fallback"] == 30
+
+
+def test_build_learning_loop_summary_surfaces_preferred_policy_metric_labels() -> None:
+    summary = _build_learning_loop_summary(
+        decision_logging_summary={"decision_log_completeness": 0.88, "total_decisions": 50, "complete_decision_logs": 44},
+        outcome_ingestion_summary={
+            "reward_90d_coverage": 0.72,
+            "learning_readiness_status_distribution": {
+                "descriptive_only": {"count": 5, "share": 0.1},
+                "partial_learning_ready": {"count": 10, "share": 0.2},
+                "learning_ready": {"count": 35, "share": 0.7},
+            },
+        },
+        off_policy_evaluation={
+            "ope_confidence": "strong",
+            "comparison_status": "treatment_vs_control",
+            "canonical_proxy_metrics": ["approval_rate", "default_rate_90d", "avg_margin_90d"],
+            "preferred_policy_signal": {
+                "policy_arm": "treatment",
+                "signal": "supports_treatment",
+                "ope_confidence": "strong",
+            },
+            "comparisons": [
+                {
+                    "policy_arm": "treatment",
+                    "metric_labels": {
+                        "approval_rate": "supports_treatment",
+                        "default_rate_90d": "supports_treatment",
+                        "avg_margin_90d": "mixed",
+                    },
+                }
+            ],
+        },
+    )
+
+    assert summary["decision_log_completeness"] == 0.88
+    assert summary["reward_90d_coverage"] == 0.72
+    assert summary["preferred_policy_signal"]["policy_arm"] == "treatment"
+    assert summary["preferred_policy_metric_labels"]["approval_rate"] == "supports_treatment"

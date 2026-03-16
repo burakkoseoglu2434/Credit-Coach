@@ -815,9 +815,15 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
     outcome_feedback = summary.get("outcome_feedback_summary", {})
     if not isinstance(outcome_feedback, Mapping):
         outcome_feedback = {}
+    learning_loop = summary.get("learning_loop_summary", {})
+    if not isinstance(learning_loop, Mapping):
+        learning_loop = {}
     behavior_aware = summary.get("behavior_aware_summary", {})
     if not isinstance(behavior_aware, Mapping):
         behavior_aware = {}
+    behavior_metrics = behavior_aware.get("canonical_metrics", behavior_aware)
+    if not isinstance(behavior_metrics, Mapping):
+        behavior_metrics = {}
     offer_optimization = summary.get("offer_optimization_summary", {})
     if not isinstance(offer_optimization, Mapping):
         offer_optimization = {}
@@ -865,6 +871,25 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
     worst_arm = outcome_feedback.get("worst_proxy_regressing_arm", {})
     if not isinstance(worst_arm, Mapping):
         worst_arm = {}
+    preferred_policy_signal = learning_loop.get("preferred_policy_signal", {})
+    if not isinstance(preferred_policy_signal, Mapping):
+        preferred_policy_signal = {}
+    learning_distribution = learning_loop.get("learning_readiness_status_distribution", {})
+    if not isinstance(learning_distribution, Mapping):
+        learning_distribution = {}
+    preferred_policy_metric_labels = learning_loop.get("preferred_policy_metric_labels", {})
+    if not isinstance(preferred_policy_metric_labels, Mapping):
+        preferred_policy_metric_labels = {}
+    distribution_fragments = []
+    for key in ("descriptive_only", "partial_learning_ready", "learning_ready"):
+        payload = learning_distribution.get(key, {})
+        if isinstance(payload, Mapping):
+            count = int(payload.get("count", 0))
+            share = _safe_float(payload.get("share", 0.0))
+        else:
+            count = 0
+            share = 0.0
+        distribution_fragments.append(f"{key}={count} ({share:.6f})")
 
     lines = [
         "# Milestone Acceptance Review",
@@ -910,6 +935,22 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
         f"- default_rate_90d delta: {_safe_float(outcome_feedback.get('default_rate_90d_delta', 0.0)):.6f}",
         f"- avg_margin_90d delta: {_safe_float(outcome_feedback.get('avg_margin_90d_delta', 0.0)):.6f}",
         "",
+        "## Learning Loop Summary",
+        "",
+        f"- Decision log completeness: {_safe_float(learning_loop.get('decision_log_completeness', 0.0)):.6f}",
+        f"- Learning readiness status distribution: {'; '.join(distribution_fragments) or 'none'}",
+        f"- Reward 90d coverage: {_safe_float(learning_loop.get('reward_90d_coverage', 0.0)):.6f}",
+        f"- OPE confidence: {learning_loop.get('ope_confidence', TENTATIVE)}",
+        f"- Comparison status: {learning_loop.get('comparison_status', 'not_available')}",
+        (
+            "- Preferred policy signal: "
+            f"{preferred_policy_signal.get('policy_arm', '') or 'none'}"
+            f" ({preferred_policy_signal.get('signal', 'insufficient_evidence')})"
+        ),
+        f"- approval_rate OPE label: {preferred_policy_metric_labels.get('approval_rate', 'insufficient_evidence')}",
+        f"- default_rate_90d OPE label: {preferred_policy_metric_labels.get('default_rate_90d', 'insufficient_evidence')}",
+        f"- avg_margin_90d OPE label: {preferred_policy_metric_labels.get('avg_margin_90d', 'insufficient_evidence')}",
+        "",
         "## Offer Optimization Summary",
         "",
         f"- Offer plan rate: {_safe_float(offer_metrics.get('offer_plan_rate', 0.0)):.6f}",
@@ -925,11 +966,11 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
         "",
         "## Behavior-Aware Summary",
         "",
-        f"- Mean plan execution probability: {_safe_float(behavior_aware.get('mean_plan_execution_probability', 0.0)):.6f}",
-        f"- Expected PD improvement: {_safe_float(behavior_aware.get('expected_pd_improvement', 0.0)):.6f}",
-        f"- Mixed execution rate: {_safe_float(behavior_aware.get('mixed_execution_rate', 0.0)):.6f}",
-        f"- Failed execution rate: {_safe_float(behavior_aware.get('failed_execution_rate', 0.0)):.6f}",
-        f"- Expected partial progress rate: {_safe_float(behavior_aware.get('expected_partial_progress_rate', 0.0)):.6f}",
+        f"- Mean plan execution probability: {_safe_float(behavior_metrics.get('mean_plan_execution_probability', 0.0)):.6f}",
+        f"- Expected PD improvement: {_safe_float(behavior_metrics.get('expected_pd_improvement', 0.0)):.6f}",
+        f"- Mixed execution rate: {_safe_float(behavior_metrics.get('mixed_execution_rate', 0.0)):.6f}",
+        f"- Failed execution rate: {_safe_float(behavior_metrics.get('failed_execution_rate', 0.0)):.6f}",
+        f"- Expected partial progress rate: {_safe_float(behavior_metrics.get('expected_partial_progress_rate', 0.0)):.6f}",
         "",
         "## Trajectory Summary",
         "",
