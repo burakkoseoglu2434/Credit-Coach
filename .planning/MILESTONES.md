@@ -1,6 +1,6 @@
 # Project Milestones: Credit Coach
 
-**Current active milestone:** v1.2 Recommendation Quality Hardening
+**Current active milestone:** None - ready for `$gsd-new-milestone`
 
 ## v1.0 Brownfield Baseline (Shipped: 2026-03-10)
 
@@ -56,5 +56,34 @@
 - Institution-side offer optimization and learned feedback loops remain only partial capabilities
 
 **What's next:** v1.2 Recommendation Quality Hardening
+
+---
+
+## v1.2 Recommendation Quality Hardening (Shipped: 2026-03-16)
+
+**Delivered:** A behavior-aware recourse stack with typed action realism, execution-aware ranking, multi-phase trajectories, institution-side offer optimization, and a confidence-aware learning loop over delayed outcomes.
+
+**Phases completed:** 12-16 (15 plans total)
+
+**Key accomplishments:**
+- Replaced raw feature-edit recommendation semantics with typed behavioral, structural, and institutional actions plus explicit feasibility and interaction constraints
+- Added execution-probability modeling and behavior-aware ranking without weakening inherited fairness, reliability, telemetry, or acceptance gates
+- Promoted phased trajectories, weekly checkpoint simulation, and replan-aware evidence to first-class planning contracts
+- Integrated institution-side offers with separate acceptance modeling and governance-first recovery-aware ranking
+- Closed the learning loop with compact decision logging, graded outcome-ingestion readiness, and IPS/Doubly Robust off-policy evaluation
+
+**Stats:**
+- 5 GSD phases completed with 15 executed plans
+- Milestone audit passed with 11/11 requirements satisfied
+- Nyquist compliance: 5/5 phases compliant
+- 88 files changed in the shipped milestone range with 15,125 insertions and 381 deletions
+
+**Known gaps carried forward:**
+- Operator-facing dashboards still need to summarize the artifact-rich milestone health surface
+- Regulatory explanation and user-facing adverse-action narratives are still future work
+- Online policy promotion remains intentionally blocked behind evidence-first learning
+- External institution integrations can still be deepened beyond internal artifact contracts
+
+**What's next:** Define the next milestone with `$gsd-new-milestone`
 
 ---
