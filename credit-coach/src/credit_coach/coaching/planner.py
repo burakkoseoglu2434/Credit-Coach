@@ -67,6 +67,13 @@ def _expected_pd_improvement(plan: PlanRecord, *, base_pd: float | None, tau: fl
     return float(_plan_execution_probability(plan) * _nominal_pd_improvement(plan, base_pd=base_pd, tau=tau))
 
 
+def _expected_recovery_proxy(plan: PlanRecord) -> float:
+    explicit = getattr(plan, "expected_recovery_proxy", None)
+    if explicit is None:
+        return 0.0
+    return _safe_float(explicit, 0.0)
+
+
 def _phase_action_shares(plan: PlanRecord) -> tuple[float, float, float]:
     actions = list(plan.actions)
     if not actions:
@@ -541,6 +548,7 @@ def _denied_sort_key(
         -_safe_float(getattr(plan, "trajectory_policy_score", 0.0), 0.0),
         -_expected_pd_improvement(plan, base_pd=base_pd, tau=tau),
         -_plan_execution_probability(plan),
+        -_expected_recovery_proxy(plan),
         int(len(plan.actions)),
         _plan_cost(plan),
         plan.predicted_pd or 1.0,
@@ -604,6 +612,7 @@ def _high_risk_sort_key(
         -_safe_float(getattr(plan, "trajectory_policy_score", 0.0), 0.0),
         -_expected_pd_improvement(plan, base_pd=base_pd, tau=tau),
         -_plan_execution_probability(plan),
+        -_expected_recovery_proxy(plan),
         -float(base_priority),
         int(len(plan.actions)),
         _plan_cost(plan),
@@ -689,6 +698,7 @@ def choose_best_plan(
             -_safe_float(getattr(p, "trajectory_policy_score", 0.0), 0.0),
             -_expected_pd_improvement(p, base_pd=base_pd, tau=tau),
             -_plan_execution_probability(p),
+            -_expected_recovery_proxy(p),
             int(len(p.actions)),
             _plan_cost(p),
             p.predicted_pd or 1.0,

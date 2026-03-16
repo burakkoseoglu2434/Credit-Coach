@@ -454,6 +454,85 @@ def _build_phase_behavior_aware_summary(scale_df: pd.DataFrame) -> dict[str, Any
     }
 
 
+def _build_phase_offer_optimization_summary(scale_df: pd.DataFrame) -> dict[str, Any]:
+    metric_fields = (
+        "offer_plan_rate",
+        "rankable_offer_rate",
+        "offer_acceptance_probability_mean",
+        "combined_plan_realization_probability_mean",
+        "expected_recovery_proxy",
+        "approval_rate_proxy_delta",
+        "default_rate_90d_proxy_delta",
+        "avg_margin_90d_proxy_delta",
+        "governance_safe_offer_rate",
+    )
+    if scale_df.empty:
+        return {
+            "canonical_population": "denied",
+            "seed_count": 0,
+            "canonical_metrics": {field: 0.0 for field in metric_fields} | {"dominant_offer_type": ""},
+            "supporting_artifacts": {
+                "offer_type_breakdown_csv": "tables/offer_type_breakdown.csv",
+                "offer_policy_arm_breakdown_csv": "tables/offer_policy_arm_breakdown.csv",
+                "offer_acceptance_breakdown_csv": "tables/offer_acceptance_breakdown.csv",
+                "offer_proxy_impact_breakdown_csv": "tables/offer_proxy_impact_breakdown.csv",
+            },
+        }
+    dominant_offer_type = ""
+    if "dominant_offer_type" in scale_df.columns:
+        dominant = scale_df["dominant_offer_type"].fillna("").astype(str)
+        dominant = dominant[dominant != ""]
+        if not dominant.empty:
+            dominant_offer_type = str(dominant.value_counts().idxmax())
+    canonical_metrics = {
+        field: _round_metric(pd.to_numeric(scale_df.get(field, pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean())
+        for field in metric_fields
+    }
+    canonical_metrics["dominant_offer_type"] = dominant_offer_type
+    return {
+        "canonical_population": "denied",
+        "seed_count": int(len(scale_df)),
+        "canonical_metrics": canonical_metrics,
+        "supporting_artifacts": {
+            "offer_type_breakdown_csv": "tables/offer_type_breakdown.csv",
+            "offer_policy_arm_breakdown_csv": "tables/offer_policy_arm_breakdown.csv",
+            "offer_acceptance_breakdown_csv": "tables/offer_acceptance_breakdown.csv",
+            "offer_proxy_impact_breakdown_csv": "tables/offer_proxy_impact_breakdown.csv",
+        },
+    }
+
+
+def _build_phase_offer_breakdown(
+    seed_breakdowns: list[pd.DataFrame],
+    *,
+    group_columns: list[str],
+    breakdown_type_seed: str,
+    breakdown_type_rollup: str,
+    value_columns: dict[str, str],
+) -> pd.DataFrame:
+    if not seed_breakdowns:
+        return pd.DataFrame(columns=["seed", *group_columns, *value_columns.keys(), "breakdown_type"])
+    frames: list[pd.DataFrame] = []
+    for breakdown_df in seed_breakdowns:
+        if breakdown_df.empty or "seed" not in breakdown_df.columns:
+            continue
+        working = breakdown_df.copy()
+        working["breakdown_type"] = breakdown_type_seed
+        frames.append(working)
+    if not frames:
+        return pd.DataFrame(columns=["seed", *group_columns, *value_columns.keys(), "breakdown_type"])
+    combined = pd.concat(frames, ignore_index=True, sort=False)
+    agg_spec: dict[str, str] = {}
+    for column, agg_fn in value_columns.items():
+        agg_spec[column] = agg_fn
+    if "count" in combined.columns and "count" not in agg_spec:
+        agg_spec["count"] = "sum"
+    rollup = combined.groupby(group_columns, dropna=False).agg(agg_spec).reset_index()
+    rollup["seed"] = -1
+    rollup["breakdown_type"] = breakdown_type_rollup
+    return pd.concat([combined, rollup], ignore_index=True, sort=False)
+
+
 def _build_phase_trajectory_summary(scale_df: pd.DataFrame) -> dict[str, Any]:
     metric_fields = (
         "trajectory_gate_pass_rate_4w",
@@ -1143,6 +1222,10 @@ def main() -> None:
     seed_candidate_source_breakdowns: list[pd.DataFrame] = []
     seed_execution_probability_breakdowns: list[pd.DataFrame] = []
     seed_partial_execution_breakdowns: list[pd.DataFrame] = []
+    seed_offer_type_breakdowns: list[pd.DataFrame] = []
+    seed_offer_policy_arm_breakdowns: list[pd.DataFrame] = []
+    seed_offer_acceptance_breakdowns: list[pd.DataFrame] = []
+    seed_offer_proxy_impact_breakdowns: list[pd.DataFrame] = []
     seed_trajectory_transition_breakdowns: list[pd.DataFrame] = []
     seed_trajectory_policy_label_breakdowns: list[pd.DataFrame] = []
     seed_trajectory_gate_by_risk_breakdowns: list[pd.DataFrame] = []
@@ -1174,12 +1257,27 @@ def main() -> None:
         behavior_aware_summary = _load_json(
             root / "artifacts" / "runs" / run_id / "tables" / "behavior_aware_summary.json"
         )
+        offer_optimization_summary = _load_json(
+            root / "artifacts" / "runs" / run_id / "tables" / "offer_optimization_summary.json"
+        )
         trajectory_summary = _load_json(root / "artifacts" / "runs" / run_id / "tables" / "trajectory_summary.json")
         execution_probability_breakdown = _load_csv(
             root / "artifacts" / "runs" / run_id / "tables" / "execution_probability_breakdown.csv"
         )
         partial_execution_breakdown = _load_csv(
             root / "artifacts" / "runs" / run_id / "tables" / "partial_execution_breakdown.csv"
+        )
+        offer_type_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "offer_type_breakdown.csv"
+        )
+        offer_policy_arm_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "offer_policy_arm_breakdown.csv"
+        )
+        offer_acceptance_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "offer_acceptance_breakdown.csv"
+        )
+        offer_proxy_impact_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "offer_proxy_impact_breakdown.csv"
         )
         trajectory_transition_breakdown = _load_csv(
             root / "artifacts" / "runs" / run_id / "tables" / "trajectory_transition_breakdown.csv"
@@ -1214,6 +1312,11 @@ def main() -> None:
         secondary_behavior_metrics = (
             behavior_aware_summary.get("secondary_metrics", {})
             if isinstance(behavior_aware_summary.get("secondary_metrics", {}), dict)
+            else {}
+        )
+        canonical_offer_metrics = (
+            offer_optimization_summary.get("canonical_metrics", {})
+            if isinstance(offer_optimization_summary.get("canonical_metrics", {}), dict)
             else {}
         )
         canonical_trajectory_metrics = (
@@ -1493,6 +1596,51 @@ def main() -> None:
                         summary.get("high_risk_denied_expected_partial_progress_rate", 0.0),
                     )
                 ),
+                "offer_plan_rate": float(
+                    canonical_offer_metrics.get("offer_plan_rate", summary.get("offer_plan_rate", 0.0))
+                ),
+                "rankable_offer_rate": float(
+                    canonical_offer_metrics.get("rankable_offer_rate", summary.get("rankable_offer_rate", 0.0))
+                ),
+                "offer_acceptance_probability_mean": float(
+                    canonical_offer_metrics.get(
+                        "offer_acceptance_probability_mean",
+                        summary.get("offer_acceptance_probability_mean", 0.0),
+                    )
+                ),
+                "combined_plan_realization_probability_mean": float(
+                    canonical_offer_metrics.get(
+                        "combined_plan_realization_probability_mean",
+                        summary.get("combined_plan_realization_probability_mean", 0.0),
+                    )
+                ),
+                "expected_recovery_proxy": float(
+                    canonical_offer_metrics.get("expected_recovery_proxy", summary.get("expected_recovery_proxy", 0.0))
+                ),
+                "approval_rate_proxy_delta": float(
+                    canonical_offer_metrics.get("approval_rate_proxy_delta", summary.get("approval_rate_proxy_delta", 0.0))
+                ),
+                "default_rate_90d_proxy_delta": float(
+                    canonical_offer_metrics.get(
+                        "default_rate_90d_proxy_delta",
+                        summary.get("default_rate_90d_proxy_delta", 0.0),
+                    )
+                ),
+                "avg_margin_90d_proxy_delta": float(
+                    canonical_offer_metrics.get(
+                        "avg_margin_90d_proxy_delta",
+                        summary.get("avg_margin_90d_proxy_delta", 0.0),
+                    )
+                ),
+                "governance_safe_offer_rate": float(
+                    canonical_offer_metrics.get(
+                        "governance_safe_offer_rate",
+                        summary.get("governance_safe_offer_rate", 0.0),
+                    )
+                ),
+                "dominant_offer_type": str(
+                    canonical_offer_metrics.get("dominant_offer_type", summary.get("dominant_offer_type", ""))
+                ),
             }
         )
         if not breakdown_df.empty:
@@ -1508,6 +1656,18 @@ def main() -> None:
         if not partial_execution_breakdown.empty:
             partial_execution_breakdown["seed"] = int(seed)
             seed_partial_execution_breakdowns.append(partial_execution_breakdown)
+        if not offer_type_breakdown.empty:
+            offer_type_breakdown["seed"] = int(seed)
+            seed_offer_type_breakdowns.append(offer_type_breakdown)
+        if not offer_policy_arm_breakdown.empty:
+            offer_policy_arm_breakdown["seed"] = int(seed)
+            seed_offer_policy_arm_breakdowns.append(offer_policy_arm_breakdown)
+        if not offer_acceptance_breakdown.empty:
+            offer_acceptance_breakdown["seed"] = int(seed)
+            seed_offer_acceptance_breakdowns.append(offer_acceptance_breakdown)
+        if not offer_proxy_impact_breakdown.empty:
+            offer_proxy_impact_breakdown["seed"] = int(seed)
+            seed_offer_proxy_impact_breakdowns.append(offer_proxy_impact_breakdown)
         if not trajectory_transition_breakdown.empty:
             trajectory_transition_breakdown["seed"] = int(seed)
             seed_trajectory_transition_breakdowns.append(trajectory_transition_breakdown)
@@ -1555,6 +1715,66 @@ def main() -> None:
     )
     partial_execution_breakdown_path = run_ctx.tables_dir / "partial_execution_breakdown.csv"
     phase_partial_execution_breakdown.to_csv(partial_execution_breakdown_path, index=False)
+    phase_offer_optimization_summary = _build_phase_offer_optimization_summary(scale_df)
+    offer_optimization_summary_path = run_ctx.tables_dir / "offer_optimization_summary.json"
+    offer_optimization_summary_path.write_text(
+        json.dumps(phase_offer_optimization_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    phase_offer_type_breakdown = _build_phase_offer_breakdown(
+        seed_offer_type_breakdowns,
+        group_columns=["population", "risk_band", "offer_type"],
+        breakdown_type_seed="seed_population_offer_type",
+        breakdown_type_rollup="population_offer_type_rollup",
+        value_columns={"count": "sum", "share": "mean", "mean_expected_recovery_proxy": "mean"},
+    )
+    offer_type_breakdown_path = run_ctx.tables_dir / "offer_type_breakdown.csv"
+    phase_offer_type_breakdown.to_csv(offer_type_breakdown_path, index=False)
+    phase_offer_policy_arm_breakdown = _build_phase_offer_breakdown(
+        seed_offer_policy_arm_breakdowns,
+        group_columns=[
+            "population",
+            "risk_band",
+            "offer_policy_arm",
+            "offer_family",
+            "offer_scoring_profile",
+            "term_generation_rule",
+        ],
+        breakdown_type_seed="seed_population_offer_policy_arm",
+        breakdown_type_rollup="population_offer_policy_arm_rollup",
+        value_columns={"count": "sum", "share": "mean"},
+    )
+    offer_policy_arm_breakdown_path = run_ctx.tables_dir / "offer_policy_arm_breakdown.csv"
+    phase_offer_policy_arm_breakdown.to_csv(offer_policy_arm_breakdown_path, index=False)
+    phase_offer_acceptance_breakdown = _build_phase_offer_breakdown(
+        seed_offer_acceptance_breakdowns,
+        group_columns=["population", "risk_band", "income_band", "offer_type"],
+        breakdown_type_seed="seed_population_offer_acceptance",
+        breakdown_type_rollup="population_offer_acceptance_rollup",
+        value_columns={
+            "count": "sum",
+            "mean_offer_acceptance_probability": "mean",
+            "mean_combined_plan_realization_probability": "mean",
+        },
+    )
+    offer_acceptance_breakdown_path = run_ctx.tables_dir / "offer_acceptance_breakdown.csv"
+    phase_offer_acceptance_breakdown.to_csv(offer_acceptance_breakdown_path, index=False)
+    phase_offer_proxy_impact_breakdown = _build_phase_offer_breakdown(
+        seed_offer_proxy_impact_breakdowns,
+        group_columns=["population", "offer_type", "offer_policy_arm"],
+        breakdown_type_seed="seed_population_offer_proxy_impact",
+        breakdown_type_rollup="population_offer_proxy_impact_rollup",
+        value_columns={
+            "count": "sum",
+            "approval_rate_proxy_delta": "mean",
+            "default_rate_90d_proxy_delta": "mean",
+            "avg_margin_90d_proxy_delta": "mean",
+            "expected_recovery_proxy": "mean",
+            "governance_safe_offer_rate": "mean",
+        },
+    )
+    offer_proxy_impact_breakdown_path = run_ctx.tables_dir / "offer_proxy_impact_breakdown.csv"
+    phase_offer_proxy_impact_breakdown.to_csv(offer_proxy_impact_breakdown_path, index=False)
     phase_trajectory_summary = _build_phase_trajectory_summary(scale_df)
     trajectory_summary_path = run_ctx.tables_dir / "trajectory_summary.json"
     trajectory_summary_path.write_text(
@@ -1702,6 +1922,18 @@ def main() -> None:
         "mean_high_risk_denied_expected_partial_progress_rate": float(
             scale_df["high_risk_denied_expected_partial_progress_rate"].mean()
         ),
+        "mean_offer_plan_rate": float(scale_df["offer_plan_rate"].mean()),
+        "mean_rankable_offer_rate": float(scale_df["rankable_offer_rate"].mean()),
+        "mean_offer_acceptance_probability": float(scale_df["offer_acceptance_probability_mean"].mean()),
+        "mean_combined_plan_realization_probability": float(
+            scale_df["combined_plan_realization_probability_mean"].mean()
+        ),
+        "mean_expected_recovery_proxy": float(scale_df["expected_recovery_proxy"].mean()),
+        "mean_approval_rate_proxy_delta": float(scale_df["approval_rate_proxy_delta"].mean()),
+        "mean_default_rate_90d_proxy_delta": float(scale_df["default_rate_90d_proxy_delta"].mean()),
+        "mean_avg_margin_90d_proxy_delta": float(scale_df["avg_margin_90d_proxy_delta"].mean()),
+        "mean_governance_safe_offer_rate": float(scale_df["governance_safe_offer_rate"].mean()),
+        "dominant_offer_type": str(phase_offer_optimization_summary["canonical_metrics"]["dominant_offer_type"]),
     }
     (run_ctx.tables_dir / "phase_scale_aggregate.json").write_text(json.dumps(aggregate, indent=2, ensure_ascii=False), encoding="utf-8")
     release_payload = evaluate_release_decision(aggregate, thresholds)
@@ -1737,6 +1969,11 @@ def main() -> None:
         "behavior_aware_summary_json": "tables/behavior_aware_summary.json",
         "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
         "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+        "offer_optimization_summary_json": "tables/offer_optimization_summary.json",
+        "offer_type_breakdown_csv": "tables/offer_type_breakdown.csv",
+        "offer_policy_arm_breakdown_csv": "tables/offer_policy_arm_breakdown.csv",
+        "offer_acceptance_breakdown_csv": "tables/offer_acceptance_breakdown.csv",
+        "offer_proxy_impact_breakdown_csv": "tables/offer_proxy_impact_breakdown.csv",
         "trajectory_summary_json": "tables/trajectory_summary.json",
         "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
         "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",
@@ -1805,6 +2042,7 @@ def main() -> None:
             "frozen_model_manifest_path": "tables/frozen_model_manifest.json",
             "candidate_quality_summary": phase_candidate_quality_summary,
             "behavior_aware_summary": phase_behavior_aware_summary,
+            "offer_optimization_summary": phase_offer_optimization_summary,
             "trajectory_summary": phase_trajectory_summary,
             "high_risk_tuning_summary": phase_high_risk_tuning_summary,
             "impact_attribution_summary": impact_attribution_summary,
@@ -1833,6 +2071,7 @@ def main() -> None:
         metadata={
             "candidate_quality_summary": phase_candidate_quality_summary,
             "behavior_aware_summary": phase_behavior_aware_summary,
+            "offer_optimization_summary": phase_offer_optimization_summary,
             "trajectory_summary": phase_trajectory_summary,
             "high_risk_tuning_summary": phase_high_risk_tuning_summary,
             "impact_attribution_summary": impact_attribution_summary,
@@ -1865,6 +2104,11 @@ def main() -> None:
         "behavior_aware_summary_json": "tables/behavior_aware_summary.json",
         "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
         "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+        "offer_optimization_summary_json": "tables/offer_optimization_summary.json",
+        "offer_type_breakdown_csv": "tables/offer_type_breakdown.csv",
+        "offer_policy_arm_breakdown_csv": "tables/offer_policy_arm_breakdown.csv",
+        "offer_acceptance_breakdown_csv": "tables/offer_acceptance_breakdown.csv",
+        "offer_proxy_impact_breakdown_csv": "tables/offer_proxy_impact_breakdown.csv",
         "trajectory_summary_json": "tables/trajectory_summary.json",
         "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
         "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",

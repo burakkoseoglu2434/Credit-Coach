@@ -195,6 +195,18 @@ class TestTypedActionCatalog:
         assert "stable_income" in income.provides_tags
         assert "installment_plan" in settlement.conflict_tags
 
+    def test_institutional_offer_actions_expose_offer_metadata(self) -> None:
+        settlement = get_action_template("settlement_discount")
+        installment = get_action_template("installment_plan")
+        installment_meta = get_action_metadata("delinq_amnt", action_month=2)
+        assert settlement.offer_type == "discount_offer"
+        assert settlement.requires_acceptance is True
+        assert installment.offer_type == "installment_terms"
+        assert installment.offer_policy_arm == "installment_terms_policy_v1"
+        assert installment_meta["offer_type"] == "installment_terms"
+        assert installment_meta["requires_acceptance"] is True
+        assert installment_meta["institutional_approval_state"] == "approved"
+
     def test_enforce_action_constraints_repairs_conflicting_groups(self) -> None:
         conflicting = [
             PlanAction(

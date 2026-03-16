@@ -148,9 +148,45 @@ class PlanAction(BaseModel):
         default=False,
         description="Aksiyonun uygulanmasi kurum onayi gerektiriyor mu",
     )
+    institutional_approval_state: Literal["not_required", "approved", "pending", "unknown"] | None = Field(
+        default=None,
+        description="Institutional aksiyonlar icin onay durumu",
+    )
     approval_pending_semantic_only: bool = Field(
         default=False,
         description="Feature effect'e henuz donusmeyen semantik placeholder institutional aksiyon mu",
+    )
+    offer_type: str | None = Field(
+        default=None,
+        description="Institutional aksiyon icin offer alt-tipi (ornek: discount_offer)",
+    )
+    offer_terms: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Offer-bearing institutional aksiyonlar icin structured terms katmani",
+    )
+    offer_terms_complete: bool = Field(
+        default=False,
+        description="Offer term seti ordinary winner scoring icin yeterince complete mi",
+    )
+    requires_acceptance: bool = Field(
+        default=False,
+        description="Offer veya kurumsal aksiyon ayrica musteri kabulune bagli mi",
+    )
+    offer_family: str | None = Field(
+        default=None,
+        description="Offer family veya policy-level aile sinifi",
+    )
+    offer_scoring_profile: str | None = Field(
+        default=None,
+        description="Offer kabul / recovery scoring profil etiketi",
+    )
+    term_generation_rule: str | None = Field(
+        default=None,
+        description="Offer termlerinin hangi kural paketiyle uretildigi",
+    )
+    offer_policy_arm: str | None = Field(
+        default=None,
+        description="Offer optimizer icinde bu aksiyonun bagli oldugu policy arm",
     )
     prerequisite_tags: list[str] = Field(
         default_factory=list,
@@ -362,6 +398,67 @@ class PlanRecord(BaseModel):
         default=0,
         ge=0,
         description="Ordinary winner scoring disinda kalan approval-dependent aksiyon sayisi",
+    )
+    offer_plan: bool = Field(
+        default=False,
+        description="Plan en az bir offer-bearing institutional aksiyon tasiyor mu",
+    )
+    rankable_offer_count: int = Field(
+        default=0,
+        ge=0,
+        description="Ordinary ranking'e girebilen explicit offer branch sayisi",
+    )
+    offer_acceptance_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Rankable offer-bearing plan icin kurum teklifinin kabul edilme olasiligi",
+    )
+    combined_plan_realization_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="plan_execution_probability ile offer_acceptance_probability'nin bileşik gerceklesme olasiligi",
+    )
+    expected_recovery_proxy: float | None = Field(
+        default=None,
+        description="Offer optimization ranking icin governance-safe expected recovery proxy skoru",
+    )
+    approval_rate_proxy_delta: float | None = Field(
+        default=None,
+        description="Offer policy icin approval-rate proxy delta tahmini",
+    )
+    default_rate_90d_proxy_delta: float | None = Field(
+        default=None,
+        description="Offer policy icin 90d default-rate proxy delta tahmini",
+    )
+    avg_margin_90d_proxy_delta: float | None = Field(
+        default=None,
+        description="Offer policy icin 90d average margin proxy delta tahmini",
+    )
+    governance_safe_offer: bool = Field(
+        default=False,
+        description="Offer-bearing plan governance ve trajectory stack'i icinde safe gorunuyor mu",
+    )
+    dominant_offer_type: str | None = Field(
+        default=None,
+        description="Plan icindeki baskin offer tipi",
+    )
+    offer_policy_arm: str | None = Field(
+        default=None,
+        description="Plan seviyesinde baskin offer policy arm",
+    )
+    offer_family: str | None = Field(
+        default=None,
+        description="Plan seviyesinde baskin offer family",
+    )
+    offer_scoring_profile: str | None = Field(
+        default=None,
+        description="Plan seviyesinde baskin offer scoring profile",
+    )
+    term_generation_rule: str | None = Field(
+        default=None,
+        description="Plan seviyesinde baskin offer term generation rule",
     )
     trajectory_status: Literal["on_track", "needs_replan", "degraded"] = Field(
         default="on_track",

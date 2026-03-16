@@ -10,6 +10,7 @@ from credit_coach.cli.run_phase_experiment_suite import (
     _build_phase_candidate_source_breakdown,
     _build_phase_fairness_breakdown,
     _build_phase_high_risk_tuning_summary,
+    _build_phase_offer_optimization_summary,
     _build_phase_trajectory_policy_label_breakdown,
     _build_phase_trajectory_summary,
     _build_phase_trajectory_transition_breakdown,
@@ -305,6 +306,20 @@ def test_release_review_summary_is_derived_from_acceptance_summary() -> None:
                 "default_rate_90d_delta": 0.0,
                 "avg_margin_90d_delta": 0.0,
             },
+            "offer_optimization_summary": {
+                "canonical_metrics": {
+                    "offer_plan_rate": 0.42,
+                    "rankable_offer_rate": 0.28,
+                    "offer_acceptance_probability_mean": 0.53,
+                    "combined_plan_realization_probability_mean": 0.31,
+                    "expected_recovery_proxy": 4.1,
+                    "approval_rate_proxy_delta": 0.02,
+                    "default_rate_90d_proxy_delta": -0.01,
+                    "avg_margin_90d_proxy_delta": 18.0,
+                    "governance_safe_offer_rate": 0.24,
+                    "dominant_offer_type": "installment_terms",
+                }
+            },
             "trajectory_summary": {
                 "primary_checkpoint_week": 4,
                 "canonical_metrics": {
@@ -327,7 +342,9 @@ def test_release_review_summary_is_derived_from_acceptance_summary() -> None:
     assert "Telemetry Readiness" in review
     assert "Release Pack Completeness" in review
     assert "Outcome Feedback Summary" in review
+    assert "Offer Optimization Summary" in review
     assert "Trajectory Summary" in review
+    assert "installment_terms" in review
     assert "phase_1_checkpoint_missed" in review
     assert "release_decision_json" in review
 
@@ -453,6 +470,45 @@ def test_build_phase_behavior_aware_summary_uses_locked_population_contract() ->
     assert summary["canonical_metrics"]["mixed_execution_rate"] == 0.35
     assert summary["secondary_metrics"]["mean_plan_execution_probability"] == 0.45
     assert "partial_execution_breakdown_csv" in summary["supporting_artifacts"]
+
+
+def test_build_phase_offer_optimization_summary_uses_locked_contract() -> None:
+    scale_df = pd.DataFrame(
+        [
+            {
+                "offer_plan_rate": 0.40,
+                "rankable_offer_rate": 0.30,
+                "offer_acceptance_probability_mean": 0.55,
+                "combined_plan_realization_probability_mean": 0.28,
+                "expected_recovery_proxy": 3.8,
+                "approval_rate_proxy_delta": 0.02,
+                "default_rate_90d_proxy_delta": -0.01,
+                "avg_margin_90d_proxy_delta": 14.0,
+                "governance_safe_offer_rate": 0.20,
+                "dominant_offer_type": "installment_terms",
+            },
+            {
+                "offer_plan_rate": 0.60,
+                "rankable_offer_rate": 0.50,
+                "offer_acceptance_probability_mean": 0.45,
+                "combined_plan_realization_probability_mean": 0.25,
+                "expected_recovery_proxy": 4.2,
+                "approval_rate_proxy_delta": 0.03,
+                "default_rate_90d_proxy_delta": -0.015,
+                "avg_margin_90d_proxy_delta": 16.0,
+                "governance_safe_offer_rate": 0.30,
+                "dominant_offer_type": "installment_terms",
+            },
+        ]
+    )
+
+    summary = _build_phase_offer_optimization_summary(scale_df)
+
+    assert summary["canonical_population"] == "denied"
+    assert summary["seed_count"] == 2
+    assert summary["canonical_metrics"]["offer_plan_rate"] == 0.5
+    assert summary["canonical_metrics"]["dominant_offer_type"] == "installment_terms"
+    assert "offer_acceptance_breakdown_csv" in summary["supporting_artifacts"]
 
 
 def test_build_phase_trajectory_summary_uses_locked_checkpoint_contract() -> None:

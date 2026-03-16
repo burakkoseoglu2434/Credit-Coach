@@ -1224,6 +1224,292 @@ def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, A
     return summary, execution_probability_breakdown, partial_execution_breakdown
 
 
+def _build_offer_optimization_artifacts(
+    batch_df: pd.DataFrame,
+) -> tuple[dict[str, Any], pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    metric_fields = (
+        "offer_plan_rate",
+        "rankable_offer_rate",
+        "offer_acceptance_probability_mean",
+        "combined_plan_realization_probability_mean",
+        "expected_recovery_proxy",
+        "approval_rate_proxy_delta",
+        "default_rate_90d_proxy_delta",
+        "avg_margin_90d_proxy_delta",
+        "governance_safe_offer_rate",
+        "dominant_offer_type",
+    )
+    empty_summary = {
+        "canonical_population": "denied",
+        "canonical_metrics": {
+            "offer_plan_rate": 0.0,
+            "rankable_offer_rate": 0.0,
+            "offer_acceptance_probability_mean": 0.0,
+            "combined_plan_realization_probability_mean": 0.0,
+            "expected_recovery_proxy": 0.0,
+            "approval_rate_proxy_delta": 0.0,
+            "default_rate_90d_proxy_delta": 0.0,
+            "avg_margin_90d_proxy_delta": 0.0,
+            "governance_safe_offer_rate": 0.0,
+            "dominant_offer_type": "",
+        },
+        "supporting_artifacts": {
+            "offer_type_breakdown_csv": "tables/offer_type_breakdown.csv",
+            "offer_policy_arm_breakdown_csv": "tables/offer_policy_arm_breakdown.csv",
+            "offer_acceptance_breakdown_csv": "tables/offer_acceptance_breakdown.csv",
+            "offer_proxy_impact_breakdown_csv": "tables/offer_proxy_impact_breakdown.csv",
+        },
+    }
+    if batch_df.empty:
+        empty_type = pd.DataFrame(
+            columns=["population", "risk_band", "offer_type", "count", "share", "mean_expected_recovery_proxy"]
+        )
+        empty_policy = pd.DataFrame(
+            columns=[
+                "population",
+                "risk_band",
+                "offer_policy_arm",
+                "offer_family",
+                "offer_scoring_profile",
+                "term_generation_rule",
+                "count",
+                "share",
+            ]
+        )
+        empty_acceptance = pd.DataFrame(
+            columns=[
+                "population",
+                "risk_band",
+                "income_band",
+                "offer_type",
+                "count",
+                "mean_offer_acceptance_probability",
+                "mean_combined_plan_realization_probability",
+            ]
+        )
+        empty_proxy = pd.DataFrame(
+            columns=[
+                "population",
+                "offer_type",
+                "offer_policy_arm",
+                "count",
+                "approval_rate_proxy_delta",
+                "default_rate_90d_proxy_delta",
+                "avg_margin_90d_proxy_delta",
+                "expected_recovery_proxy",
+                "governance_safe_offer_rate",
+            ]
+        )
+        return empty_summary, empty_type, empty_policy, empty_acceptance, empty_proxy
+
+    denied_rows = batch_df[batch_df["denied_base"].astype(int) == 1].copy()
+
+    if denied_rows.empty:
+        empty_type = pd.DataFrame(
+            columns=["population", "risk_band", "offer_type", "count", "share", "mean_expected_recovery_proxy"]
+        )
+        empty_policy = pd.DataFrame(
+            columns=[
+                "population",
+                "risk_band",
+                "offer_policy_arm",
+                "offer_family",
+                "offer_scoring_profile",
+                "term_generation_rule",
+                "count",
+                "share",
+            ]
+        )
+        empty_acceptance = pd.DataFrame(
+            columns=[
+                "population",
+                "risk_band",
+                "income_band",
+                "offer_type",
+                "count",
+                "mean_offer_acceptance_probability",
+                "mean_combined_plan_realization_probability",
+            ]
+        )
+        empty_proxy = pd.DataFrame(
+            columns=[
+                "population",
+                "offer_type",
+                "offer_policy_arm",
+                "count",
+                "approval_rate_proxy_delta",
+                "default_rate_90d_proxy_delta",
+                "avg_margin_90d_proxy_delta",
+                "expected_recovery_proxy",
+                "governance_safe_offer_rate",
+            ]
+        )
+        return empty_summary, empty_type, empty_policy, empty_acceptance, empty_proxy
+
+    offer_rows = denied_rows[denied_rows["best_offer_plan"].astype(int) == 1].copy()
+    rankable_rows = denied_rows[denied_rows["best_rankable_offer"].astype(int) == 1].copy()
+
+    dominant_offer_type = ""
+    if not offer_rows.empty:
+        dominant = offer_rows["best_offer_type"].fillna("").astype(str)
+        dominant = dominant[dominant != ""]
+        if not dominant.empty:
+            dominant_offer_type = str(dominant.value_counts().idxmax())
+
+    summary = {
+        "canonical_population": "denied",
+        "canonical_metrics": {
+            "offer_plan_rate": _round_metric(denied_rows["best_offer_plan"].astype(float).mean()),
+            "rankable_offer_rate": _round_metric(denied_rows["best_rankable_offer"].astype(float).mean()),
+            "offer_acceptance_probability_mean": _round_metric(
+                rankable_rows["best_offer_acceptance_probability"].astype(float).mean() if not rankable_rows.empty else 0.0
+            ),
+            "combined_plan_realization_probability_mean": _round_metric(
+                rankable_rows["best_combined_plan_realization_probability"].astype(float).mean()
+                if not rankable_rows.empty
+                else 0.0
+            ),
+            "expected_recovery_proxy": _round_metric(
+                rankable_rows["best_expected_recovery_proxy"].astype(float).mean() if not rankable_rows.empty else 0.0
+            ),
+            "approval_rate_proxy_delta": _round_metric(
+                rankable_rows["best_approval_rate_proxy_delta"].astype(float).mean() if not rankable_rows.empty else 0.0
+            ),
+            "default_rate_90d_proxy_delta": _round_metric(
+                rankable_rows["best_default_rate_90d_proxy_delta"].astype(float).mean() if not rankable_rows.empty else 0.0
+            ),
+            "avg_margin_90d_proxy_delta": _round_metric(
+                rankable_rows["best_avg_margin_90d_proxy_delta"].astype(float).mean() if not rankable_rows.empty else 0.0
+            ),
+            "governance_safe_offer_rate": _round_metric(
+                rankable_rows["best_governance_safe_offer"].astype(float).mean() if not rankable_rows.empty else 0.0
+            ),
+            "dominant_offer_type": dominant_offer_type,
+        },
+        "supporting_artifacts": {
+            "offer_type_breakdown_csv": "tables/offer_type_breakdown.csv",
+            "offer_policy_arm_breakdown_csv": "tables/offer_policy_arm_breakdown.csv",
+            "offer_acceptance_breakdown_csv": "tables/offer_acceptance_breakdown.csv",
+            "offer_proxy_impact_breakdown_csv": "tables/offer_proxy_impact_breakdown.csv",
+        },
+    }
+
+    if not offer_rows.empty:
+        offer_type_breakdown = (
+            offer_rows.groupby(["risk_band", "best_offer_type"], dropna=False)
+            .agg(
+                count=("customer_id", "size"),
+                mean_expected_recovery_proxy=("best_expected_recovery_proxy", "mean"),
+            )
+            .reset_index()
+            .rename(columns={"best_offer_type": "offer_type"})
+        )
+        offer_type_breakdown["share"] = offer_type_breakdown["count"].astype(float) / float(max(1, len(offer_rows)))
+        offer_type_breakdown["population"] = "denied"
+    else:
+        offer_type_breakdown = pd.DataFrame(
+            columns=["population", "risk_band", "offer_type", "count", "share", "mean_expected_recovery_proxy"]
+        )
+
+    if not offer_rows.empty:
+        offer_policy_arm_breakdown = (
+            offer_rows.groupby(
+                ["risk_band", "best_offer_policy_arm", "best_offer_family", "best_offer_scoring_profile", "best_term_generation_rule"],
+                dropna=False,
+            )
+            .agg(count=("customer_id", "size"))
+            .reset_index()
+            .rename(
+                columns={
+                    "best_offer_policy_arm": "offer_policy_arm",
+                    "best_offer_family": "offer_family",
+                    "best_offer_scoring_profile": "offer_scoring_profile",
+                    "best_term_generation_rule": "term_generation_rule",
+                }
+            )
+        )
+        offer_policy_arm_breakdown["share"] = (
+            offer_policy_arm_breakdown["count"].astype(float) / float(max(1, len(offer_rows)))
+        )
+        offer_policy_arm_breakdown["population"] = "denied"
+    else:
+        offer_policy_arm_breakdown = pd.DataFrame(
+            columns=[
+                "population",
+                "risk_band",
+                "offer_policy_arm",
+                "offer_family",
+                "offer_scoring_profile",
+                "term_generation_rule",
+                "count",
+                "share",
+            ]
+        )
+
+    if not rankable_rows.empty:
+        offer_acceptance_breakdown = (
+            rankable_rows.groupby(["risk_band", "income_band", "best_offer_type"], dropna=False)
+            .agg(
+                count=("customer_id", "size"),
+                mean_offer_acceptance_probability=("best_offer_acceptance_probability", "mean"),
+                mean_combined_plan_realization_probability=("best_combined_plan_realization_probability", "mean"),
+            )
+            .reset_index()
+            .rename(columns={"best_offer_type": "offer_type"})
+        )
+        offer_acceptance_breakdown["population"] = "denied"
+    else:
+        offer_acceptance_breakdown = pd.DataFrame(
+            columns=[
+                "population",
+                "risk_band",
+                "income_band",
+                "offer_type",
+                "count",
+                "mean_offer_acceptance_probability",
+                "mean_combined_plan_realization_probability",
+            ]
+        )
+
+    if not rankable_rows.empty:
+        offer_proxy_impact_breakdown = (
+            rankable_rows.groupby(["best_offer_type", "best_offer_policy_arm"], dropna=False)
+            .agg(
+                count=("customer_id", "size"),
+                approval_rate_proxy_delta=("best_approval_rate_proxy_delta", "mean"),
+                default_rate_90d_proxy_delta=("best_default_rate_90d_proxy_delta", "mean"),
+                avg_margin_90d_proxy_delta=("best_avg_margin_90d_proxy_delta", "mean"),
+                expected_recovery_proxy=("best_expected_recovery_proxy", "mean"),
+                governance_safe_offer_rate=("best_governance_safe_offer", "mean"),
+            )
+            .reset_index()
+            .rename(columns={"best_offer_type": "offer_type", "best_offer_policy_arm": "offer_policy_arm"})
+        )
+        offer_proxy_impact_breakdown["population"] = "denied"
+    else:
+        offer_proxy_impact_breakdown = pd.DataFrame(
+            columns=[
+                "population",
+                "offer_type",
+                "offer_policy_arm",
+                "count",
+                "approval_rate_proxy_delta",
+                "default_rate_90d_proxy_delta",
+                "avg_margin_90d_proxy_delta",
+                "expected_recovery_proxy",
+                "governance_safe_offer_rate",
+            ]
+        )
+
+    return (
+        summary,
+        offer_type_breakdown,
+        offer_policy_arm_breakdown,
+        offer_acceptance_breakdown,
+        offer_proxy_impact_breakdown,
+    )
+
+
 def _build_trajectory_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any], pd.DataFrame, pd.DataFrame]:
     metric_fields = (
         "trajectory_gate_pass_rate_4w",
@@ -3530,6 +3816,21 @@ def main() -> None:
             "best_mean_action_execution_probability": 0.0,
             "best_nominal_pd_improvement": 0.0,
             "best_expected_pd_improvement": 0.0,
+            "best_offer_plan": 0,
+            "best_rankable_offer": 0,
+            "best_rankable_offer_count": 0,
+            "best_offer_type": "",
+            "best_offer_policy_arm": "",
+            "best_offer_family": "",
+            "best_offer_scoring_profile": "",
+            "best_term_generation_rule": "",
+            "best_offer_acceptance_probability": 0.0,
+            "best_combined_plan_realization_probability": 0.0,
+            "best_expected_recovery_proxy": 0.0,
+            "best_approval_rate_proxy_delta": 0.0,
+            "best_default_rate_90d_proxy_delta": 0.0,
+            "best_avg_margin_90d_proxy_delta": 0.0,
+            "best_governance_safe_offer": 0,
             "best_execution_scenario": "failed_execution",
             "best_execution_rate": 0.0,
             "best_partial_execution": 1,
@@ -4193,6 +4494,39 @@ def main() -> None:
                 getattr(best, "expected_pd_improvement", 0.0),
                 0.0,
             )
+            out["best_offer_plan"] = int(bool(getattr(best, "offer_plan", False)))
+            out["best_rankable_offer_count"] = int(getattr(best, "rankable_offer_count", 0) or 0)
+            out["best_rankable_offer"] = int(int(out["best_rankable_offer_count"]) > 0)
+            out["best_offer_type"] = _safe_str(getattr(best, "dominant_offer_type", ""))
+            out["best_offer_policy_arm"] = _safe_str(getattr(best, "offer_policy_arm", ""))
+            out["best_offer_family"] = _safe_str(getattr(best, "offer_family", ""))
+            out["best_offer_scoring_profile"] = _safe_str(getattr(best, "offer_scoring_profile", ""))
+            out["best_term_generation_rule"] = _safe_str(getattr(best, "term_generation_rule", ""))
+            out["best_offer_acceptance_probability"] = _safe_float(
+                getattr(best, "offer_acceptance_probability", 0.0),
+                0.0,
+            )
+            out["best_combined_plan_realization_probability"] = _safe_float(
+                getattr(best, "combined_plan_realization_probability", 0.0),
+                0.0,
+            )
+            out["best_expected_recovery_proxy"] = _safe_float(
+                getattr(best, "expected_recovery_proxy", 0.0),
+                0.0,
+            )
+            out["best_approval_rate_proxy_delta"] = _safe_float(
+                getattr(best, "approval_rate_proxy_delta", 0.0),
+                0.0,
+            )
+            out["best_default_rate_90d_proxy_delta"] = _safe_float(
+                getattr(best, "default_rate_90d_proxy_delta", 0.0),
+                0.0,
+            )
+            out["best_avg_margin_90d_proxy_delta"] = _safe_float(
+                getattr(best, "avg_margin_90d_proxy_delta", 0.0),
+                0.0,
+            )
+            out["best_governance_safe_offer"] = int(bool(getattr(best, "governance_safe_offer", False)))
             out["best_ci_high"] = float(best.ci_high) if best.ci_high is not None else np.nan
             out["best_reliability"] = float(best.reliability) if best.reliability is not None else np.nan
             out["best_worst_risk_margin"] = (
@@ -4966,6 +5300,26 @@ def main() -> None:
     execution_probability_breakdown.to_csv(execution_probability_breakdown_out, index=False)
     partial_execution_breakdown_out = run_ctx.tables_dir / "partial_execution_breakdown.csv"
     partial_execution_breakdown.to_csv(partial_execution_breakdown_out, index=False)
+    (
+        offer_optimization_summary,
+        offer_type_breakdown,
+        offer_policy_arm_breakdown,
+        offer_acceptance_breakdown,
+        offer_proxy_impact_breakdown,
+    ) = _build_offer_optimization_artifacts(batch_df)
+    offer_optimization_summary_out = run_ctx.tables_dir / "offer_optimization_summary.json"
+    offer_optimization_summary_out.write_text(
+        json.dumps(offer_optimization_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    offer_type_breakdown_out = run_ctx.tables_dir / "offer_type_breakdown.csv"
+    offer_type_breakdown.to_csv(offer_type_breakdown_out, index=False)
+    offer_policy_arm_breakdown_out = run_ctx.tables_dir / "offer_policy_arm_breakdown.csv"
+    offer_policy_arm_breakdown.to_csv(offer_policy_arm_breakdown_out, index=False)
+    offer_acceptance_breakdown_out = run_ctx.tables_dir / "offer_acceptance_breakdown.csv"
+    offer_acceptance_breakdown.to_csv(offer_acceptance_breakdown_out, index=False)
+    offer_proxy_impact_breakdown_out = run_ctx.tables_dir / "offer_proxy_impact_breakdown.csv"
+    offer_proxy_impact_breakdown.to_csv(offer_proxy_impact_breakdown_out, index=False)
     trajectory_summary, trajectory_transition_breakdown, trajectory_policy_label_breakdown = _build_trajectory_artifacts(
         batch_df
     )
@@ -5440,6 +5794,28 @@ def main() -> None:
         "high_risk_denied_expected_partial_progress_rate": float(
             behavior_aware_summary["secondary_metrics"]["expected_partial_progress_rate"]
         ),
+        "offer_plan_rate": float(offer_optimization_summary["canonical_metrics"]["offer_plan_rate"]),
+        "rankable_offer_rate": float(offer_optimization_summary["canonical_metrics"]["rankable_offer_rate"]),
+        "offer_acceptance_probability_mean": float(
+            offer_optimization_summary["canonical_metrics"]["offer_acceptance_probability_mean"]
+        ),
+        "combined_plan_realization_probability_mean": float(
+            offer_optimization_summary["canonical_metrics"]["combined_plan_realization_probability_mean"]
+        ),
+        "expected_recovery_proxy": float(offer_optimization_summary["canonical_metrics"]["expected_recovery_proxy"]),
+        "approval_rate_proxy_delta": float(
+            offer_optimization_summary["canonical_metrics"]["approval_rate_proxy_delta"]
+        ),
+        "default_rate_90d_proxy_delta": float(
+            offer_optimization_summary["canonical_metrics"]["default_rate_90d_proxy_delta"]
+        ),
+        "avg_margin_90d_proxy_delta": float(
+            offer_optimization_summary["canonical_metrics"]["avg_margin_90d_proxy_delta"]
+        ),
+        "governance_safe_offer_rate": float(
+            offer_optimization_summary["canonical_metrics"]["governance_safe_offer_rate"]
+        ),
+        "dominant_offer_type": str(offer_optimization_summary["canonical_metrics"]["dominant_offer_type"]),
         "high_risk_profile_applied_rate": float(batch_df["high_risk_profile_applied"].astype(int).mean()),
         "fairness_cap_boost_applied_rate": float(batch_df["fairness_cap_boost_applied"].astype(int).mean()),
         "fairness_cap_boost_factor_avg": float(batch_df["fairness_cap_boost_factor"].astype(float).mean()),

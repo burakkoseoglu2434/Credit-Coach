@@ -32,6 +32,7 @@ from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_act
 from credit_coach.recourse.execution_probability import annotate_plan_execution_probability
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.generator import generate_nine_plans
+from credit_coach.recourse.offer_optimization import annotate_offer_optimization, build_offer_contract
 from credit_coach.recourse.trajectory import (
     attach_canonical_trajectory,
     build_canonical_phases,
@@ -378,9 +379,18 @@ def _build_customer_roadmap(
                     "requires_institutional_approval": int(
                         bool(getattr(action, "requires_institutional_approval", False))
                     ),
+                    "institutional_approval_state": str(getattr(action, "institutional_approval_state", "") or ""),
                     "approval_pending_semantic_only": int(
                         bool(getattr(action, "approval_pending_semantic_only", False))
                     ),
+                    "offer_type": str(getattr(action, "offer_type", "") or ""),
+                    "offer_terms": dict(getattr(action, "offer_terms", {}) or {}),
+                    "offer_terms_complete": int(bool(getattr(action, "offer_terms_complete", False))),
+                    "requires_acceptance": int(bool(getattr(action, "requires_acceptance", False))),
+                    "offer_family": str(getattr(action, "offer_family", "") or ""),
+                    "offer_scoring_profile": str(getattr(action, "offer_scoring_profile", "") or ""),
+                    "term_generation_rule": str(getattr(action, "term_generation_rule", "") or ""),
+                    "offer_policy_arm": str(getattr(action, "offer_policy_arm", "") or ""),
                     "action_status": str(getattr(action, "action_status", "") or ""),
                     "action_status_reason": str(getattr(action, "action_status_reason", "") or ""),
                     "diagnostic_flags": list(getattr(action, "diagnostic_flags", [])),
@@ -491,9 +501,18 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                 "requires_institutional_approval": int(
                     bool(getattr(action, "requires_institutional_approval", False))
                 ),
+                "institutional_approval_state": str(getattr(action, "institutional_approval_state", "") or ""),
                 "approval_pending_semantic_only": int(
                     bool(getattr(action, "approval_pending_semantic_only", False))
                 ),
+                "offer_type": str(getattr(action, "offer_type", "") or ""),
+                "offer_terms": dict(getattr(action, "offer_terms", {}) or {}),
+                "offer_terms_complete": int(bool(getattr(action, "offer_terms_complete", False))),
+                "requires_acceptance": int(bool(getattr(action, "requires_acceptance", False))),
+                "offer_family": str(getattr(action, "offer_family", "") or ""),
+                "offer_scoring_profile": str(getattr(action, "offer_scoring_profile", "") or ""),
+                "term_generation_rule": str(getattr(action, "term_generation_rule", "") or ""),
+                "offer_policy_arm": str(getattr(action, "offer_policy_arm", "") or ""),
                 "action_status": str(getattr(action, "action_status", "") or ""),
                 "action_status_reason": str(getattr(action, "action_status_reason", "") or ""),
                 "diagnostic_flags": list(getattr(action, "diagnostic_flags", [])),
@@ -554,6 +573,28 @@ def _plan_to_row(plan: PlanRecord) -> dict:
         "executable_action_count": int(getattr(plan, "executable_action_count", 0) or 0),
         "executable_action_group_count": int(getattr(plan, "executable_action_group_count", 0) or 0),
         "approval_pending_action_count": int(getattr(plan, "approval_pending_action_count", 0) or 0),
+        "offer_plan": int(bool(getattr(plan, "offer_plan", False))),
+        "rankable_offer_count": int(getattr(plan, "rankable_offer_count", 0) or 0),
+        "offer_acceptance_probability": (
+            _safe_float(getattr(plan, "offer_acceptance_probability", 0.0), 0.0)
+            if getattr(plan, "offer_acceptance_probability", None) is not None
+            else None
+        ),
+        "combined_plan_realization_probability": (
+            _safe_float(getattr(plan, "combined_plan_realization_probability", 0.0), 0.0)
+            if getattr(plan, "combined_plan_realization_probability", None) is not None
+            else None
+        ),
+        "expected_recovery_proxy": _safe_float(getattr(plan, "expected_recovery_proxy", 0.0), 0.0),
+        "approval_rate_proxy_delta": _safe_float(getattr(plan, "approval_rate_proxy_delta", 0.0), 0.0),
+        "default_rate_90d_proxy_delta": _safe_float(getattr(plan, "default_rate_90d_proxy_delta", 0.0), 0.0),
+        "avg_margin_90d_proxy_delta": _safe_float(getattr(plan, "avg_margin_90d_proxy_delta", 0.0), 0.0),
+        "governance_safe_offer": int(bool(getattr(plan, "governance_safe_offer", False))),
+        "dominant_offer_type": str(getattr(plan, "dominant_offer_type", "") or ""),
+        "offer_policy_arm": str(getattr(plan, "offer_policy_arm", "") or ""),
+        "offer_family": str(getattr(plan, "offer_family", "") or ""),
+        "offer_scoring_profile": str(getattr(plan, "offer_scoring_profile", "") or ""),
+        "term_generation_rule": str(getattr(plan, "term_generation_rule", "") or ""),
         "trajectory_status": str(getattr(plan, "trajectory_status", "on_track") or "on_track"),
         "current_phase": str(getattr(plan, "current_phase", "") or ""),
         "next_review_week": int(_safe_int(getattr(plan, "next_review_week", 4), 4)),
@@ -609,6 +650,13 @@ def _dice_plan_record(
         action_month = max(1, int(spec.time_months))
         week_start = int(((action_month - 1) * 4) + 1)
         week_end = int(action_month * 4)
+        offer_contract = build_offer_contract(
+            action_meta,
+            current_value=current,
+            target_value=target,
+            action_month=action_month,
+            action_context={str(k): row.get(k) for k in row.index},
+        )
         plan_actions.append(
             PlanAction(
                 feature_name=feature,
@@ -627,7 +675,16 @@ def _dice_plan_record(
                 action_group_id=str(action_meta.get("action_group_id") or ""),
                 composite_action=bool(action_meta.get("composite_action", False)),
                 requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
+                institutional_approval_state=offer_contract.get("institutional_approval_state"),
                 approval_pending_semantic_only=bool(action_meta.get("approval_pending_semantic_only", False)),
+                offer_type=offer_contract.get("offer_type"),
+                offer_terms=dict(offer_contract.get("offer_terms", {})),
+                offer_terms_complete=bool(offer_contract.get("offer_terms_complete", False)),
+                requires_acceptance=bool(offer_contract.get("requires_acceptance", False)),
+                offer_family=offer_contract.get("offer_family"),
+                offer_scoring_profile=offer_contract.get("offer_scoring_profile"),
+                term_generation_rule=offer_contract.get("term_generation_rule"),
+                offer_policy_arm=offer_contract.get("offer_policy_arm"),
                 prerequisite_tags=list(action_meta.get("prerequisite_tags", [])),
                 conflict_tags=list(action_meta.get("conflict_tags", [])),
                 action_status=str(detail["status"]),
@@ -682,6 +739,11 @@ def _dice_plan_record(
         model=model,
         calibrator=calibrator,
         feature_cols=feature_cols,
+    )
+    annotate_offer_optimization(
+        plan,
+        customer_context={str(k): row.get(k) for k in row.index},
+        segment_context=segment_context,
     )
     return plan
 

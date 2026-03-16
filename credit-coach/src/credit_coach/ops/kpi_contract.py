@@ -818,6 +818,12 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
     behavior_aware = summary.get("behavior_aware_summary", {})
     if not isinstance(behavior_aware, Mapping):
         behavior_aware = {}
+    offer_optimization = summary.get("offer_optimization_summary", {})
+    if not isinstance(offer_optimization, Mapping):
+        offer_optimization = {}
+    offer_metrics = offer_optimization.get("canonical_metrics", offer_optimization)
+    if not isinstance(offer_metrics, Mapping):
+        offer_metrics = {}
     trajectory = summary.get("trajectory_summary", {})
     if not isinstance(trajectory, Mapping):
         trajectory = {}
@@ -903,6 +909,19 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
         f"- approval_rate delta: {_safe_float(outcome_feedback.get('approval_rate_delta', 0.0)):.6f}",
         f"- default_rate_90d delta: {_safe_float(outcome_feedback.get('default_rate_90d_delta', 0.0)):.6f}",
         f"- avg_margin_90d delta: {_safe_float(outcome_feedback.get('avg_margin_90d_delta', 0.0)):.6f}",
+        "",
+        "## Offer Optimization Summary",
+        "",
+        f"- Offer plan rate: {_safe_float(offer_metrics.get('offer_plan_rate', 0.0)):.6f}",
+        f"- Rankable offer rate: {_safe_float(offer_metrics.get('rankable_offer_rate', 0.0)):.6f}",
+        f"- Mean offer acceptance probability: {_safe_float(offer_metrics.get('offer_acceptance_probability_mean', 0.0)):.6f}",
+        f"- Mean combined realization probability: {_safe_float(offer_metrics.get('combined_plan_realization_probability_mean', 0.0)):.6f}",
+        f"- Expected recovery proxy: {_safe_float(offer_metrics.get('expected_recovery_proxy', 0.0)):.6f}",
+        f"- approval_rate proxy delta: {_safe_float(offer_metrics.get('approval_rate_proxy_delta', 0.0)):.6f}",
+        f"- default_rate_90d proxy delta: {_safe_float(offer_metrics.get('default_rate_90d_proxy_delta', 0.0)):.6f}",
+        f"- avg_margin_90d proxy delta: {_safe_float(offer_metrics.get('avg_margin_90d_proxy_delta', 0.0)):.6f}",
+        f"- Governance-safe offer rate: {_safe_float(offer_metrics.get('governance_safe_offer_rate', 0.0)):.6f}",
+        f"- Dominant offer type: {offer_metrics.get('dominant_offer_type', '') or 'none'}",
         "",
         "## Behavior-Aware Summary",
         "",

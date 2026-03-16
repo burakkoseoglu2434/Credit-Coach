@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from credit_coach.data.schema import PlanAction
+from credit_coach.recourse.offer_optimization import approval_state_for_action, is_rankable_offer_action
 from credit_coach.recourse.action_space import get_action_metadata
 
 ConstraintStatus = Literal["valid", "repaired", "provisional", "invalid"]
@@ -104,6 +105,21 @@ def _group_action_keys(group_actions: list[PlanAction]) -> set[str]:
         if action_key:
             keys.add(action_key)
     return keys
+
+
+def _provisional_reason(action: PlanAction) -> str | None:
+    if bool(getattr(action, "approval_pending_semantic_only", False)):
+        return "approval_pending_semantic_only"
+    if bool(getattr(action, "offer_type", None)):
+        if not bool(getattr(action, "offer_terms_complete", False)):
+            return "offer_terms_incomplete"
+        if approval_state_for_action(action) not in {"approved", "not_required"}:
+            return "institutional_approval_pending"
+        return None
+    if bool(getattr(action, "requires_institutional_approval", False)):
+        if approval_state_for_action(action) not in {"approved", "not_required"}:
+            return "requires_institutional_approval"
+    return None
 
 
 def _append_trace(
@@ -229,6 +245,29 @@ def enforce_action_constraints(
                 kept_group_ids = [group_id for group_id in group_order if group_id not in dropped_groups]
                 break
 
+    kept_group_ids = [group_id for group_id in group_order if group_id not in dropped_groups]
+    rankable_offer_groups = [
+        group_id for group_id in kept_group_ids if any(is_rankable_offer_action(action) for action in grouped[group_id])
+    ]
+    if len(rankable_offer_groups) > 1:
+        keep_group_id = min(rankable_offer_groups, key=lambda group_id: _group_drop_priority(grouped[group_id]))
+        for group_id in rankable_offer_groups:
+            if group_id == keep_group_id:
+                continue
+            dropped_groups[group_id] = "multiple_offer_branches"
+            invalid_combination_seen = True
+            related_key = str(getattr(grouped[keep_group_id][0], "action_key", "") or "")
+            for action in grouped[group_id]:
+                _append_trace(
+                    trace,
+                    event_type="repair_dropped",
+                    action=action,
+                    action_group_id=group_id,
+                    reason_code="multiple_offer_branches",
+                    related_action_key=related_key,
+                    related_group_id=keep_group_id,
+                )
+
     repaired_actions: list[PlanAction] = []
     provisional_trace_count = 0
     for idx, action in enumerate(actions):
@@ -236,15 +275,8 @@ def enforce_action_constraints(
         if group_id in dropped_groups:
             continue
         updated = action
-        needs_provisional = bool(getattr(action, "requires_institutional_approval", False)) or bool(
-            getattr(action, "approval_pending_semantic_only", False)
-        )
-        if needs_provisional:
-            reason_code = (
-                "approval_pending_semantic_only"
-                if bool(getattr(action, "approval_pending_semantic_only", False))
-                else "requires_institutional_approval"
-            )
+        reason_code = _provisional_reason(action)
+        if reason_code:
             updated = updated.model_copy(
                 update={
                     "action_status": "provisional",

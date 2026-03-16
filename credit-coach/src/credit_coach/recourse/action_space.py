@@ -27,6 +27,13 @@ class ActionTemplate:
     feature_names: tuple[str, ...] = field(default_factory=tuple)
     requires_institutional_approval: bool = False
     approval_pending_semantic_only: bool = False
+    institutional_approval_state: Literal["not_required", "approved", "pending", "unknown"] = "not_required"
+    offer_type: str | None = None
+    requires_acceptance: bool = False
+    offer_family: str | None = None
+    offer_scoring_profile: str | None = None
+    term_generation_rule: str | None = None
+    offer_policy_arm: str | None = None
     provides_tags: tuple[str, ...] = field(default_factory=tuple)
     prerequisite_tags: tuple[str, ...] = field(default_factory=tuple)
     conflict_tags: tuple[str, ...] = field(default_factory=tuple)
@@ -48,6 +55,13 @@ class ActionSpec:
     action_title: str = ""
     requires_institutional_approval: bool = False
     approval_pending_semantic_only: bool = False
+    institutional_approval_state: Literal["not_required", "approved", "pending", "unknown"] = "not_required"
+    offer_type: str | None = None
+    requires_acceptance: bool = False
+    offer_family: str | None = None
+    offer_scoring_profile: str | None = None
+    term_generation_rule: str | None = None
+    offer_policy_arm: str | None = None
     provides_tags: tuple[str, ...] = field(default_factory=tuple)
     prerequisite_tags: tuple[str, ...] = field(default_factory=tuple)
     conflict_tags: tuple[str, ...] = field(default_factory=tuple)
@@ -121,6 +135,13 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
         description="Institution-mediated credit limit changes can improve utilization headroom.",
         feature_names=("total_rev_hi_lim", "total_bc_limit", "tot_hi_cred_lim"),
         requires_institutional_approval=True,
+        institutional_approval_state="pending",
+        offer_type="credit_limit_adjustment",
+        requires_acceptance=False,
+        offer_family="limit_management",
+        offer_scoring_profile="limit_adjustment_v1",
+        term_generation_rule="credit_limit_adjustment_terms_v1",
+        offer_policy_arm="credit_limit_adjustment_policy_v1",
     ),
     "settlement_discount": ActionTemplate(
         action_key="settlement_discount",
@@ -129,7 +150,13 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
         description="Use an institution-approved settlement to reduce collections pressure.",
         feature_names=("tot_coll_amt",),
         requires_institutional_approval=True,
-        approval_pending_semantic_only=True,
+        institutional_approval_state="approved",
+        offer_type="discount_offer",
+        requires_acceptance=True,
+        offer_family="hardship_relief",
+        offer_scoring_profile="discount_offer_v1",
+        term_generation_rule="discount_offer_terms_v1",
+        offer_policy_arm="discount_offer_policy_v1",
         conflict_tags=("installment_plan",),
     ),
     "installment_plan": ActionTemplate(
@@ -139,7 +166,13 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
         description="Restructure delinquent balances into an approved installment plan.",
         feature_names=("acc_now_delinq", "delinq_amnt", "collections_12_mths_ex_med"),
         requires_institutional_approval=True,
-        approval_pending_semantic_only=True,
+        institutional_approval_state="approved",
+        offer_type="installment_terms",
+        requires_acceptance=True,
+        offer_family="payment_relief",
+        offer_scoring_profile="installment_terms_v1",
+        term_generation_rule="installment_terms_v1",
+        offer_policy_arm="installment_terms_policy_v1",
         prerequisite_tags=("stable_income",),
         conflict_tags=("settlement_discount",),
     ),
@@ -175,6 +208,13 @@ def _spec(
         action_title=template.title if template else "",
         requires_institutional_approval=bool(template.requires_institutional_approval) if template else False,
         approval_pending_semantic_only=bool(template.approval_pending_semantic_only) if template else False,
+        institutional_approval_state=template.institutional_approval_state if template else "not_required",
+        offer_type=template.offer_type if template else None,
+        requires_acceptance=bool(template.requires_acceptance) if template else False,
+        offer_family=template.offer_family if template else None,
+        offer_scoring_profile=template.offer_scoring_profile if template else None,
+        term_generation_rule=template.term_generation_rule if template else None,
+        offer_policy_arm=template.offer_policy_arm if template else None,
         provides_tags=tuple(template.provides_tags) if template else (),
         prerequisite_tags=tuple(template.prerequisite_tags) if template else (),
         conflict_tags=tuple(template.conflict_tags) if template else (),
@@ -459,6 +499,13 @@ def get_action_metadata(
             "composite_action": False,
             "requires_institutional_approval": False,
             "approval_pending_semantic_only": False,
+            "institutional_approval_state": "not_required",
+            "offer_type": None,
+            "requires_acceptance": False,
+            "offer_family": None,
+            "offer_scoring_profile": None,
+            "term_generation_rule": None,
+            "offer_policy_arm": None,
             "provides_tags": [],
             "prerequisite_tags": [],
             "conflict_tags": [],
@@ -472,6 +519,13 @@ def get_action_metadata(
         "composite_action": len(template.feature_names) > 1,
         "requires_institutional_approval": bool(template.requires_institutional_approval),
         "approval_pending_semantic_only": bool(template.approval_pending_semantic_only),
+        "institutional_approval_state": str(template.institutional_approval_state),
+        "offer_type": template.offer_type,
+        "requires_acceptance": bool(template.requires_acceptance),
+        "offer_family": template.offer_family,
+        "offer_scoring_profile": template.offer_scoring_profile,
+        "term_generation_rule": template.term_generation_rule,
+        "offer_policy_arm": template.offer_policy_arm,
         "provides_tags": list(template.provides_tags),
         "prerequisite_tags": list(template.prerequisite_tags),
         "conflict_tags": list(template.conflict_tags),

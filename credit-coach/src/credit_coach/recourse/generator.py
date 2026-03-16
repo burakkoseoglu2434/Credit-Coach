@@ -25,6 +25,7 @@ from credit_coach.recourse.action_space import (
 from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.execution_probability import annotate_plan_execution_probability
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
+from credit_coach.recourse.offer_optimization import annotate_offer_optimization, build_offer_contract
 from credit_coach.recourse.region_targets import get_target_pd
 from credit_coach.recourse.trajectory import attach_canonical_trajectory, phase_id_for_month
 from credit_coach.safety.statistical import estimate_prediction_ci
@@ -90,6 +91,7 @@ def _make_plan_action(
     current_value: float,
     target_value: float,
     action_month: int,
+    action_context: dict[str, Any] | None = None,
     action_status: str = "valid",
     action_status_reason: str | None = None,
     diagnostic_flags: list[str] | None = None,
@@ -98,6 +100,13 @@ def _make_plan_action(
     phase_id = _phase_id_for_month(action_month)
     week_start, week_end = _week_window_for_month(action_month)
     action_meta = get_action_metadata(feature_name, action_month=action_month)
+    offer_contract = build_offer_contract(
+        action_meta,
+        current_value=float(current_value),
+        target_value=float(target_value),
+        action_month=int(action_month),
+        action_context=action_context,
+    )
     return PlanAction(
         feature_name=feature_name,
         current_value=float(current_value),
@@ -115,7 +124,16 @@ def _make_plan_action(
         action_group_id=str(action_meta.get("action_group_id") or ""),
         composite_action=bool(action_meta.get("composite_action", False)),
         requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
+        institutional_approval_state=offer_contract.get("institutional_approval_state"),
         approval_pending_semantic_only=bool(action_meta.get("approval_pending_semantic_only", False)),
+        offer_type=offer_contract.get("offer_type"),
+        offer_terms=dict(offer_contract.get("offer_terms", {})),
+        offer_terms_complete=bool(offer_contract.get("offer_terms_complete", False)),
+        requires_acceptance=bool(offer_contract.get("requires_acceptance", False)),
+        offer_family=offer_contract.get("offer_family"),
+        offer_scoring_profile=offer_contract.get("offer_scoring_profile"),
+        term_generation_rule=offer_contract.get("term_generation_rule"),
+        offer_policy_arm=offer_contract.get("offer_policy_arm"),
         prerequisite_tags=list(action_meta.get("prerequisite_tags", [])),
         conflict_tags=list(action_meta.get("conflict_tags", [])),
         action_status=str(action_status),
@@ -448,6 +466,7 @@ def _build_actions(
                 current_value=current,
                 target_value=float(target),
                 action_month=action_month,
+                action_context=action_context,
                 action_status=str(detail["status"]),
                 action_status_reason=detail.get("status_reason"),
                 diagnostic_flags=list(detail.get("reason_codes", [])),
@@ -1062,6 +1081,7 @@ def _build_actions_weekly(
                 current_value=current,
                 target_value=float(final_target),
                 action_month=action_month,
+                action_context=action_context,
                 action_status=str(detail["status"]),
                 action_status_reason=detail.get("status_reason"),
                 diagnostic_flags=list(detail.get("reason_codes", [])),
@@ -1394,6 +1414,11 @@ def generate_plan_record(
         model=model,
         calibrator=calibrator,
         feature_cols=feature_cols,
+    )
+    annotate_offer_optimization(
+        plan,
+        customer_context=_build_action_context(row),
+        segment_context=segment_context,
     )
     return plan
 

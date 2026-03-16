@@ -365,6 +365,55 @@ def _proxy_overall_assessment(labels: list[str]) -> str:
     return "no_material_change"
 
 
+def _policy_arm_profile(policy_arm: str) -> dict[str, str]:
+    arm = str(policy_arm or "").strip()
+    normalized = arm.lower()
+    if not arm:
+        return {
+            "offer_family": "",
+            "scoring_profile": "",
+            "term_generation_rule": "",
+        }
+    if normalized == "control":
+        return {
+            "offer_family": "control",
+            "scoring_profile": "control",
+            "term_generation_rule": "",
+        }
+    if normalized == "treatment":
+        return {
+            "offer_family": "generic_treatment",
+            "scoring_profile": "treatment",
+            "term_generation_rule": "",
+        }
+
+    offer_family = "generic_offer"
+    scoring_profile = arm
+    term_generation_rule = ""
+
+    if "discount" in normalized or "settlement" in normalized:
+        offer_family = "hardship_relief"
+        scoring_profile = "discount_offer_v1"
+        term_generation_rule = "discount_offer_terms_v1"
+    elif "installment" in normalized:
+        offer_family = "payment_relief"
+        scoring_profile = "installment_terms_v1"
+        term_generation_rule = "installment_terms_v1"
+    elif "limit" in normalized or "credit_limit" in normalized:
+        offer_family = "limit_management"
+        scoring_profile = "credit_limit_adjustment_v1"
+        term_generation_rule = "credit_limit_adjustment_terms_v1"
+
+    if "_policy_" in normalized and not term_generation_rule:
+        term_generation_rule = arm.replace("_policy_", "_terms_")
+
+    return {
+        "offer_family": offer_family,
+        "scoring_profile": scoring_profile,
+        "term_generation_rule": term_generation_rule,
+    }
+
+
 def compute_policy_outcome_deltas(*, window_days: int = 90) -> dict[str, Any]:
     summary = summarize_decision_outcomes(window_days=window_days)
     if summary.empty:
@@ -387,6 +436,7 @@ def compute_policy_outcome_deltas(*, window_days: int = 90) -> dict[str, Any]:
     policy_arm_summaries = [
         {
             "policy_arm": str(row["policy_arm"]),
+            "policy_arm_profile": _policy_arm_profile(str(row["policy_arm"])),
             "decision_count": int(row["decision_count"]),
             "approval_rate": float(row["approval_rate"]),
             "default_rate_90d": float(row["default_rate_90d"]),
@@ -429,6 +479,7 @@ def compute_policy_outcome_deltas(*, window_days: int = 90) -> dict[str, Any]:
         comparisons.append(
             {
                 "policy_arm": str(arm_name),
+                "policy_arm_profile": _policy_arm_profile(str(arm_name)),
                 "baseline_arm": "control",
                 "approval_rate_delta": approval_delta,
                 "default_rate_90d_delta": default_delta,

@@ -7,6 +7,7 @@ from credit_coach.cli.run_model_challenger_matrix import (
     _build_challenger_behavior_aware_summary,
     _build_challenger_candidate_source_breakdown,
     _build_challenger_impact_summary,
+    _build_challenger_offer_optimization_summary,
     _build_challenger_trajectory_summary,
     _build_variant_model_cfg,
     _build_variant_release_payloads,
@@ -204,6 +205,43 @@ def test_build_challenger_trajectory_summary_exposes_champion_metrics() -> None:
     assert summary["champion_summary"]["trajectory_stabilize_first_rate"] == 0.54
     assert summary["champion_summary"]["dominant_transition_reason"] == "phase_1_checkpoint_missed"
     assert "trajectory_transition_breakdown_csv" in summary["supporting_artifacts"]
+
+
+def test_build_challenger_offer_optimization_summary_exposes_champion_metrics() -> None:
+    ranked_summary_df = pd.DataFrame(
+        [
+            {
+                "variant_id": "challenger",
+                "seed_count": 5,
+                "mean_offer_plan_rate": 0.44,
+                "mean_rankable_offer_rate": 0.32,
+                "mean_offer_acceptance_probability_mean": 0.51,
+                "mean_combined_plan_realization_probability_mean": 0.27,
+                "mean_expected_recovery_proxy": 4.3,
+                "mean_approval_rate_proxy_delta": 0.02,
+                "mean_default_rate_90d_proxy_delta": -0.01,
+                "mean_avg_margin_90d_proxy_delta": 18.0,
+                "mean_governance_safe_offer_rate": 0.24,
+                "evidence_status": "complete",
+            }
+        ]
+    )
+    runs_df = pd.DataFrame(
+        [
+            {
+                "variant_id": "challenger",
+                "seed": 42,
+                "dominant_offer_type": "installment_terms",
+            }
+        ]
+    )
+
+    summary = _build_challenger_offer_optimization_summary(ranked_summary_df, runs_df)
+
+    assert summary["champion_variant"] == "challenger"
+    assert summary["champion_summary"]["offer_plan_rate"] == 0.44
+    assert summary["champion_summary"]["dominant_offer_type"] == "installment_terms"
+    assert "offer_policy_arm_breakdown_csv" in summary["supporting_artifacts"]
 
 
 def test_build_challenger_candidate_source_breakdown_emits_variant_rollups():

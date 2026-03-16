@@ -5,6 +5,7 @@ from collections import defaultdict
 from typing import Any, Mapping, Sequence
 
 from credit_coach.data.schema import PlanAction, PlanRecord
+from credit_coach.recourse.offer_optimization import approval_state_for_action, is_offer_action, is_rankable_offer_action
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -68,6 +69,21 @@ def estimate_action_execution_probability(
     customer_context: Mapping[str, Any] | None = None,
     segment_context: Mapping[str, Any] | None = None,
 ) -> tuple[float | None, float | None]:
+    if is_offer_action(action):
+        if is_rankable_offer_action(action):
+            return None, None
+        approval_prob = _clamp(
+            _action_class_anchor(action)
+            - 0.10
+            - (0.02 * max(0, _safe_int(getattr(action, "time_months", 1), 1) - 1))
+            - (0.015 * max(0, int(plan_action_count) - 1)),
+            lo=0.05,
+            hi=0.85,
+        )
+        if approval_state_for_action(action) == "unknown":
+            approval_prob = min(approval_prob, 0.35)
+        return None, float(approval_prob)
+
     if bool(getattr(action, "approval_pending_semantic_only", False)) or bool(
         getattr(action, "requires_institutional_approval", False)
     ):
@@ -132,8 +148,14 @@ def estimate_plan_execution_probability(
     group_members: dict[str, list[float]] = defaultdict(list)
     executable_action_probabilities: list[float] = []
     approval_pending_count = 0
+    rankable_offer_count = 0
+    offer_action_count = 0
 
     for index, action in enumerate(actions):
+        if is_offer_action(action):
+            offer_action_count += 1
+            if is_rankable_offer_action(action):
+                rankable_offer_count += 1
         action_prob, approval_prob = estimate_action_execution_probability(
             action,
             plan_action_count=len(actions),
@@ -145,17 +167,19 @@ def estimate_plan_execution_probability(
         if action_prob is not None:
             executable_action_probabilities.append(float(action_prob))
             group_members[_group_key(action, index)].append(float(action_prob))
-        else:
+        elif approval_prob is not None:
             approval_pending_count += 1
 
     if not group_members:
         return {
-            "plan_execution_probability": 0.0,
+            "plan_execution_probability": 1.0 if rankable_offer_count > 0 else 0.0,
             "mean_action_execution_probability": 0.0,
             "nominal_action_probability_mean": 0.0,
             "executable_action_count": 0,
             "executable_action_group_count": 0,
             "approval_pending_action_count": int(approval_pending_count),
+            "rankable_offer_count": int(rankable_offer_count),
+            "offer_action_count": int(offer_action_count),
         }
 
     group_probabilities: dict[str, float] = {}
@@ -182,6 +206,8 @@ def estimate_plan_execution_probability(
         "executable_action_count": int(len(executable_action_probabilities)),
         "executable_action_group_count": int(len(group_values)),
         "approval_pending_action_count": int(approval_pending_count),
+        "rankable_offer_count": int(rankable_offer_count),
+        "offer_action_count": int(offer_action_count),
     }
 
 
@@ -202,6 +228,8 @@ def annotate_plan_execution_probability(
     plan.executable_action_count = int(probability_bundle.get("executable_action_count", 0))
     plan.executable_action_group_count = int(probability_bundle.get("executable_action_group_count", 0))
     plan.approval_pending_action_count = int(probability_bundle.get("approval_pending_action_count", 0))
+    plan.rankable_offer_count = int(probability_bundle.get("rankable_offer_count", 0))
+    plan.offer_plan = bool(int(probability_bundle.get("offer_action_count", 0)) > 0)
 
     predicted_pd = _safe_float(getattr(plan, "predicted_pd", None), 0.0)
     nominal_pd_improvement = max(0.0, _safe_float(base_pd, predicted_pd) - predicted_pd)

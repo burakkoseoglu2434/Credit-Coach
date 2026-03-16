@@ -184,6 +184,27 @@ def _build_challenger_partial_execution_breakdown(breakdown_frames: list[pd.Data
     return pd.concat([combined, rollup], ignore_index=True, sort=False)
 
 
+def _build_challenger_offer_breakdown(
+    breakdown_frames: list[pd.DataFrame],
+    *,
+    group_columns: list[str],
+    breakdown_type_seed: str,
+    breakdown_type_rollup: str,
+    value_columns: dict[str, str],
+) -> pd.DataFrame:
+    if not breakdown_frames:
+        return pd.DataFrame(columns=["variant_id", "seed", *group_columns, *value_columns.keys(), "breakdown_type"])
+    combined = pd.concat(breakdown_frames, ignore_index=True)
+    combined["breakdown_type"] = breakdown_type_seed
+    agg_spec = dict(value_columns)
+    if "count" in combined.columns and "count" not in agg_spec:
+        agg_spec["count"] = "sum"
+    rollup = combined.groupby(["variant_id", *group_columns], dropna=False).agg(agg_spec).reset_index()
+    rollup["seed"] = -1
+    rollup["breakdown_type"] = breakdown_type_rollup
+    return pd.concat([combined, rollup], ignore_index=True, sort=False)
+
+
 def _build_challenger_trajectory_transition_breakdown(breakdown_frames: list[pd.DataFrame]) -> pd.DataFrame:
     if not breakdown_frames:
         return pd.DataFrame(
@@ -452,6 +473,15 @@ def _aggregate_variant_metrics(df: pd.DataFrame) -> pd.DataFrame:
         "high_risk_denied_failed_execution_rate",
         "high_risk_denied_mixed_execution_rate",
         "high_risk_denied_expected_partial_progress_rate",
+        "offer_plan_rate",
+        "rankable_offer_rate",
+        "offer_acceptance_probability_mean",
+        "combined_plan_realization_probability_mean",
+        "expected_recovery_proxy",
+        "approval_rate_proxy_delta",
+        "default_rate_90d_proxy_delta",
+        "avg_margin_90d_proxy_delta",
+        "governance_safe_offer_rate",
     ]
     available = [c for c in metric_cols if c in df.columns]
     grouped = (
@@ -514,6 +544,79 @@ def _build_challenger_behavior_aware_summary(
         "supporting_artifacts": {
             "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
             "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+        },
+    }
+
+
+def _build_challenger_offer_optimization_summary(
+    ranked_summary_df: pd.DataFrame,
+    runs_df: pd.DataFrame,
+) -> dict[str, Any]:
+    variants: list[dict[str, Any]] = []
+    for _, row in ranked_summary_df.iterrows():
+        variant_id = str(row.get("variant_id", ""))
+        variant_runs = runs_df[runs_df["variant_id"] == variant_id]
+        dominant_offer_type = ""
+        if "dominant_offer_type" in variant_runs.columns:
+            dominant = variant_runs["dominant_offer_type"].fillna("").astype(str)
+            dominant = dominant[dominant != ""]
+            if not dominant.empty:
+                dominant_offer_type = str(dominant.value_counts().idxmax())
+        variants.append(
+            {
+                "variant_id": variant_id,
+                "seed_count": int(row.get("seed_count", len(variant_runs))),
+                "offer_plan_rate": _round_metric(row.get("mean_offer_plan_rate", row.get("offer_plan_rate", 0.0))),
+                "rankable_offer_rate": _round_metric(
+                    row.get("mean_rankable_offer_rate", row.get("rankable_offer_rate", 0.0))
+                ),
+                "offer_acceptance_probability_mean": _round_metric(
+                    row.get(
+                        "mean_offer_acceptance_probability_mean",
+                        row.get("offer_acceptance_probability_mean", 0.0),
+                    )
+                ),
+                "combined_plan_realization_probability_mean": _round_metric(
+                    row.get(
+                        "mean_combined_plan_realization_probability_mean",
+                        row.get("combined_plan_realization_probability_mean", 0.0),
+                    )
+                ),
+                "expected_recovery_proxy": _round_metric(
+                    row.get("mean_expected_recovery_proxy", row.get("expected_recovery_proxy", 0.0))
+                ),
+                "approval_rate_proxy_delta": _round_metric(
+                    row.get("mean_approval_rate_proxy_delta", row.get("approval_rate_proxy_delta", 0.0))
+                ),
+                "default_rate_90d_proxy_delta": _round_metric(
+                    row.get(
+                        "mean_default_rate_90d_proxy_delta",
+                        row.get("default_rate_90d_proxy_delta", 0.0),
+                    )
+                ),
+                "avg_margin_90d_proxy_delta": _round_metric(
+                    row.get("mean_avg_margin_90d_proxy_delta", row.get("avg_margin_90d_proxy_delta", 0.0))
+                ),
+                "governance_safe_offer_rate": _round_metric(
+                    row.get("mean_governance_safe_offer_rate", row.get("governance_safe_offer_rate", 0.0))
+                ),
+                "dominant_offer_type": dominant_offer_type,
+                "evidence_status": str(row.get("evidence_status", "degraded")),
+            }
+        )
+    champion_variant = str(ranked_summary_df.iloc[0].get("variant_id", "")) if not ranked_summary_df.empty else ""
+    champion_summary = next((entry for entry in variants if entry["variant_id"] == champion_variant), {})
+    return {
+        "canonical_population": "denied",
+        "champion_variant": champion_variant,
+        "variant_count": int(len(variants)),
+        "variants": variants,
+        "champion_summary": champion_summary,
+        "supporting_artifacts": {
+            "offer_type_breakdown_csv": "tables/offer_type_breakdown.csv",
+            "offer_policy_arm_breakdown_csv": "tables/offer_policy_arm_breakdown.csv",
+            "offer_acceptance_breakdown_csv": "tables/offer_acceptance_breakdown.csv",
+            "offer_proxy_impact_breakdown_csv": "tables/offer_proxy_impact_breakdown.csv",
         },
     }
 
@@ -1040,6 +1143,10 @@ def main() -> None:
     candidate_source_breakdown_frames: list[pd.DataFrame] = []
     execution_probability_breakdown_frames: list[pd.DataFrame] = []
     partial_execution_breakdown_frames: list[pd.DataFrame] = []
+    offer_type_breakdown_frames: list[pd.DataFrame] = []
+    offer_policy_arm_breakdown_frames: list[pd.DataFrame] = []
+    offer_acceptance_breakdown_frames: list[pd.DataFrame] = []
+    offer_proxy_impact_breakdown_frames: list[pd.DataFrame] = []
     trajectory_transition_breakdown_frames: list[pd.DataFrame] = []
     trajectory_policy_label_breakdown_frames: list[pd.DataFrame] = []
 
@@ -1098,9 +1205,14 @@ def main() -> None:
             candidate_quality_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "candidate_quality_summary.json"
             candidate_source_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "candidate_source_breakdown.csv"
             behavior_aware_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "behavior_aware_summary.json"
+            offer_optimization_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "offer_optimization_summary.json"
             trajectory_summary_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "trajectory_summary.json"
             execution_probability_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "execution_probability_breakdown.csv"
             partial_execution_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "partial_execution_breakdown.csv"
+            offer_type_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "offer_type_breakdown.csv"
+            offer_policy_arm_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "offer_policy_arm_breakdown.csv"
+            offer_acceptance_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "offer_acceptance_breakdown.csv"
+            offer_proxy_impact_breakdown_path = root / "artifacts" / "runs" / batch_run_id / "tables" / "offer_proxy_impact_breakdown.csv"
             trajectory_transition_breakdown_path = (
                 root / "artifacts" / "runs" / batch_run_id / "tables" / "trajectory_transition_breakdown.csv"
             )
@@ -1111,6 +1223,7 @@ def main() -> None:
             batch_metrics = _load_json(batch_metrics_path)
             candidate_quality_summary = _load_json(candidate_quality_path)
             behavior_aware_summary = _load_json(behavior_aware_path)
+            offer_optimization_summary = _load_json(offer_optimization_path)
             trajectory_summary = _load_json(trajectory_summary_path)
             candidate_quality_metrics = (
                 candidate_quality_summary.get("canonical_metrics", {})
@@ -1130,6 +1243,11 @@ def main() -> None:
             secondary_behavior_metrics = (
                 behavior_aware_summary.get("secondary_metrics", {})
                 if isinstance(behavior_aware_summary.get("secondary_metrics", {}), dict)
+                else {}
+            )
+            canonical_offer_metrics = (
+                offer_optimization_summary.get("canonical_metrics", {})
+                if isinstance(offer_optimization_summary.get("canonical_metrics", {}), dict)
                 else {}
             )
             canonical_trajectory_metrics = (
@@ -1166,6 +1284,30 @@ def main() -> None:
                     partial_execution_breakdown_df["variant_id"] = variant_id
                     partial_execution_breakdown_df["seed"] = int(seed)
                     partial_execution_breakdown_frames.append(partial_execution_breakdown_df)
+            if offer_type_breakdown_path.exists():
+                offer_type_breakdown_df = pd.read_csv(offer_type_breakdown_path)
+                if not offer_type_breakdown_df.empty:
+                    offer_type_breakdown_df["variant_id"] = variant_id
+                    offer_type_breakdown_df["seed"] = int(seed)
+                    offer_type_breakdown_frames.append(offer_type_breakdown_df)
+            if offer_policy_arm_breakdown_path.exists():
+                offer_policy_arm_breakdown_df = pd.read_csv(offer_policy_arm_breakdown_path)
+                if not offer_policy_arm_breakdown_df.empty:
+                    offer_policy_arm_breakdown_df["variant_id"] = variant_id
+                    offer_policy_arm_breakdown_df["seed"] = int(seed)
+                    offer_policy_arm_breakdown_frames.append(offer_policy_arm_breakdown_df)
+            if offer_acceptance_breakdown_path.exists():
+                offer_acceptance_breakdown_df = pd.read_csv(offer_acceptance_breakdown_path)
+                if not offer_acceptance_breakdown_df.empty:
+                    offer_acceptance_breakdown_df["variant_id"] = variant_id
+                    offer_acceptance_breakdown_df["seed"] = int(seed)
+                    offer_acceptance_breakdown_frames.append(offer_acceptance_breakdown_df)
+            if offer_proxy_impact_breakdown_path.exists():
+                offer_proxy_impact_breakdown_df = pd.read_csv(offer_proxy_impact_breakdown_path)
+                if not offer_proxy_impact_breakdown_df.empty:
+                    offer_proxy_impact_breakdown_df["variant_id"] = variant_id
+                    offer_proxy_impact_breakdown_df["seed"] = int(seed)
+                    offer_proxy_impact_breakdown_frames.append(offer_proxy_impact_breakdown_df)
             if trajectory_transition_breakdown_path.exists():
                 trajectory_transition_breakdown_df = pd.read_csv(trajectory_transition_breakdown_path)
                 if not trajectory_transition_breakdown_df.empty:
@@ -1487,6 +1629,57 @@ def main() -> None:
                         batch_metrics.get("high_risk_denied_trajectory_degraded_rate", 0.0),
                     )
                 ),
+                "offer_plan_rate": float(
+                    canonical_offer_metrics.get("offer_plan_rate", batch_metrics.get("offer_plan_rate", 0.0))
+                ),
+                "rankable_offer_rate": float(
+                    canonical_offer_metrics.get("rankable_offer_rate", batch_metrics.get("rankable_offer_rate", 0.0))
+                ),
+                "offer_acceptance_probability_mean": float(
+                    canonical_offer_metrics.get(
+                        "offer_acceptance_probability_mean",
+                        batch_metrics.get("offer_acceptance_probability_mean", 0.0),
+                    )
+                ),
+                "combined_plan_realization_probability_mean": float(
+                    canonical_offer_metrics.get(
+                        "combined_plan_realization_probability_mean",
+                        batch_metrics.get("combined_plan_realization_probability_mean", 0.0),
+                    )
+                ),
+                "expected_recovery_proxy": float(
+                    canonical_offer_metrics.get(
+                        "expected_recovery_proxy",
+                        batch_metrics.get("expected_recovery_proxy", 0.0),
+                    )
+                ),
+                "approval_rate_proxy_delta": float(
+                    canonical_offer_metrics.get(
+                        "approval_rate_proxy_delta",
+                        batch_metrics.get("approval_rate_proxy_delta", 0.0),
+                    )
+                ),
+                "default_rate_90d_proxy_delta": float(
+                    canonical_offer_metrics.get(
+                        "default_rate_90d_proxy_delta",
+                        batch_metrics.get("default_rate_90d_proxy_delta", 0.0),
+                    )
+                ),
+                "avg_margin_90d_proxy_delta": float(
+                    canonical_offer_metrics.get(
+                        "avg_margin_90d_proxy_delta",
+                        batch_metrics.get("avg_margin_90d_proxy_delta", 0.0),
+                    )
+                ),
+                "governance_safe_offer_rate": float(
+                    canonical_offer_metrics.get(
+                        "governance_safe_offer_rate",
+                        batch_metrics.get("governance_safe_offer_rate", 0.0),
+                    )
+                ),
+                "dominant_offer_type": str(
+                    canonical_offer_metrics.get("dominant_offer_type", batch_metrics.get("dominant_offer_type", ""))
+                ),
             }
             run_rows.append(row)
 
@@ -1518,6 +1711,60 @@ def main() -> None:
     )
     partial_execution_breakdown_path = run_ctx.tables_dir / "partial_execution_breakdown.csv"
     partial_execution_breakdown_df.to_csv(partial_execution_breakdown_path, index=False)
+    offer_type_breakdown_df = _build_challenger_offer_breakdown(
+        offer_type_breakdown_frames,
+        group_columns=["population", "risk_band", "offer_type"],
+        breakdown_type_seed="variant_seed_population_offer_type",
+        breakdown_type_rollup="variant_population_offer_type_rollup",
+        value_columns={"count": "sum", "share": "mean", "mean_expected_recovery_proxy": "mean"},
+    )
+    offer_type_breakdown_path = run_ctx.tables_dir / "offer_type_breakdown.csv"
+    offer_type_breakdown_df.to_csv(offer_type_breakdown_path, index=False)
+    offer_policy_arm_breakdown_df = _build_challenger_offer_breakdown(
+        offer_policy_arm_breakdown_frames,
+        group_columns=[
+            "population",
+            "risk_band",
+            "offer_policy_arm",
+            "offer_family",
+            "offer_scoring_profile",
+            "term_generation_rule",
+        ],
+        breakdown_type_seed="variant_seed_population_offer_policy_arm",
+        breakdown_type_rollup="variant_population_offer_policy_arm_rollup",
+        value_columns={"count": "sum", "share": "mean"},
+    )
+    offer_policy_arm_breakdown_path = run_ctx.tables_dir / "offer_policy_arm_breakdown.csv"
+    offer_policy_arm_breakdown_df.to_csv(offer_policy_arm_breakdown_path, index=False)
+    offer_acceptance_breakdown_df = _build_challenger_offer_breakdown(
+        offer_acceptance_breakdown_frames,
+        group_columns=["population", "risk_band", "income_band", "offer_type"],
+        breakdown_type_seed="variant_seed_population_offer_acceptance",
+        breakdown_type_rollup="variant_population_offer_acceptance_rollup",
+        value_columns={
+            "count": "sum",
+            "mean_offer_acceptance_probability": "mean",
+            "mean_combined_plan_realization_probability": "mean",
+        },
+    )
+    offer_acceptance_breakdown_path = run_ctx.tables_dir / "offer_acceptance_breakdown.csv"
+    offer_acceptance_breakdown_df.to_csv(offer_acceptance_breakdown_path, index=False)
+    offer_proxy_impact_breakdown_df = _build_challenger_offer_breakdown(
+        offer_proxy_impact_breakdown_frames,
+        group_columns=["population", "offer_type", "offer_policy_arm"],
+        breakdown_type_seed="variant_seed_population_offer_proxy_impact",
+        breakdown_type_rollup="variant_population_offer_proxy_impact_rollup",
+        value_columns={
+            "count": "sum",
+            "approval_rate_proxy_delta": "mean",
+            "default_rate_90d_proxy_delta": "mean",
+            "avg_margin_90d_proxy_delta": "mean",
+            "expected_recovery_proxy": "mean",
+            "governance_safe_offer_rate": "mean",
+        },
+    )
+    offer_proxy_impact_breakdown_path = run_ctx.tables_dir / "offer_proxy_impact_breakdown.csv"
+    offer_proxy_impact_breakdown_df.to_csv(offer_proxy_impact_breakdown_path, index=False)
     trajectory_transition_breakdown_df = _build_challenger_trajectory_transition_breakdown(
         trajectory_transition_breakdown_frames
     )
@@ -1561,6 +1808,12 @@ def main() -> None:
     behavior_aware_summary_path = run_ctx.tables_dir / "behavior_aware_summary.json"
     behavior_aware_summary_path.write_text(
         json.dumps(behavior_aware_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    offer_optimization_summary = _build_challenger_offer_optimization_summary(ranked_summary_df, runs_df)
+    offer_optimization_summary_path = run_ctx.tables_dir / "offer_optimization_summary.json"
+    offer_optimization_summary_path.write_text(
+        json.dumps(offer_optimization_summary, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
     trajectory_summary = _build_challenger_trajectory_summary(ranked_summary_df, runs_df)
@@ -1630,6 +1883,7 @@ def main() -> None:
         "deltas_vs_control": deltas,
         "champion_high_risk_tuning_summary": high_risk_tuning_summary.get("champion_summary", {}),
         "champion_impact_summary": impact_summary.get("champion_summary", {}),
+        "champion_offer_optimization_summary": offer_optimization_summary.get("champion_summary", {}),
         "champion_trajectory_summary": trajectory_summary.get("champion_summary", {}),
         "ranked_variants": ranked_variants,
     }
@@ -1644,6 +1898,11 @@ def main() -> None:
         "behavior_aware_summary_json": "tables/behavior_aware_summary.json",
         "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
         "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+        "offer_optimization_summary_json": "tables/offer_optimization_summary.json",
+        "offer_type_breakdown_csv": "tables/offer_type_breakdown.csv",
+        "offer_policy_arm_breakdown_csv": "tables/offer_policy_arm_breakdown.csv",
+        "offer_acceptance_breakdown_csv": "tables/offer_acceptance_breakdown.csv",
+        "offer_proxy_impact_breakdown_csv": "tables/offer_proxy_impact_breakdown.csv",
         "trajectory_summary_json": "tables/trajectory_summary.json",
         "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
         "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",
@@ -1685,6 +1944,7 @@ def main() -> None:
                 "variant_count": int(ranked_summary_df.shape[0]),
                 "high_risk_tuning_summary": high_risk_tuning_summary.get("champion_summary", {}),
                 "behavior_aware_summary": behavior_aware_summary.get("champion_summary", {}),
+                "offer_optimization_summary": offer_optimization_summary.get("champion_summary", {}),
                 "trajectory_summary": trajectory_summary.get("champion_summary", {}),
                 "impact_attribution_summary": impact_summary.get("champion_summary", {}),
             },
@@ -1712,6 +1972,11 @@ def main() -> None:
                 "behavior_aware_summary_json": "tables/behavior_aware_summary.json",
                 "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
                 "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
+                "offer_optimization_summary_json": "tables/offer_optimization_summary.json",
+                "offer_type_breakdown_csv": "tables/offer_type_breakdown.csv",
+                "offer_policy_arm_breakdown_csv": "tables/offer_policy_arm_breakdown.csv",
+                "offer_acceptance_breakdown_csv": "tables/offer_acceptance_breakdown.csv",
+                "offer_proxy_impact_breakdown_csv": "tables/offer_proxy_impact_breakdown.csv",
                 "trajectory_summary_json": "tables/trajectory_summary.json",
                 "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
                 "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",

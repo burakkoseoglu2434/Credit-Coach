@@ -6,6 +6,7 @@ from credit_coach.cli.run_batch_recourse_eval import (
     _build_behavior_aware_artifacts,
     _build_candidate_quality_artifacts,
     _build_trajectory_artifacts,
+    _build_offer_optimization_artifacts,
     _build_high_risk_profile_activation_summary,
     _apply_high_risk_profile,
     _build_fairness_failure_breakdown,
@@ -258,6 +259,67 @@ def test_build_behavior_aware_artifacts_uses_denied_as_canonical_population():
     assert "execution_probability_breakdown_csv" in summary["supporting_artifacts"]
     assert set(execution_breakdown["population"]) == {"denied", "high_risk_denied"}
     assert set(partial_breakdown["execution_scenario"]) >= {"full_execution", "mixed_execution"}
+
+
+def test_build_offer_optimization_artifacts_emits_locked_contract() -> None:
+    batch_df = pd.DataFrame(
+        [
+            {
+                "customer_id": "c1",
+                "denied_base": 1,
+                "risk_band": "high",
+                "income_band": "q1",
+                "best_offer_plan": 1,
+                "best_rankable_offer": 1,
+                "best_offer_type": "discount_offer",
+                "best_offer_policy_arm": "discount_offer_policy_v1",
+                "best_offer_family": "hardship_relief",
+                "best_offer_scoring_profile": "discount_offer_v1",
+                "best_term_generation_rule": "discount_offer_terms_v1",
+                "best_offer_acceptance_probability": 0.52,
+                "best_combined_plan_realization_probability": 0.31,
+                "best_expected_recovery_proxy": 4.20,
+                "best_approval_rate_proxy_delta": 0.02,
+                "best_default_rate_90d_proxy_delta": -0.01,
+                "best_avg_margin_90d_proxy_delta": 15.0,
+                "best_governance_safe_offer": 1,
+            },
+            {
+                "customer_id": "c2",
+                "denied_base": 1,
+                "risk_band": "mid",
+                "income_band": "q2",
+                "best_offer_plan": 1,
+                "best_rankable_offer": 0,
+                "best_offer_type": "credit_limit_adjustment",
+                "best_offer_policy_arm": "credit_limit_adjustment_policy_v1",
+                "best_offer_family": "limit_management",
+                "best_offer_scoring_profile": "credit_limit_adjustment_v1",
+                "best_term_generation_rule": "credit_limit_adjustment_terms_v1",
+                "best_offer_acceptance_probability": 0.0,
+                "best_combined_plan_realization_probability": 0.0,
+                "best_expected_recovery_proxy": 0.0,
+                "best_approval_rate_proxy_delta": 0.0,
+                "best_default_rate_90d_proxy_delta": 0.0,
+                "best_avg_margin_90d_proxy_delta": 0.0,
+                "best_governance_safe_offer": 0,
+            },
+        ]
+    )
+
+    summary, type_breakdown, arm_breakdown, acceptance_breakdown, proxy_breakdown = _build_offer_optimization_artifacts(
+        batch_df
+    )
+
+    assert summary["canonical_population"] == "denied"
+    assert summary["canonical_metrics"]["offer_plan_rate"] == 1.0
+    assert summary["canonical_metrics"]["rankable_offer_rate"] == 0.5
+    assert summary["canonical_metrics"]["dominant_offer_type"] == "discount_offer"
+    assert "offer_type_breakdown_csv" in summary["supporting_artifacts"]
+    assert set(type_breakdown["offer_type"]) == {"discount_offer", "credit_limit_adjustment"}
+    assert "offer_policy_arm" in arm_breakdown.columns
+    assert set(acceptance_breakdown["offer_type"]) == {"discount_offer"}
+    assert set(proxy_breakdown["offer_policy_arm"]) == {"discount_offer_policy_v1"}
 
 
 def test_build_trajectory_artifacts_surface_transition_state_and_policy_labels():

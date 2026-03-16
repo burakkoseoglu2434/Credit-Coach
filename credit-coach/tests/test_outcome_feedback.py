@@ -52,6 +52,8 @@ def test_outcome_feedback_summary_and_deltas(monkeypatch, tmp_path):
     assert deltas["outcome_feedback_confidence"] == "strong"
     assert deltas["default_rate_90d_delta"] < 0.0
     assert deltas["best_proxy_improving_arm"]["policy_arm"] == "treatment"
+    assert deltas["policy_arm_summaries"][0]["policy_arm_profile"]
+    assert "policy_arm_profile" in deltas["comparisons"][0]
     assert deltas["comparisons"][0]["proxy_labels"]["approval_rate"] == "no_material_change"
 
 
@@ -97,6 +99,7 @@ def test_outcome_feedback_supports_multi_arm_control_comparisons(monkeypatch, tm
     assert len(deltas["comparisons"]) == 2
     assert deltas["best_proxy_improving_arm"]["policy_arm"] == "treatment"
     assert deltas["worst_proxy_regressing_arm"]["policy_arm"] == "pilot_b"
+    assert deltas["best_proxy_improving_arm"]["policy_arm_profile"]["offer_family"] == "generic_treatment"
 
 
 def test_outcome_feedback_falls_back_to_baseline_missing_without_control(monkeypatch, tmp_path):

@@ -4,8 +4,10 @@ import numpy as np
 import pandas as pd
 
 from credit_coach.cli.run_recourse import _effective_recourse_search
+from credit_coach.data.schema import PlanAction, PlanRecord
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.recourse.generator import PlanGenConfig, generate_plan_record
+from credit_coach.recourse.offer_optimization import annotate_offer_optimization
 from credit_coach.safety.statistical import estimate_prediction_ci
 
 
@@ -183,7 +185,7 @@ def test_generate_plan_record_marks_approval_required_action_provisional():
     assert plan.constraint_status == "provisional"
     assert len(plan.actions) == 1
     assert plan.actions[0].action_status == "provisional"
-    assert "requires_institutional_approval" in plan.actions[0].diagnostic_flags
+    assert "offer_terms_incomplete" in plan.actions[0].diagnostic_flags
     assert plan.actions[0].action_execution_probability is None
     assert float(plan.actions[0].approval_dependent_probability or 0.0) > 0.0
 
@@ -234,3 +236,65 @@ def test_generate_plan_record_emits_execution_probability_contract():
     assert str(plan.trajectory_status) == "on_track"
     assert str(plan.current_phase) == "phase_1_stabilize"
     assert int(plan.next_review_week or 0) == 4
+
+
+def test_annotate_offer_optimization_emits_combined_realization_contract():
+    plan = annotate_offer_optimization(
+        PlanRecord(
+            plan_id="offer-plan",
+            customer_id="c4",
+            run_id="r4",
+            horizon_months=6,
+            strategy="balanced",
+            actions=[
+                PlanAction(
+                    feature_name="delinq_amnt",
+                    current_value=2400.0,
+                    target_value=1200.0,
+                    delta=-1200.0,
+                    time_months=2,
+                    estimated_cost_usd=25.0,
+                    action_key="installment_plan",
+                    action_class="institutional",
+                    action_title="Request installment plan",
+                    action_group_id="installment_plan:m2",
+                    institutional_approval_state="approved",
+                    offer_type="installment_terms",
+                    offer_terms={
+                        "payment_delta_monthly": -120.0,
+                        "discount_amount": 0.0,
+                        "discount_pct": 0.0,
+                        "term_extension_months": 6,
+                        "interest_rate_delta": -0.25,
+                        "grace_period_weeks": 2,
+                        "requires_acceptance": True,
+                        "requires_institutional_approval": False,
+                    },
+                    offer_terms_complete=True,
+                    requires_acceptance=True,
+                    offer_family="payment_relief",
+                    offer_scoring_profile="installment_terms_v1",
+                    term_generation_rule="installment_terms_v1",
+                    offer_policy_arm="installment_terms_policy_v1",
+                )
+            ],
+            predicted_pd=0.41,
+            score=0.12,
+            robust_score=0.12,
+            status="NEEDS_REVIEW",
+            constraint_status="valid",
+            trajectory_status="on_track",
+            executable_action_group_count=1,
+            plan_execution_probability=0.65,
+        ),
+        customer_context={"income_band": "q1"},
+        segment_context={"risk_band": "high", "stress_band": "stress"},
+    )
+
+    assert plan.offer_plan is True
+    assert plan.rankable_offer_count == 1
+    assert float(plan.offer_acceptance_probability or 0.0) > 0.0
+    assert float(plan.combined_plan_realization_probability or 0.0) > 0.0
+    assert float(plan.expected_recovery_proxy or 0.0) > 0.0
+    assert plan.offer_policy_arm == "installment_terms_policy_v1"
+    assert plan.governance_safe_offer is True
