@@ -29,6 +29,7 @@ from credit_coach.recourse.action_space import (
 )
 from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions
+from credit_coach.recourse.execution_probability import annotate_plan_execution_probability
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.generator import generate_nine_plans
 from credit_coach.safety.validator import validate_plan
@@ -427,6 +428,21 @@ def _build_customer_roadmap(
                 "action_status": str(getattr(action, "action_status", "") or ""),
                 "action_status_reason": str(getattr(action, "action_status_reason", "") or ""),
                 "diagnostic_flags": list(getattr(action, "diagnostic_flags", [])),
+                "action_execution_probability": (
+                    _safe_float(getattr(action, "action_execution_probability", 0.0), 0.0)
+                    if getattr(action, "action_execution_probability", None) is not None
+                    else None
+                ),
+                "approval_dependent_probability": (
+                    _safe_float(getattr(action, "approval_dependent_probability", 0.0), 0.0)
+                    if getattr(action, "approval_dependent_probability", None) is not None
+                    else None
+                ),
+                "action_group_execution_probability": (
+                    _safe_float(getattr(action, "action_group_execution_probability", 0.0), 0.0)
+                    if getattr(action, "action_group_execution_probability", None) is not None
+                    else None
+                ),
             }
         )
 
@@ -558,6 +574,21 @@ def _plan_to_row(plan: PlanRecord) -> dict:
         "constraint_status": str(getattr(plan, "constraint_status", "valid") or "valid"),
         "constraint_reason": str(getattr(plan, "constraint_reason", "") or ""),
         "constraint_trace_json": json.dumps(getattr(plan, "constraint_trace", []), ensure_ascii=False),
+        "plan_execution_probability": (
+            _safe_float(getattr(plan, "plan_execution_probability", 0.0), 0.0)
+            if getattr(plan, "plan_execution_probability", None) is not None
+            else None
+        ),
+        "mean_action_execution_probability": (
+            _safe_float(getattr(plan, "mean_action_execution_probability", 0.0), 0.0)
+            if getattr(plan, "mean_action_execution_probability", None) is not None
+            else None
+        ),
+        "nominal_pd_improvement": _safe_float(getattr(plan, "nominal_pd_improvement", 0.0), 0.0),
+        "expected_pd_improvement": _safe_float(getattr(plan, "expected_pd_improvement", 0.0), 0.0),
+        "executable_action_count": int(getattr(plan, "executable_action_count", 0) or 0),
+        "executable_action_group_count": int(getattr(plan, "executable_action_group_count", 0) or 0),
+        "approval_pending_action_count": int(getattr(plan, "approval_pending_action_count", 0) or 0),
         "status": plan.status,
         "status_reason": plan.status_reason,
     }
@@ -644,7 +675,9 @@ def _dice_plan_record(
     cpen = float(causal_penalty(actions, graph, penalty_weight=causal_weight)) if graph else 0.0
     score = float((max(0.0, tau - pred_pd) * 100.0) - (cost * 0.001) - cpen)
 
-    return PlanRecord(
+    base_input = pd.DataFrame([row[feature_cols].values], columns=feature_cols)
+    base_pd = float(predict_proba_pd(model, calibrator, base_input)[0])
+    plan = PlanRecord(
         plan_id=f"{run_id}_{customer_id}_dice_{idx}",
         customer_id=customer_id,
         run_id=run_id,
@@ -658,6 +691,12 @@ def _dice_plan_record(
         constraint_reason=constraint_result.reason,
         constraint_trace=list(constraint_result.trace),
         status="PENDING",
+    )
+    return annotate_plan_execution_probability(
+        plan,
+        base_pd=base_pd,
+        customer_context={str(k): row.get(k) for k in row.index},
+        segment_context=segment_context,
     )
 
 

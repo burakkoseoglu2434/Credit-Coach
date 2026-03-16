@@ -169,3 +169,9 @@ def test_generate_plan_record_with_weekly_denied_optimizer():
     )
     assert len(plan.actions) >= 1
     assert plan.robust_score is not None
+    assert float(plan.plan_execution_probability or 0.0) > 0.0
+    assert float(plan.expected_pd_improvement or 0.0) >= 0.0
+    assert all(
+        (action.action_execution_probability is not None) or (action.approval_dependent_probability is not None)
+        for action in plan.actions
+    )

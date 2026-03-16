@@ -172,6 +172,24 @@ class PlanAction(BaseModel):
         default_factory=list,
         description="Aksiyonla ilgili ek diagnostic flag'ler",
     )
+    action_execution_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Aksiyonun gercekte uygulanma olasiligi",
+    )
+    approval_dependent_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Kurumsal onaya bagli aksiyonlar icin ayri olasilik sinyali",
+    )
+    action_group_execution_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Composite aksiyon grubu seviyesinde toplanmis uygulanma olasiligi",
+    )
 
 
 class LocalReason(BaseModel):
@@ -265,6 +283,41 @@ class PlanRecord(BaseModel):
     constraint_trace: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Repair, conflict ve approval-pending trace olaylari",
+    )
+    plan_execution_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Plan seviyesinde toplanmis gerceklesme olasiligi",
+    )
+    mean_action_execution_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Executable aksiyonlar icin ortalama aksiyon uygulanma olasiligi",
+    )
+    nominal_pd_improvement: float | None = Field(
+        default=None,
+        description="Davranis modeli olmadan planin nominal PD iyilesmesi",
+    )
+    expected_pd_improvement: float | None = Field(
+        default=None,
+        description="Plan execution probability ile agirliklandirilmis beklenen PD iyilesmesi",
+    )
+    executable_action_count: int = Field(
+        default=0,
+        ge=0,
+        description="Normal executable aksiyon sayisi",
+    )
+    executable_action_group_count: int = Field(
+        default=0,
+        ge=0,
+        description="Composite aggregation sonrasi executable action group sayisi",
+    )
+    approval_pending_action_count: int = Field(
+        default=0,
+        ge=0,
+        description="Ordinary winner scoring disinda kalan approval-dependent aksiyon sayisi",
     )
 
     status: Literal["APPROVED", "NEEDS_REVIEW", "REJECTED", "PENDING"] = Field(

@@ -23,6 +23,7 @@ from credit_coach.recourse.action_space import (
     get_actionable_features,
 )
 from credit_coach.recourse.action_constraints import enforce_action_constraints
+from credit_coach.recourse.execution_probability import annotate_plan_execution_probability
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.region_targets import get_target_pd
 from credit_coach.safety.statistical import estimate_prediction_ci
@@ -1362,7 +1363,7 @@ def generate_plan_record(
         robust_score = nominal_score
         final_score = nominal_score
 
-    return PlanRecord(
+    plan = PlanRecord(
         plan_id=f"{run_id}_{customer_id}_{horizon_months}_{strategy}",
         customer_id=customer_id,
         run_id=run_id,
@@ -1382,6 +1383,12 @@ def generate_plan_record(
         constraint_reason=constraint_result.reason,
         constraint_trace=list(constraint_result.trace),
         status="PENDING",
+    )
+    return annotate_plan_execution_probability(
+        plan,
+        base_pd=row_base_pd,
+        customer_context=_build_action_context(row),
+        segment_context=segment_context,
     )
 
 

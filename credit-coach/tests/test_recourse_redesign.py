@@ -184,3 +184,41 @@ def test_generate_plan_record_marks_approval_required_action_provisional():
     assert len(plan.actions) == 1
     assert plan.actions[0].action_status == "provisional"
     assert "requires_institutional_approval" in plan.actions[0].diagnostic_flags
+    assert plan.actions[0].action_execution_probability is None
+    assert float(plan.actions[0].approval_dependent_probability or 0.0) > 0.0
+
+
+def test_generate_plan_record_emits_execution_probability_contract():
+    row = pd.Series(
+        {
+            "annual_inc": 68_000.0,
+            "dti": 31.0,
+            "revol_bal": 11_000.0,
+            "revol_util": 58.0,
+        }
+    )
+    plan = generate_plan_record(
+        customer_id="c3",
+        run_id="r3",
+        row=row,
+        model=_DummyModel(),
+        calibrator=None,
+        feature_cols=list(row.index),
+        horizon_months=6,
+        strategy="balanced",
+        graph=None,
+        cfg=PlanGenConfig(tau=0.35),
+        candidate_features=["dti", "revol_bal"],
+        topk=2,
+        robust_cfg={"enabled": False},
+        search_cfg={"min_abs_action_delta": 1e-6},
+        base_pd=0.52,
+    )
+    assert float(plan.plan_execution_probability or 0.0) > 0.0
+    assert float(plan.mean_action_execution_probability or 0.0) > 0.0
+    assert float(plan.nominal_pd_improvement or 0.0) >= 0.0
+    assert float(plan.expected_pd_improvement or 0.0) >= 0.0
+    assert int(plan.executable_action_count) >= 1
+    assert int(plan.executable_action_group_count) >= 1
+    assert all(action.action_group_execution_probability is not None for action in plan.actions)
+    assert all(action.action_execution_probability is not None for action in plan.actions)
