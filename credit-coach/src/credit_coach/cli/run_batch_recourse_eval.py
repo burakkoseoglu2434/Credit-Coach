@@ -27,6 +27,7 @@ from credit_coach.evaluation.fairness import (
     compute_fairness_bundle,
     lookup_group_penalty,
 )
+from credit_coach.evaluation.portfolio_validation import build_portfolio_validation_artifacts
 from credit_coach.macro.impact import dynamic_alpha
 from credit_coach.macro.sources import load_macro_snapshot_mock
 from credit_coach.macro.stress_index import compute_macro_stress_index
@@ -250,6 +251,38 @@ def _round_metric(value: Any, *, digits: int = 6) -> float:
     if np.isnan(metric):
         return 0.0
     return round(metric, digits)
+
+
+def _stress_band_from_row(row: pd.Series) -> str:
+    dti = _safe_float(row.get("dti"), 0.0)
+    revol_util = _safe_float(row.get("revol_util"), 0.0)
+    annual_inc = max(_safe_float(row.get("annual_inc"), 0.0), 1.0)
+    monthly_income = annual_inc / 12.0
+    installment = _safe_float(row.get("installment"), 0.0)
+    payment_burden = float(installment / monthly_income) if monthly_income > 0 else 0.0
+    stress_score = 0
+    if dti >= 25.0:
+        stress_score += 1
+    if revol_util >= 70.0:
+        stress_score += 1
+    if payment_burden >= 0.18:
+        stress_score += 1
+    if stress_score >= 2:
+        return "high_stress"
+    if stress_score == 1:
+        return "elevated"
+    return "base"
+
+
+def _load_curated_demo_case(project_root: Path) -> dict[str, Any] | None:
+    demo_path = project_root / "credit-coach-website" / "demo-data" / "single_customer_roadmap.json"
+    if not demo_path.exists():
+        return None
+    try:
+        payload = json.loads(demo_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def _extract_model_importance_vector(model: Any, feature_cols: list[str]) -> np.ndarray | None:
@@ -3879,6 +3912,7 @@ def main() -> None:
             "high_risk_profile_reason": "",
             "income_band": "",
             "risk_band": "",
+            "stress_band": "base",
             "segment_caps_applied": 0,
             "cap_multiplier_income": 1.0,
             "cap_multiplier_risk": 1.0,
@@ -4030,6 +4064,7 @@ def main() -> None:
             )
             out["income_band"] = str(segment_context.get("income_band", ""))
             out["risk_band"] = str(segment_context.get("risk_band", ""))
+            out["stress_band"] = _stress_band_from_row(row)
             out["segment_caps_applied"] = int(bool(segment_context.get("segment_caps_applied", False)))
             out["cap_multiplier_income"] = float(segment_context.get("cap_multiplier_income", 1.0))
             out["cap_multiplier_risk"] = float(segment_context.get("cap_multiplier_risk", 1.0))
@@ -5423,6 +5458,44 @@ def main() -> None:
     trajectory_transition_breakdown.to_csv(trajectory_transition_breakdown_out, index=False)
     trajectory_policy_label_breakdown_out = run_ctx.tables_dir / "trajectory_policy_label_breakdown.csv"
     trajectory_policy_label_breakdown.to_csv(trajectory_policy_label_breakdown_out, index=False)
+    portfolio_validation_artifacts = build_portfolio_validation_artifacts(
+        batch_df,
+        tau=float(tau),
+        reliability_threshold_by_risk_band=reliability_threshold_by_risk_band,
+        demo_case=_load_curated_demo_case(Path(__file__).resolve().parents[3]),
+    )
+    portfolio_validation_summary = portfolio_validation_artifacts["summary"]
+    portfolio_validation_summary_out = run_ctx.tables_dir / "portfolio_validation_summary.json"
+    portfolio_validation_summary_out.write_text(
+        json.dumps(portfolio_validation_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    portfolio_coverage_breakdown_out = run_ctx.tables_dir / "portfolio_coverage_breakdown.csv"
+    portfolio_validation_artifacts["coverage_breakdown"].to_csv(portfolio_coverage_breakdown_out, index=False)
+    portfolio_coverage_drop_breakdown_out = run_ctx.tables_dir / "portfolio_coverage_drop_breakdown.csv"
+    portfolio_validation_artifacts["coverage_drop_breakdown"].to_csv(portfolio_coverage_drop_breakdown_out, index=False)
+    portfolio_reality_gap_breakdown_out = run_ctx.tables_dir / "portfolio_reality_gap_breakdown.csv"
+    portfolio_validation_artifacts["reality_gap_breakdown"].to_csv(portfolio_reality_gap_breakdown_out, index=False)
+    portfolio_segment_breakdown_out = run_ctx.tables_dir / "portfolio_segment_breakdown.csv"
+    portfolio_validation_artifacts["segment_breakdown"].to_csv(portfolio_segment_breakdown_out, index=False)
+    portfolio_offer_diagnostics_out = run_ctx.tables_dir / "portfolio_offer_diagnostics.csv"
+    portfolio_validation_artifacts["offer_diagnostics"].to_csv(portfolio_offer_diagnostics_out, index=False)
+    portfolio_behavior_comparison_out = run_ctx.tables_dir / "portfolio_behavior_comparison.csv"
+    portfolio_validation_artifacts["behavior_comparison"].to_csv(portfolio_behavior_comparison_out, index=False)
+    portfolio_trajectory_class_breakdown_out = run_ctx.tables_dir / "portfolio_trajectory_class_breakdown.csv"
+    portfolio_validation_artifacts["trajectory_class_breakdown"].to_csv(
+        portfolio_trajectory_class_breakdown_out, index=False
+    )
+    demo_representativeness_summary_out = run_ctx.tables_dir / "demo_representativeness_summary.json"
+    demo_representativeness_summary_out.write_text(
+        json.dumps(portfolio_validation_artifacts["demo_representativeness"], indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    portfolio_validation_review_out = run_ctx.tables_dir / "portfolio_validation_review.md"
+    portfolio_validation_review_out.write_text(
+        portfolio_validation_artifacts["review_markdown"],
+        encoding="utf-8",
+    )
     decision_log_records = _build_decision_log_records(batch_df, run_id=run_ctx.run_id)
     decision_log_records_csv = decision_log_records.copy(deep=True)
     if not decision_log_records_csv.empty:

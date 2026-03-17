@@ -11,6 +11,8 @@ from credit_coach.cli.run_phase_experiment_suite import (
     _build_phase_decision_logging_summary,
     _build_phase_fairness_breakdown,
     _build_phase_high_risk_tuning_summary,
+    _build_phase_portfolio_validation_review,
+    _build_phase_portfolio_validation_summary,
     _build_learning_loop_summary,
     _build_phase_offer_optimization_summary,
     _build_phase_trajectory_policy_label_breakdown,
@@ -598,6 +600,172 @@ def test_build_phase_trajectory_summary_uses_locked_checkpoint_contract() -> Non
     assert summary["secondary_metrics"]["trajectory_on_track_rate"] == 0.515
     assert summary["dominant_transition_reason"] == "phase_1_checkpoint_missed"
     assert "trajectory_transition_breakdown_csv" in summary["supporting_artifacts"]
+
+
+def test_build_phase_portfolio_validation_summary_uses_locked_phase17_contract() -> None:
+    summary = _build_phase_portfolio_validation_summary(
+        [
+            {
+                "population_sizes": {
+                    "full_evaluation_population": 100,
+                    "denied": 60,
+                    "high_risk_denied": 20,
+                },
+                "canonical_metrics": {
+                    "raw_plan_coverage": 0.8,
+                    "valid_plan_coverage": 0.6,
+                    "governance_safe_plan_coverage": 0.5,
+                    "product_ready_plan_coverage": 0.4,
+                    "no_plan_rate": 0.2,
+                    "reality_gap_flag_rate": 0.15,
+                },
+                "secondary_metrics": {
+                    "raw_plan_coverage": 0.7,
+                    "valid_plan_coverage": 0.5,
+                },
+                "reality_gap_summary": {
+                    "reality_gap_flag_rate": 0.15,
+                    "dominant_reality_gap_reason": "engine_native_action_flag",
+                    "product_ready_drop_due_to_reality_gap": 0.25,
+                    "multi_flag_exposure": 0.08,
+                    "severity_split": {"mild": 0.05, "moderate": 0.07, "severe": 0.03},
+                },
+                "strongest_segments": [
+                    {"segment_label": "risk_band:near", "product_ready_plan_coverage": 0.5},
+                ],
+                "weakest_segments": [
+                    {"segment_label": "stress_band:high", "product_ready_plan_coverage": 0.2},
+                ],
+                "highest_offer_needed_segment": {"segment_label": "offer_needed_segment:offer_needed"},
+                "lowest_product_ready_segment": {"segment_label": "stress_band:high"},
+                "segment_story": {
+                    "where_engine_works": "risk_band:near",
+                    "where_engine_struggles": "stress_band:high",
+                    "where_offer_is_required": "offer_needed_segment:offer_needed",
+                    "where_narrative_breaks": "recoverability_segment:hard_to_recover",
+                },
+                "demo_representativeness": {
+                    "demo_representativeness_verdict": "representative",
+                    "demo_fit_confidence": "strong",
+                    "demo_case_segment": "risk_band=near|income_band=q1|stress_band=base|recoverability_segment=recoverable",
+                    "segment_size": 24,
+                    "demo_case_segment_share": 0.24,
+                    "segment_product_ready_rate": 0.41,
+                    "segment_offer_dependency": 0.18,
+                    "product_ready_alignment": True,
+                    "cohort_vs_demo_delta": {
+                        "plan_execution_probability": 0.02,
+                        "early_checkpoint_health_rate": 0.01,
+                        "product_ready_rate": 0.03,
+                    },
+                    "narrative": "demo aligns with cohort",
+                },
+            },
+            {
+                "population_sizes": {
+                    "full_evaluation_population": 120,
+                    "denied": 70,
+                    "high_risk_denied": 25,
+                },
+                "canonical_metrics": {
+                    "raw_plan_coverage": 0.7,
+                    "valid_plan_coverage": 0.5,
+                    "governance_safe_plan_coverage": 0.4,
+                    "product_ready_plan_coverage": 0.3,
+                    "no_plan_rate": 0.3,
+                    "reality_gap_flag_rate": 0.2,
+                },
+                "secondary_metrics": {
+                    "raw_plan_coverage": 0.6,
+                    "valid_plan_coverage": 0.4,
+                },
+                "reality_gap_summary": {
+                    "reality_gap_flag_rate": 0.2,
+                    "dominant_reality_gap_reason": "engine_native_action_flag",
+                    "product_ready_drop_due_to_reality_gap": 0.35,
+                    "multi_flag_exposure": 0.12,
+                    "severity_split": {"mild": 0.06, "moderate": 0.08, "severe": 0.06},
+                },
+                "strongest_segments": [
+                    {"segment_label": "risk_band:near", "product_ready_plan_coverage": 0.4},
+                ],
+                "weakest_segments": [
+                    {"segment_label": "stress_band:high", "product_ready_plan_coverage": 0.1},
+                ],
+                "highest_offer_needed_segment": {"segment_label": "offer_needed_segment:offer_needed"},
+                "lowest_product_ready_segment": {"segment_label": "stress_band:high"},
+                "segment_story": {
+                    "where_engine_works": "risk_band:near",
+                    "where_engine_struggles": "stress_band:high",
+                    "where_offer_is_required": "offer_needed_segment:offer_needed",
+                    "where_narrative_breaks": "recoverability_segment:hard_to_recover",
+                },
+                "demo_representativeness": {
+                    "demo_representativeness_verdict": "representative",
+                    "demo_fit_confidence": "strong",
+                    "demo_case_segment": "risk_band=near|income_band=q1|stress_band=base|recoverability_segment=recoverable",
+                    "segment_size": 26,
+                    "demo_case_segment_share": 0.26,
+                    "segment_product_ready_rate": 0.39,
+                    "segment_offer_dependency": 0.20,
+                    "product_ready_alignment": True,
+                    "cohort_vs_demo_delta": {
+                        "plan_execution_probability": 0.01,
+                        "early_checkpoint_health_rate": 0.02,
+                        "product_ready_rate": 0.01,
+                    },
+                    "narrative": "demo aligns with cohort",
+                },
+            },
+        ]
+    )
+
+    assert summary["seed_count"] == 2
+    assert summary["canonical_population"] == "full_evaluation_population"
+    assert summary["canonical_metrics"]["raw_plan_coverage"] == 0.75
+    assert summary["canonical_metrics"]["product_ready_plan_coverage"] == 0.35
+    assert summary["reality_gap_summary"]["dominant_reality_gap_reason"] == "engine_native_action_flag"
+    assert summary["demo_representativeness"]["demo_representativeness_verdict"] == "representative"
+    assert "portfolio_validation_summary_json" in summary["supporting_artifacts"]
+
+
+def test_build_phase_portfolio_validation_review_stays_executive_facing() -> None:
+    review = _build_phase_portfolio_validation_review(
+        {
+            "canonical_metrics": {
+                "raw_plan_coverage": 0.82,
+                "valid_plan_coverage": 0.58,
+                "governance_safe_plan_coverage": 0.47,
+                "product_ready_plan_coverage": 0.33,
+                "no_plan_rate": 0.18,
+            },
+            "reality_gap_summary": {
+                "reality_gap_flag_rate": 0.21,
+                "dominant_reality_gap_reason": "engine_native_action_flag",
+                "product_ready_drop_due_to_reality_gap": 0.29,
+            },
+            "strongest_segments": [{"segment_label": "risk_band:near", "product_ready_plan_coverage": 0.46}],
+            "weakest_segments": [{"segment_label": "stress_band:high", "product_ready_plan_coverage": 0.11}],
+            "segment_story": {
+                "where_engine_works": "risk_band:near",
+                "where_engine_struggles": "stress_band:high",
+                "where_offer_is_required": "offer_needed_segment:offer_needed",
+                "where_narrative_breaks": "recoverability_segment:hard_to_recover",
+            },
+            "demo_representativeness": {
+                "demo_representativeness_verdict": "optimistic",
+                "demo_fit_confidence": "moderate",
+                "demo_case_segment_share": 0.14,
+                "product_ready_alignment": False,
+                "narrative": "demo overstates portfolio reality",
+            },
+        }
+    )
+
+    assert "Portfolio Validation Review" in review
+    assert "Coverage Funnel" in review
+    assert "Where engine works" in review
+    assert "demo overstates portfolio reality" in review
 
 
 def test_build_phase_candidate_source_breakdown_emits_seed_and_rollup_views() -> None:

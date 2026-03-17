@@ -13,6 +13,11 @@ from typing import Any, Mapping
 import pandas as pd
 
 from credit_coach.evaluation.fairness import build_canonical_segment_key
+from credit_coach.evaluation.portfolio_validation import (
+    aggregate_portfolio_breakdown,
+    aggregate_portfolio_validation_summaries,
+    render_portfolio_validation_review,
+)
 from credit_coach.model.registry import build_frozen_model_manifest, resolve_model_manifest
 from credit_coach.ops.kpi_contract import (
     build_comparative_impact_summary,
@@ -695,6 +700,14 @@ def _build_phase_trajectory_summary(scale_df: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+def _build_phase_portfolio_validation_summary(seed_summaries: list[dict[str, Any]]) -> dict[str, Any]:
+    return aggregate_portfolio_validation_summaries(seed_summaries)
+
+
+def _build_phase_portfolio_validation_review(summary: Mapping[str, Any]) -> str:
+    return render_portfolio_validation_review(summary)
+
+
 def _build_phase_trajectory_transition_breakdown(seed_breakdowns: list[pd.DataFrame]) -> pd.DataFrame:
     if not seed_breakdowns:
         return pd.DataFrame(
@@ -1349,6 +1362,15 @@ def main() -> None:
     seed_trajectory_gate_by_risk_breakdowns: list[pd.DataFrame] = []
     seed_trajectory_gate_by_income_breakdowns: list[pd.DataFrame] = []
     seed_trajectory_phase_action_mix_breakdowns: list[pd.DataFrame] = []
+    seed_portfolio_validation_summaries: list[dict[str, Any]] = []
+    seed_portfolio_coverage_breakdowns: list[pd.DataFrame] = []
+    seed_portfolio_coverage_drop_breakdowns: list[pd.DataFrame] = []
+    seed_portfolio_reality_gap_breakdowns: list[pd.DataFrame] = []
+    seed_portfolio_segment_breakdowns: list[pd.DataFrame] = []
+    seed_portfolio_offer_diagnostics: list[pd.DataFrame] = []
+    seed_portfolio_behavior_comparisons: list[pd.DataFrame] = []
+    seed_portfolio_trajectory_class_breakdowns: list[pd.DataFrame] = []
+    seed_demo_representativeness_summaries: list[dict[str, Any]] = []
     seed_decision_logging_summaries: list[dict[str, Any]] = []
     for seed in seeds:
         run_id, run_log = _run_cmd(
@@ -1380,6 +1402,9 @@ def main() -> None:
             root / "artifacts" / "runs" / run_id / "tables" / "offer_optimization_summary.json"
         )
         trajectory_summary = _load_json(root / "artifacts" / "runs" / run_id / "tables" / "trajectory_summary.json")
+        portfolio_validation_summary = _load_json(
+            root / "artifacts" / "runs" / run_id / "tables" / "portfolio_validation_summary.json"
+        )
         execution_probability_breakdown = _load_csv(
             root / "artifacts" / "runs" / run_id / "tables" / "execution_probability_breakdown.csv"
         )
@@ -1412,6 +1437,30 @@ def main() -> None:
         )
         trajectory_phase_action_mix = _load_csv(
             root / "artifacts" / "runs" / run_id / "tables" / "trajectory_phase_action_mix.csv"
+        )
+        portfolio_coverage_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "portfolio_coverage_breakdown.csv"
+        )
+        portfolio_coverage_drop_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "portfolio_coverage_drop_breakdown.csv"
+        )
+        portfolio_reality_gap_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "portfolio_reality_gap_breakdown.csv"
+        )
+        portfolio_segment_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "portfolio_segment_breakdown.csv"
+        )
+        portfolio_offer_diagnostics = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "portfolio_offer_diagnostics.csv"
+        )
+        portfolio_behavior_comparison = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "portfolio_behavior_comparison.csv"
+        )
+        portfolio_trajectory_class_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "portfolio_trajectory_class_breakdown.csv"
+        )
+        demo_representativeness_summary = _load_json(
+            root / "artifacts" / "runs" / run_id / "tables" / "demo_representativeness_summary.json"
         )
         decision_logging_summary = _load_json(
             root / "artifacts" / "runs" / run_id / "tables" / "decision_logging_summary.json"
@@ -1449,6 +1498,16 @@ def main() -> None:
         secondary_trajectory_metrics = (
             trajectory_summary.get("secondary_metrics", {})
             if isinstance(trajectory_summary.get("secondary_metrics", {}), dict)
+            else {}
+        )
+        canonical_portfolio_metrics = (
+            portfolio_validation_summary.get("canonical_metrics", {})
+            if isinstance(portfolio_validation_summary.get("canonical_metrics", {}), dict)
+            else {}
+        )
+        secondary_portfolio_metrics = (
+            portfolio_validation_summary.get("secondary_metrics", {})
+            if isinstance(portfolio_validation_summary.get("secondary_metrics", {}), dict)
             else {}
         )
         snapshot = _seed_contract_snapshot(summary, fair_row, thresholds)
@@ -1764,6 +1823,78 @@ def main() -> None:
                 "dominant_offer_type": str(
                     canonical_offer_metrics.get("dominant_offer_type", summary.get("dominant_offer_type", ""))
                 ),
+                "portfolio_raw_plan_coverage": float(
+                    canonical_portfolio_metrics.get("raw_plan_coverage", 0.0)
+                ),
+                "portfolio_valid_plan_coverage": float(
+                    canonical_portfolio_metrics.get("valid_plan_coverage", 0.0)
+                ),
+                "portfolio_governance_safe_plan_coverage": float(
+                    canonical_portfolio_metrics.get("governance_safe_plan_coverage", 0.0)
+                ),
+                "portfolio_product_ready_plan_coverage": float(
+                    canonical_portfolio_metrics.get("product_ready_plan_coverage", 0.0)
+                ),
+                "portfolio_no_plan_rate": float(
+                    canonical_portfolio_metrics.get("no_plan_rate", 0.0)
+                ),
+                "portfolio_reality_gap_flag_rate": float(
+                    canonical_portfolio_metrics.get("reality_gap_flag_rate", 0.0)
+                ),
+                "portfolio_mean_nominal_pd_improvement": float(
+                    canonical_portfolio_metrics.get("mean_nominal_pd_improvement", 0.0)
+                ),
+                "portfolio_execution_weighted_expected_improvement": float(
+                    canonical_portfolio_metrics.get("execution_weighted_expected_improvement", 0.0)
+                ),
+                "portfolio_early_checkpoint_health_rate": float(
+                    canonical_portfolio_metrics.get("early_checkpoint_health_rate", 0.0)
+                ),
+                "portfolio_delayed_only_rate": float(
+                    canonical_portfolio_metrics.get("delayed_only_rate", 0.0)
+                ),
+                "portfolio_long_horizon_heavy_rate": float(
+                    canonical_portfolio_metrics.get("long_horizon_heavy_rate", 0.0)
+                ),
+                "portfolio_replan_risk_rate": float(
+                    canonical_portfolio_metrics.get("replan_risk_rate", 0.0)
+                ),
+                "portfolio_secondary_raw_plan_coverage": float(
+                    secondary_portfolio_metrics.get("raw_plan_coverage", 0.0)
+                ),
+                "portfolio_secondary_valid_plan_coverage": float(
+                    secondary_portfolio_metrics.get("valid_plan_coverage", 0.0)
+                ),
+                "portfolio_secondary_governance_safe_plan_coverage": float(
+                    secondary_portfolio_metrics.get("governance_safe_plan_coverage", 0.0)
+                ),
+                "portfolio_secondary_product_ready_plan_coverage": float(
+                    secondary_portfolio_metrics.get("product_ready_plan_coverage", 0.0)
+                ),
+                "portfolio_dominant_reality_gap_reason": str(
+                    portfolio_validation_summary.get("reality_gap_summary", {}).get("dominant_reality_gap_reason", "")
+                ),
+                "portfolio_where_engine_works": str(
+                    portfolio_validation_summary.get("segment_story", {}).get("where_engine_works", "")
+                ),
+                "portfolio_where_engine_struggles": str(
+                    portfolio_validation_summary.get("segment_story", {}).get("where_engine_struggles", "")
+                ),
+                "demo_representativeness_verdict": str(
+                    demo_representativeness_summary.get("demo_representativeness_verdict", "")
+                ),
+                "demo_fit_confidence": str(
+                    demo_representativeness_summary.get("demo_fit_confidence", "")
+                ),
+                "demo_case_segment_share": float(
+                    demo_representativeness_summary.get("demo_case_segment_share", 0.0)
+                ),
+                "demo_segment_product_ready_rate": float(
+                    demo_representativeness_summary.get("segment_product_ready_rate", 0.0)
+                ),
+                "demo_product_ready_alignment": int(
+                    bool(demo_representativeness_summary.get("product_ready_alignment", False))
+                ),
             }
         )
         if not breakdown_df.empty:
@@ -1806,6 +1937,31 @@ def main() -> None:
         if not trajectory_phase_action_mix.empty:
             trajectory_phase_action_mix["seed"] = int(seed)
             seed_trajectory_phase_action_mix_breakdowns.append(trajectory_phase_action_mix)
+        if portfolio_validation_summary:
+            seed_portfolio_validation_summaries.append(dict(portfolio_validation_summary))
+        if not portfolio_coverage_breakdown.empty:
+            portfolio_coverage_breakdown["seed"] = int(seed)
+            seed_portfolio_coverage_breakdowns.append(portfolio_coverage_breakdown)
+        if not portfolio_coverage_drop_breakdown.empty:
+            portfolio_coverage_drop_breakdown["seed"] = int(seed)
+            seed_portfolio_coverage_drop_breakdowns.append(portfolio_coverage_drop_breakdown)
+        if not portfolio_reality_gap_breakdown.empty:
+            portfolio_reality_gap_breakdown["seed"] = int(seed)
+            seed_portfolio_reality_gap_breakdowns.append(portfolio_reality_gap_breakdown)
+        if not portfolio_segment_breakdown.empty:
+            portfolio_segment_breakdown["seed"] = int(seed)
+            seed_portfolio_segment_breakdowns.append(portfolio_segment_breakdown)
+        if not portfolio_offer_diagnostics.empty:
+            portfolio_offer_diagnostics["seed"] = int(seed)
+            seed_portfolio_offer_diagnostics.append(portfolio_offer_diagnostics)
+        if not portfolio_behavior_comparison.empty:
+            portfolio_behavior_comparison["seed"] = int(seed)
+            seed_portfolio_behavior_comparisons.append(portfolio_behavior_comparison)
+        if not portfolio_trajectory_class_breakdown.empty:
+            portfolio_trajectory_class_breakdown["seed"] = int(seed)
+            seed_portfolio_trajectory_class_breakdowns.append(portfolio_trajectory_class_breakdown)
+        if demo_representativeness_summary:
+            seed_demo_representativeness_summaries.append(dict(demo_representativeness_summary))
         if decision_logging_summary:
             seed_decision_logging_summaries.append(dict(decision_logging_summary))
 
@@ -1933,6 +2089,130 @@ def main() -> None:
     )
     trajectory_phase_action_mix_path = run_ctx.tables_dir / "trajectory_phase_action_mix.csv"
     phase_trajectory_phase_action_mix.to_csv(trajectory_phase_action_mix_path, index=False)
+    phase_portfolio_validation_summary = _build_phase_portfolio_validation_summary(
+        seed_portfolio_validation_summaries
+    )
+    portfolio_validation_summary_path = run_ctx.tables_dir / "portfolio_validation_summary.json"
+    portfolio_validation_summary_path.write_text(
+        json.dumps(phase_portfolio_validation_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    phase_portfolio_coverage_breakdown = aggregate_portfolio_breakdown(
+        seed_portfolio_coverage_breakdowns,
+        group_columns=["population", "funnel_stage"],
+        value_columns={"count": "sum", "share": "mean"},
+        breakdown_type_seed="seed_portfolio_coverage",
+        breakdown_type_rollup="portfolio_coverage_rollup",
+    )
+    portfolio_coverage_breakdown_path = run_ctx.tables_dir / "portfolio_coverage_breakdown.csv"
+    phase_portfolio_coverage_breakdown.to_csv(portfolio_coverage_breakdown_path, index=False)
+    phase_portfolio_coverage_drop_breakdown = aggregate_portfolio_breakdown(
+        seed_portfolio_coverage_drop_breakdowns,
+        group_columns=["population", "transition", "reason"],
+        value_columns={"count": "sum", "share_of_source": "mean"},
+        breakdown_type_seed="seed_portfolio_coverage_drop",
+        breakdown_type_rollup="portfolio_coverage_drop_rollup",
+    )
+    portfolio_coverage_drop_breakdown_path = run_ctx.tables_dir / "portfolio_coverage_drop_breakdown.csv"
+    phase_portfolio_coverage_drop_breakdown.to_csv(portfolio_coverage_drop_breakdown_path, index=False)
+    phase_portfolio_reality_gap_breakdown = aggregate_portfolio_breakdown(
+        seed_portfolio_reality_gap_breakdowns,
+        group_columns=["population", "flag", "severity", "breakdown_type"],
+        value_columns={"count": "sum", "share": "mean", "severity_share": "mean"},
+        breakdown_type_seed="seed_portfolio_reality_gap",
+        breakdown_type_rollup="portfolio_reality_gap_rollup",
+    )
+    portfolio_reality_gap_breakdown_path = run_ctx.tables_dir / "portfolio_reality_gap_breakdown.csv"
+    phase_portfolio_reality_gap_breakdown.to_csv(portfolio_reality_gap_breakdown_path, index=False)
+    phase_portfolio_segment_breakdown = aggregate_portfolio_breakdown(
+        seed_portfolio_segment_breakdowns,
+        group_columns=["population", "segment_axis", "segment_value"],
+        value_columns={
+            "count": "sum",
+            "share": "mean",
+            "raw_plan_coverage": "mean",
+            "valid_plan_coverage": "mean",
+            "governance_safe_plan_coverage": "mean",
+            "product_ready_plan_coverage": "mean",
+            "reality_gap_flag_rate": "mean",
+            "offer_plan_rate": "mean",
+            "rankable_offer_rate": "mean",
+            "governance_safe_offer_rate": "mean",
+            "mean_plan_execution_probability": "mean",
+            "mean_nominal_pd_improvement": "mean",
+            "execution_weighted_expected_improvement": "mean",
+            "early_healthy_rate": "mean",
+            "delayed_only_rate": "mean",
+            "long_horizon_heavy_rate": "mean",
+            "replan_prone_rate": "mean",
+        },
+        breakdown_type_seed="seed_portfolio_segment",
+        breakdown_type_rollup="portfolio_segment_rollup",
+    )
+    portfolio_segment_breakdown_path = run_ctx.tables_dir / "portfolio_segment_breakdown.csv"
+    phase_portfolio_segment_breakdown.to_csv(portfolio_segment_breakdown_path, index=False)
+    phase_portfolio_offer_diagnostics = aggregate_portfolio_breakdown(
+        seed_portfolio_offer_diagnostics,
+        group_columns=["population", "offer_needed_segment", "dominant_offer_type"],
+        value_columns={
+            "count": "sum",
+            "share": "mean",
+            "offer_plan_rate": "mean",
+            "rankable_offer_rate": "mean",
+            "governance_safe_offer_rate": "mean",
+            "offer_acceptance_probability_mean": "mean",
+            "combined_realization_rate": "mean",
+        },
+        breakdown_type_seed="seed_portfolio_offer_diagnostics",
+        breakdown_type_rollup="portfolio_offer_diagnostics_rollup",
+    )
+    portfolio_offer_diagnostics_path = run_ctx.tables_dir / "portfolio_offer_diagnostics.csv"
+    phase_portfolio_offer_diagnostics.to_csv(portfolio_offer_diagnostics_path, index=False)
+    phase_portfolio_behavior_comparison = aggregate_portfolio_breakdown(
+        seed_portfolio_behavior_comparisons,
+        group_columns=["population", "slice_type", "slice_value"],
+        value_columns={
+            "count": "sum",
+            "mean_plan_execution_probability": "mean",
+            "nominal_pd_improvement": "mean",
+            "execution_weighted_expected_improvement": "mean",
+            "execution_weighted_gap_vs_nominal": "mean",
+            "mixed_execution_exposure": "mean",
+            "failed_execution_exposure": "mean",
+        },
+        breakdown_type_seed="seed_portfolio_behavior_comparison",
+        breakdown_type_rollup="portfolio_behavior_comparison_rollup",
+    )
+    portfolio_behavior_comparison_path = run_ctx.tables_dir / "portfolio_behavior_comparison.csv"
+    phase_portfolio_behavior_comparison.to_csv(portfolio_behavior_comparison_path, index=False)
+    phase_portfolio_trajectory_class_breakdown = aggregate_portfolio_breakdown(
+        seed_portfolio_trajectory_class_breakdowns,
+        group_columns=["population", "trajectory_class"],
+        value_columns={
+            "count": "sum",
+            "share": "mean",
+            "gate_pass_rate_4w": "mean",
+            "gate_pass_rate_12w": "mean",
+            "gate_pass_rate_24w": "mean",
+            "product_ready_plan_coverage": "mean",
+        },
+        breakdown_type_seed="seed_portfolio_trajectory_class",
+        breakdown_type_rollup="portfolio_trajectory_class_rollup",
+    )
+    portfolio_trajectory_class_breakdown_path = run_ctx.tables_dir / "portfolio_trajectory_class_breakdown.csv"
+    phase_portfolio_trajectory_class_breakdown.to_csv(portfolio_trajectory_class_breakdown_path, index=False)
+    demo_representativeness_summary = phase_portfolio_validation_summary.get("demo_representativeness", {})
+    demo_representativeness_summary_path = run_ctx.tables_dir / "demo_representativeness_summary.json"
+    demo_representativeness_summary_path.write_text(
+        json.dumps(demo_representativeness_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    portfolio_validation_review = _build_phase_portfolio_validation_review(phase_portfolio_validation_summary)
+    portfolio_validation_review_path = run_ctx.tables_dir / "portfolio_validation_review.md"
+    portfolio_validation_review_path.write_text(
+        portfolio_validation_review,
+        encoding="utf-8",
+    )
     phase_decision_logging_summary = _build_phase_decision_logging_summary(seed_decision_logging_summaries)
     decision_logging_summary_path = run_ctx.tables_dir / "decision_logging_summary.json"
     decision_logging_summary_path.write_text(
@@ -2071,6 +2351,52 @@ def main() -> None:
         "mean_avg_margin_90d_proxy_delta": float(scale_df["avg_margin_90d_proxy_delta"].mean()),
         "mean_governance_safe_offer_rate": float(scale_df["governance_safe_offer_rate"].mean()),
         "dominant_offer_type": str(phase_offer_optimization_summary["canonical_metrics"]["dominant_offer_type"]),
+        "portfolio_raw_plan_coverage": float(scale_df["portfolio_raw_plan_coverage"].mean()),
+        "portfolio_valid_plan_coverage": float(scale_df["portfolio_valid_plan_coverage"].mean()),
+        "portfolio_governance_safe_plan_coverage": float(
+            scale_df["portfolio_governance_safe_plan_coverage"].mean()
+        ),
+        "portfolio_product_ready_plan_coverage": float(
+            scale_df["portfolio_product_ready_plan_coverage"].mean()
+        ),
+        "portfolio_no_plan_rate": float(scale_df["portfolio_no_plan_rate"].mean()),
+        "portfolio_reality_gap_flag_rate": float(scale_df["portfolio_reality_gap_flag_rate"].mean()),
+        "portfolio_mean_nominal_pd_improvement": float(scale_df["portfolio_mean_nominal_pd_improvement"].mean()),
+        "portfolio_execution_weighted_expected_improvement": float(
+            scale_df["portfolio_execution_weighted_expected_improvement"].mean()
+        ),
+        "portfolio_early_checkpoint_health_rate": float(scale_df["portfolio_early_checkpoint_health_rate"].mean()),
+        "portfolio_delayed_only_rate": float(scale_df["portfolio_delayed_only_rate"].mean()),
+        "portfolio_long_horizon_heavy_rate": float(scale_df["portfolio_long_horizon_heavy_rate"].mean()),
+        "portfolio_replan_risk_rate": float(scale_df["portfolio_replan_risk_rate"].mean()),
+        "portfolio_secondary_raw_plan_coverage": float(scale_df["portfolio_secondary_raw_plan_coverage"].mean()),
+        "portfolio_secondary_valid_plan_coverage": float(scale_df["portfolio_secondary_valid_plan_coverage"].mean()),
+        "portfolio_secondary_governance_safe_plan_coverage": float(
+            scale_df["portfolio_secondary_governance_safe_plan_coverage"].mean()
+        ),
+        "portfolio_secondary_product_ready_plan_coverage": float(
+            scale_df["portfolio_secondary_product_ready_plan_coverage"].mean()
+        ),
+        "portfolio_dominant_reality_gap_reason": str(
+            phase_portfolio_validation_summary.get("reality_gap_summary", {}).get("dominant_reality_gap_reason", "")
+        ),
+        "portfolio_where_engine_works": str(
+            phase_portfolio_validation_summary.get("segment_story", {}).get("where_engine_works", "")
+        ),
+        "portfolio_where_engine_struggles": str(
+            phase_portfolio_validation_summary.get("segment_story", {}).get("where_engine_struggles", "")
+        ),
+        "demo_representativeness_verdict": str(
+            demo_representativeness_summary.get("demo_representativeness_verdict", "")
+        ),
+        "demo_fit_confidence": str(demo_representativeness_summary.get("demo_fit_confidence", "")),
+        "demo_case_segment_share": float(demo_representativeness_summary.get("demo_case_segment_share", 0.0)),
+        "demo_segment_product_ready_rate": float(
+            demo_representativeness_summary.get("segment_product_ready_rate", 0.0)
+        ),
+        "demo_product_ready_alignment": float(
+            1.0 if bool(demo_representativeness_summary.get("product_ready_alignment", False)) else 0.0
+        ),
     }
     (run_ctx.tables_dir / "phase_scale_aggregate.json").write_text(json.dumps(aggregate, indent=2, ensure_ascii=False), encoding="utf-8")
     release_payload = evaluate_release_decision(aggregate, thresholds)
@@ -2117,6 +2443,16 @@ def main() -> None:
         "trajectory_gate_by_risk_band_csv": "tables/trajectory_gate_by_risk_band.csv",
         "trajectory_gate_by_income_band_csv": "tables/trajectory_gate_by_income_band.csv",
         "trajectory_phase_action_mix_csv": "tables/trajectory_phase_action_mix.csv",
+        "portfolio_validation_summary_json": "tables/portfolio_validation_summary.json",
+        "portfolio_coverage_breakdown_csv": "tables/portfolio_coverage_breakdown.csv",
+        "portfolio_coverage_drop_breakdown_csv": "tables/portfolio_coverage_drop_breakdown.csv",
+        "portfolio_reality_gap_breakdown_csv": "tables/portfolio_reality_gap_breakdown.csv",
+        "portfolio_segment_breakdown_csv": "tables/portfolio_segment_breakdown.csv",
+        "portfolio_offer_diagnostics_csv": "tables/portfolio_offer_diagnostics.csv",
+        "portfolio_behavior_comparison_csv": "tables/portfolio_behavior_comparison.csv",
+        "portfolio_trajectory_class_breakdown_csv": "tables/portfolio_trajectory_class_breakdown.csv",
+        "demo_representativeness_summary_json": "tables/demo_representativeness_summary.json",
+        "portfolio_validation_review_md": "tables/portfolio_validation_review.md",
         "high_risk_tuning_summary_json": "tables/high_risk_tuning_summary.json",
         "generator_policy_impact_json": "tables/generator_policy_impact.json",
         "decision_logging_summary_json": "tables/decision_logging_summary.json",
@@ -2188,6 +2524,8 @@ def main() -> None:
             "behavior_aware_summary": phase_behavior_aware_summary,
             "offer_optimization_summary": phase_offer_optimization_summary,
             "trajectory_summary": phase_trajectory_summary,
+            "portfolio_validation_summary": phase_portfolio_validation_summary,
+            "demo_representativeness_summary": demo_representativeness_summary,
             "high_risk_tuning_summary": phase_high_risk_tuning_summary,
             "impact_attribution_summary": impact_attribution_summary,
             "decision_logging_summary": phase_decision_logging_summary,
@@ -2221,6 +2559,8 @@ def main() -> None:
             "behavior_aware_summary": phase_behavior_aware_summary,
             "offer_optimization_summary": phase_offer_optimization_summary,
             "trajectory_summary": phase_trajectory_summary,
+            "portfolio_validation_summary": phase_portfolio_validation_summary,
+            "demo_representativeness_summary": demo_representativeness_summary,
             "high_risk_tuning_summary": phase_high_risk_tuning_summary,
             "impact_attribution_summary": impact_attribution_summary,
             "decision_logging_summary": phase_decision_logging_summary,
@@ -2264,6 +2604,15 @@ def main() -> None:
         "trajectory_summary_json": "tables/trajectory_summary.json",
         "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
         "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",
+        "portfolio_validation_summary_json": "tables/portfolio_validation_summary.json",
+        "portfolio_coverage_breakdown_csv": "tables/portfolio_coverage_breakdown.csv",
+        "portfolio_coverage_drop_breakdown_csv": "tables/portfolio_coverage_drop_breakdown.csv",
+        "portfolio_reality_gap_breakdown_csv": "tables/portfolio_reality_gap_breakdown.csv",
+        "portfolio_segment_breakdown_csv": "tables/portfolio_segment_breakdown.csv",
+        "portfolio_offer_diagnostics_csv": "tables/portfolio_offer_diagnostics.csv",
+        "portfolio_behavior_comparison_csv": "tables/portfolio_behavior_comparison.csv",
+        "portfolio_trajectory_class_breakdown_csv": "tables/portfolio_trajectory_class_breakdown.csv",
+        "demo_representativeness_summary_json": "tables/demo_representativeness_summary.json",
         "telemetry_export_json": "tables/telemetry_export.json",
         "milestone_acceptance_review_md": "tables/milestone_acceptance_review.md",
     }
@@ -2277,6 +2626,7 @@ def main() -> None:
         "trajectory_gate_by_risk_band_csv": "tables/trajectory_gate_by_risk_band.csv",
         "trajectory_gate_by_income_band_csv": "tables/trajectory_gate_by_income_band.csv",
         "trajectory_phase_action_mix_csv": "tables/trajectory_phase_action_mix.csv",
+        "portfolio_validation_review_md": "tables/portfolio_validation_review.md",
     }
     if mirrored_outcome_feedback:
         optional_release_artifacts["outcome_feedback_summary_json"] = "tables/outcome_feedback_summary.json"
