@@ -10,12 +10,13 @@ What has to change so Credit Coach can be run across the full evaluation populat
 
 ## Planning Basis
 
-Phase 17 does not yet have a locked `17-CONTEXT.md`. For this planning pass, the authoritative sources are:
+Phase 17 now has a locked `17-CONTEXT.md`. For this planning pass, the authoritative sources are:
 
 - `.planning/PROJECT.md`
 - `.planning/ROADMAP.md`
 - `.planning/REQUIREMENTS.md`
 - `.planning/STATE.md`
+- `.planning/phases/17-full-portfolio-evaluation-coverage-audit/17-CONTEXT.md`
 - `.planning/milestones/v1.2-ROADMAP.md`
 - `.planning/milestones/v1.2-REQUIREMENTS.md`
 - `.planning/codebase/ARCHITECTURE.md`
@@ -28,7 +29,15 @@ Phase 17 does not yet have a locked `17-CONTEXT.md`. For this planning pass, the
 - `credit-coach/tests/test_phase_experiment_suite.py`
 - `credit-coach-website/server/services/demo-data.ts`
 
-This is sufficient because Phase 17 is not a new modeling phase. The `v1.2` engine is already the inherited baseline. The remaining question is how to validate that baseline across the whole portfolio and quantify the gap between curated product stories and full-cohort truth.
+This is sufficient because Phase 17 is not a new modeling phase. The `v1.2` engine is already the inherited baseline, and the new context locks the proof contract around:
+
+- `raw / valid / governance-safe / product-ready` coverage
+- audit-first reality-gap diagnostics
+- derived recoverability and offer-needed segments
+- canonical trajectory classes
+- explicit demo representativeness verdicts
+
+The remaining work is to repackage existing engine behavior into one denominator-correct, full-cohort proof layer.
 
 ## Phase 17 Must Answer Four Questions
 
@@ -143,6 +152,7 @@ That means Phase 17 needs explicit signals such as:
 - repaired or provisional exposure
 - reality-gap flag rate
 - product-ready output rate
+- execution mismatch exposure
 
 ## Segment Analysis Must Produce Product Strategy
 
@@ -235,6 +245,7 @@ Phase 17 should organize its proof around these metric families.
 - `valid_plan_coverage`
 - `governance_safe_plan_coverage`
 - `product_ready_plan_coverage`
+- `no_plan_rate`
 
 ### Feasibility and realism
 
@@ -243,6 +254,7 @@ Phase 17 should organize its proof around these metric families.
 - `provisional_plan_rate`
 - `unrealistic_pd_drop_rate`
 - `reality_gap_flag_rate`
+- `execution_mismatch_flag_rate`
 
 ### Behavior-aware
 
@@ -278,6 +290,8 @@ Phase 17 should organize its proof around these metric families.
 - `representative_demo_gap`
 - `demo_case_segment_share`
 - `cohort_vs_demo_delta`
+- `product_ready_alignment`
+- `demo_representativeness_verdict`
 
 ## Recommended Artifact Contract
 
@@ -291,6 +305,17 @@ The likely Phase 17 artifact family should look like:
 - `portfolio_trajectory_class_breakdown.csv`
 - `demo_representativeness_breakdown.csv`
 - `portfolio_validation_review.md`
+
+The context now also locks several contract nuances:
+
+- coverage must behave like a funnel with explicit drop reasons
+- `product_ready` is downstream of governance safety plus absence of critical reality-gap
+- demo-fit verdicts may be:
+  - `representative`
+  - `optimistic`
+  - `narrow`
+  - `misleading`
+- demo cases must carry a segment anchor rather than staying as free-floating single stories
 
 The exact filenames can be refined during execution, but the contract should preserve the distinction between:
 

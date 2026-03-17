@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 ## Current Position
 
 Phase: 17
-Plan: context captured
-Status: Ready for replanning
-Last activity: 2026-03-18 - Captured Phase 17 context for coverage contract, reality-gap audit, segment classes, and demo representativeness
+Plan: planning complete
+Status: Ready for execution
+Last activity: 2026-03-18 - Replanned Phase 17 with locked context for coverage funnel, reality-gap, derived segments, and demo verdicts
 
-Progress: ready for `$gsd-plan-phase 17 --research`
+Progress: ready for `$gsd-execute-phase 17`
 
 ## Performance Metrics
 
@@ -30,7 +30,7 @@ Progress: ready for `$gsd-plan-phase 17 --research`
 | v1.0 historical baseline | 20 | historical import | Complete |
 | v1.1 completed milestone | 12 | phases 8-11 complete | Complete |
 | v1.2 completed milestone | 15 | phases 12-16 complete | Complete |
-| v1.3 active milestone | 3 | phase 17 planned, context captured | Open |
+| v1.3 active milestone | 3 | phase 17 replanned with locked context | Open |
 
 **Recent Trend:**
 - The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
@@ -71,5 +71,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Phase 17 context capture complete; next step is `$gsd-plan-phase 17 --research`
+Stopped at: Phase 17 replanning complete; next step is `$gsd-execute-phase 17`
 Resume file: None
