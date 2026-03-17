@@ -2,13 +2,13 @@
 
 ## What This Is
 
-Credit Coach is a credit-risk and recourse platform that moves beyond binary approve/deny decisions. It predicts probability of default, explains model behavior, and generates feasible action plans that can help denied customers reach approval while staying within fairness, reliability, latency, and governance gates.
+Credit Coach is a credit-risk and recourse platform for financial institutions. It moves beyond binary approve or deny decisions by combining PD prediction, explanation, phased recourse planning, institution-side offer logic, and evidence-driven governance in one decision surface.
 
-The project serves two connected goals: an academically credible research core and a production-oriented fintech productization path. After shipping `v1.2`, the system now has a stronger recommendation-quality core and is ready for the next milestone definition rather than more unscoped build-out.
+The platform now has a shipped `v1.2` recommendation-quality core and a partially productized website surface. The next milestone should not repeat typed actions, behavior-aware ranking, trajectories, offers, or learning-loop basics. Instead, it should validate the engine across the full portfolio, translate technical outputs into institution-ready product language, and turn the current demo surface into a credible buyer, analyst, and pilot asset.
 
 ## Core Value
 
-Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints.
+Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints, then surface those plans in a form that enterprise buyers and analysts can actually understand and trust.
 
 ## Current State
 
@@ -19,30 +19,18 @@ Generate credit recourse plans that are actionable, behaviorally realistic, safe
 - institution-side offer optimization under inherited governance gates
 - compact learning-ledger logging, normalized delayed outcomes, and confidence-aware offline policy evaluation
 
-The active planning state is now a milestone boundary rather than an open execution phase.
+The repo also contains an early `credit-coach-website/` full-stack product surface, but it is still only partially tied back to full-portfolio proof, curated demo-data contracts, analyst workflow validation, and pilot readiness.
 
 ## Next Milestone Goals
 
-No new milestone is open yet. The next step is to define it explicitly with `$gsd-new-milestone`.
+The next active milestone is `v1.3 Portfolio Intelligence & Productization`.
 
-Near-term candidate directions already visible in the repo:
-- operator-facing productization and dashboard surfaces
-- richer regulatory explanation and adverse-action narratives
-- recurring automation around release review and milestone health
-
-<details>
-<summary>Archived Milestone Context: v1.2 Recommendation Quality Hardening</summary>
-
-**Goal:** Improve the real-world validity, feasibility, and behavioral realism of recourse recommendations by expanding action semantics, modeling action execution probability, enabling sequential trajectory planning, integrating institutional offer optimization, and strengthening outcome feedback loops.
-
-**Target features:**
-- Real-world action taxonomy spanning behavioral, structural, and institutional actions
-- Stronger feasibility, dependency, and conflict constraints for financially realistic plans
-- Behavior-aware execution probability and expected-utility scoring
-- Sequential multi-phase trajectory planning with partial-execution simulation
-- Offer optimization and learning loops that connect recommendation quality to real outcomes
-
-</details>
+Its goals are to:
+- prove how the engine behaves across the full customer portfolio, not just in curated demos
+- translate recommendation outputs into analyst-friendly and buyer-friendly decision narratives
+- stabilize artifact-to-website demo and proof sync so product surfaces stay consistent with engine truth
+- turn the website into a business-first enterprise product surface for buyers, proof review, and investor storytelling
+- validate analyst workflows and reach a credible pilot-readiness baseline
 
 ## Requirements
 
@@ -56,45 +44,49 @@ Near-term candidate directions already visible in the repo:
 
 ### Active
 
-- [ ] Define the next milestone and its requirement contract with `$gsd-new-milestone`
-- [ ] Choose which carried-forward productization and automation goals should become active next-milestone scope
+- [ ] **PORT-01**: Full-portfolio evaluation reports coverage, feasibility, execution-weighted impact, offer reach, checkpoint health, and governance-safe rates across the whole evaluation population
+- [ ] **PORT-02**: Recommendation outputs can be translated into analyst-friendly and buyer-friendly decision narratives without losing technical traceability
+- [ ] **WEB-01**: The website can consume curated demo and proof snapshots from engine artifacts through a stable, typed sync contract
+- [ ] **WEB-02**: Demo Center and buyer-facing product surfaces present single-customer, portfolio, offer, and learning views in business-first bilingual language
+- [ ] **WEB-03**: Proof and investor surfaces clearly explain measurement, release controls, learning evidence, category story, and monetization logic
+- [ ] **OPS-01**: Analyst workflow and UAT validate that recommendations are understandable, useful, and trustworthy in representative institution tasks
+- [ ] **OPS-02**: Pilot-readiness baseline covers lead capture, deployment, auth or ops basics, and institution-specific curated demo flows
 
 ### Out of Scope
 
-- Major new end-user product surfaces - planning remains focused on the core recommendation engine until a future milestone explicitly broadens borrower-facing UX
-- New domain pivots outside credit recourse - the roadmap remains tightly centered on credit approval improvement
-- Legal or compliance opinion automation - the work continues to define engineering controls, not legal advice
-- Fully online autonomous learning or policy deployment - outcome learning remains evidence-first before any production auto-promotion
+- Full borrower-facing product surfaces or consumer self-serve apps
+- Fully online autonomous learning or policy auto-promotion
+- Legal or compliance opinion automation
+- Mandatory deep external institution integrations in every workflow before pilot proof is stable
 
 ## Context
 
 - The repository already contains a substantial brownfield implementation under `credit-coach/`.
 - The imported `v1.0` baseline established model, recourse, fairness, telemetry, and audit foundations.
 - `v1.1 Fairness Stability & KPI Hardening` remains the audited governance baseline.
-- `v1.2 Recommendation Quality Hardening` is now shipped and audited, adding typed actions, execution-aware ranking, trajectories, offer optimization, and learning-loop evidence.
-- Existing batch, suite, challenger, telemetry, and outcome-feedback seams are now richer and should still be reused rather than replaced in the next milestone.
-- No next milestone has been locked yet, so planning should reopen with explicit scope definition instead of drifting into unsourced build work.
+- `v1.2 Recommendation Quality Hardening` shipped typed actions, execution-aware ranking, phased trajectories, offer optimization, and learning-loop evidence.
+- `credit-coach-website/` now exists as a brownfield website codebase and should be treated as a first-class product surface in the next milestone, not as a throwaway demo.
+- The next milestone should continue from Phase 17 and focus on proof, translation, productization, and pilot-readiness gaps rather than reopening solved `v1.2` contracts.
 
 ## Constraints
 
-- **Governance**: Fairness, reliability, telemetry, and release gates remain inherited constraints; recommendation realism cannot override them
-- **Behavioral Realism**: New actions must model actual customer or institution behavior, not just favorable feature edits
-- **Reproducibility**: New scoring, simulation, and learning loops must remain testable and artifact-driven
-- **Operational Safety**: Outcome feedback and offer optimization may add business value, but must stay auditable and degradation-aware
-- **Brownfield**: Existing implementation patterns, artifacts, and runner seams must be respected - this is not a greenfield reset
-- **Milestone Continuity**: Phase numbering continues from imported v1.0 and completed v1.1 or v1.2 history - the next milestone should continue from Phase 17
+- **Governance**: Fairness, reliability, telemetry, and release gates remain inherited constraints; product surfaces cannot soften them
+- **Artifact Truth**: The Python engine remains the source of truth; website data should be curated, typed, and synchronized from artifacts rather than recomputed in the frontend stack
+- **Business-First Surface**: Default UI must speak in analyst and enterprise-buyer language; raw technical traces belong in controlled secondary views
+- **Portfolio Proof**: Demo stories must eventually be justified by full-population coverage and segment evidence, not only curated single-case examples
+- **Brownfield**: Existing CLI runners, artifacts, website stack, and review surfaces should be evolved rather than replaced
+- **Milestone Continuity**: Phase numbering continues from the completed `v1.2` range, so the next roadmap starts at Phase 17
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Use GSD `.planning` as the single planning home for this repo | Legacy docs were scattered across repo root and `credit-coach/docs`, making continuity and phase tracking difficult | ✓ Good |
-| Preserve legacy source documents under `.planning/` instead of discarding them | The old files contain historical context, evidence, and implementation detail needed for audits and future planning | ✓ Good |
-| Treat the repository as a brownfield GSD project | Existing code and reports prove the project is already in active development | ✓ Good |
-| Reconstruct phases 1-7 as historical `v1.0` baseline work | This preserves continuity while allowing milestone-based planning to start cleanly at Phase 8 | ✓ Good |
-| Treat `v1.1 Fairness Stability & KPI Hardening` as the audited hardening baseline | Fairness, KPI, telemetry, and release evidence contracts are now stable enough to support deeper recommendation work | ✓ Good |
-| Open `v1.2 Recommendation Quality Hardening` as the active milestone | The next meaningful upgrade is moving from a gate-aware recourse engine toward a behavior-aware sequential recourse decision engine | ✓ Good |
-| Treat `v1.2 Recommendation Quality Hardening` as shipped and archived before opening new work | Typed actions, behavior-aware ranking, trajectories, offers, and learning evidence are now in place, so the next step should be a fresh milestone contract | ✓ Good |
+| Preserve `v1.2` as the completed recommendation-quality baseline | Typed actions, behavior-aware ranking, trajectories, offers, and learning evidence are already shipped and should be inherited, not reopened | ✓ Good |
+| Open `v1.3 Portfolio Intelligence & Productization` as the next milestone | The main gap is no longer core recommendation mechanics; it is full-cohort proof, narrative translation, and product surface credibility | ✓ Good |
+| Make full-portfolio evaluation the first new phase | Demo and proof claims should be grounded in cohort-wide evidence before more product storytelling is layered on top | ✓ Good |
+| Treat `credit-coach-website/` as milestone scope | The website is now central to buyer demos, investor communication, and pilot readiness | ✓ Good |
+| Keep the Python engine as source-of-truth and sync curated website snapshots from artifacts | This avoids duplicating model logic in the website stack and keeps product surfaces auditable | ✓ Good |
+| Continue phase numbering from 17 | Milestone continuity matters more than restarting numbering around website work | ✓ Good |
 
 ---
-*Last updated: 2026-03-16 after completing and archiving milestone v1.2*
+*Last updated: 2026-03-17 after opening milestone v1.3 Portfolio Intelligence & Productization*
