@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 ## Current Position
 
-Phase: 17
-Plan: planning complete
-Status: Ready for execution
-Last activity: 2026-03-18 - Replanned Phase 17 with locked context for coverage funnel, reality-gap, derived segments, and demo verdicts
+Phase: 18
+Plan: not started
+Status: Ready for planning discussion
+Last activity: 2026-03-18 - Completed Phase 17 execution with full-portfolio proof, demo-fit audit, and suite-level portfolio validation artifacts
 
-Progress: ready for `$gsd-execute-phase 17`
+Progress: ready for `$gsd-discuss-phase 18` or `$gsd-plan-phase 18 --research`
 
 ## Performance Metrics
 
@@ -30,11 +30,12 @@ Progress: ready for `$gsd-execute-phase 17`
 | v1.0 historical baseline | 20 | historical import | Complete |
 | v1.1 completed milestone | 12 | phases 8-11 complete | Complete |
 | v1.2 completed milestone | 15 | phases 12-16 complete | Complete |
-| v1.3 active milestone | 3 | phase 17 replanned with locked context | Open |
+| v1.3 active milestone | 6 | phase 17 complete, phase 18 next | Open |
 
 **Recent Trend:**
 - The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
-- The highest-leverage next step is now full-dataset portfolio proof plus productization, with explicit measurement of reality gap and demo-vs-cohort fit.
+- Full-portfolio proof now exists, including product-ready coverage, reality-gap audit, and demo representativeness diagnostics.
+- The highest-leverage next step is now translating engine output into analyst- and buyer-ready decision narratives for Phase 18.
 
 ## Accumulated Context
 
@@ -50,13 +51,13 @@ Recent decisions affecting current work:
 - `credit-coach-website/` is now treated as milestone scope, not side documentation
 - The Python engine remains source-of-truth and website surfaces should consume curated artifact-derived snapshots rather than reimplement model logic
 - Business-first analyst and buyer language is now an explicit milestone requirement rather than an implied polishing task
-- Phase 17 planning now treats raw coverage, valid coverage, governance-safe coverage, and product-ready coverage as distinct proof layers
-- Phase 17 planning now treats reality-gap audit and demo representativeness as first-class proof questions rather than optional follow-up analysis
-- Phase 17 context now locks:
+- Phase 17 shipped a canonical portfolio proof seam under `portfolio_validation.py` and batch/suite artifact emission
+- Phase 17 locked and implemented:
   - `raw / valid / governance-safe / product-ready` coverage as the canonical funnel
   - reality-gap as audit-first and non-blocking
   - derived `recoverability_segment` and `offer_needed_segment`
   - canonical demo verdicts: `representative | optimistic | narrow | misleading`
+  - suite-level supporting and release artifact references for portfolio proof
 
 ### Pending Todos
 
@@ -71,5 +72,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Phase 17 replanning complete; next step is `$gsd-execute-phase 17`
+Stopped at: Phase 17 execution complete; next step is `$gsd-discuss-phase 18`
 Resume file: None

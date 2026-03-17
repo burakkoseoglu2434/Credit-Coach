@@ -53,18 +53,18 @@ Historical archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 **Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 **Phases**: 17-23
-**Status**: Active, ready for Phase 17 planning
+**Status**: Active, Phase 17 complete and ready for Phase 18 planning
 
 ### Phase 17: Full Portfolio Evaluation & Coverage Audit
 
 **Goal**: Run the engine across the full evaluation population and quantify coverage, feasibility, execution-weighted improvement, offer reach, checkpoint health, and governance-safe rates across segments.
 **Depends on**: Phase 16
-**Plans**: 3 planned
+**Plans**: 3 complete
 
 Plans:
-- [ ] 17-01: Build a full-population evaluation runner and canonical portfolio coverage tables
-- [ ] 17-02: Add segment-level reporting for risk, income, stress, trajectory, offer, and readiness slices
-- [ ] 17-03: Publish a portfolio validation review that separates curated demo stories from full-cohort proof
+- [x] 17-01: Build a full-population evaluation runner and canonical portfolio coverage tables
+- [x] 17-02: Add segment-level reporting for risk, income, stress, trajectory, offer, and readiness slices
+- [x] 17-03: Publish a portfolio validation review that separates curated demo stories from full-cohort proof
 
 ### Phase 18: Decision Narrative & Product Output Translation
 
@@ -152,7 +152,7 @@ Plans:
 | 14. Sequential Recourse Planning | v1.2 | 3/3 | Complete | 2026-03-16 |
 | 15. Policy Optimization Layer | v1.2 | 3/3 | Complete | 2026-03-16 |
 | 16. Outcome Feedback & Learning Loop | v1.2 | 3/3 | Complete | 2026-03-16 |
-| 17. Full Portfolio Evaluation & Coverage Audit | v1.3 | 0/3 | Planned | — |
+| 17. Full Portfolio Evaluation & Coverage Audit | v1.3 | 3/3 | Complete | 2026-03-18 |
 | 18. Decision Narrative & Product Output Translation | v1.3 | 0/3 | Planned | — |
 | 19. Demo Data & Website Foundation Sync | v1.3 | 0/3 | Planned | — |
 | 20. Enterprise Buyer Website & Demo Center Refactor | v1.3 | 0/3 | Planned | — |
