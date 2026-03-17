@@ -6,7 +6,7 @@
 
 ## Planning Question
 
-What has to change so Credit Coach can prove recommendation quality across the full evaluation population, not just curated demo cases, and publish one canonical full-cohort evidence layer that future website and proof surfaces can trust?
+What has to change so Credit Coach can be run across the full evaluation population and answer not only whether plans are generated, but whether they are realistic, governance-safe, execution-aware, offer-capable, product-ready, and representative of what the website demo currently claims?
 
 ## Planning Basis
 
@@ -22,265 +22,331 @@ Phase 17 does not yet have a locked `17-CONTEXT.md`. For this planning pass, the
 - `.planning/codebase/CONCERNS.md`
 - `credit-coach/src/credit_coach/cli/run_batch_recourse_eval.py`
 - `credit-coach/src/credit_coach/cli/run_phase_experiment_suite.py`
+- `credit-coach/src/credit_coach/ops/kpi_contract.py`
 - `credit-coach/tests/test_recourse_funnel_kpis.py`
 - `credit-coach/tests/test_batch_candidate_diversity.py`
 - `credit-coach/tests/test_phase_experiment_suite.py`
 - `credit-coach-website/server/services/demo-data.ts`
 
-This is enough because the milestone goal is already locked at the roadmap level: Phase 17 is not new recourse logic, but a proof and validation phase over the existing `v1.2` engine. The remaining work is to turn fragmented batch and suite outputs into one canonical full-portfolio validation contract.
+This is sufficient because Phase 17 is not a new modeling phase. The `v1.2` engine is already the inherited baseline. The remaining question is how to validate that baseline across the whole portfolio and quantify the gap between curated product stories and full-cohort truth.
+
+## Phase 17 Must Answer Four Questions
+
+Phase 17 should be framed around four hard questions rather than a generic “coverage audit”:
+
+1. **Coverage**
+   - Across the full evaluation population, how many customers receive any meaningful plan at all?
+
+2. **Reality and governance**
+   - Of the plans that exist, how many are realistic, feasible, execution-aware, and governance-safe rather than merely mathematically convenient?
+
+3. **Demo versus full-cohort truth**
+   - Does the success shown in curated demo stories hold across the portfolio, or is the website telling a narrow best-case story?
+
+4. **Product usability**
+   - Are outputs clean enough to be shown to analysts and buyers, or are they still too engine-native to count as product-ready?
+
+That framing makes Phase 17 a combined:
+
+- full-population evaluation phase
+- coverage taxonomy phase
+- reality-gap audit phase
+- demo-representativeness phase
 
 ## Executive Summary
 
-The repository already computes most of the ingredients needed for Phase 17:
+The repository already has most of the mechanics needed for Phase 17:
 
-- `run_batch_recourse_eval.py` runs the recourse engine over a population and already emits:
-  - candidate-quality metrics
-  - action realism metrics
-  - behavior-aware metrics
-  - trajectory metrics
-  - offer metrics
-  - row-level segment context such as `risk_band`, `income_band`, and `stress_band`
-- `run_phase_experiment_suite.py` already knows how to aggregate seeded summaries and segment breakdowns
-- the website already consumes curated demo and proof snapshots through `credit-coach-website/server/services/demo-data.ts`
+- `run_batch_recourse_eval.py` already evaluates many customers and emits candidate-quality, behavior-aware, trajectory, and offer summaries
+- row-level context such as `risk_band`, `income_band`, and `stress_band` already exists
+- `run_phase_experiment_suite.py` already mirrors many seeded artifacts and segment rollups
+- the website already consumes curated snapshots and live-demo fallbacks
 
-But the current proof surface is still fragmented.
+But the current proof surface is still too fragmented and too easy to overread.
 
-Today the repo is missing four things that Phase 17 must close:
+Today the repo can show:
 
-1. **A canonical full-portfolio validation summary**
-   - current summaries overemphasize denied-customer uplift and phase-specific evidence
-   - there is no single artifact that answers: “Across the whole population, how many customers got plans, how many were feasible, how many were offer-bearing, how many were governance-safe, and how many improved by checkpoint?”
+- denied uplift
+- trajectory checkpoint metrics
+- offer metrics
+- behavior-aware metrics
 
-2. **Unified coverage semantics**
-   - the engine can tell many local truths, but it cannot yet summarize:
-     - plan coverage
-     - feasible plan coverage
-     - execution-weighted expected improvement
-     - offer coverage
-     - checkpoint health
-     - governance-safe plan rate
-   under one contract
+But it cannot yet answer the Phase 17 questions in one coherent way because it lacks:
 
-3. **Segment-level full-cohort proof**
-   - the code already carries `risk_band`, `income_band`, and `stress_band`
-   - but there is no canonical segment rollup that separates:
-     - total population behavior
-     - denied subpopulation behavior
-     - offer-bearing vs non-offer-bearing behavior
-     - readiness and checkpoint performance by segment
+1. **A full-cohort proof contract**
+   - there is no single canonical artifact that says what happened across the entire evaluation population
 
-4. **An executive review artifact that separates demo from proof**
-   - the website can currently display curated stories
-   - but the engine does not yet emit a review that explicitly says:
-     - what is full-cohort truth
-     - what is representative demo
-     - where the two align
-     - where curated stories are narrower than the full portfolio
+2. **A useful coverage taxonomy**
+   - “plan exists” is not enough; Phase 17 must distinguish raw coverage from usable coverage
 
-The correct sequencing is:
+3. **A reality-gap audit**
+   - the system can still emit plans that look mathematically strong but are too technical, too idealized, or too weakly grounded for product use
 
-- first define canonical full-portfolio metrics and artifact tables
-- then add segment-level rollups over those metrics
-- then publish an executive validation review that future website proof surfaces can consume
+4. **A demo representativeness check**
+   - the website can tell a clean story, but the engine does not yet quantify whether that story is typical, optimistic, or narrow
 
-That sequence matches the brownfield seams already in the repo.
+5. **A product-ready output lens**
+   - the engine can produce a plan without producing something clean enough for analyst or enterprise-buyer consumption
 
-## Brownfield Constraints That Matter
+## The Key Phase 17 Insight
 
-### 1. The batch evaluator is already the population-scale seam
+Phase 17 should treat full-dataset execution as a **proof standard**, not a convenience.
 
-`credit-coach/src/credit_coach/cli/run_batch_recourse_eval.py` is oversized and fragile, but it is still the repo’s canonical population-evaluation runner. Phase 17 should not build a parallel engine. It should extract and formalize portfolio-validation logic around this seam.
+The center of gravity is:
 
-### 2. Segment context already exists and should be reused
+- not “did we get many runs?”
+- but “when we run all customers through the engine, what fraction of outputs are actually meaningful, realistic, safe, and presentable?”
 
-The batch evaluator already computes or carries:
+This means full evaluation of the complete available population is mandatory for the phase narrative.
+
+Curated demo cases become supporting stories only after full-cohort behavior is measured.
+
+## Coverage Must Be Split Into Four Layers
+
+Phase 17 should not let coverage collapse into one number.
+
+The phase must distinguish:
+
+### 1. Raw coverage
+
+- how many customers got at least one candidate plan
+
+### 2. Valid coverage
+
+- how many customers got at least one feasible, rankable, non-placeholder plan
+
+### 3. Governance-safe coverage
+
+- how many customers got a plan that remains acceptable under fairness, reliability, trajectory, and related inherited controls
+
+### 4. Product-ready coverage
+
+- how many customers got a plan clean enough to surface in the product without exposing engine-native awkwardness
+
+Without this split, the phase would risk overstating usefulness by counting weak, unrealistic, provisional, or narratively unusable plans as success.
+
+## Reality Gap Must Be Explicit
+
+The single most important new research axis is the **reality gap audit**.
+
+This should explicitly ask:
+
+- can plans be translated into real borrower actions?
+- are the recommended changes financially plausible?
+- are early checkpoint outcomes consistent with long-horizon promises?
+- are some plans producing suspiciously large PD drops from very small technical edits?
+- are no-offer plans being idealized relative to how real institutions would intervene?
+
+That means Phase 17 needs explicit signals such as:
+
+- unrealistic PD-drop flags
+- repaired or provisional exposure
+- reality-gap flag rate
+- product-ready output rate
+
+## Segment Analysis Must Produce Product Strategy
+
+Segment analysis should not be treated as a passive slice report.
+
+It should explain:
+
+- where the engine works well
+- where it does not
+- where offer logic matters
+- where behavior-aware logic changes the story
+- where demo cases might overstate performance
+
+Canonical segment dimensions should include:
 
 - `risk_band`
-- `income_band`
+- `income_band` or `income_quantile`
 - `stress_band`
-- `canonical_segment_key`
-- trajectory and offer-specific slice metrics
+- recoverability slice such as `denied`, `approved_like`, or `recoverable`
+- `offer_needed` vs `no_offer_needed`
+- short-term healthy vs long-horizon-only trajectory classes
 
-Phase 17 should reuse those fields rather than invent new segmentation vocabularies.
+The final two dimensions are especially important because they move the phase from pure diagnostics into product and strategy insight.
 
-### 3. Suite aggregation should consume, not redefine, portfolio proof
+## Offer Diagnostics Must Be First-Class
 
-`run_phase_experiment_suite.py` already aggregates seeded metrics. Phase 17 should let suite mirror the new portfolio validation artifacts, but the full-cohort truth should originate in the batch evaluator or a dedicated portfolio-validation helper consumed by it.
+Offer logic already exists from Phase 15, but Phase 17 must prove whether it matters at portfolio scale.
 
-### 4. Website proof remains a downstream consumer
+That means separate offer diagnostics are required:
 
-The website already has a demo/proof registry, but Phase 17 should stop short of changing product surfaces directly. It should produce stable engine-side artifacts that later phases can sync into website proof and demo views.
+- `offer_plan_rate`
+- `rankable_offer_rate`
+- offer acceptance distribution
+- combined realization distribution
+- governance-safe offer rate
+- dominant offer type by segment
 
-## Existing Assets We Can Reuse
+Otherwise overall plan coverage can look strong while the offer layer is quietly weak or underused.
 
-### Batch output already contains most of the needed primitives
+## Behavior-Aware Must Be Compared Against Nominal
 
-The batch evaluator already emits:
+Phase 17 should not merely carry forward behavior-aware metrics. It must show whether behavior-aware ranking materially changes portfolio quality.
 
-- denied uplift and approval summaries
-- candidate diversity
-- trajectory gate-pass rates
-- offer coverage and governance-safe offer rates
-- risk-band and income-band rollups
+That means explicit comparison between:
 
-This means Phase 17 is primarily a contract and packaging problem, not a missing-computation problem.
+- nominal expected improvement
+- execution-weighted expected improvement
 
-### Phase suite already understands weighted aggregation
+The phase should also quantify:
 
-`run_phase_experiment_suite.py` already aggregates:
+- where behavior-aware ranking demotes nominally strong but weakly executable plans
+- whether behavior-aware logic lowers superficial lift but improves realism and usability
 
-- canonical metrics across seeds
-- segment breakdowns
-- learning and offer metrics
+## Trajectory Health Needs Cohort-Level Classes
 
-That makes it the right downstream seam for mirroring Phase 17 proof artifacts later in the same phase.
+The existing 4w / 12w / 24w checkpoints are useful, but Phase 17 should summarize them into stable cohort-level classes.
 
-### Existing tests already cover adjacent seams
+Recommended trajectory classes:
 
-Useful anchors already exist:
+- `early_healthy`
+- `delayed_only`
+- `unstable`
+- `long_horizon_heavy`
+- `replan_prone`
 
-- `credit-coach/tests/test_recourse_funnel_kpis.py`
-- `credit-coach/tests/test_batch_candidate_diversity.py`
-- `credit-coach/tests/test_phase_experiment_suite.py`
+These classes will make later product and narrative phases much easier.
 
-Phase 17 can add one focused test module for portfolio validation rather than inventing an entirely new test topology.
+## Demo Cases Must Be Audited For Representativeness
 
-## Gaps Phase 17 Must Close
+One of the most important outputs of Phase 17 should be a concrete answer to:
 
-### 1. No canonical full-population artifact contract
+**Is the current demo customer representative or unusually favorable?**
 
-The repo needs one machine-readable summary, likely something like:
+That implies specific proof questions:
 
-- `portfolio_validation_summary.json`
+- which segment does the demo case belong to?
+- how large is that segment in the total population?
+- how far are demo metrics from cohort averages?
+- is the demo a representative story, an optimistic story, or a narrow edge case?
 
-with canonical metrics such as:
+This should become an explicit audit output rather than an informal judgment.
 
-- `plan_coverage_rate`
-- `feasible_plan_rate`
+## Recommended Metric Families
+
+Phase 17 should organize its proof around these metric families.
+
+### Coverage
+
+- `raw_plan_coverage`
+- `valid_plan_coverage`
+- `governance_safe_plan_coverage`
+- `product_ready_plan_coverage`
+
+### Feasibility and realism
+
+- `infeasible_plan_rate`
+- `repaired_plan_rate`
+- `provisional_plan_rate`
+- `unrealistic_pd_drop_rate`
+- `reality_gap_flag_rate`
+
+### Behavior-aware
+
+- `mean_plan_execution_probability`
 - `execution_weighted_expected_improvement`
-- `offer_coverage_rate`
-- `offer_acceptance_mean`
-- `trajectory_gate_pass_rate_4w`
-- `trajectory_gate_pass_rate_12w`
-- `trajectory_gate_pass_rate_24w`
-- `governance_safe_plan_rate`
-- `learning_ready_coverage` when available
+- `mixed_execution_exposure`
+- `failed_execution_exposure`
 
-The precise names can be refined during execution, but the contract must be one-source-of-truth and full-cohort-first.
+### Offer
 
-### 2. Denied-only metrics are too easy to overread
+- `offer_plan_rate`
+- `rankable_offer_rate`
+- `governance_safe_offer_rate`
+- `combined_realization_rate`
 
-Current outputs are strong for denied-customer recourse benchmarking, but a product proof surface also needs:
+### Trajectory
 
-- total-population coverage
-- denied-population coverage
-- recovery-ready denied coverage
+- `early_checkpoint_health_rate`
+- `delayed_only_rate`
+- `long_horizon_heavy_rate`
+- `replan_risk_rate`
 
-These should be explicit rather than blended into one uplift story.
+### Segment proof
 
-### 3. Segment proof is fragmented
+- by risk
+- by income
+- by stress
+- by offer-needed segment
+- by recoverability segment
 
-Phase 17 needs canonical segment tables for:
+### Demo/proof fit
 
-- risk band
-- income band
-- stress band
-- canonical multi-segment keys where useful
-- checkpoint health by segment
-- offer reach and governance-safe rate by segment
+- `representative_demo_gap`
+- `demo_case_segment_share`
+- `cohort_vs_demo_delta`
 
-### 4. Proof vs demo is not yet formally separated
+## Recommended Artifact Contract
 
-The system needs an executive artifact, likely:
-
-- `portfolio_validation_review.md`
-
-that explains:
-
-- full-cohort findings
-- strongest and weakest segments
-- where demo stories are representative
-- where demo stories are only illustrative
-
-That narrative is critical before website proof/productization phases.
-
-## Recommended Architecture
-
-### A. Add a dedicated portfolio-validation summarizer module
-
-The safest path is to extract full-cohort summarization into a focused helper module, likely under:
-
-- `credit-coach/src/credit_coach/evaluation/portfolio_validation.py`
-
-That module should:
-
-- consume row-level batch outputs
-- compute canonical portfolio metrics
-- build segment rollups
-- emit review-ready aggregate fields
-
-This keeps `run_batch_recourse_eval.py` from growing even further without creating a second orchestration stack.
-
-### B. Emit one canonical summary plus a small companion table set
-
-Phase 17 should likely standardize around:
+The likely Phase 17 artifact family should look like:
 
 - `portfolio_validation_summary.json`
 - `portfolio_coverage_breakdown.csv`
+- `portfolio_reality_gap_breakdown.csv`
 - `portfolio_segment_breakdown.csv`
-- `portfolio_checkpoint_health.csv`
 - `portfolio_offer_breakdown.csv`
+- `portfolio_trajectory_class_breakdown.csv`
+- `demo_representativeness_breakdown.csv`
+- `portfolio_validation_review.md`
 
-The exact filenames can be tuned, but the principle should hold:
+The exact filenames can be refined during execution, but the contract should preserve the distinction between:
 
-- one summary JSON
-- a small, stable family of supporting CSV breakdowns
+- machine-readable canonical truth
+- supporting breakdown tables
+- executive proof review
 
-### C. Mirror the summary into seeded suite outputs only after the contract is stable
+## Brownfield Seams To Reuse
 
-The suite should not invent its own definition of portfolio proof. It should consume the new portfolio validation outputs and produce weighted mirrors or supporting references when needed.
+### 1. `run_batch_recourse_eval.py` remains the population runner
 
-### D. Publish an executive review artifact before touching website proof
+Phase 17 should not create a second orchestration path. It should extract full-cohort validation on top of the existing batch runner.
 
-Phase 17 should end with a markdown review artifact that says what the full portfolio actually did. Later website phases can reframe it, but the engine should own the original truth.
+### 2. Existing segment fields should remain canonical
 
-## Recommended Execution Order
+The code already carries `risk_band`, `income_band`, `stress_band`, and canonical segment keys. Phase 17 should reuse these rather than minting a parallel taxonomy.
 
-1. **Plan 17-01**
-   - add canonical full-portfolio metrics and summary outputs
-   - verify they work over the full batch population
-2. **Plan 17-02**
-   - add segment-level rollups and suite-aware aggregation over the same contract
-3. **Plan 17-03**
-   - add an executive validation review separating curated demo narratives from full-cohort proof
+### 3. `run_phase_experiment_suite.py` should mirror, not redefine
 
-## Validation Implications
+Seeded suite outputs should reflect the new portfolio-proof contract, not independently reinvent it.
 
-Phase 17 should introduce at least one dedicated test module:
+### 4. Website proof remains downstream
 
-- `credit-coach/tests/test_portfolio_validation.py`
+The website is a consumer of curated snapshots and proof artifacts. Phase 17 should produce the evidence layer that later website phases can safely sync.
 
-and extend:
+## Recommended Plan Structure
 
-- `credit-coach/tests/test_recourse_funnel_kpis.py`
-- `credit-coach/tests/test_batch_candidate_diversity.py`
-- `credit-coach/tests/test_phase_experiment_suite.py`
+### Plan 17-01
 
-The validation goal is not just “artifact exists.” It is:
+Create the canonical full-population runner outputs:
 
-- full-population metrics are computed from the correct denominator
-- segment rollups preserve cohort truth
-- denied-only stories are explicitly separated from total-population stories
-- review artifacts never overclaim beyond what the cohort data shows
+- full-dataset evaluation
+- coverage taxonomy
+- reality-gap and product-ready base diagnostics
 
-## Planning Answer
+### Plan 17-02
 
-Phase 17 should be planned as a **proof-contract phase**, not a new-modeling phase.
+Add strategic slice diagnostics:
 
-The repo already has the runner and most of the raw metrics. The missing work is to:
+- segment rollups
+- offer diagnostics
+- behavior-aware vs nominal comparison
+- trajectory class summaries
 
-- package full-cohort truth canonically
-- roll it up by segment
-- distinguish curated demo stories from full portfolio evidence
+### Plan 17-03
 
-That is the cleanest way to satisfy `PORT-01` and to unlock the later website/productization phases without making proof claims the engine cannot defend.
+Publish the executive proof layer:
+
+- full-cohort review
+- demo representativeness audit
+- explicit separation of curated story and portfolio truth
+
+## Final Research Conclusion
+
+Phase 17 should be planned as:
+
+> Run the engine across the full evaluation population and determine not only whether plans can be generated, but whether they are realistic, governance-safe, execution-aware, offer-capable, and product-ready across representative segments. The phase must also quantify the gap between curated demo stories and full-cohort behavior.
+
+That framing is stronger than a simple coverage audit and better matches the real gap between the current engine and the current product surface.

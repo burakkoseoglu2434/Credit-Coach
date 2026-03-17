@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 Phase: 17
 Plan: planning complete
 Status: Ready for execution
-Last activity: 2026-03-18 - Planned Phase 17 `Full Portfolio Evaluation & Coverage Audit`
+Last activity: 2026-03-18 - Replanned Phase 17 around full-dataset proof, reality-gap audit, and demo representativeness
 
 Progress: ready for `$gsd-execute-phase 17`
 
@@ -34,7 +34,7 @@ Progress: ready for `$gsd-execute-phase 17`
 
 **Recent Trend:**
 - The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
-- The highest-leverage next step is full-portfolio proof plus productization, not more unscoped engine expansion.
+- The highest-leverage next step is now full-dataset portfolio proof plus productization, with explicit measurement of reality gap and demo-vs-cohort fit.
 
 ## Accumulated Context
 
@@ -50,6 +50,8 @@ Recent decisions affecting current work:
 - `credit-coach-website/` is now treated as milestone scope, not side documentation
 - The Python engine remains source-of-truth and website surfaces should consume curated artifact-derived snapshots rather than reimplement model logic
 - Business-first analyst and buyer language is now an explicit milestone requirement rather than an implied polishing task
+- Phase 17 planning now treats raw coverage, valid coverage, governance-safe coverage, and product-ready coverage as distinct proof layers
+- Phase 17 planning now treats reality-gap audit and demo representativeness as first-class proof questions rather than optional follow-up analysis
 
 ### Pending Todos
 
@@ -64,5 +66,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Phase 17 planning complete; next step is `\$gsd-execute-phase 17`
+Stopped at: Phase 17 replanning complete; next step is `$gsd-execute-phase 17`
 Resume file: None
