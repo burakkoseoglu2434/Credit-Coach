@@ -9,7 +9,7 @@
 ### Portfolio Intelligence
 
 - [x] **PORT-01**: The system can evaluate the full portfolio and report plan coverage, feasibility, execution-weighted improvement, offer reach, checkpoint health, and governance-safe rates across the whole evaluation population
-- [ ] **PORT-02**: The system can translate technical recommendation outputs into analyst-friendly and buyer-friendly decision narratives while preserving expandable technical traceability
+- [ ] **PORT-02**: The system can translate technical recommendation outputs into controlled analyst-friendly and buyer-friendly narratives with executive summaries by default and expandable technical traceability on demand
 
 ### Website & Demo Productization
 

@@ -35,7 +35,7 @@ Progress: ready for `$gsd-discuss-phase 18` or `$gsd-plan-phase 18 --research`
 **Recent Trend:**
 - The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
 - Full-portfolio proof now exists, including product-ready coverage, reality-gap audit, and demo representativeness diagnostics.
-- The highest-leverage next step is now translating engine output into analyst- and buyer-ready decision narratives for Phase 18.
+- The highest-leverage next step is now Phase 18: a controlled translation layer that turns engine output into analyst- and buyer-ready product narratives without hiding technical truth.
 
 ## Accumulated Context
 

@@ -45,7 +45,7 @@ Its goals are to:
 ### Active
 
 - [ ] **PORT-01**: Full-portfolio evaluation reports coverage, feasibility, execution-weighted impact, offer reach, checkpoint health, and governance-safe rates across the whole evaluation population
-- [ ] **PORT-02**: Recommendation outputs can be translated into analyst-friendly and buyer-friendly decision narratives without losing technical traceability
+- [ ] **PORT-02**: Recommendation outputs can be translated into a controlled narrative layer with executive summaries, business-first action stories, and optional technical reveal without losing traceability
 - [ ] **WEB-01**: The website can consume curated demo and proof snapshots from engine artifacts through a stable, typed sync contract
 - [ ] **WEB-02**: Demo Center and buyer-facing product surfaces present single-customer, portfolio, offer, and learning views in business-first bilingual language
 - [ ] **WEB-03**: Proof and investor surfaces clearly explain measurement, release controls, learning evidence, category story, and monetization logic

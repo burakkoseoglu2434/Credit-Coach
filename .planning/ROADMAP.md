@@ -68,14 +68,14 @@ Plans:
 
 ### Phase 18: Decision Narrative & Product Output Translation
 
-**Goal**: Translate technical recommendation outputs into analyst-friendly and buyer-friendly decision narratives while preserving controlled technical traceability.
+**Goal**: Build a controlled translation layer that turns engine output into analyst-friendly and buyer-friendly product narratives, with executive summaries by default and expandable technical traceability on demand.
 **Depends on**: Phase 17
 **Plans**: 3 planned
 
 Plans:
-- [ ] 18-01: Add business-first action, checkpoint, and decision narration templates over existing recourse outputs
-- [ ] 18-02: Add controlled technical trace layers so business views can expand into feature and explanation provenance
-- [ ] 18-03: Validate single-customer output stories across representative denied and recovery-ready cases
+- [ ] 18-01: Define the narrative contract and action template library for action summaries, why-it-matters, expected outcomes, and executive summary cards
+- [ ] 18-02: Add controlled technical reveal, checkpoint or offer or adverse-action narration, narrative confidence, and vocabulary consistency layers
+- [ ] 18-03: Validate one UI-ready output schema across representative cases so website and analyst surfaces can consume the same business-first narrative contract
 
 ### Phase 19: Demo Data & Website Foundation Sync
 
