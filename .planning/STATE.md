@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 ## Current Position
 
 Phase: 18
-Plan: 3 planned
-Status: Ready for execution
-Last activity: 2026-03-18 - Planned Phase 18 with narrative contract, controlled technical reveal, and shared UI-ready schema workstreams
+Plan: 3 completed
+Status: Phase complete
+Last activity: 2026-03-18 - Executed Phase 18 with engine-owned roadmap narrative, controlled technical reveal, and website schema mirror consumption
 
-Progress: ready for `$gsd-discuss-phase 18` or `$gsd-plan-phase 18 --research`
+Progress: ready for `$gsd-discuss-phase 19` or `$gsd-plan-phase 19 --research`
 
 ## Performance Metrics
 
@@ -35,7 +35,8 @@ Progress: ready for `$gsd-discuss-phase 18` or `$gsd-plan-phase 18 --research`
 **Recent Trend:**
 - The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
 - Full-portfolio proof now exists, including product-ready coverage, reality-gap audit, and demo representativeness diagnostics.
-- The highest-leverage next step is now Phase 18: a controlled translation layer that turns engine output into analyst- and buyer-ready product narratives without hiding technical truth.
+- The engine now emits buyer- and analyst-ready roadmap narratives directly, including executive summary, checkpoint meaning, reasons, and technical reveal.
+- The highest-leverage next step is now Phase 19: syncing engine-owned artifacts into stable curated website demo and proof snapshots.
 
 ## Accumulated Context
 
@@ -64,6 +65,11 @@ Recent decisions affecting current work:
   - executive summary by default and `technical_reveal` on demand
   - one shared UI-ready schema for website and analyst views
   - template-driven, deterministic, controlled-vocabulary narration
+- Phase 18 shipped:
+  - engine-owned roadmap narrative schema and serialization
+  - deterministic action, checkpoint, offer, and reason narration
+  - confidence labels plus controlled technical reveal
+  - website typed mirror that consumes engine narrative instead of inventing story text
 
 ### Pending Todos
 
@@ -78,5 +84,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Phase 18 planning complete; next step is `$gsd-execute-phase 18`
+Stopped at: Phase 18 execution complete; next step is `$gsd-plan-phase 19 --research`
 Resume file: None

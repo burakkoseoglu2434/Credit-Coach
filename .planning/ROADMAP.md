@@ -53,7 +53,7 @@ Historical archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 **Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 **Phases**: 17-23
-**Status**: Active, Phase 17 complete and ready for Phase 18 planning
+**Status**: Active, Phases 17-18 complete and ready for Phase 19 planning
 
 ### Phase 17: Full Portfolio Evaluation & Coverage Audit
 
@@ -70,12 +70,12 @@ Plans:
 
 **Goal**: Build a controlled translation layer that turns engine output into analyst-friendly and buyer-friendly product narratives, with executive summaries by default and expandable technical traceability on demand.
 **Depends on**: Phase 17
-**Plans**: 3 planned
+**Plans**: 3 complete
 
 Plans:
-- [ ] 18-01: Define the narrative contract and action template library for action summaries, why-it-matters, expected outcomes, and executive summary cards
-- [ ] 18-02: Add controlled technical reveal, checkpoint or offer or adverse-action narration, narrative confidence, and vocabulary consistency layers
-- [ ] 18-03: Validate one UI-ready output schema across representative cases so website and analyst surfaces can consume the same business-first narrative contract
+- [x] 18-01: Define the narrative contract and action template library for action summaries, why-it-matters, expected outcomes, and executive summary cards
+- [x] 18-02: Add controlled technical reveal, checkpoint or offer or adverse-action narration, narrative confidence, and vocabulary consistency layers
+- [x] 18-03: Validate one UI-ready output schema across representative cases so website and analyst surfaces can consume the same business-first narrative contract
 
 ### Phase 19: Demo Data & Website Foundation Sync
 
