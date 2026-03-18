@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 Phase: 18
 Plan: not started
-Status: Ready for planning discussion
-Last activity: 2026-03-18 - Completed Phase 17 execution with full-portfolio proof, demo-fit audit, and suite-level portfolio validation artifacts
+Status: Ready for replanning with locked context
+Last activity: 2026-03-18 - Completed Phase 18 discussion and locked controlled translation, technical reveal, and UI-ready narrative contract decisions
 
 Progress: ready for `$gsd-discuss-phase 18` or `$gsd-plan-phase 18 --research`
 
@@ -58,6 +58,12 @@ Recent decisions affecting current work:
   - derived `recoverability_segment` and `offer_needed_segment`
   - canonical demo verdicts: `representative | optimistic | narrow | misleading`
   - suite-level supporting and release artifact references for portfolio proof
+- Phase 18 discussion locked:
+  - engine-side canonical narrative contract
+  - `customer_roadmap.narrative` as sibling translated layer
+  - executive summary by default and `technical_reveal` on demand
+  - one shared UI-ready schema for website and analyst views
+  - template-driven, deterministic, controlled-vocabulary narration
 
 ### Pending Todos
 
@@ -72,5 +78,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-18
-Stopped at: Phase 17 execution complete; next step is `$gsd-discuss-phase 18`
+Stopped at: Phase 18 discussion complete; next step is `$gsd-plan-phase 18 --research`
 Resume file: None
