@@ -8,13 +8,19 @@ import { demoOverviewCards } from "@/data/site-content";
 import { useDemoItem } from "@/hooks/useDemoData";
 import { useLanguage } from "@/i18n/language";
 import {
+  formatApprovalReady,
   formatCheckpointLabel,
+  formatCheckpointNote,
+  formatCreditReadinessStage,
+  formatDecisionStatus,
   formatDemoProfile,
   formatDemoSegment,
   formatIncomeBand,
   formatOfferType,
+  formatPdPercent,
   formatRiskBand,
   formatTrajectoryStatus,
+  pickLocalizedText,
 } from "@/lib/demo-formatters";
 import type { SingleCustomerDemo } from "@shared/demo-schema";
 
@@ -96,6 +102,9 @@ export function DemoCenterPage() {
   const customer = roadmapContent?.customer;
   const summary = roadmapContent?.summary;
   const firstCheckpoint = roadmapContent?.checkpoints[0];
+  const narrative = roadmapContent?.narrative;
+  const executiveSummary = narrative?.executive_summary;
+  const isLiveDemo = Boolean(roadmapContent?.meta?.live);
   const hasOffer = roadmapContent?.phases.some((phase) =>
     phase.steps.some((step) => step.offer_type),
   );
@@ -105,6 +114,39 @@ export function DemoCenterPage() {
   const improvement = summary ? summary.base_pd - summary.target_pd_24w : 0;
   const preferredPolicy = (opeContent.preferred_policy_signal as GenericContent | undefined) ?? undefined;
   const readiness = (learningContent.learning_readiness_status_distribution as GenericContent | undefined) ?? {};
+  const readinessHint =
+    executiveSummary
+      ? pickLocalizedText(executiveSummary.expected_result.description, lang)
+      :
+    summary?.decision_status === "NEEDS_REVIEW"
+      ? text({
+          tr: "Profil yeniden basvuru esigine yaklasmis olsa da son karar icin manuel review gerekiyor.",
+          en: "The profile is moving toward re-application readiness, but the final decision still requires manual review.",
+        })
+      : summary?.credit_readiness_stage === "now"
+      ? text({
+          tr: "Musteri mevcut gorunumde yeniden basvuru efigine ulasmis durumda.",
+          en: "The customer is already back at an approval-ready threshold in this view.",
+        })
+      : summary?.credit_readiness_stage === "week_4"
+        ? text({
+            tr: "Ilk 4 haftalik aksiyonlar tamamlanirsa yeniden basvuru zemini hizla olusuyor.",
+            en: "If the first 4-week actions land, re-application readiness forms quickly.",
+          })
+        : summary?.credit_readiness_stage === "week_12"
+          ? text({
+              tr: "Yapisal adimlar tamamlandiginda orta vadede krediye hazirlik bekleniyor.",
+              en: "Credit readiness is expected by the mid-term checkpoint once structural steps land.",
+            })
+          : summary?.credit_readiness_stage === "week_24"
+            ? text({
+                tr: "Krediye hazirlik uzun vadeli iyilesme ile geliyor; kisa vadede daha fazla destek gerekiyor.",
+                en: "Readiness arrives through longer-horizon improvement, with more support needed early on.",
+              })
+            : text({
+                tr: "Bu plan ilerleme sagliyor, ancak daha fazla guclenme olmadan krediye hazirlik olusmuyor.",
+                en: "The plan creates progress, but more strengthening is still needed before approval readiness.",
+              });
 
   return (
     <div>
@@ -114,10 +156,11 @@ export function DemoCenterPage() {
           tr: "Temsili urun akisini tek musteri, portfoy ve ogrenme yuzeyinde gorun.",
           en: "See the representative product flow across customer, portfolio, and learning surfaces.",
         })}
-        supportingNote={text({
-          tr: "Temsili urun onizlemesi",
-          en: "Representative product preview",
-        })}
+        supportingNote={
+          isLiveDemo
+            ? text({ tr: "Canli model calistirma", en: "Live model run" })
+            : text({ tr: "Temsili urun onizlemesi", en: "Representative product preview" })
+        }
         description={text({
           tr: "Bu demo, credit-coach'in kurumsal ekipler icin nasil deger urettigini ham motor ciktisi yerine karar diliyle gosterir.",
           en: "This demo shows how credit-coach creates value for institutional teams through decision language rather than raw engine output.",
@@ -127,7 +170,9 @@ export function DemoCenterPage() {
         tertiaryCta={{ href: "/product", label: text({ tr: "Urunu Anla", en: "Understand the Product" }) }}
         badges={[
           text({ tr: "Kurumsal karar yuzeyi", en: "Institutional decision surface" }),
-          text({ tr: "Temsili demo gorunumu", en: "Curated demo snapshot" }),
+          isLiveDemo
+            ? text({ tr: "Ornek kullanici icin canli sonuc", en: "Live result for a sample user" })
+            : text({ tr: "Temsili demo gorunumu", en: "Curated demo snapshot" }),
           text({ tr: "Is odakli anlatim", en: "Business-first storytelling" }),
         ]}
         aside={
@@ -194,58 +239,140 @@ export function DemoCenterPage() {
                       {text({ tr: "Yonetici ozeti", en: "Executive summary" })}
                     </div>
                     <div className="font-display text-3xl font-semibold text-white">
-                      {text({
-                        tr: "Musteri, asamali bir toparlanma yoluna alinmis durumda.",
-                        en: "The customer is now on a phased recovery path.",
-                      })}
+                      {pickLocalizedText(
+                        executiveSummary?.headline,
+                        lang,
+                        text({
+                          tr: "Musteri, asamali bir toparlanma yoluna alinmis durumda.",
+                          en: "The customer is now on a phased recovery path.",
+                        }),
+                      )}
                     </div>
+                    {executiveSummary?.summary_line ? (
+                      <div className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+                        {pickLocalizedText(executiveSummary.summary_line, lang)}
+                      </div>
+                    ) : null}
                   </div>
-                    <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-arctic/75">
-                    {text({ tr: "Kurgulanmis demo gorunumu", en: "Curated demo snapshot" })}
+                  <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-arctic/75">
+                    {isLiveDemo
+                      ? text({ tr: "Canli model sonucu", en: "Live model result" })
+                      : text({ tr: "Kurgulanmis demo gorunumu", en: "Curated demo snapshot" })}
                   </div>
                 </div>
-                <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   <MetricTile
                     label={text({ tr: "Baslangic riski", en: "Starting risk" })}
-                    value={formatRiskBand(customer.risk_band, lang)}
-                    hint={text({
-                      tr: "Duzensiz ama toparlanabilir bir profil.",
-                      en: "A pressured but recoverable profile.",
-                    })}
+                    value={
+                      executiveSummary
+                        ? pickLocalizedText(executiveSummary.risk_start.label, lang)
+                        : formatRiskBand(customer.risk_band, lang)
+                    }
+                    hint={
+                      executiveSummary
+                        ? pickLocalizedText(executiveSummary.risk_start.description, lang)
+                        : text({
+                            tr: "Duzensiz ama toparlanabilir bir profil.",
+                            en: "A pressured but recoverable profile.",
+                          })
+                    }
                   />
                   <MetricTile
-                    label={text({ tr: "Onerilen yol", en: "Recommended path" })}
-                    value={text({ tr: "3 asamali plan", en: "3-step phased plan" })}
-                    hint={text({
-                      tr: "Kisa vade denge, orta vade hazirlik, uzun vade kalicilik.",
-                      en: "Short-term stabilization, mid-term readiness, long-term durability.",
-                    })}
+                    label={text({ tr: "Karar gorunumu", en: "Decision outlook" })}
+                    value={
+                      executiveSummary
+                        ? pickLocalizedText(executiveSummary.decision_view.label, lang)
+                        : formatDecisionStatus(summary.decision_status, lang)
+                    }
+                    hint={
+                      executiveSummary
+                        ? pickLocalizedText(executiveSummary.decision_view.description, lang)
+                        : summary.decision_status === "APPROVED"
+                          ? text({
+                              tr: "Model bu profili yeniden onaya uygun goruyor; yani karar dili toparlanma planindan onay gorunumune gecmis durumda.",
+                              en: "The model now sees this profile as approval-ready, meaning the decision story has moved from recovery mode into an approval posture.",
+                            })
+                          : text({
+                              tr: "Model, bu noktada otomatik karar yerine kontrollu bir karar gorunumu uretir.",
+                              en: "At this stage, the model produces a controlled decision outlook rather than a blind automatic outcome.",
+                            })
+                    }
                   />
                   <MetricTile
                     label={text({ tr: "Teklif durumu", en: "Offer status" })}
                     value={
-                      hasOffer && firstOfferType
-                        ? formatOfferType(firstOfferType, lang)
-                        : text({ tr: "Teklif yok", en: "No offer included" })
+                      executiveSummary
+                        ? pickLocalizedText(executiveSummary.offer_status.label, lang)
+                        : hasOffer && firstOfferType
+                          ? formatOfferType(firstOfferType, lang)
+                          : text({ tr: "Teklif yok", en: "No offer included" })
                     }
-                    hint={text({
-                      tr: "Kurum teklifi, musteri aksiyon planinin icinde yer aliyor.",
-                      en: "The institution-side offer sits inside the customer plan.",
-                    })}
+                    hint={
+                      executiveSummary
+                        ? pickLocalizedText(executiveSummary.offer_status.description, lang)
+                        : hasOffer && firstOfferType
+                          ? text({
+                              tr: "Kurum teklifi, musteri aksiyon planinin icinde yer aliyor.",
+                              en: "The institution-side offer sits inside the customer plan.",
+                            })
+                          : text({
+                              tr: "Bu yol haritasi kurum teklifi olmadan, musteri davranisini guclendirerek ilerliyor.",
+                              en: "This path improves the outcome through customer action rather than an institution-side offer.",
+                            })
+                    }
                   />
                   <MetricTile
                     label={text({ tr: "4 haftalik checkpoint", en: "4-week checkpoint" })}
                     value={
-                      firstCheckpoint?.gate_pass_estimate
-                        ? text({ tr: "Olumlu gecis", en: "Positive checkpoint" })
-                        : text({ tr: "Yakindan izleme", en: "Needs close follow-up" })
+                      executiveSummary
+                        ? pickLocalizedText(executiveSummary.checkpoint_4w_summary.label, lang)
+                        : firstCheckpoint?.gate_pass_estimate
+                          ? text({ tr: "Olumlu gecis", en: "Positive checkpoint" })
+                          : text({ tr: "Yakindan izleme", en: "Needs close follow-up" })
                     }
-                    hint={firstCheckpoint?.note}
+                    hint={
+                      executiveSummary
+                        ? pickLocalizedText(executiveSummary.checkpoint_4w_summary.description, lang)
+                        : firstCheckpoint
+                          ? formatCheckpointNote(
+                              firstCheckpoint.week,
+                              firstCheckpoint.approval_ready,
+                              firstCheckpoint.gate_pass_estimate,
+                              lang,
+                            )
+                          : undefined
+                    }
+                  />
+                  <MetricTile
+                    label={text({ tr: "Krediye hazirlik", en: "Credit readiness" })}
+                    value={
+                      executiveSummary
+                        ? pickLocalizedText(executiveSummary.time_to_readiness.label, lang)
+                        : formatCreditReadinessStage(summary.credit_readiness_stage, lang)
+                    }
+                    context={
+                      isLiveDemo
+                        ? text({ tr: "Canli sonuc", en: "Live result" })
+                        : text({ tr: "Demo yorumu", en: "Demo interpretation" })
+                    }
+                    hint={
+                      executiveSummary
+                        ? pickLocalizedText(executiveSummary.time_to_readiness.description, lang)
+                        : readinessHint
+                    }
                   />
                   <MetricTile
                     label={text({ tr: "Beklenen ilerleme", en: "Expected progress" })}
-                    value={`${formatPointChange(improvement, 0)} ${text({ tr: "iyilesme", en: "improvement" })}`}
-                    hint={`${formatPercent(summary.base_pd, 0)} -> ${formatPercent(summary.target_pd_24w, 0)} PD`}
+                    value={
+                      executiveSummary
+                        ? pickLocalizedText(executiveSummary.expected_result.label, lang)
+                        : `${formatPointChange(improvement, 0)} ${text({ tr: "iyilesme", en: "improvement" })}`
+                    }
+                    hint={
+                      executiveSummary
+                        ? pickLocalizedText(executiveSummary.expected_result.description, lang)
+                        : `${formatPdPercent(summary.base_pd, lang)} -> ${formatPdPercent(summary.target_pd_24w, lang)} PD`
+                    }
                   />
                 </div>
               </div>
@@ -269,16 +396,28 @@ export function DemoCenterPage() {
                       {text({ tr: "Yol durumu", en: "Path status" })}:{" "}
                       <span className="text-white">{formatTrajectoryStatus(summary.trajectory_status, lang)}</span>
                     </div>
+                    <div>
+                      {text({ tr: "Karar gorunumu", en: "Decision outlook" })}:{" "}
+                      <span className="text-white">{formatDecisionStatus(summary.decision_status, lang)}</span>
+                    </div>
+                    <div>
+                      {text({ tr: "Kredi uygunlugu", en: "Credit eligibility" })}:{" "}
+                      <span className="text-white">
+                        {formatCreditReadinessStage(summary.credit_readiness_stage, lang)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="panel p-6">
                   <div className="eyebrow">{text({ tr: "Neden onemli", en: "Why it matters" })}</div>
                   <p className="text-sm leading-7 text-slate-300">
-                    {text({
-                      tr: "Bu gorunum, karar sonrasi iletisim dilini netlestirir: musteriye hangi aksiyonlarin sirayla onerilecegi ve hangi kurum teklifinin ne zaman devreye girecegi acik olur.",
-                      en: "This surface clarifies post-decision communication: what steps the customer should take, in what order, and when the institution-side offer should appear.",
-                    })}
+                    {executiveSummary?.recommended_path
+                      ? pickLocalizedText(executiveSummary.recommended_path.description, lang)
+                      : text({
+                          tr: "Bu gorunum, karar sonrasi iletisim dilini netlestirir: musteriye hangi aksiyonlarin sirayla onerilecegi ve hangi kurum teklifinin ne zaman devreye girecegi acik olur.",
+                          en: "This surface clarifies post-decision communication: what steps the customer should take, in what order, and when the institution-side offer should appear.",
+                        })}
                   </p>
                 </div>
 
@@ -288,16 +427,34 @@ export function DemoCenterPage() {
                   </summary>
                   <div className="mt-4 grid gap-2">
                     <div>
-                      {text({ tr: "Ham kayit kimligi", en: "Raw record id" })}:{" "}
-                      <span className="text-white">{customer.customer_id}</span>
+                      {text({ tr: "Narrative confidence", en: "Narrative confidence" })}:{" "}
+                      <span className="text-white">
+                        {executiveSummary
+                          ? pickLocalizedText(executiveSummary.narrative_confidence.label, lang)
+                          : text({ tr: "n/a", en: "n/a" })}
+                      </span>
                     </div>
                     <div>
-                      {text({ tr: "Icerik etiketi", en: "Raw segment label" })}:{" "}
-                      <span className="text-white">{customer.segment}</span>
+                      {text({ tr: "Confidence summary", en: "Confidence summary" })}:{" "}
+                      <span className="text-white">
+                        {executiveSummary
+                          ? pickLocalizedText(executiveSummary.narrative_confidence.description, lang)
+                          : text({ tr: "n/a", en: "n/a" })}
+                      </span>
                     </div>
                     <div>
                       {text({ tr: "Plan gerceklesme olasiligi", en: "Plan execution probability" })}:{" "}
                       <span className="text-white">{formatPercent(summary.plan_execution_probability, 0)}</span>
+                    </div>
+                    <div>
+                      {text({ tr: "Kredi esigi yorumu", en: "Readiness stage" })}:{" "}
+                      <span className="text-white">
+                        {formatCreditReadinessStage(summary.credit_readiness_stage, lang)}
+                      </span>
+                    </div>
+                    <div>
+                      {text({ tr: "Karar gorunumu", en: "Decision outlook" })}:{" "}
+                      <span className="text-white">{formatDecisionStatus(summary.decision_status, lang)}</span>
                     </div>
                     <div>
                       {text({ tr: "Birlesik gerceklesme olasiligi", en: "Combined realization probability" })}:{" "}
@@ -305,6 +462,20 @@ export function DemoCenterPage() {
                         {formatPercent(summary.combined_plan_realization_probability, 0)}
                       </span>
                     </div>
+                    {narrative?.technical_reveal?.diagnostic_flags?.length ? (
+                      <div>
+                        {text({ tr: "Diagnostic flags", en: "Diagnostic flags" })}:{" "}
+                        <span className="text-white">
+                          {narrative.technical_reveal.diagnostic_flags.join(", ")}
+                        </span>
+                      </div>
+                    ) : null}
+                    {roadmapContent.meta?.run_id ? (
+                      <div>
+                        {text({ tr: "Canli run kimligi", en: "Live run id" })}:{" "}
+                        <span className="text-white">{roadmapContent.meta.run_id}</span>
+                      </div>
+                    ) : null}
                   </div>
                 </details>
               </div>
@@ -340,12 +511,43 @@ export function DemoCenterPage() {
                         </div>
                       </div>
                       <div className="mt-3 text-sm text-slate-300">
-                        {checkpoint.note}
+                        {checkpoint.narrative
+                          ? pickLocalizedText(checkpoint.narrative.expected_state, lang)
+                          : formatCheckpointNote(
+                              checkpoint.week,
+                              checkpoint.approval_ready,
+                              checkpoint.gate_pass_estimate,
+                              lang,
+                            )}
                       </div>
+                      {checkpoint.narrative ? (
+                        <div className="mt-3 grid gap-2 text-sm text-slate-400">
+                          <div>
+                            <span className="text-slate-500">
+                              {text({ tr: "Basari kosulu", en: "Success condition" })}:{" "}
+                            </span>
+                            <span className="text-slate-300">
+                              {pickLocalizedText(checkpoint.narrative.success_condition, lang)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">
+                              {text({ tr: "Aksi durumda", en: "If not" })}:{" "}
+                            </span>
+                            <span className="text-slate-300">
+                              {pickLocalizedText(checkpoint.narrative.failure_implication, lang)}
+                            </span>
+                          </div>
+                        </div>
+                      ) : null}
                       <div className="mt-4 flex flex-wrap gap-2 text-xs text-arctic/80">
                         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
                           {text({ tr: "Tahmini PD", en: "Predicted PD" })}:{" "}
-                          {formatPercent(checkpoint.predicted_pd, 0)}
+                          {formatPdPercent(checkpoint.predicted_pd, lang)}
+                        </span>
+                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                          {text({ tr: "Krediye uygunluk", en: "Credit eligibility" })}:{" "}
+                          {formatApprovalReady(checkpoint.approval_ready, lang)}
                         </span>
                         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
                           {checkpoint.gate_pass_estimate

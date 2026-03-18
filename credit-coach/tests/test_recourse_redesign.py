@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from credit_coach.cli.run_recourse import _effective_recourse_search
-from credit_coach.data.schema import PlanAction, PlanRecord
+from credit_coach.cli.run_recourse import _build_customer_roadmap, _effective_recourse_search
+from credit_coach.data.schema import PlanAction, PlanRecord, TrajectoryCheckpoint, TrajectoryPhase
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.recourse.generator import PlanGenConfig, generate_plan_record
 from credit_coach.recourse.offer_optimization import annotate_offer_optimization
@@ -298,3 +298,129 @@ def test_annotate_offer_optimization_emits_combined_realization_contract():
     assert float(plan.expected_recovery_proxy or 0.0) > 0.0
     assert plan.offer_policy_arm == "installment_terms_policy_v1"
     assert plan.governance_safe_offer is True
+
+
+def test_build_customer_roadmap_emits_sibling_narrative_layer():
+    action = PlanAction(
+        feature_name="revol_util",
+        current_value=71.0,
+        target_value=52.0,
+        delta=-19.0,
+        time_months=1,
+        estimated_cost_usd=0.0,
+        action_key="limit_credit_usage",
+        action_class="behavioral",
+        action_title="Limit credit usage",
+        action_group_id="limit_credit_usage:m1",
+        action_execution_probability=0.68,
+        diagnostic_flags=["utilization_relief"],
+    )
+    plan = PlanRecord(
+        plan_id="roadmap-plan",
+        customer_id="cust-18",
+        run_id="run-18",
+        horizon_months=6,
+        strategy="balanced",
+        actions=[action],
+        phases=[
+            TrajectoryPhase(
+                phase_id="phase_1_stabilize",
+                phase_title="Ilk 4 Hafta - Stabilizasyon",
+                target_window_weeks="1-4",
+                target_window_months=[1],
+                review_week=4,
+                target_pd=0.40,
+                gate_pass_target=False,
+                steps=[action],
+            ),
+            TrajectoryPhase(
+                phase_id="phase_2_build",
+                phase_title="1-3 Ay - Guclendirme",
+                target_window_weeks="5-12",
+                target_window_months=[2, 3],
+                review_week=12,
+                target_pd=0.32,
+                gate_pass_target=True,
+                steps=[],
+            ),
+            TrajectoryPhase(
+                phase_id="phase_3_optimize",
+                phase_title="3-6 Ay - Optimizasyon",
+                target_window_weeks="13-24",
+                target_window_months=[4, 5, 6],
+                review_week=24,
+                target_pd=0.30,
+                gate_pass_target=True,
+                steps=[],
+            ),
+        ],
+        trajectory_checkpoints=[
+            TrajectoryCheckpoint(
+                week=4,
+                month=1,
+                phase_id="phase_1_stabilize",
+                checkpoint_label="early_stabilization",
+                predicted_pd=0.40,
+                pd_delta_vs_base=0.04,
+                gate_pass_estimate=0,
+                checkpoint_priority=3,
+            ),
+            TrajectoryCheckpoint(
+                week=12,
+                month=3,
+                phase_id="phase_2_build",
+                checkpoint_label="approval_readiness",
+                predicted_pd=0.32,
+                pd_delta_vs_base=0.12,
+                gate_pass_estimate=1,
+                checkpoint_priority=2,
+            ),
+            TrajectoryCheckpoint(
+                week=24,
+                month=6,
+                phase_id="phase_3_optimize",
+                checkpoint_label="durable_optimization",
+                predicted_pd=0.30,
+                pd_delta_vs_base=0.14,
+                gate_pass_estimate=1,
+                checkpoint_priority=1,
+            ),
+        ],
+        predicted_pd=0.30,
+        score=0.2,
+        robust_score=0.2,
+        status="APPROVED",
+        constraint_status="valid",
+        trajectory_status="on_track",
+        next_review_week=4,
+        plan_execution_probability=0.68,
+    )
+
+    roadmap = _build_customer_roadmap(
+        customer_id="cust-18",
+        base_pd=0.44,
+        tau=0.35,
+        best=plan,
+        best_source="internal",
+        row=pd.Series({"revol_util": 71.0}),
+        model=_DummyModel(),
+        calibrator=None,
+        feature_cols=["revol_util"],
+        local_reason_bundle={
+            "reasons": [
+                {"feature": "revol_util", "direction": "increase_risk", "abs_contribution": 0.26},
+            ],
+            "meta": {
+                "explainability_confidence": 0.82,
+                "stability_score": 0.9,
+                "baseline_drift_l1": 0.04,
+            },
+        },
+    )
+
+    assert "narrative" in roadmap
+    assert roadmap["narrative"]["executive_summary"]["decision_view"]["label"]["en"] == "Approval-ready view"
+    assert roadmap["narrative"]["steps"][0]["step_id"] == "limit_credit_usage:m1"
+    assert roadmap["narrative"]["steps"][0]["action_summary"]["tr"]
+    assert roadmap["narrative"]["checkpoints"][1]["review_action"]["en"]
+    assert roadmap["narrative"]["technical_reveal"]["feature_changes"][0]["feature_name"] == "revol_util"

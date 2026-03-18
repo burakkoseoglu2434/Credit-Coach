@@ -11,7 +11,10 @@ import pandas as pd
 from credit_coach.causality.action_constraints import causal_penalty
 from credit_coach.causality.graph_utils import load_graph
 from credit_coach.causality.rex_runner import run_rex_adapter
-from credit_coach.coaching.messaging import build_adverse_action_reasons
+from credit_coach.coaching.messaging import (
+    build_adverse_action_reasons,
+    build_customer_roadmap_narrative,
+)
 from credit_coach.coaching.planner import choose_best_plan
 from credit_coach.data.ingest import load_feature_contract
 from credit_coach.data.schema import PlanAction, PlanRecord
@@ -400,6 +403,7 @@ def _build_customer_roadmap(
     model,
     calibrator,
     feature_cols: list[str],
+    local_reason_bundle: dict | None = None,
 ) -> dict:
     if not list(getattr(best, "phases", [])):
         best.phases = build_canonical_phases(
@@ -422,9 +426,15 @@ def _build_customer_roadmap(
     phases: list[dict] = []
     for phase in list(getattr(best, "phases", [])):
         steps = []
-        for action in list(getattr(phase, "steps", [])):
+        for step_idx, action in enumerate(list(getattr(phase, "steps", [])), start=1):
+            step_id = (
+                str(getattr(action, "action_group_id", "") or "")
+                or str(getattr(action, "action_key", "") or "")
+                or f"{getattr(phase, 'phase_id', 'phase')}_step_{step_idx}"
+            )
             steps.append(
                 {
+                    "step_id": step_id,
                     "action_key": str(getattr(action, "action_key", "") or ""),
                     "action_class": str(getattr(action, "action_class", "") or ""),
                     "action_title": str(getattr(action, "action_title", "") or ""),
@@ -493,9 +503,11 @@ def _build_customer_roadmap(
 
     checkpoints: list[dict] = []
     for checkpoint in list(getattr(best, "trajectory_checkpoints", [])):
+        checkpoint_week = int(_safe_int(getattr(checkpoint, "week", 0), 0))
         checkpoints.append(
             {
-                "week": int(_safe_int(getattr(checkpoint, "week", 0), 0)),
+                "checkpoint_id": f"checkpoint_week_{checkpoint_week}",
+                "week": checkpoint_week,
                 "month": int(_safe_int(getattr(checkpoint, "month", 0), 0)),
                 "phase_id": str(getattr(checkpoint, "phase_id", "") or ""),
                 "checkpoint_label": str(getattr(checkpoint, "checkpoint_label", "") or ""),
@@ -506,7 +518,7 @@ def _build_customer_roadmap(
             }
         )
 
-    return {
+    roadmap = {
         "customer_id": str(customer_id),
         "base_pd": float(base_pd),
         "tau": float(tau),
@@ -522,6 +534,19 @@ def _build_customer_roadmap(
         "checkpoints": checkpoints,
         "next_review_week": int(_safe_int(getattr(best, "next_review_week", 4), 4)),
     }
+    roadmap["narrative"] = build_customer_roadmap_narrative(
+        base_pd=base_pd,
+        tau=tau,
+        phases=phases,
+        checkpoints=checkpoints,
+        status=str(best.status),
+        local_reason_bundle=local_reason_bundle or {},
+        constraint_trace=list(getattr(best, "constraint_trace", [])),
+        plan_execution_probability=getattr(best, "plan_execution_probability", None),
+        offer_acceptance_probability=getattr(best, "offer_acceptance_probability", None),
+        combined_plan_realization_probability=getattr(best, "combined_plan_realization_probability", None),
+    ).model_dump(mode="json")
+    return roadmap
 
 
 def _plan_to_row(plan: PlanRecord) -> dict:
@@ -1180,6 +1205,7 @@ def main() -> None:
         model=model,
         calibrator=calibrator,
         feature_cols=feature_cols,
+        local_reason_bundle=local_reason_bundle,
     )
     roadmap_json = run_ctx.tables_dir / "customer_roadmap.json"
     roadmap_json.write_text(json.dumps(roadmap, indent=2, ensure_ascii=False), encoding="utf-8")

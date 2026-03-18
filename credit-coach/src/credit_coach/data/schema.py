@@ -290,6 +290,155 @@ class ExplainabilityMeta(BaseModel):
     perturbation_count: int = Field(..., ge=0, description="Kullanilan perturbasyon sayisi")
 
 
+class LocalizedText(BaseModel):
+    """
+    Deterministic TR/EN text pair for product-facing narrative output.
+    """
+
+    tr: str = Field(..., description="Turkce metin")
+    en: str = Field(..., description="English text")
+
+
+class NarrativeCard(BaseModel):
+    """
+    Kisa label + supporting description pattern'i.
+    """
+
+    label: LocalizedText = Field(..., description="Kisa gorunen deger veya baslik")
+    description: LocalizedText = Field(..., description="Destekleyici aciklama")
+
+
+class OfferNarrative(BaseModel):
+    """
+    Offer-bearing adimlar icin ayri anlatim katmani.
+    """
+
+    offer_explanation: LocalizedText = Field(..., description="Teklifin ne oldugunu aciklar")
+    why_offered: LocalizedText = Field(..., description="Neden bu teklifin secildigini aciklar")
+    if_accepted: LocalizedText = Field(..., description="Kabul edilirse beklenen durum")
+    if_not_accepted: LocalizedText = Field(..., description="Kabul edilmezse beklenen durum")
+    offer_terms_summary: LocalizedText | None = Field(
+        default=None,
+        description="Opsiyonel kisa teklif kosul ozeti",
+    )
+
+
+class RoadmapStepNarrative(BaseModel):
+    """
+    Tek bir step icin product-facing narrative kaydi.
+    """
+
+    step_id: str = Field(..., description="Raw step ile narrative step arasindaki stabil bag")
+    phase_id: str = Field(..., description="Bagli canonical faz")
+    action_key: str | None = Field(default=None, description="Bagli aksiyon anahtari")
+    action_group_id: str | None = Field(default=None, description="Composite action group kimligi")
+    action_summary: LocalizedText = Field(..., description="Musteriye veya analiste gorunen kisa ozet")
+    why_this_matters: LocalizedText = Field(..., description="Adimin neden onemli oldugunu aciklar")
+    expected_outcome: LocalizedText = Field(..., description="Beklenen sonucu ozetler")
+    what_happens_if_done: LocalizedText = Field(..., description="Adim yapilirsa beklenen durum")
+    what_happens_if_not_done: LocalizedText = Field(..., description="Adim yapilmazsa beklenen durum")
+    action_timing_hint: LocalizedText | None = Field(
+        default=None,
+        description="Opsiyonel zamanlama ipucu",
+    )
+    offer_narrative: OfferNarrative | None = Field(
+        default=None,
+        description="Offer-bearing adimlar icin ayri narrative katmani",
+    )
+
+
+class RoadmapCheckpointNarrative(BaseModel):
+    """
+    Checkpoint seviyesinde product-facing beklenti ve review semantigi.
+    """
+
+    checkpoint_id: str = Field(..., description="Raw checkpoint ile narrative checkpoint arasindaki stabil bag")
+    week: int = Field(..., ge=1, description="Checkpoint haftasi")
+    expected_state: LocalizedText = Field(..., description="Bu noktada beklenen durum")
+    success_condition: LocalizedText = Field(..., description="Success kosulu")
+    failure_implication: LocalizedText = Field(..., description="Failure durumunda anlam")
+    review_action: LocalizedText | None = Field(
+        default=None,
+        description="Opsiyonel sonraki review aksiyonu",
+    )
+
+
+class RoadmapReasonNarrative(BaseModel):
+    """
+    Principal risk reason'lar icin product-facing sentence layer.
+    """
+
+    reason_code: str = Field(..., description="Stabil internal reason code")
+    reason_title: LocalizedText = Field(..., description="Kisa reason basligi")
+    reason_description: LocalizedText = Field(..., description="Reason aciklamasi")
+    remediation_hint: LocalizedText = Field(..., description="Iyilestirme ipucu")
+    reason_severity: Literal["low", "moderate", "high"] | None = Field(
+        default=None,
+        description="Opsiyonel severity etiketi",
+    )
+
+
+class RoadmapTechnicalReveal(BaseModel):
+    """
+    Varsayilan gorunum arkasinda acilan teknik izlenebilirlik katmani.
+    """
+
+    feature_changes: list[dict[str, Any]] = Field(default_factory=list, description="Step-level feature degisim kayitlari")
+    explainability_reasons: list[dict[str, Any]] = Field(default_factory=list, description="Reason ve katkilar")
+    constraints_applied: list[dict[str, Any]] = Field(default_factory=list, description="Constraint ve repair trace kayitlari")
+    approval_dependencies: list[dict[str, Any]] = Field(default_factory=list, description="Onay veya kabul bagimliliklari")
+    diagnostic_flags: list[str] = Field(default_factory=list, description="Plan veya aksiyon diagnostic flag'leri")
+    confidence_inputs: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Narrative confidence etiketine giren ham sinyaller",
+    )
+    narrative_confidence_label: Literal["high", "moderate", "low"] | None = Field(
+        default=None,
+        description="UI default gorunumunde kullanilabilecek confidence etiketi",
+    )
+    narrative_confidence_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Opsiyonel ham narrative confidence skoru",
+    )
+
+
+class RoadmapExecutiveSummary(BaseModel):
+    """
+    Tek musteri yuzeyleri icin hizli okunabilir executive summary contract'i.
+    """
+
+    headline: LocalizedText | None = Field(default=None, description="Opsiyonel headline")
+    summary_line: LocalizedText | None = Field(default=None, description="Opsiyonel supporting line")
+    risk_start: NarrativeCard = Field(..., description="Baslangic riskinin business-facing yorumu")
+    recommended_path: NarrativeCard = Field(..., description="Onerilen yolun kisa tarifi")
+    offer_status: NarrativeCard = Field(..., description="Teklif durumunun business-facing yorumu")
+    checkpoint_4w_summary: NarrativeCard = Field(..., description="4 haftalik checkpoint ozeti")
+    expected_result: NarrativeCard = Field(..., description="Beklenen sonuc")
+    decision_view: NarrativeCard = Field(..., description="Karar gorunumunun business-facing etiketi")
+    time_to_readiness: NarrativeCard = Field(..., description="Hazirlik zaman cizgisi")
+    narrative_confidence: NarrativeCard = Field(..., description="Narrative confidence ozet karti")
+
+
+class CustomerRoadmapNarrative(BaseModel):
+    """
+    Raw roadmap truth'un yaninda tasinan translated narrative layer.
+    """
+
+    executive_summary: RoadmapExecutiveSummary = Field(..., description="Varsayilan gorunum ozet katmani")
+    steps: list[RoadmapStepNarrative] = Field(default_factory=list, description="Step-level narrative kayitlari")
+    checkpoints: list[RoadmapCheckpointNarrative] = Field(
+        default_factory=list,
+        description="Checkpoint-level narrative kayitlari",
+    )
+    reasons: list[RoadmapReasonNarrative] = Field(default_factory=list, description="Principal reason sentence layer")
+    technical_reveal: RoadmapTechnicalReveal = Field(
+        default_factory=RoadmapTechnicalReveal,
+        description="Istege bagli teknik reveal katmani",
+    )
+
+
 # ------------------------------------------------------------------ #
 # PlanRecord — recourse planı
 # ------------------------------------------------------------------ #
