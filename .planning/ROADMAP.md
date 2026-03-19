@@ -143,7 +143,12 @@ Planned scope:
 
 **Goal**: Re-run the hardened engine across the full portfolio, refresh proof artifacts, and answer the product-facing question of whether the system is truly working beyond curated stories.
 **Depends on**: Phase 20
-**Plans**: Not planned yet
+**Plans**: 3 planned
+
+Plans:
+- [ ] 21-01: Refresh the canonical portfolio proof with product-facing verdict, confidence, and Phase 17 baseline comparison
+- [ ] 21-02: Carry refreshed proof through suite packaging and emit one curated engine-owned confidence snapshot
+- [ ] 21-03: Switch website proof surfaces to the curated proof snapshot and typed proof contract
 
 Planned scope:
 - run the full portfolio again after trajectory hardening
