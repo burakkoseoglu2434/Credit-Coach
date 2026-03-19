@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 Phase: 21
 Plan: Not planned yet
-Status: Ready for discussion
-Last activity: 2026-03-19 - Executed and closed Phase 20 trajectory hardening with deterministic checkpoint, consistency, and replan semantics
+Status: Ready for planning
+Last activity: 2026-03-19 - Discussed and locked Phase 21 proof verdict, metric hierarchy, baseline delta posture, and website-facing proof sync
 
 Progress: Phases 17-20 complete; Phase 21 is now the queued proof-facing follow-up
 
@@ -120,6 +120,14 @@ Recent decisions affecting current work:
   - rerun the hardened engine portfolio-wide
   - regenerate proof artifacts
   - answer the buyer-facing “is this really working?” question with refreshed evidence
+- On 2026-03-19, Phase 21 discussion locked:
+  - product-facing proof verdicts separate from internal release decisions
+  - canonical verdict set `working | promising | mixed | not_proven`
+  - separate proof confidence labels `strong | moderate | weak`
+  - headline proof hierarchy centered on product-ready coverage, governance-safe coverage, and execution-aware value
+  - `weak_4w` and delayed trajectory truth as first-class supporting proof
+  - explicit delta versus the Phase 17 canonical proof baseline
+  - website proof sync via one engine-derived curated proof snapshot
 - On 2026-03-19, Phase 20 shipped:
   - locked `phase_3_optimize` to `13-24w` / `3-6 ay`
   - fixed checkpoint enums and machine-readable checkpoint-local status
@@ -146,5 +154,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Phase 20 executed and closed; next step is to discuss or plan Phase 21
+Stopped at: Phase 21 context locked; next step is to plan Phase 21
 Resume file: None
