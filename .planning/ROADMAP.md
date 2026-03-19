@@ -53,7 +53,7 @@ Historical archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 **Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 **Phases**: 17-20 currently defined
-**Status**: Active, Phases 17-18 complete; Phases 19-20 added and awaiting planning
+**Status**: Active, Phases 17-18 complete; Phase 19 planned and ready for execution, Phase 20 awaiting planning
 
 ### Phase 17: Full Portfolio Evaluation & Coverage Audit
 
@@ -81,12 +81,12 @@ Plans:
 
 **Goal**: Re-open the inherited behavior-aware ranking layer as an explicit v1.3 hardening target so recommendation quality reflects not only nominal PD improvement but also whether customers are likely to execute the plan.
 **Depends on**: Phase 18
-**Plans**: Not planned yet
+**Plans**: 3 planned
 
-Planned scope:
-- Establish an explicit `action_execution_probability` and `plan_execution_probability` contract for all rankable plans
-- Add composite-action aggregation, provisional or approval-pending handling, and execution scenario classes such as full, mixed, and failed execution
-- Reconfirm that expected utility affects ranking as a tie-break or ordering layer rather than a hard gate, and emit canonical behavior-aware evidence artifacts
+Plans:
+- [ ] 19-01: Harden execution-probability posture, burden-horizon penalties, and composite or dual-realization semantics
+- [ ] 19-02: Strengthen execution-aware ranking leverage, high-risk ordering, and provisional contender penalties
+- [ ] 19-03: Reframe behavior-aware artifacts and review around nominal-vs-execution-aware value and risk-band evidence
 
 ### Phase 20: Sequential / Trajectory Planning
 
