@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 ## Current Position
 
 Phase: 20
-Plan: Planned (3 plans)
-Status: Ready for execution
-Last activity: 2026-03-19 - Planned Phase 20 as a three-wave trajectory hardening package with deterministic contract, consistency, and replan/status hardening
+Plan: Planned (3 plans, pre-context)
+Status: Ready for replanning
+Last activity: 2026-03-19 - Captured Phase 20 context after planning; next step is to re-run planning so the package inherits locked trajectory decisions
 
 Progress: Phases 17-19 complete; Phase 20 is now fully planned as the next focused trajectory hardening pass and Phase 21 remains the queued proof-facing follow-up
 
@@ -42,6 +42,11 @@ Progress: Phases 17-19 complete; Phase 20 is now fully planned as the next focus
   - deterministic phase and checkpoint contract locking
   - consistency, monotonicity, and early-health hardening
   - deterministic replan, status, and policy-label semantics
+- Phase 20 discussion is now explicit across four locked decision areas:
+  - strict phase and checkpoint contract
+  - soft monotonicity with early-health dominance
+  - boundary-only replan and deterministic statuses
+  - rule-based policy labels with secondary execution-aware tempering
 - Future work after Phase 21 remains intentionally open until the next redesign pass.
 
 ## Accumulated Context
@@ -102,6 +107,15 @@ Recent decisions affecting current work:
   - contract hardening for phases and checkpoints
   - consistency and soft-monotonicity hardening
   - deterministic replan, status, and policy-label hardening
+- On 2026-03-19, Phase 20 discussion locked:
+  - `phase_3_optimize` to `13-24w` / `3-6 ay`
+  - checkpoint type enum to `primary | confirmation | stability`
+  - checkpoint-local status enum to `on_track | at_risk | missed`
+  - `24w` as the closing proof and product horizon
+  - `0.01` monotonicity tolerance and `>0.03` worsening jump flag
+  - weak `4w` health as dominant negative signal without hard reject
+  - `needs_replan` only at canonical review boundaries and `degraded` as keep-going-no-longer-rational state
+  - fully rule-based policy labels, with execution truth allowed only as a conservative secondary adjustment
 - On 2026-03-19, Phase 21 was reintroduced as the next proof-facing pass:
   - rerun the hardened engine portfolio-wide
   - regenerate proof artifacts
@@ -126,5 +140,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Phase 20 planned; next step is to run `$gsd-execute-phase 20`
+Stopped at: Phase 20 context captured after planning; next step is to run `$gsd-plan-phase 20 --research`
 Resume file: None
