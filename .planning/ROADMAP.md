@@ -5,7 +5,7 @@
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
 - ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
 - ✅ **v1.2 Recommendation Quality Hardening** - Phases 12-16 (completed 2026-03-16)
-- 🚧 **v1.3 Portfolio Intelligence & Productization** - Phases 17-23 (active milestone opened 2026-03-17)
+- 🚧 **v1.3 Portfolio Intelligence & Productization** - Phases 17-18 (post-18 phases pending redesign; milestone opened 2026-03-17)
 
 <details>
 <summary>✅ v1.0 Brownfield Baseline (Phases 1-7) - SHIPPED 2026-03-10</summary>
@@ -52,8 +52,8 @@ Historical archive: `.planning/milestones/v1.2-ROADMAP.md`
 ### v1.3 Portfolio Intelligence & Productization
 
 **Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
-**Phases**: 17-23
-**Status**: Active, Phases 17-18 complete and ready for Phase 19 planning
+**Phases**: 17-18 currently defined
+**Status**: Active, Phases 17-18 complete; post-18 roadmap intentionally cleared for redesign
 
 ### Phase 17: Full Portfolio Evaluation & Coverage Audit
 
@@ -77,60 +77,14 @@ Plans:
 - [x] 18-02: Add controlled technical reveal, checkpoint or offer or adverse-action narration, narrative confidence, and vocabulary consistency layers
 - [x] 18-03: Validate one UI-ready output schema across representative cases so website and analyst surfaces can consume the same business-first narrative contract
 
-### Phase 19: Demo Data & Website Foundation Sync
+### Post-18 Sequence
 
-**Goal**: Build a stable sync contract that turns engine artifacts into curated website demo and proof data without duplicating model logic in the website stack.
-**Depends on**: Phases 17-18
-**Plans**: 3 planned
+**Status**: Intentionally removed
 
-Plans:
-- [ ] 19-01: Define typed demo and proof snapshot contracts sourced from engine artifacts
-- [ ] 19-02: Add a curated sync pipeline that versions, normalizes, and sanitizes website demo-data from portfolio and single-customer outputs
-- [ ] 19-03: Harden thin backend foundations for lead capture, demo requests, and responsive data-driven surfaces
-
-### Phase 20: Enterprise Buyer Website & Demo Center Refactor
-
-**Goal**: Turn the website into a business-first enterprise product surface with clear buyer journey, cleaner demo flow, and bilingual product language.
-**Depends on**: Phase 19
-**Plans**: 3 planned
-
-Plans:
-- [ ] 20-01: Reposition home, product, and navigation around the enterprise buyer story and consistent CTA hierarchy
-- [ ] 20-02: Refactor Demo Center into overview, single-customer, portfolio, offer, and learning layers with executive summaries and trust labels
-- [ ] 20-03: Remove raw internal language from default UI while keeping technical detail behind controlled reveal patterns
-
-### Phase 21: Proof, Investor & Trust Surface
-
-**Goal**: Present evidence, governance, release, learning, and market narrative through distinct proof and investor experiences.
-**Depends on**: Phase 20
-**Plans**: 3 planned
-
-Plans:
-- [ ] 21-01: Rebuild proof surface around what we measure, why it is trustworthy, how we release, and how we learn
-- [ ] 21-02: Strengthen investor surface with market timing, wedge, differentiation, monetization, and category story
-- [ ] 21-03: Add KPI context and trust framing so demo numbers are clearly labeled as representative, offline, benchmarked, or curated
-
-### Phase 22: Analyst Workflow UAT
-
-**Goal**: Validate that institution-side analysts can understand, trust, and act on recommendation outputs and portfolio views.
-**Depends on**: Phases 17-21
-**Plans**: 3 planned
-
-Plans:
-- [ ] 22-01: Create analyst UAT checklist and representative task scenarios
-- [ ] 22-02: Test single-case and portfolio-review workflows for explanation clarity and next-best-action usefulness
-- [ ] 22-03: Feed UAT findings back into engine output language and website interaction design
-
-### Phase 23: Pilot Readiness & Commercial Operations
-
-**Goal**: Make the combined engine and website stack safe and credible enough for institution demos, first pilot conversations, and early commercial motion.
-**Depends on**: Phase 22
-**Plans**: 3 planned
-
-Plans:
-- [ ] 23-01: Add deployment, monitoring, auth or ops basics, and demo-request pipeline support for pilot environments
-- [ ] 23-02: Create institution-specific curated demo flows and proof packs for sales and pilot conversations
-- [ ] 23-03: Define commercial readiness baseline covering lead capture, proof deck, investor deck, and pilot configuration
+Notes:
+- Phase 19 and all later `v1.3` phases were intentionally cleared on `2026-03-19`.
+- The work after Phase 18 will be redesigned before any new phase numbers are assigned.
+- This milestone remains active, but only Phases 17-18 are currently canonical.
 
 ## Progress
 
@@ -153,9 +107,4 @@ Plans:
 | 15. Policy Optimization Layer | v1.2 | 3/3 | Complete | 2026-03-16 |
 | 16. Outcome Feedback & Learning Loop | v1.2 | 3/3 | Complete | 2026-03-16 |
 | 17. Full Portfolio Evaluation & Coverage Audit | v1.3 | 3/3 | Complete | 2026-03-18 |
-| 18. Decision Narrative & Product Output Translation | v1.3 | 0/3 | Planned | — |
-| 19. Demo Data & Website Foundation Sync | v1.3 | 0/3 | Planned | — |
-| 20. Enterprise Buyer Website & Demo Center Refactor | v1.3 | 0/3 | Planned | — |
-| 21. Proof, Investor & Trust Surface | v1.3 | 0/3 | Planned | — |
-| 22. Analyst Workflow UAT | v1.3 | 0/3 | Planned | — |
-| 23. Pilot Readiness & Commercial Operations | v1.3 | 0/3 | Planned | — |
+| 18. Decision Narrative & Product Output Translation | v1.3 | 3/3 | Complete | 2026-03-18 |

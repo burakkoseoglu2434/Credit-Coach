@@ -36,22 +36,21 @@
 
 **Goal:** Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 
-**Phases planned:** 17-23
+**Phases planned:** 17-18
 
 **Phase sequence:**
 - Phase 17: Full Portfolio Evaluation & Coverage Audit
 - Phase 18: Decision Narrative & Product Output Translation
-- Phase 19: Demo Data & Website Foundation Sync
-- Phase 20: Enterprise Buyer Website & Demo Center Refactor
-- Phase 21: Proof, Investor & Trust Surface
-- Phase 22: Analyst Workflow UAT
-- Phase 23: Pilot Readiness & Commercial Operations
+
+**Post-18 status:** Future `v1.3` phases intentionally cleared on `2026-03-19` and will be redesigned before new phase numbers are added.
+
 
 **Why this milestone exists:**
 - `v1.2` solved core recommendation-quality gaps, but demo and product claims still rely too heavily on curated stories and partially productized website surfaces
 - Full-cohort proof needs to come before stronger sales, investor, and pilot narratives
 - The website now matters enough to be milestone scope rather than side documentation
 - Analyst trust, proof framing, and pilot readiness are now the highest-leverage gaps
+- The sequence after Phase 18 is intentionally open again so those gaps can be re-grouped more cleanly
 
 **Success bar:**
 - Full-portfolio coverage and segment proof exist for recommendation behavior

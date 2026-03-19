@@ -49,16 +49,16 @@
 |-------------|-------|--------|
 | PORT-01 | Phase 17 | Complete |
 | PORT-02 | Phase 18 | Complete |
-| WEB-01 | Phase 19 | Planned |
-| WEB-02 | Phase 20 | Planned |
-| WEB-03 | Phase 21 | Planned |
-| OPS-01 | Phase 22 | Planned |
-| OPS-02 | Phase 23 | Planned |
+| WEB-01 | - | Unmapped pending post-18 redesign |
+| WEB-02 | - | Unmapped pending post-18 redesign |
+| WEB-03 | - | Unmapped pending post-18 redesign |
+| OPS-01 | - | Unmapped pending post-18 redesign |
+| OPS-02 | - | Unmapped pending post-18 redesign |
 
 **Coverage:**
 - v1.3 requirements: 7 total
-- Mapped to phases: 7
-- Unmapped: 0
+- Mapped to phases: 2
+- Unmapped: 5
 
 ---
 *Active requirement set opened on 2026-03-17*
