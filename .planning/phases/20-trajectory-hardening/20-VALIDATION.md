@@ -9,7 +9,7 @@ created: 2026-03-19
 
 # Phase 20 - Validation Strategy
 
-> Per-phase validation contract for deterministic phase/checkpoint truth, soft-monotonic trajectory safety, and controlled replan semantics.
+> Per-phase validation contract for deterministic phase/checkpoint truth, locked checkpoint-local semantics, soft-monotonic trajectory safety, and controlled replan semantics.
 
 ---
 
@@ -38,7 +38,7 @@ created: 2026-03-19
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 20-01-01 | 01 | 1 | PORT-04 | unit | `cd credit-coach && python -m pytest tests/test_sequential_recourse.py` | ✅ | ⬜ pending |
+| 20-01-01 | 01 | 1 | PORT-04 | unit | `cd credit-coach && python -m pytest tests/test_recourse_funnel_kpis.py` | ✅ | ⬜ pending |
 | 20-01-02 | 01 | 1 | PORT-04 | integration | `cd credit-coach && python -m pytest tests/test_sequential_recourse.py tests/test_recourse_funnel_kpis.py` | ✅ | ⬜ pending |
 | 20-02-01 | 02 | 2 | PORT-04 | planner/consistency | `cd credit-coach && python -m pytest tests/test_planner_denied_objective.py tests/test_recourse_funnel_kpis.py` | ✅ | ⬜ pending |
 | 20-02-02 | 02 | 2 | PORT-04 | artifact/narrative | `cd credit-coach && python -m pytest tests/test_batch_candidate_diversity.py tests/test_messaging.py` | ✅ | ⬜ pending |
@@ -52,7 +52,7 @@ created: 2026-03-19
 ## Wave 0 Requirements
 
 - [x] `credit-coach/tests/test_sequential_recourse.py` — existing weekly loop tests can protect fixed review weeks and deterministic replan/status behavior
-- [x] `credit-coach/tests/test_recourse_funnel_kpis.py` — existing roadmap and checkpoint serialization tests can protect canonical phase/checkpoint structure
+- [x] `credit-coach/tests/test_recourse_funnel_kpis.py` — existing roadmap and checkpoint serialization tests can protect canonical phase/checkpoint structure, checkpoint-local enums, and 24w closing horizon
 - [x] `credit-coach/tests/test_planner_denied_objective.py` — existing planner tests can protect early-health-sensitive trajectory prioritization
 - [x] `credit-coach/tests/test_batch_candidate_diversity.py` — existing artifact tests can protect trajectory status, transition reason, and policy-label outputs
 - [x] `credit-coach/tests/test_phase_experiment_suite.py` — seeded suite aggregation can protect downstream trajectory metric drift
@@ -65,11 +65,15 @@ created: 2026-03-19
 One human scan is still required after execution:
 
 - confirm every roadmap output now carries exactly three canonical checkpoints at `4`, `12`, and `24`
-- confirm phase 3 no longer reads like an open-ended `13-52w` bucket when the product contract says `12-24w`
+- confirm phase 3 no longer reads like an open-ended `13-52w` bucket and instead closes as `13-24w` / `3-6 ay`
+- confirm checkpoint-local enums read cleanly as:
+  - `primary | confirmation | stability`
+  - `on_track | at_risk | missed`
 - confirm weak `4w` health causes a plan to read as weak even if later checkpoints improve
+- confirm monotonicity tolerance is small (`0.01`) and true jumps (`>0.03`) are visibly flagged
 - confirm replan never appears outside canonical review boundaries
 - confirm `on_track`, `needs_replan`, and `degraded` are easy to explain with one sentence each
-- confirm policy labels feel deterministic and stable rather than opportunistic
+- confirm policy labels feel deterministic and stable rather than opportunistic, with execution truth only hardening interpretation conservatively
 - confirm trajectory review still preserves Phase 19 execution truth instead of silently ignoring it
 
 All core logic should remain automatically verified.

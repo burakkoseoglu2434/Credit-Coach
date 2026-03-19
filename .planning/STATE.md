@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 ## Current Position
 
 Phase: 20
-Plan: Planned (3 plans, pre-context)
-Status: Ready for replanning
-Last activity: 2026-03-19 - Captured Phase 20 context after planning; next step is to re-run planning so the package inherits locked trajectory decisions
+Plan: Planned (3 plans)
+Status: Ready for execution
+Last activity: 2026-03-19 - Replanned Phase 20 so the package inherits locked trajectory context and is ready for execution
 
 Progress: Phases 17-19 complete; Phase 20 is now fully planned as the next focused trajectory hardening pass and Phase 21 remains the queued proof-facing follow-up
 
@@ -140,5 +140,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Phase 20 context captured after planning; next step is to run `$gsd-plan-phase 20 --research`
+Stopped at: Phase 20 replanned after context; next step is to run `$gsd-execute-phase 20`
 Resume file: None

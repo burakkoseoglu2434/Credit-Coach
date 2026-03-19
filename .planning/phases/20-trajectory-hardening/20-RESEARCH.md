@@ -1,7 +1,7 @@
 # Phase 20: Trajectory Hardening - Research
 
 **Researched:** 2026-03-19
-**Status:** Ready for planning
+**Status:** Ready for replanning
 **Confidence:** HIGH
 
 ## Planning Question
@@ -10,13 +10,14 @@ What still has to change so the shipped trajectory layer becomes deterministic, 
 
 ## Planning Basis
 
-Phase 20 was re-scoped directly in the roadmap as a mini hardening phase. There is no dedicated `20-CONTEXT.md`; for this planning pass the authoritative inputs are:
+Phase 20 now has a locked `20-CONTEXT.md`. For this planning pass the authoritative inputs are:
 
 - `.planning/PROJECT.md`
 - `.planning/ROADMAP.md`
 - `.planning/REQUIREMENTS.md`
 - `.planning/STATE.md`
 - `.planning/phases/19-behavior-aware-recourse/19-CONTEXT.md`
+- `.planning/phases/20-trajectory-hardening/20-CONTEXT.md`
 - `credit-coach/src/credit_coach/recourse/trajectory.py`
 - `credit-coach/src/credit_coach/coaching/loop.py`
 - `credit-coach/src/credit_coach/coaching/planner.py`
@@ -39,7 +40,12 @@ This is sufficient because Phase 20 is not inventing trajectory planning from sc
 - schema support for phases, checkpoints, statuses, and policy labels in `data/schema.py`
 - batch and suite surfaces that already consume trajectory outputs
 
-The gap is that these seams are not yet locked to the mini-phase contract the roadmap now demands.
+The gap is no longer ambiguity about direction. The gap is updating the planning package so it fully inherits the locked context:
+
+- `phase_3_optimize` must close at `24w`, not drift into an open-ended horizon
+- checkpoint type and checkpoint-local status need explicit machine-readable enums
+- soft monotonicity must use a bounded tolerance (`0.01`) and explicit jump threshold (`>0.03`)
+- replan and policy labels must remain deterministic and only use execution truth as a conservative secondary signal
 
 ## Executive Summary
 
@@ -118,10 +124,21 @@ Phase 20 must lock:
   - `phase_1_stabilize`
   - `phase_2_build`
   - `phase_3_optimize`
+- `phase_3_optimize` specifically means:
+  - logical horizon `13-24w`
+  - product language `3-6 ay`
 - exactly three canonical checkpoints:
   - week `4` / `primary`
   - week `12` / `confirmation`
   - week `24` / `stability`
+- checkpoint type enum is locked to:
+  - `primary`
+  - `confirmation`
+  - `stability`
+- checkpoint-local status enum is locked to:
+  - `on_track`
+  - `at_risk`
+  - `missed`
 
 No missing checkpoints, no extra checkpoints, and no ambiguous multi-phase assignment.
 
@@ -133,10 +150,18 @@ Trajectory quality should not just mean “eventually better.” It should mean:
 - limited and explicit tolerance for minor drift
 - clear early-health protection
 - narrative and metric alignment
+- explicit split between:
+  - `non_monotonic_flag`
+  - `checkpoint_inconsistency_flag`
 
 The key product rule is:
 
 - if `4w` is weak, the plan should not read as strong
+
+The locked quantitative posture is:
+
+- minor worsening up to `0.01` is tolerated
+- worsening above `0.03` is a true trajectory jump
 
 ### 3. Deterministic replan and status semantics
 
@@ -159,6 +184,8 @@ Trajectory truth must remain aligned with hardened behavior truth from Phase 19:
 - `plan_execution_probability` stays visible in trajectory evaluation
 - approval-dependent realization is not hidden
 - late-heavy plans with weak early health should not survive purely because nominal endpoints look attractive
+- execution truth may temper policy labels only in the conservative direction
+- checkpoint shape remains the primary trajectory interpretation driver
 
 ## Recommended Plan Split
 
