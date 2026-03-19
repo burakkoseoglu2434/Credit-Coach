@@ -639,6 +639,7 @@ def _render_portfolio_validation_review(summary: Mapping[str, Any]) -> str:
     coverage = summary.get("canonical_metrics", {})
     reality_gap = summary.get("reality_gap_summary", {})
     segment_story = summary.get("segment_story", {})
+    behavior_story = summary.get("behavior_story", {})
     lines = [
         "# Portfolio Validation Review",
         "",
@@ -659,6 +660,15 @@ def _render_portfolio_validation_review(summary: Mapping[str, Any]) -> str:
             f"- Product-ready drop due to reality gap: "
             f"{_safe_float(reality_gap.get('product_ready_drop_due_to_reality_gap')):.1%}"
         ),
+        "",
+        "## Behavior Reality",
+        (
+            f"- Nominal vs execution-aware improvement: "
+            f"{_safe_float(coverage.get('mean_nominal_pd_improvement')):.6f} -> "
+            f"{_safe_float(coverage.get('execution_weighted_expected_improvement')):.6f}"
+        ),
+        f"- High uplift low follow-through rate: {_safe_float(coverage.get('high_uplift_low_follow_through_rate')):.1%}",
+        f"- Primary segment lens: {_safe_str(behavior_story.get('primary_segment_lens'), 'risk_band')}",
         "",
         "## Segment Story",
         f"- Where engine works: {_safe_str(segment_story.get('where_engine_works'), 'n/a')}",
@@ -1121,6 +1131,20 @@ def build_portfolio_validation_artifacts(
             pd.to_numeric(work["best_nominal_pd_improvement"], errors="coerce").fillna(0.0).mean()
             - pd.to_numeric(work["best_expected_pd_improvement"], errors="coerce").fillna(0.0).mean()
         ),
+        "high_uplift_low_follow_through_rate": _round_metric(
+            (
+                (
+                    pd.to_numeric(work["best_nominal_pd_improvement"], errors="coerce").fillna(0.0) >= 0.05
+                )
+                & (
+                    (pd.to_numeric(work["best_plan_execution_probability"], errors="coerce").fillna(0.0) < 0.45)
+                    | (
+                        pd.to_numeric(work["best_expected_pd_improvement"], errors="coerce").fillna(0.0)
+                        <= 0.50 * pd.to_numeric(work["best_nominal_pd_improvement"], errors="coerce").fillna(0.0)
+                    )
+                )
+            ).astype(float).mean()
+        ),
         "offer_plan_rate": _round_metric(work["best_offer_plan"].astype(float).mean()),
         "rankable_offer_rate": _round_metric(work["best_rankable_offer"].astype(float).mean()),
         "governance_safe_offer_rate": _round_metric(work["best_governance_safe_offer"].astype(float).mean()),
@@ -1145,6 +1169,15 @@ def build_portfolio_validation_artifacts(
     strongest_segments = _top_segment_rows(segment_breakdown, ascending=False, top_n=2)
     weakest_segments = _top_segment_rows(segment_breakdown, ascending=True, top_n=2)
     demo_representativeness = _build_demo_representativeness(work, demo_case=demo_case)
+    risk_band_behavior = behavior_comparison[behavior_comparison["slice_type"].astype(str) == "risk_band"].copy()
+    highest_gap_risk_band = ""
+    if not risk_band_behavior.empty:
+        highest_gap_risk_band = _safe_str(
+            risk_band_behavior.sort_values(
+                ["execution_weighted_gap_vs_nominal", "count"],
+                ascending=[False, False],
+            ).iloc[0]["slice_value"]
+        )
 
     summary = {
         "canonical_population": "full_evaluation_population",
@@ -1182,6 +1215,12 @@ def build_portfolio_validation_artifacts(
             "where_engine_struggles": weakest_segments[0]["segment_label"] if weakest_segments else "",
             "where_offer_is_required": _safe_str(highest_offer_needed_segment.get("segment_label", "")),
             "where_narrative_breaks": _safe_str(highest_reality_gap_segment.get("segment_label", "")),
+        },
+        "behavior_story": {
+            "primary_segment_lens": "risk_band",
+            "core_question": "how much of the plan is realistically executable",
+            "risk_sentence": "high uplift but low follow-through",
+            "highest_gap_risk_band": highest_gap_risk_band,
         },
         "demo_representativeness": demo_representativeness,
         "supporting_artifacts": supporting_artifacts,

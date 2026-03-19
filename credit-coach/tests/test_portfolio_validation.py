@@ -249,6 +249,9 @@ def test_render_portfolio_validation_review_is_business_first() -> None:
             "governance_safe_plan_coverage": 0.4,
             "product_ready_plan_coverage": 0.2,
             "no_plan_rate": 0.2,
+            "mean_nominal_pd_improvement": 0.09,
+            "execution_weighted_expected_improvement": 0.05,
+            "high_uplift_low_follow_through_rate": 0.22,
         },
         "reality_gap_summary": {
             "reality_gap_flag_rate": 0.3,
@@ -262,6 +265,9 @@ def test_render_portfolio_validation_review_is_business_first() -> None:
             "where_engine_struggles": "risk_band:high",
             "where_offer_is_required": "offer_needed_segment:offer_needed",
             "where_narrative_breaks": "recoverability_segment:hard_to_recover",
+        },
+        "behavior_story": {
+            "primary_segment_lens": "risk_band",
         },
         "demo_representativeness": {
             "demo_representativeness_verdict": "optimistic",
@@ -277,6 +283,7 @@ def test_render_portfolio_validation_review_is_business_first() -> None:
     assert "Portfolio Validation Review" in review
     assert "Coverage Funnel" in review
     assert "Reality Gap" in review
+    assert "Behavior Reality" in review
     assert "Segment Story" in review
     assert "Demo Fit" in review
     assert "demo overstates portfolio reality" in review

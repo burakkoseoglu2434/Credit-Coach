@@ -461,3 +461,89 @@ def test_choose_best_plan_high_risk_uses_execution_probability_as_non_blocking_t
         },
     )
     assert best.plan_id == "p_higher_probability"
+
+
+def test_choose_best_plan_prefers_execution_aware_truth_over_nominal_only_upside():
+    higher_nominal = _mk_plan(
+        "p_higher_nominal",
+        ci_high=0.34,
+        reliability=0.78,
+        worst_margin=-0.02,
+        predicted_pd=0.28,
+        robust_score=20.0,
+        status="NEEDS_REVIEW",
+    )
+    higher_nominal.plan_execution_probability = 0.20
+    higher_nominal.nominal_pd_improvement = 0.12
+    higher_nominal.expected_pd_improvement = 0.024
+
+    more_defensible = _mk_plan(
+        "p_more_defensible",
+        ci_high=0.34,
+        reliability=0.78,
+        worst_margin=-0.02,
+        predicted_pd=0.31,
+        robust_score=20.0,
+        status="NEEDS_REVIEW",
+    )
+    more_defensible.plan_execution_probability = 0.72
+    more_defensible.nominal_pd_improvement = 0.06
+    more_defensible.expected_pd_improvement = 0.0432
+
+    best = choose_best_plan(
+        [higher_nominal, more_defensible],
+        base_pd=0.40,
+        tau=0.35,
+        min_reliability=0.70,
+        min_worst_risk_margin=-0.05,
+        denied_mode=True,
+        denied_objective_cfg={"enabled": True},
+    )
+    assert best.plan_id == "p_more_defensible"
+
+
+def test_choose_best_plan_high_risk_penalizes_provisional_contenders_hard() -> None:
+    provisional = _mk_plan(
+        "p_provisional",
+        ci_high=0.58,
+        reliability=0.64,
+        worst_margin=-0.05,
+        predicted_pd=0.57,
+        robust_score=5.0,
+        status="NEEDS_REVIEW",
+        constraint_status="provisional",
+    )
+    provisional.plan_execution_probability = 0.74
+    provisional.nominal_pd_improvement = 0.28
+    provisional.expected_pd_improvement = 0.2072
+    provisional.approval_pending_action_count = 1
+    provisional.approval_dependent_plan_probability = 0.32
+
+    valid = _mk_plan(
+        "p_valid",
+        ci_high=0.58,
+        reliability=0.64,
+        worst_margin=-0.05,
+        predicted_pd=0.59,
+        robust_score=5.0,
+        status="NEEDS_REVIEW",
+        constraint_status="valid",
+    )
+    valid.plan_execution_probability = 0.63
+    valid.nominal_pd_improvement = 0.24
+    valid.expected_pd_improvement = 0.1512
+
+    best = choose_best_plan(
+        [provisional, valid],
+        base_pd=0.90,
+        tau=0.35,
+        min_reliability=0.60,
+        min_worst_risk_margin=-0.10,
+        denied_mode=True,
+        segment_context={"risk_band": "high"},
+        denied_objective_cfg={
+            "enabled": True,
+            "high_risk_objective": {"enabled": True},
+        },
+    )
+    assert best.plan_id == "p_valid"

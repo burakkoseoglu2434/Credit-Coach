@@ -510,7 +510,10 @@ def _build_phase_candidate_quality_summary(scale_df: pd.DataFrame) -> dict[str, 
 def _build_phase_behavior_aware_summary(scale_df: pd.DataFrame) -> dict[str, Any]:
     metric_fields = (
         "mean_plan_execution_probability",
+        "nominal_pd_improvement",
         "expected_pd_improvement",
+        "execution_weighted_gap_vs_nominal",
+        "high_uplift_low_follow_through_rate",
         "partial_execution_rate",
         "failed_execution_rate",
         "mixed_execution_rate",
@@ -524,6 +527,14 @@ def _build_phase_behavior_aware_summary(scale_df: pd.DataFrame) -> dict[str, Any
             "seed_count": 0,
             "canonical_metrics": {field: 0.0 for field in metric_fields},
             "secondary_metrics": {field.replace("high_risk_denied_", ""): 0.0 for field in secondary_fields},
+            "primary_segment_lens": "risk_band",
+            "primary_comparison": {
+                "nominal_metric": "nominal_pd_improvement",
+                "execution_aware_metric": "expected_pd_improvement",
+                "gap_metric": "execution_weighted_gap_vs_nominal",
+                "core_question": "how much of the plan is realistically executable",
+                "risk_sentence": "high uplift but low follow-through",
+            },
             "supporting_artifacts": {
                 "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
                 "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
@@ -545,6 +556,14 @@ def _build_phase_behavior_aware_summary(scale_df: pd.DataFrame) -> dict[str, Any
         "seed_count": int(len(scale_df)),
         "canonical_metrics": canonical_metrics,
         "secondary_metrics": secondary_metrics,
+        "primary_segment_lens": "risk_band",
+        "primary_comparison": {
+            "nominal_metric": "nominal_pd_improvement",
+            "execution_aware_metric": "expected_pd_improvement",
+            "gap_metric": "execution_weighted_gap_vs_nominal",
+            "core_question": "how much of the plan is realistically executable",
+            "risk_sentence": "high uplift but low follow-through",
+        },
         "supporting_artifacts": {
             "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
             "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",
@@ -1712,10 +1731,28 @@ def main() -> None:
                         summary.get("mean_plan_execution_probability", 0.0),
                     )
                 ),
+                "nominal_pd_improvement": float(
+                    canonical_behavior_metrics.get(
+                        "nominal_pd_improvement",
+                        summary.get("nominal_pd_improvement", 0.0),
+                    )
+                ),
                 "expected_pd_improvement": float(
                     canonical_behavior_metrics.get(
                         "expected_pd_improvement",
                         summary.get("expected_pd_improvement", 0.0),
+                    )
+                ),
+                "execution_weighted_gap_vs_nominal": float(
+                    canonical_behavior_metrics.get(
+                        "execution_weighted_gap_vs_nominal",
+                        summary.get("execution_weighted_gap_vs_nominal", 0.0),
+                    )
+                ),
+                "high_uplift_low_follow_through_rate": float(
+                    canonical_behavior_metrics.get(
+                        "high_uplift_low_follow_through_rate",
+                        summary.get("high_uplift_low_follow_through_rate", 0.0),
                     )
                 ),
                 "partial_execution_rate": float(
@@ -1748,10 +1785,28 @@ def main() -> None:
                         summary.get("high_risk_denied_mean_plan_execution_probability", 0.0),
                     )
                 ),
+                "high_risk_denied_nominal_pd_improvement": float(
+                    secondary_behavior_metrics.get(
+                        "nominal_pd_improvement",
+                        summary.get("high_risk_denied_nominal_pd_improvement", 0.0),
+                    )
+                ),
                 "high_risk_denied_expected_pd_improvement": float(
                     secondary_behavior_metrics.get(
                         "expected_pd_improvement",
                         summary.get("high_risk_denied_expected_pd_improvement", 0.0),
+                    )
+                ),
+                "high_risk_denied_execution_weighted_gap_vs_nominal": float(
+                    secondary_behavior_metrics.get(
+                        "execution_weighted_gap_vs_nominal",
+                        summary.get("high_risk_denied_execution_weighted_gap_vs_nominal", 0.0),
+                    )
+                ),
+                "high_risk_denied_high_uplift_low_follow_through_rate": float(
+                    secondary_behavior_metrics.get(
+                        "high_uplift_low_follow_through_rate",
+                        summary.get("high_risk_denied_high_uplift_low_follow_through_rate", 0.0),
                     )
                 ),
                 "high_risk_denied_partial_execution_rate": float(
@@ -2316,7 +2371,10 @@ def main() -> None:
             scale_df["high_risk_denied_best_source_fallback_rate"].mean()
         ),
         "mean_plan_execution_probability": float(scale_df["mean_plan_execution_probability"].mean()),
+        "mean_nominal_pd_improvement": float(scale_df["nominal_pd_improvement"].mean()),
         "mean_expected_pd_improvement": float(scale_df["expected_pd_improvement"].mean()),
+        "mean_execution_weighted_gap_vs_nominal": float(scale_df["execution_weighted_gap_vs_nominal"].mean()),
+        "mean_high_uplift_low_follow_through_rate": float(scale_df["high_uplift_low_follow_through_rate"].mean()),
         "mean_partial_execution_rate": float(scale_df["partial_execution_rate"].mean()),
         "mean_failed_execution_rate": float(scale_df["failed_execution_rate"].mean()),
         "mean_mixed_execution_rate": float(scale_df["mixed_execution_rate"].mean()),
@@ -2324,8 +2382,17 @@ def main() -> None:
         "mean_high_risk_denied_plan_execution_probability": float(
             scale_df["high_risk_denied_mean_plan_execution_probability"].mean()
         ),
+        "mean_high_risk_denied_nominal_pd_improvement": float(
+            scale_df["high_risk_denied_nominal_pd_improvement"].mean()
+        ),
         "mean_high_risk_denied_expected_pd_improvement": float(
             scale_df["high_risk_denied_expected_pd_improvement"].mean()
+        ),
+        "mean_high_risk_denied_execution_weighted_gap_vs_nominal": float(
+            scale_df["high_risk_denied_execution_weighted_gap_vs_nominal"].mean()
+        ),
+        "mean_high_risk_denied_high_uplift_low_follow_through_rate": float(
+            scale_df["high_risk_denied_high_uplift_low_follow_through_rate"].mean()
         ),
         "mean_high_risk_denied_partial_execution_rate": float(
             scale_df["high_risk_denied_partial_execution_rate"].mean()

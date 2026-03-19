@@ -519,11 +519,23 @@ class PlanRecord(BaseModel):
         le=1.0,
         description="Plan seviyesinde toplanmis gerceklesme olasiligi",
     )
+    approval_dependent_plan_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Approval-dependent veya provisional branch'ler icin ayri plan-level gerceklesme olasiligi",
+    )
     mean_action_execution_probability: float | None = Field(
         default=None,
         ge=0.0,
         le=1.0,
         description="Executable aksiyonlar icin ortalama aksiyon uygulanma olasiligi",
+    )
+    mean_approval_dependent_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Approval-dependent aksiyonlar icin ortalama onay/gerceklesme olasiligi",
     )
     nominal_pd_improvement: float | None = Field(
         default=None,
@@ -720,6 +732,7 @@ class DecisionOutcomeRecord(BaseModel):
     approved: bool = Field(default=False, description="Karar sonucu onaylandi mi")
     predicted_pd: float | None = Field(default=None, ge=0.0, le=1.0)
     plan_execution_probability: float | None = Field(default=None, ge=0.0, le=1.0)
+    approval_dependent_plan_probability: float | None = Field(default=None, ge=0.0, le=1.0)
     offer_acceptance_probability: float | None = Field(default=None, ge=0.0, le=1.0)
     combined_plan_realization_probability: float | None = Field(default=None, ge=0.0, le=1.0)
     action_completed: bool | None = Field(default=None, description="Aksiyonlar gercekte tamamlandi mi")

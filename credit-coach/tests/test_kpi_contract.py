@@ -130,9 +130,25 @@ def test_render_milestone_acceptance_review_includes_learning_loop_summary() -> 
                     "avg_margin_90d": "mixed",
                 },
             },
+            "behavior_aware_summary": {
+                "primary_segment_lens": "risk_band",
+                "canonical_metrics": {
+                    "mean_plan_execution_probability": 0.58,
+                    "nominal_pd_improvement": 0.09,
+                    "expected_pd_improvement": 0.05,
+                    "execution_weighted_gap_vs_nominal": 0.04,
+                    "high_uplift_low_follow_through_rate": 0.22,
+                    "mixed_execution_rate": 0.31,
+                    "failed_execution_rate": 0.12,
+                    "expected_partial_progress_rate": 0.49,
+                },
+            },
         }
     )
 
     assert "Learning Loop Summary" in review
     assert "Decision log completeness: 0.900000" in review
     assert "approval_rate OPE label: supports_treatment" in review
+    assert "Primary segment lens: risk_band" in review
+    assert "Nominal PD improvement: 0.090000" in review
+    assert "High uplift low follow-through rate: 0.220000" in review

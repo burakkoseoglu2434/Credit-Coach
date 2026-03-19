@@ -1207,7 +1207,10 @@ def _simulate_plan_execution_behavior(
 def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any], pd.DataFrame, pd.DataFrame]:
     metric_fields = (
         "mean_plan_execution_probability",
+        "nominal_pd_improvement",
         "expected_pd_improvement",
+        "execution_weighted_gap_vs_nominal",
+        "high_uplift_low_follow_through_rate",
         "partial_execution_rate",
         "failed_execution_rate",
         "mixed_execution_rate",
@@ -1233,8 +1236,10 @@ def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, A
                     "best_source",
                     "count",
                     "mean_plan_execution_probability",
-                    "expected_pd_improvement",
                     "nominal_pd_improvement",
+                    "expected_pd_improvement",
+                    "execution_weighted_gap_vs_nominal",
+                    "high_uplift_low_follow_through_rate",
                 ]
             ),
             pd.DataFrame(
@@ -1257,12 +1262,36 @@ def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, A
         & (batch_df["risk_band"].astype(str).str.lower() == "high")
     ].copy()
 
+    def _with_behavior_flags(frame: pd.DataFrame) -> pd.DataFrame:
+        if frame.empty:
+            return frame.copy()
+        out = frame.copy()
+        nominal = pd.to_numeric(out["best_nominal_pd_improvement"], errors="coerce").fillna(0.0)
+        expected = pd.to_numeric(out["best_expected_pd_improvement"], errors="coerce").fillna(0.0)
+        execution_probability = pd.to_numeric(out["best_plan_execution_probability"], errors="coerce").fillna(0.0)
+        out["execution_weighted_gap_vs_nominal"] = (nominal - expected).clip(lower=0.0)
+        out["high_uplift_low_follow_through"] = (
+            (nominal >= 0.05)
+            & ((execution_probability < 0.45) | (expected <= (0.50 * nominal)))
+        ).astype(float)
+        return out
+
+    denied_rows = _with_behavior_flags(denied_rows)
+    high_risk_denied_rows = _with_behavior_flags(high_risk_denied_rows)
+
     def _metrics(frame: pd.DataFrame) -> dict[str, float]:
         if frame.empty:
             return {field: 0.0 for field in metric_fields}
         return {
             "mean_plan_execution_probability": _round_metric(frame["best_plan_execution_probability"].astype(float).mean()),
+            "nominal_pd_improvement": _round_metric(frame["best_nominal_pd_improvement"].astype(float).mean()),
             "expected_pd_improvement": _round_metric(frame["best_expected_pd_improvement"].astype(float).mean()),
+            "execution_weighted_gap_vs_nominal": _round_metric(
+                frame["execution_weighted_gap_vs_nominal"].astype(float).mean()
+            ),
+            "high_uplift_low_follow_through_rate": _round_metric(
+                frame["high_uplift_low_follow_through"].astype(float).mean()
+            ),
             "partial_execution_rate": _round_metric(frame["best_partial_execution"].astype(float).mean()),
             "failed_execution_rate": _round_metric(frame["best_failed_execution"].astype(float).mean()),
             "mixed_execution_rate": _round_metric(frame["best_mixed_execution"].astype(float).mean()),
@@ -1279,8 +1308,10 @@ def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, A
             .agg(
                 count=("customer_id", "size"),
                 mean_plan_execution_probability=("best_plan_execution_probability", "mean"),
-                expected_pd_improvement=("best_expected_pd_improvement", "mean"),
                 nominal_pd_improvement=("best_nominal_pd_improvement", "mean"),
+                expected_pd_improvement=("best_expected_pd_improvement", "mean"),
+                execution_weighted_gap_vs_nominal=("execution_weighted_gap_vs_nominal", "mean"),
+                high_uplift_low_follow_through_rate=("high_uplift_low_follow_through", "mean"),
             )
             .reset_index()
         )
@@ -1313,8 +1344,10 @@ def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, A
                 "best_source",
                 "count",
                 "mean_plan_execution_probability",
-                "expected_pd_improvement",
                 "nominal_pd_improvement",
+                "expected_pd_improvement",
+                "execution_weighted_gap_vs_nominal",
+                "high_uplift_low_follow_through_rate",
             ]
         )
     )
@@ -1340,6 +1373,14 @@ def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, A
         "secondary_population": "high_risk_denied",
         "canonical_metrics": _metrics(denied_rows),
         "secondary_metrics": _metrics(high_risk_denied_rows),
+        "primary_segment_lens": "risk_band",
+        "primary_comparison": {
+            "nominal_metric": "nominal_pd_improvement",
+            "execution_aware_metric": "expected_pd_improvement",
+            "gap_metric": "execution_weighted_gap_vs_nominal",
+            "core_question": "how much of the plan is realistically executable",
+            "risk_sentence": "high uplift but low follow-through",
+        },
         "supporting_artifacts": {
             "execution_probability_breakdown_csv": "tables/execution_probability_breakdown.csv",
             "partial_execution_breakdown_csv": "tables/partial_execution_breakdown.csv",

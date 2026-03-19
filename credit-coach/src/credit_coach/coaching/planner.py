@@ -74,6 +74,81 @@ def _expected_recovery_proxy(plan: PlanRecord) -> float:
     return _safe_float(explicit, 0.0)
 
 
+def _approval_dependent_plan_probability(plan: PlanRecord) -> float:
+    probability = getattr(plan, "approval_dependent_plan_probability", None)
+    if probability is None:
+        return 0.0
+    return max(0.0, min(1.0, _safe_float(probability, 0.0)))
+
+
+def _execution_gap(plan: PlanRecord, *, base_pd: float | None, tau: float | None) -> float:
+    nominal = _nominal_pd_improvement(plan, base_pd=base_pd, tau=tau)
+    expected = _expected_pd_improvement(plan, base_pd=base_pd, tau=tau)
+    return max(0.0, nominal - expected)
+
+
+def _execution_rank_penalty(
+    plan: PlanRecord,
+    *,
+    base_pd: float | None,
+    tau: float | None,
+    segment_context: dict[str, Any] | None = None,
+    high_risk: bool = False,
+) -> float:
+    execution_probability = _plan_execution_probability(plan)
+    approval_probability = _approval_dependent_plan_probability(plan)
+    nominal = _nominal_pd_improvement(plan, base_pd=base_pd, tau=tau)
+    expected = _expected_pd_improvement(plan, base_pd=base_pd, tau=tau)
+    gap = max(0.0, nominal - expected)
+    risk_band = str((segment_context or {}).get("risk_band", "")).strip().lower()
+
+    penalty = 0.0
+    penalty += max(0.0, 0.65 - execution_probability) * 120.0
+    penalty += gap * 140.0
+
+    if nominal >= 0.05 and execution_probability < 0.45:
+        penalty += 10.0
+    if nominal >= 0.08 and expected <= (0.50 * nominal):
+        penalty += 12.0
+
+    approval_pending_count = _safe_int(getattr(plan, "approval_pending_action_count", 0), 0)
+    if approval_pending_count > 0:
+        penalty += 12.0 + (6.0 * float(approval_pending_count))
+        penalty += max(0.0, 0.55 - approval_probability) * 40.0
+
+    constraint_status = str(getattr(plan, "constraint_status", "valid") or "valid").strip().lower()
+    if constraint_status == "provisional":
+        penalty += 28.0
+    elif constraint_status == "repaired":
+        penalty += 4.0
+
+    if high_risk or risk_band == "high":
+        penalty *= 1.20
+    return float(penalty)
+
+
+def _execution_defensibility_score(
+    plan: PlanRecord,
+    *,
+    base_pd: float | None,
+    tau: float | None,
+    segment_context: dict[str, Any] | None = None,
+    high_risk: bool = False,
+) -> float:
+    expected = _expected_pd_improvement(plan, base_pd=base_pd, tau=tau)
+    execution_probability = _plan_execution_probability(plan)
+    approval_probability = _approval_dependent_plan_probability(plan)
+    penalty = _execution_rank_penalty(
+        plan,
+        base_pd=base_pd,
+        tau=tau,
+        segment_context=segment_context,
+        high_risk=high_risk,
+    )
+    score = (expected * 100.0) + (execution_probability * 20.0) + (approval_probability * 5.0) - penalty
+    return float(score)
+
+
 def _phase_action_shares(plan: PlanRecord) -> tuple[float, float, float]:
     actions = list(plan.actions)
     if not actions:
@@ -545,6 +620,18 @@ def _denied_sort_key(
         -ci_margin,
         -rel_margin,
         -worst_margin,
+        _execution_rank_penalty(
+            plan,
+            base_pd=base_pd,
+            tau=tau,
+            high_risk=False,
+        ),
+        -_execution_defensibility_score(
+            plan,
+            base_pd=base_pd,
+            tau=tau,
+            high_risk=False,
+        ),
         -_safe_float(getattr(plan, "trajectory_policy_score", 0.0), 0.0),
         -_expected_pd_improvement(plan, base_pd=base_pd, tau=tau),
         -_plan_execution_probability(plan),
@@ -609,6 +696,20 @@ def _high_risk_sort_key(
         _constraint_priority(plan),
         _status_priority(plan.status),
         float(high_violation),
+        _execution_rank_penalty(
+            plan,
+            base_pd=base_pd,
+            tau=tau,
+            segment_context={"risk_band": "high"},
+            high_risk=True,
+        ),
+        -_execution_defensibility_score(
+            plan,
+            base_pd=base_pd,
+            tau=tau,
+            segment_context={"risk_band": "high"},
+            high_risk=True,
+        ),
         -_safe_float(getattr(plan, "trajectory_policy_score", 0.0), 0.0),
         -_expected_pd_improvement(plan, base_pd=base_pd, tau=tau),
         -_plan_execution_probability(plan),
@@ -694,6 +795,20 @@ def choose_best_plan(
                 tau=tau,
                 min_reliability=min_reliability,
                 min_worst_risk_margin=min_worst_risk_margin,
+            ),
+            _execution_rank_penalty(
+                p,
+                base_pd=base_pd,
+                tau=tau,
+                segment_context=segment_context,
+                high_risk=False,
+            ),
+            -_execution_defensibility_score(
+                p,
+                base_pd=base_pd,
+                tau=tau,
+                segment_context=segment_context,
+                high_risk=False,
             ),
             -_safe_float(getattr(p, "trajectory_policy_score", 0.0), 0.0),
             -_expected_pd_improvement(p, base_pd=base_pd, tau=tau),

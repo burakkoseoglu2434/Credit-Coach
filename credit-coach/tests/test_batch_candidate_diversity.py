@@ -254,10 +254,15 @@ def test_build_behavior_aware_artifacts_uses_denied_as_canonical_population():
     assert summary["canonical_population"] == "denied"
     assert summary["secondary_population"] == "high_risk_denied"
     assert summary["canonical_metrics"]["mean_plan_execution_probability"] == 0.55
+    assert summary["canonical_metrics"]["nominal_pd_improvement"] == 0.09
+    assert summary["canonical_metrics"]["execution_weighted_gap_vs_nominal"] == 0.039
     assert summary["canonical_metrics"]["mixed_execution_rate"] == 0.5
     assert summary["secondary_metrics"]["mean_plan_execution_probability"] == 0.7
+    assert summary["primary_segment_lens"] == "risk_band"
+    assert summary["primary_comparison"]["risk_sentence"] == "high uplift but low follow-through"
     assert "execution_probability_breakdown_csv" in summary["supporting_artifacts"]
     assert set(execution_breakdown["population"]) == {"denied", "high_risk_denied"}
+    assert "execution_weighted_gap_vs_nominal" in execution_breakdown.columns
     assert set(partial_breakdown["execution_scenario"]) >= {"full_execution", "mixed_execution"}
 
 

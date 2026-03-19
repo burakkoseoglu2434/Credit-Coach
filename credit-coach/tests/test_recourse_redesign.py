@@ -7,6 +7,10 @@ from credit_coach.cli.run_recourse import _build_customer_roadmap, _effective_re
 from credit_coach.data.schema import PlanAction, PlanRecord, TrajectoryCheckpoint, TrajectoryPhase
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.recourse.generator import PlanGenConfig, generate_plan_record
+from credit_coach.recourse.execution_probability import (
+    estimate_action_execution_probability,
+    estimate_plan_execution_probability,
+)
 from credit_coach.recourse.offer_optimization import annotate_offer_optimization
 from credit_coach.safety.statistical import estimate_prediction_ci
 
@@ -236,6 +240,114 @@ def test_generate_plan_record_emits_execution_probability_contract():
     assert str(plan.trajectory_status) == "on_track"
     assert str(plan.current_phase) == "phase_1_stabilize"
     assert int(plan.next_review_week or 0) == 4
+
+
+def test_execution_probability_defaults_lower_for_long_high_burden_actions():
+    short_action = PlanAction(
+        feature_name="revol_util",
+        current_value=72.0,
+        target_value=60.0,
+        delta=-12.0,
+        time_months=1,
+        estimated_cost_usd=15.0,
+        action_key="limit_credit_usage",
+        action_class="behavioral",
+        action_title="Limit credit usage",
+    )
+    long_action = PlanAction(
+        feature_name="revol_util",
+        current_value=72.0,
+        target_value=45.0,
+        delta=-27.0,
+        time_months=6,
+        estimated_cost_usd=240.0,
+        action_key="limit_credit_usage",
+        action_class="behavioral",
+        action_title="Limit credit usage",
+    )
+
+    short_prob, _ = estimate_action_execution_probability(short_action, plan_action_count=1)
+    long_prob, _ = estimate_action_execution_probability(long_action, plan_action_count=1)
+
+    assert float(short_prob or 0.0) > float(long_prob or 0.0)
+    assert float(long_prob or 0.0) < 0.5
+
+
+def test_execution_probability_uses_weighted_min_average_for_composite_groups():
+    actions = [
+        PlanAction(
+            feature_name="dti",
+            current_value=32.0,
+            target_value=29.0,
+            delta=-3.0,
+            time_months=1,
+            estimated_cost_usd=20.0,
+            action_key="cut_fixed_expenses",
+            action_class="behavioral",
+            action_title="Cut fixed expenses",
+            action_group_id="stabilize_cashflow",
+        ),
+        PlanAction(
+            feature_name="revol_bal",
+            current_value=14000.0,
+            target_value=11000.0,
+            delta=-3000.0,
+            time_months=3,
+            estimated_cost_usd=140.0,
+            action_key="pay_down_revolving_balance",
+            action_class="structural",
+            action_title="Pay down revolving balance",
+            action_group_id="stabilize_cashflow",
+        ),
+    ]
+
+    bundle = estimate_plan_execution_probability(actions)
+
+    member_probabilities = [float(action.action_execution_probability or 0.0) for action in actions]
+    group_probability = float(actions[0].action_group_execution_probability or 0.0)
+
+    assert group_probability > min(member_probabilities)
+    assert group_probability < max(member_probabilities)
+    assert float(bundle["plan_execution_probability"]) <= group_probability
+
+
+def test_execution_probability_keeps_approval_dependent_realization_separate():
+    actions = [
+        PlanAction(
+            feature_name="revol_util",
+            current_value=68.0,
+            target_value=55.0,
+            delta=-13.0,
+            time_months=1,
+            estimated_cost_usd=10.0,
+            action_key="limit_credit_usage",
+            action_class="behavioral",
+            action_title="Limit credit usage",
+            action_group_id="limit_credit_usage:m1",
+        ),
+        PlanAction(
+            feature_name="total_rev_hi_lim",
+            current_value=6000.0,
+            target_value=8000.0,
+            delta=2000.0,
+            time_months=2,
+            estimated_cost_usd=0.0,
+            action_key="evaluate_limit_adjustment",
+            action_class="institutional",
+            action_title="Evaluate limit adjustment",
+            action_group_id="limit_adjustment:m2",
+            requires_institutional_approval=True,
+            institutional_approval_state="pending",
+            approval_pending_semantic_only=True,
+        ),
+    ]
+
+    bundle = estimate_plan_execution_probability(actions)
+
+    assert float(bundle["plan_execution_probability"]) > 0.0
+    assert float(bundle["approval_dependent_plan_probability"] or 0.0) > 0.0
+    assert float(bundle["mean_approval_dependent_probability"] or 0.0) > 0.0
+    assert int(bundle["approval_pending_action_count"]) == 1
 
 
 def test_annotate_offer_optimization_emits_combined_realization_contract():

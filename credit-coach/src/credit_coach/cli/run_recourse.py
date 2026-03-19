@@ -379,6 +379,11 @@ def _decision_log_record(
             if getattr(plan, "plan_execution_probability", None) is not None
             else None
         ),
+        "approval_dependent_plan_probability": (
+            _safe_float(getattr(plan, "approval_dependent_plan_probability", 0.0), 0.0)
+            if getattr(plan, "approval_dependent_plan_probability", None) is not None
+            else None
+        ),
         "offer_acceptance_probability": (
             _safe_float(getattr(plan, "offer_acceptance_probability", 0.0), 0.0)
             if getattr(plan, "offer_acceptance_probability", None) is not None
@@ -649,9 +654,19 @@ def _plan_to_row(plan: PlanRecord) -> dict:
             if getattr(plan, "plan_execution_probability", None) is not None
             else None
         ),
+        "approval_dependent_plan_probability": (
+            _safe_float(getattr(plan, "approval_dependent_plan_probability", 0.0), 0.0)
+            if getattr(plan, "approval_dependent_plan_probability", None) is not None
+            else None
+        ),
         "mean_action_execution_probability": (
             _safe_float(getattr(plan, "mean_action_execution_probability", 0.0), 0.0)
             if getattr(plan, "mean_action_execution_probability", None) is not None
+            else None
+        ),
+        "mean_approval_dependent_probability": (
+            _safe_float(getattr(plan, "mean_approval_dependent_probability", 0.0), 0.0)
+            if getattr(plan, "mean_approval_dependent_probability", None) is not None
             else None
         ),
         "nominal_pd_improvement": _safe_float(getattr(plan, "nominal_pd_improvement", 0.0), 0.0),
