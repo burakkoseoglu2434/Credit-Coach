@@ -2,7 +2,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { demoIndexSchema } from "../../shared/demo-schema.js";
+import { demoIndexSchema, productConfidenceSnapshotSchema } from "../../shared/demo-schema.js";
+import { getLiveSingleCustomerDemo } from "./live-demo.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..", "..");
@@ -33,6 +34,14 @@ const items: DemoItem[] = [
     summary: "The core uplift, risk, and trajectory metrics for a denied-customer cohort.",
     type: "json",
     filename: "batch_summary.json",
+  },
+  {
+    slug: "product-confidence-snapshot",
+    title: "Product Confidence Snapshot",
+    category: "proof",
+    summary: "Executive proof verdict, confidence, Phase 17 delta, and trust annotations for buyer-facing proof surfaces.",
+    type: "json",
+    filename: "product_confidence_snapshot.json",
   },
   {
     slug: "candidate-quality",
@@ -136,6 +145,18 @@ export async function getDemoPayload(slug: string) {
     return null;
   }
 
+  if (slug === "single-customer-roadmap") {
+    try {
+      return {
+        ...item,
+        content: await getLiveSingleCustomerDemo(),
+      };
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn("Falling back to static single customer demo:", error);
+    }
+  }
+
   const fullPath = path.resolve(demoDataDir, item.filename);
   const raw = await fs.readFile(fullPath, "utf-8");
   if (item.type === "markdown") {
@@ -145,8 +166,12 @@ export async function getDemoPayload(slug: string) {
     };
   }
 
+  const parsed = JSON.parse(raw);
   return {
     ...item,
-    content: JSON.parse(raw),
+    content:
+      slug === "product-confidence-snapshot"
+        ? productConfidenceSnapshotSchema.parse(parsed)
+        : parsed,
   };
 }

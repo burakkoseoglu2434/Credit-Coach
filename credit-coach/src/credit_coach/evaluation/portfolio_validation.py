@@ -44,6 +44,14 @@ _TRAJECTORY_CLASS_ORDER: tuple[str, ...] = (
     "replan_prone",
 )
 
+_PHASE17_PROOF_BASELINE: dict[str, float] = {
+    "product_ready_plan_coverage": 0.35,
+    "governance_safe_plan_coverage": 0.45,
+    "execution_aware_value": 0.045,
+    "weak_4w_health_rate": 0.50,
+    "reality_gap_flag_rate": 0.175,
+}
+
 
 def _safe_int(value: Any, default: int = 0) -> int:
     try:
@@ -207,6 +215,269 @@ def _offer_state(row: Mapping[str, Any], steps: Sequence[Mapping[str, Any]]) -> 
     if _safe_int(row.get("best_offer_plan"), 0) == 1 and not terms_complete and _safe_int(row.get("best_rankable_offer"), 0) == 0:
         return "unknown", True
     return "offer", False
+
+
+def _weak_4w_health_rate(work: pd.DataFrame) -> float:
+    if work.empty:
+        return 0.0
+    if "trajectory_weak_4w_health" in work.columns:
+        return _round_metric(pd.to_numeric(work["trajectory_weak_4w_health"], errors="coerce").fillna(0.0).mean())
+    if "trajectory_gate_pass_4w" in work.columns:
+        gate_pass_4w = pd.to_numeric(work["trajectory_gate_pass_4w"], errors="coerce").fillna(0.0)
+        return _round_metric((gate_pass_4w <= 0.0).astype(float).mean())
+    return _round_metric((work["trajectory_class"].astype(str) != "early_healthy").astype(float).mean())
+
+
+def _normalized_phase17_proof_baseline(
+    phase17_baseline: Mapping[str, Any] | None = None,
+) -> dict[str, float]:
+    baseline = dict(_PHASE17_PROOF_BASELINE)
+    if isinstance(phase17_baseline, Mapping):
+        for key in baseline:
+            if key in phase17_baseline:
+                baseline[key] = _safe_float(phase17_baseline.get(key), baseline[key])
+    return {key: _round_metric(value) for key, value in baseline.items()}
+
+
+def _build_phase17_delta(
+    current_metrics: Mapping[str, Any],
+    *,
+    phase17_baseline: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    baseline = _normalized_phase17_proof_baseline(phase17_baseline)
+    metric_directions = {
+        "product_ready_plan_coverage": True,
+        "governance_safe_plan_coverage": True,
+        "execution_aware_value": True,
+        "weak_4w_health_rate": False,
+        "reality_gap_flag_rate": False,
+    }
+    metrics: dict[str, dict[str, Any]] = {}
+    for metric_key, higher_is_better in metric_directions.items():
+        current = _safe_float(current_metrics.get(metric_key), 0.0)
+        baseline_value = _safe_float(baseline.get(metric_key), 0.0)
+        delta = _round_metric(current - baseline_value)
+        improved = delta >= 0.0 if higher_is_better else delta <= 0.0
+        metrics[metric_key] = {
+            "current": _round_metric(current),
+            "baseline": _round_metric(baseline_value),
+            "delta": delta,
+            "higher_is_better": bool(higher_is_better),
+            "improved": bool(improved),
+        }
+
+    product_ready_delta = _safe_float(metrics["product_ready_plan_coverage"]["delta"])
+    governance_delta = _safe_float(metrics["governance_safe_plan_coverage"]["delta"])
+    execution_delta = _safe_float(metrics["execution_aware_value"]["delta"])
+    weak_4w_delta = _safe_float(metrics["weak_4w_health_rate"]["delta"])
+    reality_gap_delta = _safe_float(metrics["reality_gap_flag_rate"]["delta"])
+
+    all_core_improved = (
+        bool(metrics["product_ready_plan_coverage"]["improved"])
+        and bool(metrics["governance_safe_plan_coverage"]["improved"])
+        and bool(metrics["execution_aware_value"]["improved"])
+        and bool(metrics["weak_4w_health_rate"]["improved"])
+        and bool(metrics["reality_gap_flag_rate"]["improved"])
+    )
+    more_honest_but_narrower = (
+        product_ready_delta < 0.0
+        and governance_delta >= -0.02
+        and execution_delta >= -0.01
+        and weak_4w_delta <= 0.0
+        and reality_gap_delta <= 0.0
+    )
+    credibility_weakened = (
+        product_ready_delta < 0.0
+        and execution_delta < 0.0
+        and (weak_4w_delta > 0.0 or reality_gap_delta > 0.0)
+    )
+
+    if all_core_improved:
+        comparison_story = "credibility_improved"
+        credibility_direction = "improved"
+        summary = "Credibility improved versus the canonical Phase 17 proof baseline."
+    elif more_honest_but_narrower:
+        comparison_story = "more_honest_but_narrower"
+        credibility_direction = "improved"
+        summary = "Proof is narrower than Phase 17, but more honest on early health and reality-gap pressure."
+    elif credibility_weakened:
+        comparison_story = "credibility_weakened"
+        credibility_direction = "weaker"
+        summary = "Product proof weakened versus the canonical Phase 17 baseline."
+    else:
+        comparison_story = "mixed_change"
+        credibility_direction = "mixed"
+        summary = "Product proof moved in mixed directions versus the canonical Phase 17 baseline."
+
+    return {
+        "baseline_name": "phase17_canonical_portfolio_snapshot",
+        "comparison_story": comparison_story,
+        "credibility_direction": credibility_direction,
+        "summary": summary,
+        "metrics": metrics,
+    }
+
+
+def _build_product_proof(
+    summary: Mapping[str, Any],
+    *,
+    phase17_baseline: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    canonical_metrics = (
+        summary.get("canonical_metrics", {})
+        if isinstance(summary.get("canonical_metrics", {}), Mapping)
+        else {}
+    )
+    population_sizes = (
+        summary.get("population_sizes", {})
+        if isinstance(summary.get("population_sizes", {}), Mapping)
+        else {}
+    )
+    demo_fit = (
+        summary.get("demo_representativeness", {})
+        if isinstance(summary.get("demo_representativeness", {}), Mapping)
+        else {}
+    )
+
+    product_ready_plan_coverage = _safe_float(canonical_metrics.get("product_ready_plan_coverage"), 0.0)
+    governance_safe_plan_coverage = _safe_float(canonical_metrics.get("governance_safe_plan_coverage"), 0.0)
+    execution_aware_value = _safe_float(canonical_metrics.get("execution_weighted_expected_improvement"), 0.0)
+    weak_4w_health_rate = _safe_float(canonical_metrics.get("weak_4w_health_rate"), 0.0)
+    delayed_trajectory_rate = _safe_float(canonical_metrics.get("delayed_trajectory_rate"), 0.0)
+    long_horizon_heavy_rate = _safe_float(canonical_metrics.get("long_horizon_heavy_rate"), 0.0)
+    reality_gap_flag_rate = _safe_float(canonical_metrics.get("reality_gap_flag_rate"), 0.0)
+
+    proof_verdict = "not_proven"
+    if (
+        product_ready_plan_coverage >= 0.35
+        and governance_safe_plan_coverage >= 0.45
+        and execution_aware_value >= 0.05
+        and weak_4w_health_rate <= 0.45
+        and reality_gap_flag_rate <= 0.25
+    ):
+        proof_verdict = "working"
+    elif (
+        product_ready_plan_coverage >= 0.25
+        and governance_safe_plan_coverage >= 0.35
+        and execution_aware_value >= 0.03
+        and weak_4w_health_rate <= 0.60
+        and reality_gap_flag_rate <= 0.35
+    ):
+        proof_verdict = "promising"
+    elif (
+        product_ready_plan_coverage >= 0.15
+        or governance_safe_plan_coverage >= 0.25
+        or execution_aware_value >= 0.015
+    ):
+        proof_verdict = "mixed"
+    if proof_verdict in {"working", "promising"} and (
+        weak_4w_health_rate > 0.45 or reality_gap_flag_rate > 0.30
+    ):
+        proof_verdict = "mixed"
+
+    full_population = _safe_int(population_sizes.get("full_evaluation_population"), 0)
+    if full_population >= 500:
+        proof_confidence = "strong"
+    elif full_population >= 100:
+        proof_confidence = "moderate"
+    else:
+        proof_confidence = "weak"
+    if proof_verdict in {"mixed", "not_proven"} and proof_confidence == "strong" and (
+        weak_4w_health_rate > 0.45 or reality_gap_flag_rate > 0.25
+    ):
+        proof_confidence = "moderate"
+
+    current_metrics = {
+        "product_ready_plan_coverage": product_ready_plan_coverage,
+        "governance_safe_plan_coverage": governance_safe_plan_coverage,
+        "execution_aware_value": execution_aware_value,
+        "weak_4w_health_rate": weak_4w_health_rate,
+        "reality_gap_flag_rate": reality_gap_flag_rate,
+    }
+    phase17_delta = _build_phase17_delta(current_metrics, phase17_baseline=phase17_baseline)
+
+    return {
+        "proof_verdict": proof_verdict,
+        "proof_confidence": proof_confidence,
+        "headline_metrics": {
+            "product_ready_plan_coverage": phase17_delta["metrics"]["product_ready_plan_coverage"],
+            "governance_safe_plan_coverage": phase17_delta["metrics"]["governance_safe_plan_coverage"],
+            "execution_aware_value": phase17_delta["metrics"]["execution_aware_value"],
+        },
+        "supporting_metrics": {
+            "weak_4w_health_rate": phase17_delta["metrics"]["weak_4w_health_rate"],
+            "delayed_trajectory_rate": {
+                "current": _round_metric(delayed_trajectory_rate),
+                "higher_is_better": False,
+            },
+            "long_horizon_heavy_rate": {
+                "current": _round_metric(long_horizon_heavy_rate),
+                "higher_is_better": False,
+            },
+            "reality_gap_flag_rate": phase17_delta["metrics"]["reality_gap_flag_rate"],
+        },
+        "phase17_delta": phase17_delta,
+        "demo_fit_annotation": {
+            "demo_representativeness_verdict": _safe_str(
+                demo_fit.get("demo_representativeness_verdict"), "misleading"
+            ),
+            "demo_fit_confidence": _safe_str(demo_fit.get("demo_fit_confidence"), "weak"),
+            "demo_case_segment_share": _round_metric(demo_fit.get("demo_case_segment_share", 0.0)),
+            "product_ready_alignment": bool(demo_fit.get("product_ready_alignment", False)),
+            "narrative": _safe_str(
+                demo_fit.get("narrative"), "demo is not representative of portfolio behavior"
+            ),
+        },
+    }
+
+
+def build_product_confidence_snapshot(
+    portfolio_validation_summary: Mapping[str, Any],
+    *,
+    decision_logging_summary: Mapping[str, Any] | None = None,
+    outcome_ingestion_summary: Mapping[str, Any] | None = None,
+    off_policy_evaluation: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    product_proof = (
+        portfolio_validation_summary.get("product_proof", {})
+        if isinstance(portfolio_validation_summary.get("product_proof", {}), Mapping)
+        else {}
+    )
+    decision_logging = dict(decision_logging_summary or {})
+    outcome_ingestion = dict(outcome_ingestion_summary or {})
+    off_policy = dict(off_policy_evaluation or {})
+    learning_distribution = (
+        outcome_ingestion.get("learning_readiness_status_distribution", {})
+        if isinstance(outcome_ingestion.get("learning_readiness_status_distribution", {}), Mapping)
+        else {}
+    )
+    learning_ready = learning_distribution.get("learning_ready", {})
+    if not isinstance(learning_ready, Mapping):
+        learning_ready = {}
+    preferred_policy_signal = off_policy.get("preferred_policy_signal", {})
+    if not isinstance(preferred_policy_signal, Mapping):
+        preferred_policy_signal = {}
+    return {
+        "proof_verdict": _safe_str(product_proof.get("proof_verdict"), "not_proven"),
+        "proof_confidence": _safe_str(product_proof.get("proof_confidence"), "weak"),
+        "headline_metrics": dict(product_proof.get("headline_metrics", {})),
+        "supporting_metrics": dict(product_proof.get("supporting_metrics", {})),
+        "phase17_delta": dict(product_proof.get("phase17_delta", {})),
+        "demo_fit_annotation": dict(product_proof.get("demo_fit_annotation", {})),
+        "supporting_trust_layer": {
+            "learning": {
+                "decision_log_completeness": _round_metric(decision_logging.get("decision_log_completeness", 0.0)),
+                "learning_ready_share": _round_metric(learning_ready.get("share", 0.0)),
+                "reward_90d_coverage": _round_metric(outcome_ingestion.get("reward_90d_coverage", 0.0)),
+            },
+            "ope": {
+                "comparison_status": _safe_str(off_policy.get("comparison_status"), "not_available"),
+                "ope_confidence": _safe_str(off_policy.get("ope_confidence"), "weak"),
+                "preferred_policy_arm": _safe_str(preferred_policy_signal.get("policy_arm")),
+                "preferred_policy_signal": _safe_str(preferred_policy_signal.get("signal")),
+            },
+        },
+    }
 
 
 def _has_checkpoint_narrative(checkpoints: Sequence[Mapping[str, Any]]) -> bool:
@@ -640,8 +911,26 @@ def _render_portfolio_validation_review(summary: Mapping[str, Any]) -> str:
     reality_gap = summary.get("reality_gap_summary", {})
     segment_story = summary.get("segment_story", {})
     behavior_story = summary.get("behavior_story", {})
+    product_proof = summary.get("product_proof", {})
+    phase17_delta = product_proof.get("phase17_delta", {}) if isinstance(product_proof, Mapping) else {}
+    supporting_metrics = product_proof.get("supporting_metrics", {}) if isinstance(product_proof, Mapping) else {}
     lines = [
         "# Portfolio Validation Review",
+        "",
+        "## Product Proof",
+        f"- Verdict: {_safe_str(product_proof.get('proof_verdict'), 'not_proven')}",
+        f"- Confidence: {_safe_str(product_proof.get('proof_confidence'), 'weak')}",
+        f"- Phase 17 delta: {_safe_str(phase17_delta.get('summary'), 'n/a')}",
+        (
+            f"- Headline hierarchy: product-ready {_safe_float(coverage.get('product_ready_plan_coverage')):.1%}, "
+            f"governance-safe {_safe_float(coverage.get('governance_safe_plan_coverage')):.1%}, "
+            f"execution-aware value {_safe_float(coverage.get('execution_weighted_expected_improvement')):.6f}"
+        ),
+        (
+            f"- Supporting truth: weak 4w {_safe_float(supporting_metrics.get('weak_4w_health_rate', {}).get('current')):.1%}, "
+            f"delayed trajectory {_safe_float(supporting_metrics.get('delayed_trajectory_rate', {}).get('current')):.1%}, "
+            f"reality-gap {_safe_float(supporting_metrics.get('reality_gap_flag_rate', {}).get('current')):.1%}"
+        ),
         "",
         "## Coverage Funnel",
         (
@@ -734,6 +1023,7 @@ def build_portfolio_validation_artifacts(
     tau: float,
     reliability_threshold_by_risk_band: Mapping[str, float] | None = None,
     demo_case: Mapping[str, Any] | None = None,
+    phase17_baseline: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     supporting_artifacts = {
         "portfolio_validation_summary_json": "tables/portfolio_validation_summary.json",
@@ -776,6 +1066,10 @@ def build_portfolio_validation_artifacts(
             "demo_representativeness": _build_demo_representativeness(pd.DataFrame(), demo_case=demo_case),
             "supporting_artifacts": supporting_artifacts,
         }
+        empty_summary["product_proof"] = _build_product_proof(
+            empty_summary,
+            phase17_baseline=phase17_baseline,
+        )
         return {
             "summary": empty_summary,
             "coverage_breakdown": pd.DataFrame(columns=["population", "funnel_stage", "count", "share"]),
@@ -1152,6 +1446,13 @@ def build_portfolio_validation_artifacts(
             pd.to_numeric(work["best_combined_plan_realization_probability"], errors="coerce").fillna(0.0).mean()
         ),
         "early_checkpoint_health_rate": _round_metric((work["trajectory_class"] == "early_healthy").astype(float).mean()),
+        "weak_4w_health_rate": _weak_4w_health_rate(work),
+        "delayed_trajectory_rate": _round_metric(
+            (
+                (work["trajectory_class"] == "delayed_only")
+                | (work["trajectory_class"] == "long_horizon_heavy")
+            ).astype(float).mean()
+        ),
         "delayed_only_rate": _round_metric((work["trajectory_class"] == "delayed_only").astype(float).mean()),
         "long_horizon_heavy_rate": _round_metric((work["trajectory_class"] == "long_horizon_heavy").astype(float).mean()),
         "replan_risk_rate": _round_metric((work["trajectory_class"] == "replan_prone").astype(float).mean()),
@@ -1225,6 +1526,10 @@ def build_portfolio_validation_artifacts(
         "demo_representativeness": demo_representativeness,
         "supporting_artifacts": supporting_artifacts,
     }
+    summary["product_proof"] = _build_product_proof(
+        summary,
+        phase17_baseline=phase17_baseline,
+    )
     review_markdown = _render_portfolio_validation_review(summary)
 
     return {
@@ -1241,7 +1546,11 @@ def build_portfolio_validation_artifacts(
     }
 
 
-def aggregate_portfolio_validation_summaries(seed_summaries: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def aggregate_portfolio_validation_summaries(
+    seed_summaries: Sequence[Mapping[str, Any]],
+    *,
+    phase17_baseline: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     supporting_artifacts = {
         "portfolio_validation_summary_json": "tables/portfolio_validation_summary.json",
         "portfolio_coverage_breakdown_csv": "tables/portfolio_coverage_breakdown.csv",
@@ -1281,6 +1590,16 @@ def aggregate_portfolio_validation_summaries(seed_summaries: Sequence[Mapping[st
                 "demo_representativeness_verdict": "misleading",
                 "demo_fit_confidence": "weak",
             },
+            "product_proof": _build_product_proof(
+                {
+                    "canonical_metrics": {},
+                    "population_sizes": {
+                        "full_evaluation_population": 0,
+                    },
+                    "demo_representativeness": {},
+                },
+                phase17_baseline=phase17_baseline,
+            ),
             "supporting_artifacts": supporting_artifacts,
         }
 
@@ -1464,6 +1783,10 @@ def aggregate_portfolio_validation_summaries(seed_summaries: Sequence[Mapping[st
         "demo_representativeness": demo_fit,
         "supporting_artifacts": supporting_artifacts,
     }
+    summary["product_proof"] = _build_product_proof(
+        summary,
+        phase17_baseline=phase17_baseline,
+    )
     return summary
 
 

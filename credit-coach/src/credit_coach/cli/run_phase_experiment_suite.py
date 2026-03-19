@@ -16,6 +16,7 @@ from credit_coach.evaluation.fairness import build_canonical_segment_key
 from credit_coach.evaluation.portfolio_validation import (
     aggregate_portfolio_breakdown,
     aggregate_portfolio_validation_summaries,
+    build_product_confidence_snapshot,
     render_portfolio_validation_review,
 )
 from credit_coach.model.registry import build_frozen_model_manifest, resolve_model_manifest
@@ -731,6 +732,21 @@ def _build_phase_portfolio_validation_summary(seed_summaries: list[dict[str, Any
 
 def _build_phase_portfolio_validation_review(summary: Mapping[str, Any]) -> str:
     return render_portfolio_validation_review(summary)
+
+
+def _build_phase_product_confidence_snapshot(
+    *,
+    portfolio_validation_summary: Mapping[str, Any],
+    decision_logging_summary: Mapping[str, Any] | None,
+    outcome_ingestion_summary: Mapping[str, Any] | None,
+    off_policy_evaluation: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    return build_product_confidence_snapshot(
+        portfolio_validation_summary,
+        decision_logging_summary=decision_logging_summary,
+        outcome_ingestion_summary=outcome_ingestion_summary,
+        off_policy_evaluation=off_policy_evaluation,
+    )
 
 
 def _build_phase_trajectory_transition_breakdown(seed_breakdowns: list[pd.DataFrame]) -> pd.DataFrame:
@@ -2305,6 +2321,17 @@ def main() -> None:
         outcome_ingestion_summary=outcome_ingestion_summary,
         off_policy_evaluation=off_policy_evaluation,
     )
+    product_confidence_snapshot = _build_phase_product_confidence_snapshot(
+        portfolio_validation_summary=phase_portfolio_validation_summary,
+        decision_logging_summary=phase_decision_logging_summary,
+        outcome_ingestion_summary=outcome_ingestion_summary,
+        off_policy_evaluation=off_policy_evaluation,
+    )
+    product_confidence_snapshot_path = run_ctx.tables_dir / "product_confidence_snapshot.json"
+    product_confidence_snapshot_path.write_text(
+        json.dumps(product_confidence_snapshot, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
     aggregate = {
         "seed_count": int(len(scale_df)),
@@ -2546,6 +2573,7 @@ def main() -> None:
         "portfolio_trajectory_class_breakdown_csv": "tables/portfolio_trajectory_class_breakdown.csv",
         "demo_representativeness_summary_json": "tables/demo_representativeness_summary.json",
         "portfolio_validation_review_md": "tables/portfolio_validation_review.md",
+        "product_confidence_snapshot_json": "tables/product_confidence_snapshot.json",
         "high_risk_tuning_summary_json": "tables/high_risk_tuning_summary.json",
         "generator_policy_impact_json": "tables/generator_policy_impact.json",
         "decision_logging_summary_json": "tables/decision_logging_summary.json",
@@ -2619,6 +2647,7 @@ def main() -> None:
             "trajectory_summary": phase_trajectory_summary,
             "portfolio_validation_summary": phase_portfolio_validation_summary,
             "demo_representativeness_summary": demo_representativeness_summary,
+            "product_confidence_snapshot": product_confidence_snapshot,
             "high_risk_tuning_summary": phase_high_risk_tuning_summary,
             "impact_attribution_summary": impact_attribution_summary,
             "decision_logging_summary": phase_decision_logging_summary,
@@ -2654,6 +2683,7 @@ def main() -> None:
             "trajectory_summary": phase_trajectory_summary,
             "portfolio_validation_summary": phase_portfolio_validation_summary,
             "demo_representativeness_summary": demo_representativeness_summary,
+            "product_confidence_snapshot": product_confidence_snapshot,
             "high_risk_tuning_summary": phase_high_risk_tuning_summary,
             "impact_attribution_summary": impact_attribution_summary,
             "decision_logging_summary": phase_decision_logging_summary,
@@ -2720,6 +2750,7 @@ def main() -> None:
         "trajectory_gate_by_income_band_csv": "tables/trajectory_gate_by_income_band.csv",
         "trajectory_phase_action_mix_csv": "tables/trajectory_phase_action_mix.csv",
         "portfolio_validation_review_md": "tables/portfolio_validation_review.md",
+        "product_confidence_snapshot_json": "tables/product_confidence_snapshot.json",
     }
     if mirrored_outcome_feedback:
         optional_release_artifacts["outcome_feedback_summary_json"] = "tables/outcome_feedback_summary.json"

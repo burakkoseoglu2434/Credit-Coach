@@ -1,32 +1,27 @@
-import { ArtifactCard } from "@/components/ArtifactCard";
-import { CapabilityCard } from "@/components/CapabilityCard";
 import { MetricTile } from "@/components/MetricTile";
 import { PageHero } from "@/components/PageHero";
 import { SectionHeading } from "@/components/SectionHeading";
-import { proofCards, proofPillars } from "@/data/site-content";
 import { useDemoItem } from "@/hooks/useDemoData";
 import { useLanguage } from "@/i18n/language";
+import type { ProductConfidenceSnapshot } from "@shared/demo-schema";
 
-type GenericContent = Record<string, unknown>;
+type ProofMetric = ProductConfidenceSnapshot["headline_metrics"]["product_ready_plan_coverage"];
 
-function readNumber(value: unknown) {
-  return typeof value === "number" ? value : 0;
+function emptyMetric(higherIsBetter = true): ProofMetric {
+  return {
+    current: 0,
+    baseline: 0,
+    delta: 0,
+    higher_is_better: higherIsBetter,
+    improved: false,
+  };
 }
 
 export function ProofPage() {
   const { lang, text } = useLanguage();
   const locale = lang === "tr" ? "tr-TR" : "en-US";
-
-  const batch = useDemoItem<GenericContent>("portfolio-batch-summary");
-  const offer = useDemoItem<GenericContent>("offer-optimization");
-  const learning = useDemoItem<GenericContent>("outcome-ingestion");
-  const ope = useDemoItem<GenericContent>("off-policy-evaluation");
-
-  const batchContent = batch.data?.content ?? {};
-  const offerMetrics =
-    ((offer.data?.content as GenericContent)?.canonical_metrics as GenericContent) ?? {};
-  const learningContent = learning.data?.content ?? {};
-  const opeContent = ope.data?.content ?? {};
+  const proof = useDemoItem<ProductConfidenceSnapshot>("product-confidence-snapshot");
+  const snapshot = proof.data?.content;
 
   const formatPercent = (value: number, digits = 0) =>
     new Intl.NumberFormat(locale, {
@@ -35,244 +30,304 @@ export function ProofPage() {
       minimumFractionDigits: digits,
     }).format(value);
 
-  const formatPointChange = (value: number, digits = 0) =>
+  const formatPoints = (value: number, digits = 1) =>
     `${new Intl.NumberFormat(locale, {
       maximumFractionDigits: digits,
       minimumFractionDigits: digits,
     }).format(value * 100)} ${text({ tr: "puan", en: "pts" })}`;
+
+  const metricDelta = (metric: ProofMetric) => {
+    if (typeof metric.delta !== "number") {
+      return undefined;
+    }
+    const sign = metric.delta >= 0 ? "+" : "-";
+    return text({
+      tr: `Phase 17'ye gore ${sign}${formatPoints(Math.abs(metric.delta), 1)}`,
+      en: `vs Phase 17 ${sign}${formatPoints(Math.abs(metric.delta), 1)}`,
+    });
+  };
+
+  const verdictLabel = {
+    working: text({ tr: "Calisiyor", en: "Working" }),
+    promising: text({ tr: "Umut veriyor", en: "Promising" }),
+    mixed: text({ tr: "Karisik", en: "Mixed" }),
+    not_proven: text({ tr: "Henuz kanitli degil", en: "Not proven yet" }),
+  }[snapshot?.proof_verdict ?? "not_proven"];
+
+  const confidenceLabel = {
+    strong: text({ tr: "Guclu kanit", en: "Strong evidence" }),
+    moderate: text({ tr: "Orta duzey kanit", en: "Moderate evidence" }),
+    weak: text({ tr: "Sinirli kanit", en: "Limited evidence" }),
+  }[snapshot?.proof_confidence ?? "weak"];
+
+  const comparisonStory = {
+    credibility_improved: text({
+      tr: "Phase 17'ye gore urun guveni guclendi.",
+      en: "Product credibility improved versus Phase 17.",
+    }),
+    more_honest_but_narrower: text({
+      tr: "Kanit daha dar ama daha durust hale geldi.",
+      en: "The proof became narrower, but more honest.",
+    }),
+    mixed_change: text({
+      tr: "Ilerleme var, ancak tum trust sinyalleri ayni anda guclenmedi.",
+      en: "There is progress, but not every trust signal improved together.",
+    }),
+    credibility_weakened: text({
+      tr: "Phase 17'ye gore proof gucu zayifladi.",
+      en: "Proof strength weakened versus Phase 17.",
+    }),
+  }[snapshot?.phase17_delta.comparison_story ?? "mixed_change"];
+
+  const verdictSummary = {
+    working: text({
+      tr: "Kapsam, guvenlik ve uygulanabilir deger ayni anda guclu gorunuyor.",
+      en: "Coverage, safety, and execution-aware value all look strong together.",
+    }),
+    promising: text({
+      tr: "Motor guclu sinyal veriyor; ancak erken saglik ve trust sinyalleri halen yakindan izlenmeli.",
+      en: "The engine is showing strong signal, but early-health and trust indicators still need close monitoring.",
+    }),
+    mixed: text({
+      tr: "Bazi alanlarda ilerleme var, ancak buyer-facing proof henuz tamamen temiz degil.",
+      en: "There is progress in some areas, but the buyer-facing proof is not yet fully clean.",
+    }),
+    not_proven: text({
+      tr: "Urun hikayesi icin yeterli guven sinyali henuz birikmedi.",
+      en: "There is not yet enough trust signal to support a product proof story.",
+    }),
+  }[snapshot?.proof_verdict ?? "not_proven"];
+
+  const demoFitLabel = {
+    representative: text({ tr: "Temsili", en: "Representative" }),
+    optimistic: text({ tr: "Iyimser", en: "Optimistic" }),
+    narrow: text({ tr: "Dar segment", en: "Narrow segment" }),
+    misleading: text({ tr: "Yaniltici", en: "Misleading" }),
+  }[snapshot?.demo_fit_annotation.demo_representativeness_verdict ?? "misleading"];
+
+  const productReadyMetric = snapshot?.headline_metrics.product_ready_plan_coverage ?? emptyMetric(true);
+  const governanceMetric = snapshot?.headline_metrics.governance_safe_plan_coverage ?? emptyMetric(true);
+  const executionMetric = snapshot?.headline_metrics.execution_aware_value ?? emptyMetric(true);
+  const weak4wMetric = snapshot?.supporting_metrics.weak_4w_health_rate ?? emptyMetric(false);
+  const delayedMetric = snapshot?.supporting_metrics.delayed_trajectory_rate ?? {
+    current: 0,
+    higher_is_better: false,
+  };
+  const longHorizonMetric = snapshot?.supporting_metrics.long_horizon_heavy_rate ?? {
+    current: 0,
+    higher_is_better: false,
+  };
+  const realityGapMetric = snapshot?.supporting_metrics.reality_gap_flag_rate ?? emptyMetric(false);
 
   return (
     <div>
       <PageHero
         eyebrow={text({ tr: "Kanit", en: "Proof" })}
         title={text({
-          tr: "Bu platform ne olcuyor, nasil kontrol ediyor ve neden guven veriyor?",
-          en: "What this platform measures, controls, and why teams can trust it.",
+          tr: "Bu sistem gercekten calisiyor mu?",
+          en: "Is this system actually working?",
         })}
-        supportingNote={text({
-          tr: "Kurgulanmis kilometre tasi gorunumu",
-          en: "Curated milestone snapshot",
-        })}
+        supportingNote={confidenceLabel}
         description={text({
-          tr: "credit-coach'i siradan bir AI demosundan ayiran sey yalnizca onerileri degil; olcum, yayin disiplini ve ogrenme hazirligi ile birlikte gelmesi.",
-          en: "What separates credit-coach from a generic AI demo is not only the recommendation layer, but the measurement, release discipline, and learning readiness behind it.",
+          tr: "Bu sayfa ham proof artifact'lerini birlestirmez. Engine'in urettigi tek curated proof snapshot'i render ederek coverage, safety ve execution-aware degeri ayni hiyerarside gosterir.",
+          en: "This page does not stitch together raw proof artifacts. It renders one engine-owned curated proof snapshot so coverage, safety, and execution-aware value stay in the same hierarchy.",
         })}
-        primaryCta={{ href: "/demo", label: text({ tr: "Demoyu Gor", en: "See the Demo" }) }}
+        primaryCta={{ href: "/demo-center", label: text({ tr: "Demoyu Gor", en: "See the Demo" }) }}
         secondaryCta={{ href: "/contact", label: text({ tr: "Demo Talep Et", en: "Request a Demo" }) }}
         tertiaryCta={{ href: "/investor", label: text({ tr: "Yatirimci Ozetini Oku", en: "Review Investor Story" }) }}
       />
 
       <section className="shell py-20">
         <SectionHeading
-          eyebrow={text({ tr: "Ne olcuyoruz", en: "What we measure" })}
-          title={text({
-            tr: "Urun degeri, teknik terimlerle degil is sonucuyla anlatilir.",
-            en: "Product value is explained through business outcomes, not internal labels.",
-          })}
-          description={text({
-            tr: "Bu ilk katman, bir finans kurumunun urunde gormek isteyecegi somut kabiliyetleri ozetler.",
-            en: "This first layer summarizes the tangible capabilities that financial institutions expect to see in a production-facing product.",
-          })}
+          eyebrow={text({ tr: "Proof verdict", en: "Proof verdict" })}
+          title={verdictLabel}
+          description={verdictSummary}
         />
-        <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          {proofCards.map((item) => (
-            <ArtifactCard
-              key={item.title.tr}
-              name={text(item.title)}
-              description={text(item.description)}
-              icon={item.icon}
+        <div className="mt-10 grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+          <div className="panel p-6">
+            <div className="eyebrow">{text({ tr: "Yonetici ozeti", en: "Executive summary" })}</div>
+            <div className="mt-3 font-display text-3xl font-semibold text-white">{verdictLabel}</div>
+            <div className="mt-3 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-arctic/80">
+              {confidenceLabel}
+            </div>
+            <p className="mt-5 text-sm leading-7 text-slate-300">{comparisonStory}</p>
+            <p className="mt-4 text-sm leading-7 text-slate-400">
+              {snapshot?.phase17_delta.summary ?? ""}
+            </p>
+          </div>
+          <div className="grid gap-5 md:grid-cols-3">
+            <MetricTile
+              label={text({ tr: "Urunlesebilir plan kapsami", en: "Product-ready coverage" })}
+              value={formatPercent(productReadyMetric.current)}
+              change={metricDelta(productReadyMetric)}
+              context={text({ tr: "Headline", en: "Headline" })}
+              hint={text({
+                tr: "Kullanici yuzeyine ek temizlik olmadan tasinabilecek plan payi.",
+                en: "Share of plans that can move to a user-facing surface without extra cleanup.",
+              })}
             />
-          ))}
-        </div>
-        <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <MetricTile
-            label={text({ tr: "Portfoy uplift", en: "Portfolio uplift" })}
-            value={formatPercent(readNumber(batchContent.denied_to_approved_lift))}
-            context={text({ tr: "Temsili offline", en: "Offline demo" })}
-            hint={text({
-              tr: "Temsili cohort uzerinde redden tekrar deger yaratmaya gecen alan.",
-              en: "Illustrative cohort lift from denied cases into recovery-ready value.",
-            })}
-          />
-          <MetricTile
-            label={text({ tr: "Teklif guvenligi", en: "Offer safety" })}
-            value={formatPercent(readNumber(offerMetrics.governance_safe_offer_rate))}
-            context={text({ tr: "Yayina hazir", en: "Release-ready" })}
-            hint={text({
-              tr: "Kurumsal tekliflerin governance sinirinda kalabildigi pay.",
-              en: "Share of institution-side offers that remain inside governance constraints.",
-            })}
-          />
-          <MetricTile
-            label={text({ tr: "Karar kayit tamligi", en: "Decision log completeness" })}
-            value={formatPercent(readNumber(learningContent.decision_log_completeness))}
-            context={text({ tr: "90 gun", en: "90 days" })}
-            hint={text({
-              tr: "Karar kalite kontrolunun sonradan da izlenebilmesini saglayan kapsama orani.",
-              en: "Coverage that keeps decision quality auditable over time.",
-            })}
-          />
-          <MetricTile
-            label={text({ tr: "Ogrenme guveni", en: "Learning confidence" })}
-            value={String(opeContent.ope_confidence ?? text({ tr: "Belirsiz", en: "Unclear" }))}
-            context={text({ tr: "Politika incelemesi", en: "Policy review" })}
-            hint={text({
-              tr: "Politika karsilastirmalarinin ne kadar guvenli okunabilecegi.",
-              en: "How confidently policy comparisons can already be interpreted.",
-            })}
-          />
+            <MetricTile
+              label={text({ tr: "Governance-safe kapsami", en: "Governance-safe coverage" })}
+              value={formatPercent(governanceMetric.current)}
+              change={metricDelta(governanceMetric)}
+              context={text({ tr: "Guvenlik", en: "Safety" })}
+              hint={text({
+                tr: "Adalet, tutarlilik ve trajectory guvencesiyle uyumlu plan payi.",
+                en: "Share of plans that stay aligned with fairness, reliability, and trajectory guardrails.",
+              })}
+            />
+            <MetricTile
+              label={text({ tr: "Execution-aware deger", en: "Execution-aware value" })}
+              value={formatPoints(executionMetric.current)}
+              change={metricDelta(executionMetric)}
+              context={text({ tr: "Gercekci etki", en: "Realistic value" })}
+              hint={text({
+                tr: "Nominal uplift degil, gerceklesme olasiligi hesaba katildiktan sonraki beklenen deger.",
+                en: "Expected value after execution likelihood is applied, not just nominal uplift.",
+              })}
+            />
+          </div>
         </div>
       </section>
 
       <section className="border-t border-white/5 bg-white/[0.02]">
         <div className="shell py-20">
           <SectionHeading
-            eyebrow={text({ tr: "Neden guvenilir", en: "Why it is trustworthy" })}
+            eyebrow={text({ tr: "Destekleyici trust sinyalleri", en: "Supporting trust signals" })}
             title={text({
-              tr: "Kanit, tek bir ekran goruntusunden degil bir disiplin setinden gelir.",
-              en: "Trust comes from a discipline set, not from a single screenshot.",
+              tr: "Erken saglik ve demo fit, headline proof'un altinda ama gorunur kalir.",
+              en: "Early health and demo fit stay visible beneath the headline proof.",
             })}
             description={text({
-              tr: "Bu blok, olcum, inceleme ve yayina gecis mantiginin nasil birbirine baglandigini gosterir.",
-              en: "This block shows how measurement, review, and rollout logic stay connected.",
+              tr: "Bu sinyaller headline verdict'i degistirmez, ama onun ne kadar savunulabilir oldugunu gosterir.",
+              en: "These signals do not replace the headline verdict, but they show how defensible it is.",
             })}
           />
-          <div className="mt-10 grid gap-5 lg:grid-cols-2 xl:grid-cols-4">
-            {proofPillars.map((pillar) => (
-              <CapabilityCard
-                key={pillar.title.tr}
-                eyebrow={text({ tr: "Guven katmani", en: "Trust layer" })}
-                title={text(pillar.title)}
-                description={text(pillar.description)}
-                icon={pillar.icon}
-              />
-            ))}
+          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <MetricTile
+              label={text({ tr: "Zayif 4 hafta maruziyeti", en: "Weak 4-week exposure" })}
+              value={formatPercent(weak4wMetric.current)}
+              change={metricDelta(weak4wMetric)}
+              context={text({ tr: "Erken saglik", en: "Early health" })}
+              hint={text({
+                tr: "Planin ilk 4 haftada guclu okunamadigi alanlar halen ne kadar buyuk.",
+                en: "How much of the portfolio still fails to look strong in the first 4 weeks.",
+              })}
+            />
+            <MetricTile
+              label={text({ tr: "Gecikmeli trajectory maruziyeti", en: "Delayed trajectory exposure" })}
+              value={formatPercent(delayedMetric.current)}
+              context={text({ tr: "12w / 24w", en: "12w / 24w" })}
+              hint={text({
+                tr: "Iyilesmenin daha cok orta ve uzun vadeye yigilmasi gereken plan payi.",
+                en: "Share of plans whose improvement is pushed into the medium or long horizon.",
+              })}
+            />
+            <MetricTile
+              label={text({ tr: "Long-horizon yuk", en: "Long-horizon load" })}
+              value={formatPercent(longHorizonMetric.current)}
+              context={text({ tr: "Destekleyici", en: "Supporting" })}
+              hint={text({
+                tr: "Kisa vadede zayif, daha cok gec fazlara dayanan yol haritasi payi.",
+                en: "Share of plans that depend more heavily on later phases than near-term stability.",
+              })}
+            />
+            <MetricTile
+              label={text({ tr: "Reality-gap baskisi", en: "Reality-gap pressure" })}
+              value={formatPercent(realityGapMetric.current)}
+              change={metricDelta(realityGapMetric)}
+              context={text({ tr: "Audit-first", en: "Audit-first" })}
+              hint={text({
+                tr: "Motorun teknik olarak guclu gorundugu ama insan dunyasinda sorgulanabilecek plan payi.",
+                en: "Share of plans that may look technically strong but remain questionable in human-world terms.",
+              })}
+            />
+          </div>
+          <div className="mt-10 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+            <div className="panel p-6">
+              <div className="eyebrow">{text({ tr: "Demo fit", en: "Demo fit" })}</div>
+              <div className="mt-3 font-display text-2xl font-semibold text-white">{demoFitLabel}</div>
+              <p className="mt-4 text-sm leading-7 text-slate-300">
+                {text({
+                  tr: "Proof sayfasi curated hikayeyi saklamaz; demo'nun portfoy gercegini ne kadar temsil ettigini acikca soyler.",
+                  en: "The proof page does not hide behind a curated story; it states how representative the demo is of portfolio truth.",
+                })}
+              </p>
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <MetricTile
+                  label={text({ tr: "Segment payi", en: "Segment share" })}
+                  value={formatPercent(snapshot?.demo_fit_annotation.demo_case_segment_share ?? 0)}
+                  context={snapshot?.demo_fit_annotation.demo_fit_confidence ?? ""}
+                />
+                <MetricTile
+                  label={text({ tr: "Product-ready uyumu", en: "Product-ready alignment" })}
+                  value={
+                    snapshot?.demo_fit_annotation.product_ready_alignment
+                      ? text({ tr: "Uyumlu", en: "Aligned" })
+                      : text({ tr: "Uyumsuz", en: "Misaligned" })
+                  }
+                  context={text({ tr: "Trust annotation", en: "Trust annotation" })}
+                />
+              </div>
+            </div>
+            <div className="panel p-6">
+              <div className="eyebrow">{text({ tr: "Phase 17 karsilastirmasi", en: "Phase 17 comparison" })}</div>
+              <div className="mt-3 font-display text-2xl font-semibold text-white">{comparisonStory}</div>
+              <p className="mt-4 text-sm leading-7 text-slate-300">
+                {text({
+                  tr: "Bu fazin amaci yalnizca yeni bir snapshot gostermek degil; hardening sonrasi urun guveninin gercekten artip artmadigini gostermekti.",
+                  en: "The point of this phase is not just to show a new snapshot, but to show whether product credibility truly improved after hardening.",
+                })}
+              </p>
+              <p className="mt-4 text-sm leading-7 text-slate-400">
+                {snapshot?.phase17_delta.summary ?? ""}
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
       <section className="shell py-20">
-          <SectionHeading
-            eyebrow={text({ tr: "Nasil yayina aliyoruz", en: "How we release" })}
-            title={text({
-              tr: "Yeni bir strateji, kontrolsuz sekilde yayina alinmaz.",
-              en: "New strategies do not move to production without controls.",
-            })}
-            description={text({
-              tr: "Bu ekran neden onemli? Cunku kurumsal urunlerde yalnizca iyi oneriler degil, guvenli yayina gecis davranisi da satin alinir.",
-              en: "Why it matters: enterprise buyers are not only purchasing recommendations, but safe release behavior.",
-            })}
+        <SectionHeading
+          eyebrow={text({ tr: "Ikinci katman trust", en: "Secondary trust layer" })}
+          title={text({
+            tr: "Ogrenme ve OPE sinyalleri proof'u destekler, headline'in yerine gecmez.",
+            en: "Learning and OPE signals support the proof, but they do not replace the headline answer.",
+          })}
+          description={text({
+            tr: "Bu katman rollout kararindan ayridir; amaci daha cok gelecekteki politika secimlerinin ne kadar guvenle okunabilecegini gostermektir.",
+            en: "This layer stays separate from rollout decisions and mainly shows how confidently future policy choices can be read.",
+          })}
+        />
+        <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <MetricTile
+            label={text({ tr: "Karar kayit tamligi", en: "Decision log completeness" })}
+            value={formatPercent(snapshot?.supporting_trust_layer.learning.decision_log_completeness ?? 0)}
+            context={text({ tr: "Learning", en: "Learning" })}
           />
-        <div className="mt-10 grid gap-5 lg:grid-cols-3">
-          <CapabilityCard
-            eyebrow={text({ tr: "1. Olcum", en: "1. Measurement" })}
-            title={text({ tr: "Portfoy KPI ile baslar", en: "Starts with portfolio KPIs" })}
-            description={text({
-              tr: "Donusum, risk, teklif etkisi ve erken checkpoint sagligi ayni hikaye icinde okunur.",
-              en: "Conversion, risk, offer impact, and early checkpoint health are read in the same story.",
-            })}
-            icon="portfolio"
-            tone="blue"
+          <MetricTile
+            label={text({ tr: "Ogrenmeye hazir kayit", en: "Learning-ready records" })}
+            value={formatPercent(snapshot?.supporting_trust_layer.learning.learning_ready_share ?? 0)}
+            context={text({ tr: "90 gun", en: "90 days" })}
           />
-          <CapabilityCard
-            eyebrow={text({ tr: "2. Review", en: "2. Review" })}
-            title={text({ tr: "Karar yuzeyi aciklanabilir kalir", en: "Decision surfaces stay explainable" })}
-            description={text({
-              tr: "Adalet, tutarlilik ve izleme kontrolleri urun dilinin arkasinda saklanmaz; yayin kararinin onunde durur.",
-              en: "Fairness, reliability, and telemetry controls stay visible and upstream of promotion decisions.",
-            })}
-            icon="governance"
-            tone="green"
+          <MetricTile
+            label={text({ tr: "Reward kapsami", en: "Reward coverage" })}
+            value={formatPercent(snapshot?.supporting_trust_layer.learning.reward_90d_coverage ?? 0)}
+            context={text({ tr: "90 gun", en: "90 days" })}
           />
-          <CapabilityCard
-            eyebrow={text({ tr: "3. Ogrenme", en: "3. Learning" })}
-            title={text({ tr: "Her yayin gelecegi besler", en: "Every release feeds the future" })}
-            description={text({
-              tr: "Karar kaydi ve gecikmeli sonuc verisi, yalnizca raporlama degil bir sonraki politika secimi icin de sinyal uretir.",
-              en: "Decision logging and delayed outcomes do more than reporting; they produce signal for future policy choices.",
-            })}
-            icon="learning"
-            tone="amber"
+          <MetricTile
+            label={text({ tr: "OPE guveni", en: "OPE confidence" })}
+            value={String(snapshot?.supporting_trust_layer.ope.ope_confidence ?? text({ tr: "Belirsiz", en: "Unknown" }))}
+            context={String(snapshot?.supporting_trust_layer.ope.comparison_status ?? "")}
+            hint={
+              snapshot?.supporting_trust_layer.ope.preferred_policy_arm
+                ? text({
+                    tr: `One cikan politika: ${snapshot.supporting_trust_layer.ope.preferred_policy_arm}`,
+                    en: `Preferred policy: ${snapshot.supporting_trust_layer.ope.preferred_policy_arm}`,
+                  })
+                : undefined
+            }
           />
-        </div>
-      </section>
-
-      <section className="border-t border-white/5 bg-white/[0.02]">
-        <div className="shell py-20">
-          <SectionHeading
-            eyebrow={text({ tr: "Nasil ogreniyoruz", en: "How we learn" })}
-            title={text({
-              tr: "Gecikmeli sonuc geldikce sistem yeni politika kararlarini daha guvenle destekler.",
-              en: "As delayed outcomes arrive, the system can support future policy choices with greater confidence.",
-            })}
-            description={text({
-              tr: "Bu blok, bir AI ozelliginden bir karar altyapisina gecisin nerede gerceklestigini gosterir.",
-              en: "This block shows where an AI feature becomes a decision infrastructure layer.",
-            })}
-          />
-          <div className="mt-10 grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-            <div className="panel p-6">
-              <div className="eyebrow">{text({ tr: "Kapsam gorunumu", en: "Coverage snapshot" })}</div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <MetricTile
-                  label={text({ tr: "Odul kapsami", en: "Reward coverage" })}
-                  value={formatPercent(readNumber(learningContent.reward_90d_coverage))}
-                  context={text({ tr: "90 gun", en: "90 days" })}
-                />
-                <MetricTile
-                  label={text({ tr: "Default kapsami", en: "Default coverage" })}
-                  value={formatPercent(readNumber(learningContent.default_90d_coverage))}
-                  context={text({ tr: "90 gun", en: "90 days" })}
-                />
-                <MetricTile
-                  label={text({ tr: "Margin kapsami", en: "Margin coverage" })}
-                  value={formatPercent(readNumber(learningContent.margin_90d_coverage))}
-                  context={text({ tr: "90 gun", en: "90 days" })}
-                />
-                <MetricTile
-                  label={text({ tr: "Ogrenmeye hazir kayit", en: "Learning-ready records" })}
-                  value={formatPercent(
-                    readNumber(
-                      (((learningContent.learning_readiness_status_distribution as GenericContent | undefined)
-                        ?.learning_ready as GenericContent | undefined)?.share as number) ?? 0,
-                    ),
-                  )}
-                  context={text({ tr: "Snapshot", en: "Snapshot" })}
-                />
-              </div>
-            </div>
-            <div className="panel p-6">
-              <div className="eyebrow">{text({ tr: "Politika incelemesi", en: "Policy review" })}</div>
-              <div className="font-display text-2xl font-semibold text-white">
-                {text({
-                  tr: "Ogrenme katmani rollout'u degil, gelecekteki secimleri bilgilendirir.",
-                  en: "The learning layer informs future choices rather than overriding rollout controls.",
-                })}
-              </div>
-              <p className="mt-4 text-sm leading-7 text-slate-300">
-                {text({
-                  tr: "Bu yuzey, yayin kararinin altina degil yanina oturur: hangi politika profilinin daha umut verici oldugunu soyler, ama karar guvencesi kontrollerinin yerine gecmez.",
-                  en: "This surface sits beside release decisions rather than beneath them: it indicates which policy profile looks stronger, but never replaces governance controls.",
-                })}
-              </p>
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <MetricTile
-                  label={text({ tr: "Tercih edilen sinyal", en: "Preferred signal" })}
-                  value={
-                    opeContent.preferred_policy_signal
-                      ? text({ tr: "Treatment destekli", en: "Treatment supported" })
-                      : text({ tr: "Yetersiz kanit", en: "Insufficient evidence" })
-                  }
-                  context={String(opeContent.ope_confidence ?? "")}
-                />
-                <MetricTile
-                  label={text({ tr: "Onay proxy farki", en: "Approval proxy delta" })}
-                  value={formatPointChange(readNumber(offerMetrics.approval_rate_proxy_delta), 1)}
-                  context={text({ tr: "Temsili", en: "Illustrative" })}
-                />
-              </div>
-            </div>
-          </div>
         </div>
       </section>
     </div>

@@ -23,6 +23,78 @@ export const artifactRefSchema = z.object({
   type: z.enum(["json", "csv", "markdown"]),
 });
 
+export const proofMetricSnapshotSchema = z.object({
+  current: z.number(),
+  baseline: z.number().optional(),
+  delta: z.number().optional(),
+  higher_is_better: z.boolean(),
+  improved: z.boolean().optional(),
+});
+
+export const demoFitAnnotationSchema = z.object({
+  demo_representativeness_verdict: z.enum(["representative", "optimistic", "narrow", "misleading"]),
+  demo_fit_confidence: z.enum(["strong", "moderate", "weak"]),
+  demo_case_segment_share: z.number(),
+  product_ready_alignment: z.boolean(),
+  narrative: z.string(),
+});
+
+export const phase17DeltaSchema = z.object({
+  baseline_name: z.string(),
+  comparison_story: z.enum([
+    "credibility_improved",
+    "more_honest_but_narrower",
+    "mixed_change",
+    "credibility_weakened",
+  ]),
+  credibility_direction: z.enum(["improved", "mixed", "weaker"]),
+  summary: z.string(),
+  metrics: z.object({
+    product_ready_plan_coverage: proofMetricSnapshotSchema,
+    governance_safe_plan_coverage: proofMetricSnapshotSchema,
+    execution_aware_value: proofMetricSnapshotSchema,
+    weak_4w_health_rate: proofMetricSnapshotSchema,
+    reality_gap_flag_rate: proofMetricSnapshotSchema,
+  }),
+});
+
+export const productConfidenceSnapshotSchema = z.object({
+  proof_verdict: z.enum(["working", "promising", "mixed", "not_proven"]),
+  proof_confidence: z.enum(["strong", "moderate", "weak"]),
+  headline_metrics: z.object({
+    product_ready_plan_coverage: proofMetricSnapshotSchema,
+    governance_safe_plan_coverage: proofMetricSnapshotSchema,
+    execution_aware_value: proofMetricSnapshotSchema,
+  }),
+  supporting_metrics: z.object({
+    weak_4w_health_rate: proofMetricSnapshotSchema,
+    delayed_trajectory_rate: z.object({
+      current: z.number(),
+      higher_is_better: z.boolean(),
+    }),
+    long_horizon_heavy_rate: z.object({
+      current: z.number(),
+      higher_is_better: z.boolean(),
+    }),
+    reality_gap_flag_rate: proofMetricSnapshotSchema,
+  }),
+  phase17_delta: phase17DeltaSchema,
+  demo_fit_annotation: demoFitAnnotationSchema,
+  supporting_trust_layer: z.object({
+    learning: z.object({
+      decision_log_completeness: z.number(),
+      learning_ready_share: z.number(),
+      reward_90d_coverage: z.number(),
+    }),
+    ope: z.object({
+      comparison_status: z.string(),
+      ope_confidence: z.string(),
+      preferred_policy_arm: z.string(),
+      preferred_policy_signal: z.string(),
+    }),
+  }),
+});
+
 export const demoIndexItemSchema = z.object({
   slug: z.string(),
   title: z.string(),
@@ -211,3 +283,4 @@ export const singleCustomerDemoSchema = z.object({
 export type DemoIndex = z.infer<typeof demoIndexSchema>;
 export type DemoIndexItem = z.infer<typeof demoIndexItemSchema>;
 export type SingleCustomerDemo = z.infer<typeof singleCustomerDemoSchema>;
+export type ProductConfidenceSnapshot = z.infer<typeof productConfidenceSnapshotSchema>;

@@ -8,6 +8,7 @@ from credit_coach.evaluation.portfolio_validation import (
     aggregate_portfolio_breakdown,
     aggregate_portfolio_validation_summaries,
     build_portfolio_validation_artifacts,
+    build_product_confidence_snapshot,
     render_portfolio_validation_review,
 )
 
@@ -172,6 +173,9 @@ def test_build_portfolio_validation_artifacts_distinguishes_coverage_layers() ->
     assert summary["canonical_metrics"]["product_ready_plan_coverage"] == 0.2
     assert summary["canonical_metrics"]["no_plan_rate"] == 0.2
     assert summary["reality_gap_summary"]["dominant_reality_gap_reason"] == "engine_native_action_flag"
+    assert summary["product_proof"]["proof_verdict"] == "mixed"
+    assert summary["product_proof"]["proof_confidence"] == "weak"
+    assert summary["product_proof"]["phase17_delta"]["comparison_story"] == "mixed_change"
 
     coverage_breakdown = artifacts["coverage_breakdown"]
     assert coverage_breakdown["count"].tolist() == [4, 3, 2, 1]
@@ -287,6 +291,123 @@ def test_render_portfolio_validation_review_is_business_first() -> None:
     assert "Segment Story" in review
     assert "Demo Fit" in review
     assert "demo overstates portfolio reality" in review
+
+
+def test_aggregate_portfolio_validation_summaries_can_report_more_honest_but_narrower() -> None:
+    summary = aggregate_portfolio_validation_summaries(
+        [
+            {
+                "population_sizes": {
+                    "full_evaluation_population": 250,
+                    "denied": 150,
+                    "high_risk_denied": 80,
+                },
+                "canonical_metrics": {
+                    "raw_plan_coverage": 0.72,
+                    "valid_plan_coverage": 0.54,
+                    "governance_safe_plan_coverage": 0.44,
+                    "product_ready_plan_coverage": 0.28,
+                    "no_plan_rate": 0.28,
+                    "execution_weighted_expected_improvement": 0.05,
+                    "weak_4w_health_rate": 0.31,
+                    "delayed_trajectory_rate": 0.27,
+                    "long_horizon_heavy_rate": 0.11,
+                    "reality_gap_flag_rate": 0.09,
+                },
+                "secondary_metrics": {
+                    "raw_plan_coverage": 0.64,
+                    "valid_plan_coverage": 0.45,
+                },
+                "reality_gap_summary": {
+                    "reality_gap_flag_rate": 0.09,
+                    "dominant_reality_gap_reason": "narrative_gap_flag",
+                    "product_ready_drop_due_to_reality_gap": 0.18,
+                    "multi_flag_exposure": 0.04,
+                    "severity_split": {"mild": 0.04, "moderate": 0.03, "severe": 0.02},
+                },
+                "demo_representativeness": {
+                    "demo_representativeness_verdict": "representative",
+                    "demo_fit_confidence": "moderate",
+                    "demo_case_segment": "risk_band=near",
+                    "segment_size": 60,
+                    "demo_case_segment_share": 0.24,
+                    "segment_product_ready_rate": 0.27,
+                    "segment_offer_dependency": 0.22,
+                    "product_ready_alignment": True,
+                    "cohort_vs_demo_delta": {
+                        "plan_execution_probability": 0.01,
+                        "early_checkpoint_health_rate": -0.02,
+                        "product_ready_rate": -0.01,
+                    },
+                    "narrative": "demo aligns with cohort",
+                },
+            }
+        ],
+        phase17_baseline={
+            "product_ready_plan_coverage": 0.35,
+            "governance_safe_plan_coverage": 0.45,
+            "execution_aware_value": 0.045,
+            "weak_4w_health_rate": 0.50,
+            "reality_gap_flag_rate": 0.175,
+        },
+    )
+
+    proof = summary["product_proof"]
+    assert proof["proof_verdict"] == "promising"
+    assert proof["proof_confidence"] == "moderate"
+    assert proof["phase17_delta"]["comparison_story"] == "more_honest_but_narrower"
+    assert proof["phase17_delta"]["credibility_direction"] == "improved"
+
+
+def test_build_product_confidence_snapshot_keeps_product_proof_separate_from_trust_layer() -> None:
+    snapshot = build_product_confidence_snapshot(
+        {
+            "product_proof": {
+                "proof_verdict": "mixed",
+                "proof_confidence": "moderate",
+                "headline_metrics": {
+                    "product_ready_plan_coverage": {"current": 0.31, "baseline": 0.35, "delta": -0.04, "higher_is_better": True},
+                    "governance_safe_plan_coverage": {"current": 0.43, "baseline": 0.45, "delta": -0.02, "higher_is_better": True},
+                    "execution_aware_value": {"current": 0.048, "baseline": 0.045, "delta": 0.003, "higher_is_better": True},
+                },
+                "supporting_metrics": {
+                    "weak_4w_health_rate": {"current": 0.29, "baseline": 0.50, "delta": -0.21, "higher_is_better": False},
+                    "delayed_trajectory_rate": {"current": 0.27, "higher_is_better": False},
+                    "long_horizon_heavy_rate": {"current": 0.11, "higher_is_better": False},
+                    "reality_gap_flag_rate": {"current": 0.12, "baseline": 0.175, "delta": -0.055, "higher_is_better": False},
+                },
+                "phase17_delta": {
+                    "baseline_name": "phase17_canonical_portfolio_snapshot",
+                    "comparison_story": "more_honest_but_narrower",
+                    "credibility_direction": "improved",
+                    "summary": "Proof is narrower than Phase 17, but more honest on early health and reality-gap pressure.",
+                },
+                "demo_fit_annotation": {
+                    "demo_representativeness_verdict": "narrow",
+                    "demo_fit_confidence": "weak",
+                    "demo_case_segment_share": 0.12,
+                    "product_ready_alignment": True,
+                    "narrative": "demo reflects a narrow segment",
+                },
+            }
+        },
+        decision_logging_summary={"decision_log_completeness": 0.92},
+        outcome_ingestion_summary={
+            "reward_90d_coverage": 0.74,
+            "learning_readiness_status_distribution": {"learning_ready": {"share": 0.53}},
+        },
+        off_policy_evaluation={
+            "comparison_status": "treatment_vs_control",
+            "ope_confidence": "strong",
+            "preferred_policy_signal": {"policy_arm": "installment_policy_v2", "signal": "supports_treatment"},
+        },
+    )
+
+    assert snapshot["proof_verdict"] == "mixed"
+    assert snapshot["proof_confidence"] == "moderate"
+    assert snapshot["phase17_delta"]["comparison_story"] == "more_honest_but_narrower"
+    assert snapshot["supporting_trust_layer"]["learning"]["decision_log_completeness"] == 0.92
+    assert snapshot["supporting_trust_layer"]["ope"]["ope_confidence"] == "strong"
 
 
 def test_aggregate_portfolio_helpers_keep_seed_and_rollup_contracts() -> None:
