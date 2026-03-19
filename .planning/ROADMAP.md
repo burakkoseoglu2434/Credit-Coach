@@ -53,7 +53,7 @@ Historical archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 **Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, harden execution and trajectory truth where product credibility demands it, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 **Phases**: 17-21 currently defined
-**Status**: Active, Phases 17-20 complete; Phase 21 queued as the next proof pass
+**Status**: Active, Phases 17-21 complete; milestone awaiting audit
 
 ### Phase 17: Full Portfolio Evaluation & Coverage Audit
 
@@ -143,12 +143,12 @@ Planned scope:
 
 **Goal**: Re-run the hardened engine across the full portfolio, refresh proof artifacts, and answer the product-facing question of whether the system is truly working beyond curated stories.
 **Depends on**: Phase 20
-**Plans**: 3 planned
+**Plans**: 3 complete
 
 Plans:
-- [ ] 21-01: Refresh the canonical portfolio proof with product-facing verdict, confidence, and Phase 17 baseline comparison
-- [ ] 21-02: Carry refreshed proof through suite packaging and emit one curated engine-owned confidence snapshot
-- [ ] 21-03: Switch website proof surfaces to the curated proof snapshot and typed proof contract
+- [x] 21-01: Refresh the canonical portfolio proof with product-facing verdict, confidence, and Phase 17 baseline comparison
+- [x] 21-02: Carry refreshed proof through suite packaging and emit one curated engine-owned confidence snapshot
+- [x] 21-03: Switch website proof surfaces to the curated proof snapshot and typed proof contract
 
 Planned scope:
 - run the full portfolio again after trajectory hardening
@@ -163,7 +163,7 @@ Planned scope:
 Notes:
 - Phase 19, Phase 20, and Phase 21 are now the canonical near-term `v1.3` sequence.
 - Additional work after Phase 21 remains intentionally undefined until the next redesign pass.
-- This milestone remains active, with portfolio proof, narrative translation, behavior hardening, and trajectory hardening complete; proof refresh is the next step.
+- This milestone remains active only for audit and closeout; all currently defined `v1.3` phases are complete.
 
 ## Progress
 
@@ -189,3 +189,4 @@ Notes:
 | 18. Decision Narrative & Product Output Translation | v1.3 | 3/3 | Complete | 2026-03-18 |
 | 19. Behavior-Aware Recourse | v1.3 | 3/3 | Complete | 2026-03-19 |
 | 20. Trajectory Hardening | v1.3 | 3/3 | Complete | 2026-03-19 |
+| 21. Portfolio Proof & Product Confidence | v1.3 | 3/3 | Complete | 2026-03-19 |

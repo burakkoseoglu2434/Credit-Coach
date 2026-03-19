@@ -47,7 +47,7 @@
 
 **Post-21 status:** Future `v1.3` phases remain intentionally open after `2026-03-19` and will be redesigned before new phase numbers beyond 21 are added.
 
-**Current checkpoint:** Phases 17-20 are complete and Phase 21 is now planned; next step is proof-refresh execution.
+**Current checkpoint:** Phases 17-21 are complete; next step is milestone audit and closeout readiness review.
 
 
 **Why this milestone exists:**
