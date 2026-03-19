@@ -53,7 +53,7 @@ Historical archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 **Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 **Phases**: 17-20 currently defined
-**Status**: Active, Phases 17-18 complete; Phase 19 planned and ready for execution, Phase 20 awaiting planning
+**Status**: Active, Phases 17-19 complete; Phase 20 awaiting discussion and planning
 
 ### Phase 17: Full Portfolio Evaluation & Coverage Audit
 
@@ -81,12 +81,12 @@ Plans:
 
 **Goal**: Re-open the inherited behavior-aware ranking layer as an explicit v1.3 hardening target so recommendation quality reflects not only nominal PD improvement but also whether customers are likely to execute the plan.
 **Depends on**: Phase 18
-**Plans**: 3 planned
+**Plans**: 3 complete
 
 Plans:
-- [ ] 19-01: Harden execution-probability posture, burden-horizon penalties, and composite or dual-realization semantics
-- [ ] 19-02: Strengthen execution-aware ranking leverage, high-risk ordering, and provisional contender penalties
-- [ ] 19-03: Reframe behavior-aware artifacts and review around nominal-vs-execution-aware value and risk-band evidence
+- [x] 19-01: Harden execution-probability posture, burden-horizon penalties, and composite or dual-realization semantics
+- [x] 19-02: Strengthen execution-aware ranking leverage, high-risk ordering, and provisional contender penalties
+- [x] 19-03: Reframe behavior-aware artifacts and review around nominal-vs-execution-aware value and risk-band evidence
 
 ### Phase 20: Sequential / Trajectory Planning
 
@@ -106,7 +106,7 @@ Planned scope:
 Notes:
 - Phase 19 and Phase 20 are now canonical again under `v1.3`.
 - Additional work after Phase 20 remains intentionally undefined until the next redesign pass.
-- This milestone remains active, with portfolio proof and narrative translation complete and the next hardening wave queued.
+- This milestone remains active, with portfolio proof, narrative translation, and behavior-aware hardening complete and trajectory hardening next in sequence.
 
 ## Progress
 

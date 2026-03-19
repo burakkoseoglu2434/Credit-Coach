@@ -46,6 +46,8 @@
 
 **Post-20 status:** Future `v1.3` phases remain intentionally open after `2026-03-19` and will be redesigned before new phase numbers beyond 20 are added.
 
+**Current checkpoint:** Phases 17-19 are now complete; Phase 20 is the next queued hardening pass.
+
 
 **Why this milestone exists:**
 - `v1.2` solved core recommendation-quality gaps, but demo and product claims still rely too heavily on curated stories and partially productized website surfaces

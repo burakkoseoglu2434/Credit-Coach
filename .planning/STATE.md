@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 ## Current Position
 
-Phase: 19
-Plan: 3 planned
-Status: Ready for execution
-Last activity: 2026-03-19 - Planned Phase 19 with estimator hardening, stronger execution-aware ranking, and risk-band-centered evidence review
+Phase: 20
+Plan: Not planned
+Status: Ready for discussion
+Last activity: 2026-03-19 - Completed Phase 19 with conservative execution truth, stronger execution-aware ranking, and risk-band-centered behavior evidence
 
-Progress: Phases 17-18 complete; Phase 19 research, validation, and plans are ready; Phase 20 still pending discussion
+Progress: Phases 17-19 complete; Phase 20 still pending discussion and planning
 
 ## Performance Metrics
 
@@ -30,12 +30,13 @@ Progress: Phases 17-18 complete; Phase 19 research, validation, and plans are re
 | v1.0 historical baseline | 20 | historical import | Complete |
 | v1.1 completed milestone | 12 | phases 8-11 complete | Complete |
 | v1.2 completed milestone | 15 | phases 12-16 complete | Complete |
-| v1.3 active milestone | 6 complete | phases 17-18 complete, Phase 19 planned, Phase 20 pending discussion | Open |
+| v1.3 active milestone | 9 complete | phases 17-19 complete, Phase 20 pending discussion | Open |
 
 **Recent Trend:**
 - The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
 - Full-portfolio proof now exists, including product-ready coverage, reality-gap audit, and demo representativeness diagnostics.
 - The engine now emits buyer- and analyst-ready roadmap narratives directly, including executive summary, checkpoint meaning, reasons, and technical reveal.
+- Behavior-aware recourse has now been re-hardened with conservative execution truth, stronger planner demotion, and nominal-vs-execution-aware executive evidence.
 - The post-18 roadmap has been partially rebuilt: Phase 19 reopens behavior-aware recourse hardening and Phase 20 reopens sequential trajectory hardening inside `v1.3`.
 - Future work after Phase 20 remains intentionally open until the next redesign pass.
 
@@ -83,6 +84,11 @@ Recent decisions affecting current work:
   - estimator and realization hardening
   - ranking leverage and provisional contender behavior
   - artifact, suite, and review emphasis
+- On 2026-03-19, Phase 19 shipped:
+  - conservative execution-probability posture with burden+horizon hardening
+  - dual executable vs approval-dependent realization truth
+  - stronger execution-aware winner selection and provisional demotion
+  - risk-band-centered nominal-vs-execution-aware behavior proof
 
 ### Roadmap Evolution
 
@@ -102,5 +108,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Phase 19 planned; next step is to run `$gsd-execute-phase 19`
+Stopped at: Phase 19 complete; next step is to run `$gsd-discuss-phase 20` or `$gsd-plan-phase 20 --research`
 Resume file: None
