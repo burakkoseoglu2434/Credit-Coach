@@ -53,7 +53,7 @@ Historical archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 **Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, harden execution and trajectory truth where product credibility demands it, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 **Phases**: 17-21 currently defined
-**Status**: Active, Phases 17-21 complete; milestone awaiting audit
+**Status**: Active, Phases 17-21 complete; milestone audit found remaining website and ops gaps
 
 ### Phase 17: Full Portfolio Evaluation & Coverage Audit
 
@@ -158,12 +158,12 @@ Planned scope:
 
 ### Post-21 Sequence
 
-**Status**: Still intentionally open
+**Status**: Milestone closeout blocked pending gap planning
 
 Notes:
 - Phase 19, Phase 20, and Phase 21 are now the canonical near-term `v1.3` sequence.
 - Additional work after Phase 21 remains intentionally undefined until the next redesign pass.
-- This milestone remains active only for audit and closeout; all currently defined `v1.3` phases are complete.
+- This milestone remains active for gap planning and closeout; all currently defined `v1.3` phases are complete, but milestone audit found unresolved requirement gaps.
 
 ## Progress
 

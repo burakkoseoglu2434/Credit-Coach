@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 ## Current Position
 
-Phase: 21
-Plan: 3/3 plans complete
-Status: Ready for milestone audit
-Last activity: 2026-03-19 - Executed Phase 21 proof verdict refresh, curated proof snapshot packaging, and proof-page sync
+Phase: Milestone Audit
+Plan: n/a
+Status: Audit complete - gaps found, ready for milestone gap planning
+Last activity: 2026-03-19 - Audited v1.3 and found open website/ops requirements plus Phase 21 traceability gaps
 
-Progress: Phases 17-21 complete; `v1.3` is ready for milestone audit
+Progress: Phases 17-21 complete; milestone audit found `WEB-01` partial plus open `WEB-02`, `WEB-03`, `OPS-01`, and `OPS-02`
 
 ## Performance Metrics
 
@@ -30,18 +30,22 @@ Progress: Phases 17-21 complete; `v1.3` is ready for milestone audit
 | v1.0 historical baseline | 20 | historical import | Complete |
 | v1.1 completed milestone | 12 | phases 8-11 complete | Complete |
 | v1.2 completed milestone | 15 | phases 12-16 complete | Complete |
-| v1.3 active milestone | 15 complete | phases 17-21 complete, awaiting audit | Open |
+| v1.3 active milestone | 15 complete | phases 17-21 complete, audit found remaining gaps | Open |
 
 **Recent Trend:**
 - The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
 - Full-portfolio proof now exists, including product-ready coverage, reality-gap audit, and demo representativeness diagnostics.
 - The engine now emits buyer- and analyst-ready roadmap narratives directly, including executive summary, checkpoint meaning, reasons, and technical reveal.
 - Behavior-aware recourse has now been re-hardened with conservative execution truth, stronger planner demotion, and nominal-vs-execution-aware executive evidence.
-- The post-18 roadmap has been partially rebuilt: Phase 19 reopened behavior-aware recourse hardening, Phase 20 completed the deterministic trajectory contract hardening pass, and Phase 21 is reserved for proof refresh.
+- The post-18 roadmap has been partially rebuilt: Phase 19 reopened behavior-aware recourse hardening, Phase 20 completed the deterministic trajectory contract hardening pass, and Phase 21 refreshed portfolio proof and proof-page sync.
 - Phase 21 is now shipped across three closed waves:
   - product-facing proof verdict and confidence over the canonical portfolio seam
   - suite-level curated `product_confidence_snapshot.json` packaging
   - proof-page sync to one engine-owned curated proof artifact
+- Milestone audit completed on 2026-03-19 with no critical cross-phase integration failures across Phases 17-21, but with remaining milestone blockers:
+  - `WEB-01` is only partially closed because Phase 21 summary frontmatter is missing
+  - `WEB-02`, `WEB-03`, `OPS-01`, and `OPS-02` remain open
+  - next step is explicit milestone-gap planning rather than closeout
 - Phase 20 is now shipped across three closed waves:
   - deterministic phase and checkpoint contract locking
   - consistency, monotonicity, and early-health hardening
@@ -163,5 +167,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Phase 21 complete; next step is milestone audit
+Stopped at: Milestone audit complete with gaps; next step is `$gsd-plan-milestone-gaps`
 Resume file: None
