@@ -5,7 +5,7 @@
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
 - ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
 - ✅ **v1.2 Recommendation Quality Hardening** - Phases 12-16 (completed 2026-03-16)
-- 🚧 **v1.3 Portfolio Intelligence & Productization** - Phases 17-20 (behavior and trajectory hardening re-added after post-18 resequencing; milestone opened 2026-03-17)
+- 🚧 **v1.3 Portfolio Intelligence & Productization** - Phases 17-21 (behavior and trajectory hardening re-added after post-18 resequencing; milestone opened 2026-03-17)
 
 <details>
 <summary>✅ v1.0 Brownfield Baseline (Phases 1-7) - SHIPPED 2026-03-10</summary>
@@ -53,7 +53,7 @@ Historical archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 **Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, harden execution and trajectory truth where product credibility demands it, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 **Phases**: 17-21 currently defined
-**Status**: Active, Phases 17-19 complete; Phase 20 re-scoped as a mini hardening phase, Phase 21 queued as the next proof pass
+**Status**: Active, Phases 17-20 complete; Phase 21 queued as the next proof pass
 
 ### Phase 17: Full Portfolio Evaluation & Coverage Audit
 
@@ -92,12 +92,12 @@ Plans:
 
 **Goal**: Harden the inherited trajectory layer into a deterministic, checkpoint-safe, product-ready planning contract that keeps short-term health, monotonicity, and replan behavior under control.
 **Depends on**: Phase 19
-**Plans**: 3 planned
+**Plans**: 3 complete
 
 Plans:
-- [ ] 20-01: Lock deterministic phase and checkpoint contracts across all roadmap outputs
-- [ ] 20-02: Harden trajectory consistency, soft monotonicity, and early-health protection
-- [ ] 20-03: Make replan logic, trajectory status, and policy labels deterministic and execution-layer aligned
+- [x] 20-01: Lock deterministic phase and checkpoint contracts across all roadmap outputs
+- [x] 20-02: Harden trajectory consistency, soft monotonicity, and early-health protection
+- [x] 20-03: Make replan logic, trajectory status, and policy labels deterministic and execution-layer aligned
 
 Planned scope:
 - Canonical phase assignment:
@@ -158,7 +158,7 @@ Planned scope:
 Notes:
 - Phase 19, Phase 20, and Phase 21 are now the canonical near-term `v1.3` sequence.
 - Additional work after Phase 21 remains intentionally undefined until the next redesign pass.
-- This milestone remains active, with portfolio proof, narrative translation, and behavior-aware hardening complete; trajectory hardening is next and proof refresh follows it.
+- This milestone remains active, with portfolio proof, narrative translation, behavior hardening, and trajectory hardening complete; proof refresh is the next step.
 
 ## Progress
 
@@ -182,5 +182,5 @@ Notes:
 | 16. Outcome Feedback & Learning Loop | v1.2 | 3/3 | Complete | 2026-03-16 |
 | 17. Full Portfolio Evaluation & Coverage Audit | v1.3 | 3/3 | Complete | 2026-03-18 |
 | 18. Decision Narrative & Product Output Translation | v1.3 | 3/3 | Complete | 2026-03-18 |
-| 19. Behavior-Aware Recourse | v1.3 | 0/0 | Planned | - |
-| 20. Sequential / Trajectory Planning | v1.3 | 0/0 | Planned | - |
+| 19. Behavior-Aware Recourse | v1.3 | 3/3 | Complete | 2026-03-19 |
+| 20. Trajectory Hardening | v1.3 | 3/3 | Complete | 2026-03-19 |

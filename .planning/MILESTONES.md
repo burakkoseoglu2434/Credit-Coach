@@ -47,7 +47,7 @@
 
 **Post-21 status:** Future `v1.3` phases remain intentionally open after `2026-03-19` and will be redesigned before new phase numbers beyond 21 are added.
 
-**Current checkpoint:** Phases 17-19 are now complete; Phase 20 is the next mini hardening pass and Phase 21 is the next proof refresh.
+**Current checkpoint:** Phases 17-20 are now complete; Phase 21 is the next proof refresh.
 
 
 **Why this milestone exists:**

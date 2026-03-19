@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 ## Current Position
 
-Phase: 20
-Plan: Planned (3 plans)
-Status: Ready for execution
-Last activity: 2026-03-19 - Replanned Phase 20 so the package inherits locked trajectory context and is ready for execution
+Phase: 21
+Plan: Not planned yet
+Status: Ready for discussion
+Last activity: 2026-03-19 - Executed and closed Phase 20 trajectory hardening with deterministic checkpoint, consistency, and replan semantics
 
-Progress: Phases 17-19 complete; Phase 20 is now fully planned as the next focused trajectory hardening pass and Phase 21 remains the queued proof-facing follow-up
+Progress: Phases 17-20 complete; Phase 21 is now the queued proof-facing follow-up
 
 ## Performance Metrics
 
@@ -30,23 +30,23 @@ Progress: Phases 17-19 complete; Phase 20 is now fully planned as the next focus
 | v1.0 historical baseline | 20 | historical import | Complete |
 | v1.1 completed milestone | 12 | phases 8-11 complete | Complete |
 | v1.2 completed milestone | 15 | phases 12-16 complete | Complete |
-| v1.3 active milestone | 9 complete | phases 17-19 complete, Phase 20 planned, Phase 21 queued | Open |
+| v1.3 active milestone | 12 complete | phases 17-20 complete, Phase 21 queued | Open |
 
 **Recent Trend:**
 - The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
 - Full-portfolio proof now exists, including product-ready coverage, reality-gap audit, and demo representativeness diagnostics.
 - The engine now emits buyer- and analyst-ready roadmap narratives directly, including executive summary, checkpoint meaning, reasons, and technical reveal.
 - Behavior-aware recourse has now been re-hardened with conservative execution truth, stronger planner demotion, and nominal-vs-execution-aware executive evidence.
-- The post-18 roadmap has been partially rebuilt: Phase 19 reopens behavior-aware recourse hardening, Phase 20 now narrows trajectory hardening to a mini deterministic-contract pass, and Phase 21 is reserved for proof refresh.
-- Phase 20 planning is now explicit across three waves:
+- The post-18 roadmap has been partially rebuilt: Phase 19 reopened behavior-aware recourse hardening, Phase 20 completed the deterministic trajectory contract hardening pass, and Phase 21 is reserved for proof refresh.
+- Phase 20 is now shipped across three closed waves:
   - deterministic phase and checkpoint contract locking
   - consistency, monotonicity, and early-health hardening
   - deterministic replan, status, and policy-label semantics
-- Phase 20 discussion is now explicit across four locked decision areas:
-  - strict phase and checkpoint contract
-  - soft monotonicity with early-health dominance
-  - boundary-only replan and deterministic statuses
-  - rule-based policy labels with secondary execution-aware tempering
+- Phase 20 now leaves the engine with:
+  - fixed `4 / 12 / 24` checkpoint semantics
+  - explicit `on_track / at_risk / missed` checkpoint-local truth
+  - weak-4w-sensitive planner behavior
+  - boundary-only formal replan and stable trajectory labels
 - Future work after Phase 21 remains intentionally open until the next redesign pass.
 
 ## Accumulated Context
@@ -120,6 +120,12 @@ Recent decisions affecting current work:
   - rerun the hardened engine portfolio-wide
   - regenerate proof artifacts
   - answer the buyer-facing “is this really working?” question with refreshed evidence
+- On 2026-03-19, Phase 20 shipped:
+  - locked `phase_3_optimize` to `13-24w` / `3-6 ay`
+  - fixed checkpoint enums and machine-readable checkpoint-local status
+  - explicit weak-4w, jump, non-monotonic, and inconsistency trajectory truth
+  - boundary-only replan with safer `needs_replan` vs `degraded` separation
+  - rule-based trajectory labels that remain checkpoint-first and only conservatively execution-adjusted
 
 ### Roadmap Evolution
 
@@ -140,5 +146,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Phase 20 replanned after context; next step is to run `$gsd-execute-phase 20`
+Stopped at: Phase 20 executed and closed; next step is to discuss or plan Phase 21
 Resume file: None
