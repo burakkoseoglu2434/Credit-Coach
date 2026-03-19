@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 ## Current Position
 
-Phase: 18
-Plan: 3 completed
-Status: Phase complete
-Last activity: 2026-03-19 - Re-added Phase 19 and Phase 20 to v1.3 as explicit behavior-aware and trajectory hardening phases
+Phase: 19
+Plan: Context gathered
+Status: Ready for planning
+Last activity: 2026-03-19 - Gathered Phase 19 context around conservative execution truth, strong ranking leverage, composite semantics, and executive evidence emphasis
 
-Progress: Phases 17-18 complete; Phases 19-20 restored to the roadmap and ready for discussion or planning
+Progress: Phases 17-18 complete; Phase 19 context locked and ready for research or planning; Phase 20 still pending discussion
 
 ## Performance Metrics
 
@@ -73,6 +73,12 @@ Recent decisions affecting current work:
   - website typed mirror that consumes engine narrative instead of inventing story text
 - On 2026-03-19, all planned phases after 18 were intentionally removed from the roadmap so the remaining `v1.3` sequence could be redesigned from a clean state
 - On 2026-03-19, `Phase 19: Behavior-Aware Recourse` and `Phase 20: Sequential / Trajectory Planning` were added back as explicit hardening passes over inherited `v1.2` capability
+- On 2026-03-19, Phase 19 discussion locked:
+  - balanced but mildly conservative execution-probability posture
+  - strong execution-aware ranking demotion
+  - weighted min-average composite aggregation
+  - dual realization layers for executable vs approval-dependent branches
+  - nominal-vs-execution-aware comparison as the executive evidence center
 
 ### Roadmap Evolution
 
@@ -92,5 +98,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Phase 18 complete and Phases 19-20 re-added; next step is to discuss or plan Phase 19
+Stopped at: Phase 19 context complete; next step is to run `$gsd-plan-phase 19 --research`
 Resume file: None
