@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 ## Current Position
 
 Phase: 20
-Plan: Not planned
-Status: Ready for discussion
-Last activity: 2026-03-19 - Re-scoped Phase 20 into a focused trajectory hardening mini phase and queued Phase 21 as the next proof refresh
+Plan: Planned (3 plans)
+Status: Ready for execution
+Last activity: 2026-03-19 - Planned Phase 20 as a three-wave trajectory hardening package with deterministic contract, consistency, and replan/status hardening
 
-Progress: Phases 17-19 complete; Phase 20 is now a focused trajectory hardening pass and Phase 21 is the next proof-facing follow-up
+Progress: Phases 17-19 complete; Phase 20 is now fully planned as the next focused trajectory hardening pass and Phase 21 remains the queued proof-facing follow-up
 
 ## Performance Metrics
 
@@ -30,7 +30,7 @@ Progress: Phases 17-19 complete; Phase 20 is now a focused trajectory hardening 
 | v1.0 historical baseline | 20 | historical import | Complete |
 | v1.1 completed milestone | 12 | phases 8-11 complete | Complete |
 | v1.2 completed milestone | 15 | phases 12-16 complete | Complete |
-| v1.3 active milestone | 9 complete | phases 17-19 complete, Phase 20 pending planning, Phase 21 queued | Open |
+| v1.3 active milestone | 9 complete | phases 17-19 complete, Phase 20 planned, Phase 21 queued | Open |
 
 **Recent Trend:**
 - The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
@@ -38,6 +38,10 @@ Progress: Phases 17-19 complete; Phase 20 is now a focused trajectory hardening 
 - The engine now emits buyer- and analyst-ready roadmap narratives directly, including executive summary, checkpoint meaning, reasons, and technical reveal.
 - Behavior-aware recourse has now been re-hardened with conservative execution truth, stronger planner demotion, and nominal-vs-execution-aware executive evidence.
 - The post-18 roadmap has been partially rebuilt: Phase 19 reopens behavior-aware recourse hardening, Phase 20 now narrows trajectory hardening to a mini deterministic-contract pass, and Phase 21 is reserved for proof refresh.
+- Phase 20 planning is now explicit across three waves:
+  - deterministic phase and checkpoint contract locking
+  - consistency, monotonicity, and early-health hardening
+  - deterministic replan, status, and policy-label semantics
 - Future work after Phase 21 remains intentionally open until the next redesign pass.
 
 ## Accumulated Context
@@ -73,7 +77,7 @@ Recent decisions affecting current work:
   - confidence labels plus controlled technical reveal
   - website typed mirror that consumes engine narrative instead of inventing story text
 - On 2026-03-19, all planned phases after 18 were intentionally removed from the roadmap so the remaining `v1.3` sequence could be redesigned from a clean state
-- On 2026-03-19, `Phase 19: Behavior-Aware Recourse` and `Phase 20: Sequential / Trajectory Planning` were added back as explicit hardening passes over inherited `v1.2` capability
+- On 2026-03-19, `Phase 19: Behavior-Aware Recourse` and `Phase 20: Trajectory Hardening` were added back as explicit hardening passes over inherited `v1.2` capability
 - On 2026-03-19, Phase 19 discussion locked:
   - balanced but mildly conservative execution-probability posture
   - strong execution-aware ranking demotion
@@ -94,6 +98,10 @@ Recent decisions affecting current work:
   - fixed 4w or 12w or 24w checkpoint contracts
   - soft monotonicity and early-health protection
   - deterministic replan and trajectory status semantics
+- On 2026-03-19, Phase 20 planning split the work into:
+  - contract hardening for phases and checkpoints
+  - consistency and soft-monotonicity hardening
+  - deterministic replan, status, and policy-label hardening
 - On 2026-03-19, Phase 21 was reintroduced as the next proof-facing pass:
   - rerun the hardened engine portfolio-wide
   - regenerate proof artifacts
@@ -118,5 +126,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Phase 20 re-scoped; next step is to run `$gsd-discuss-phase 20`
+Stopped at: Phase 20 planned; next step is to run `$gsd-execute-phase 20`
 Resume file: None

@@ -88,7 +88,7 @@ Plans:
 - [x] 19-02: Strengthen execution-aware ranking leverage, high-risk ordering, and provisional contender penalties
 - [x] 19-03: Reframe behavior-aware artifacts and review around nominal-vs-execution-aware value and risk-band evidence
 
-### Phase 20: Sequential / Trajectory Planning
+### Phase 20: Trajectory Hardening
 
 **Goal**: Harden the inherited trajectory layer into a deterministic, checkpoint-safe, product-ready planning contract that keeps short-term health, monotonicity, and replan behavior under control.
 **Depends on**: Phase 19
@@ -112,6 +112,7 @@ Planned scope:
   - `week 12` / `confirmation`
   - `week 24` / `stability`
 - Each checkpoint must carry:
+  - `checkpoint_type`
   - `predicted_pd`
   - `pd_delta`
   - `gate_pass_estimate`
