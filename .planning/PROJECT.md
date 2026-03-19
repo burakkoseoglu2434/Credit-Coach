@@ -4,7 +4,7 @@
 
 Credit Coach is a credit-risk and recourse platform for financial institutions. It moves beyond binary approve or deny decisions by combining PD prediction, explanation, phased recourse planning, institution-side offer logic, and evidence-driven governance in one decision surface.
 
-The platform now has a shipped `v1.2` recommendation-quality core and a partially productized website surface. The next milestone should not repeat typed actions, behavior-aware ranking, trajectories, offers, or learning-loop basics. Instead, it should validate the engine across the full portfolio, translate technical outputs into institution-ready product language, and turn the current demo surface into a credible buyer, analyst, and pilot asset.
+The platform now has a shipped `v1.2` recommendation-quality core and a partially productized website surface. The next milestone should not rebuild typed actions, offers, or learning-loop basics from scratch. Instead, it should validate the engine across the full portfolio, translate technical outputs into institution-ready product language, and explicitly re-harden behavior-aware ranking and phased trajectories wherever portfolio proof or product-surface credibility exposes gaps.
 
 ## Core Value
 
@@ -46,6 +46,8 @@ Its goals are to:
 
 - [ ] **PORT-01**: Full-portfolio evaluation reports coverage, feasibility, execution-weighted impact, offer reach, checkpoint health, and governance-safe rates across the whole evaluation population
 - [ ] **PORT-02**: Recommendation outputs can be translated into a controlled narrative layer with executive summaries, business-first action stories, and optional technical reveal without losing traceability
+- [ ] **PORT-03**: Behavior-aware recourse is re-validated as an explicit execution-aware ranking layer with measurable action or plan execution probabilities, expected utility ordering, and evidence outputs
+- [ ] **PORT-04**: Sequential trajectory planning is re-validated as a checkpoint-governed roadmap layer with stable phases, readable statuses, and controlled replan semantics
 - [ ] **WEB-01**: The website can consume curated demo and proof snapshots from engine artifacts through a stable, typed sync contract
 - [ ] **WEB-02**: Demo Center and buyer-facing product surfaces present single-customer, portfolio, offer, and learning views in business-first bilingual language
 - [ ] **WEB-03**: Proof and investor surfaces clearly explain measurement, release controls, learning evidence, category story, and monetization logic
@@ -66,7 +68,7 @@ Its goals are to:
 - `v1.1 Fairness Stability & KPI Hardening` remains the audited governance baseline.
 - `v1.2 Recommendation Quality Hardening` shipped typed actions, execution-aware ranking, phased trajectories, offer optimization, and learning-loop evidence.
 - `credit-coach-website/` now exists as a brownfield website codebase and should be treated as a first-class product surface in the next milestone, not as a throwaway demo.
-- The next milestone should continue from Phase 17 and focus on proof, translation, productization, and pilot-readiness gaps rather than reopening solved `v1.2` contracts.
+- The next milestone should continue from Phase 17 and focus on proof, translation, productization, and only targeted hardening of inherited `v1.2` behavior-aware and trajectory contracts where portfolio or product-readiness evidence justifies reopening them.
 
 ## Constraints
 
@@ -83,6 +85,7 @@ Its goals are to:
 |----------|-----------|---------|
 | Preserve `v1.2` as the completed recommendation-quality baseline | Typed actions, behavior-aware ranking, trajectories, offers, and learning evidence are already shipped and should be inherited, not reopened | ✓ Good |
 | Open `v1.3 Portfolio Intelligence & Productization` as the next milestone | The main gap is no longer core recommendation mechanics; it is full-cohort proof, narrative translation, and product surface credibility | ✓ Good |
+| Re-add behavior-aware and trajectory phases inside `v1.3` as explicit hardening passes | Full-portfolio proof and product translation work can expose credibility gaps even in already shipped mechanics, so these layers may need a focused revisit without discarding the `v1.2` baseline | ✓ Good |
 | Make full-portfolio evaluation the first new phase | Demo and proof claims should be grounded in cohort-wide evidence before more product storytelling is layered on top | ✓ Good |
 | Treat `credit-coach-website/` as milestone scope | The website is now central to buyer demos, investor communication, and pilot readiness | ✓ Good |
 | Keep the Python engine as source-of-truth and sync curated website snapshots from artifacts | This avoids duplicating model logic in the website stack and keeps product surfaces auditable | ✓ Good |

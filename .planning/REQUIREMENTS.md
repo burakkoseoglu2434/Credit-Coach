@@ -2,7 +2,7 @@
 
 **Status:** Active
 **Defined:** 2026-03-17
-**Core Value:** Prove the recommendation engine across the full portfolio, translate its outputs into institution-ready product language, and turn the current website and demo surface into a trustworthy buyer, analyst, and pilot asset.
+**Core Value:** Prove the recommendation engine across the full portfolio, translate its outputs into institution-ready product language, explicitly re-harden execution-aware and phased-roadmap behavior where needed, and turn the current website and demo surface into a trustworthy buyer, analyst, and pilot asset.
 
 ## v1.3 Requirements
 
@@ -10,6 +10,8 @@
 
 - [x] **PORT-01**: The system can evaluate the full portfolio and report plan coverage, feasibility, execution-weighted improvement, offer reach, checkpoint health, and governance-safe rates across the whole evaluation population
 - [x] **PORT-02**: The system can translate technical recommendation outputs into controlled analyst-friendly and buyer-friendly narratives with executive summaries by default and expandable technical traceability on demand
+- [ ] **PORT-03**: Behavior-aware recourse remains explicit, measurable, and ranking-relevant through action or plan execution probabilities, expected-utility ordering, execution scenarios, and supporting evidence artifacts
+- [ ] **PORT-04**: Sequential trajectory planning remains explicit, checkpoint-governed, and product-ready through canonical phases, controlled replan semantics, stable trajectory statuses, and readable roadmap outputs
 
 ### Website & Demo Productization
 
@@ -25,7 +27,7 @@
 ## Requirement Outcome Intent
 
 - `v1.3` should turn the shipped recommendation-quality core into a provable and presentable enterprise product surface.
-- The milestone should start from portfolio-wide evidence, then move upward into translation, website sync, product surface, proof, analyst validation, and pilot readiness.
+- The milestone should start from portfolio-wide evidence, then move upward into translation, targeted behavior or trajectory hardening, website sync, product surface, proof, analyst validation, and pilot readiness.
 - No requirement in `v1.3` should reopen or weaken inherited fairness, telemetry, reliability, or release-governance controls.
 
 ## Future Requirements Carried Forward
@@ -38,7 +40,8 @@
 
 | Feature | Reason |
 |---------|--------|
-| Rebuilding typed actions, behavior-aware ranking, or trajectories from scratch | These shipped in `v1.2` and are inherited baseline capability |
+| Rebuilding typed actions from scratch | Typed action realism shipped in `v1.2` and remains inherited baseline capability |
+| Replacing behavior-aware ranking or trajectories with a brand-new design | `v1.3` may revisit these layers as hardening work, but not discard the shipped `v1.2` core |
 | Full borrower self-serve app or mobile experience | This milestone focuses on enterprise buyer, analyst, and pilot surfaces |
 | Fully online autonomous policy deployment | Learning remains evidence-first and non-blocking |
 | Legal or compliance advice automation | The system remains an engineering and decision-support platform, not a legal advisor |
@@ -49,6 +52,8 @@
 |-------------|-------|--------|
 | PORT-01 | Phase 17 | Complete |
 | PORT-02 | Phase 18 | Complete |
+| PORT-03 | Phase 19 | Planned |
+| PORT-04 | Phase 20 | Planned |
 | WEB-01 | - | Unmapped pending post-18 redesign |
 | WEB-02 | - | Unmapped pending post-18 redesign |
 | WEB-03 | - | Unmapped pending post-18 redesign |
@@ -56,8 +61,8 @@
 | OPS-02 | - | Unmapped pending post-18 redesign |
 
 **Coverage:**
-- v1.3 requirements: 7 total
-- Mapped to phases: 2
+- v1.3 requirements: 9 total
+- Mapped to phases: 4
 - Unmapped: 5
 
 ---

@@ -36,25 +36,29 @@
 
 **Goal:** Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 
-**Phases planned:** 17-18
+**Phases planned:** 17-20
 
 **Phase sequence:**
 - Phase 17: Full Portfolio Evaluation & Coverage Audit
 - Phase 18: Decision Narrative & Product Output Translation
+- Phase 19: Behavior-Aware Recourse
+- Phase 20: Sequential / Trajectory Planning
 
-**Post-18 status:** Future `v1.3` phases intentionally cleared on `2026-03-19` and will be redesigned before new phase numbers are added.
+**Post-20 status:** Future `v1.3` phases remain intentionally open after `2026-03-19` and will be redesigned before new phase numbers beyond 20 are added.
 
 
 **Why this milestone exists:**
 - `v1.2` solved core recommendation-quality gaps, but demo and product claims still rely too heavily on curated stories and partially productized website surfaces
 - Full-cohort proof needs to come before stronger sales, investor, and pilot narratives
+- Portfolio proof and narrative translation also exposed that inherited behavior-aware ranking and phased trajectories need an explicit `v1.3` hardening pass rather than being treated as permanently solved
 - The website now matters enough to be milestone scope rather than side documentation
 - Analyst trust, proof framing, and pilot readiness are now the highest-leverage gaps
-- The sequence after Phase 18 is intentionally open again so those gaps can be re-grouped more cleanly
+- The sequence after Phase 20 is still intentionally open so the remaining website, proof, UAT, and pilot work can be re-grouped more cleanly
 
 **Success bar:**
 - Full-portfolio coverage and segment proof exist for recommendation behavior
 - Single-case outputs can be read in business language without losing technical traceability
+- Execution-aware ranking and phased roadmap logic stay believable under full-cohort and product-surface scrutiny
 - Website demo and proof surfaces are artifact-synced, bilingual, and business-first
 - Analyst workflow is validated through UAT
 - Pilot conversations can run on a credible ops, demo, and proof baseline

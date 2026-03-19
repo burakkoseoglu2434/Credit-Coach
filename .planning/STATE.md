@@ -12,9 +12,9 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 Phase: 18
 Plan: 3 completed
 Status: Phase complete
-Last activity: 2026-03-18 - Executed Phase 18 with engine-owned roadmap narrative, controlled technical reveal, and website schema mirror consumption
+Last activity: 2026-03-19 - Re-added Phase 19 and Phase 20 to v1.3 as explicit behavior-aware and trajectory hardening phases
 
-Progress: post-18 phase sequence intentionally cleared; ready to redesign the next phase set
+Progress: Phases 17-18 complete; Phases 19-20 restored to the roadmap and ready for discussion or planning
 
 ## Performance Metrics
 
@@ -30,13 +30,14 @@ Progress: post-18 phase sequence intentionally cleared; ready to redesign the ne
 | v1.0 historical baseline | 20 | historical import | Complete |
 | v1.1 completed milestone | 12 | phases 8-11 complete | Complete |
 | v1.2 completed milestone | 15 | phases 12-16 complete | Complete |
-| v1.3 active milestone | 6 | phases 17-18 complete, future phases pending redesign | Open |
+| v1.3 active milestone | 6 complete | phases 17-18 complete, Phases 19-20 added and pending planning | Open |
 
 **Recent Trend:**
 - The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
 - Full-portfolio proof now exists, including product-ready coverage, reality-gap audit, and demo representativeness diagnostics.
 - The engine now emits buyer- and analyst-ready roadmap narratives directly, including executive summary, checkpoint meaning, reasons, and technical reveal.
-- The post-18 roadmap has been intentionally cleared so website, proof, UAT, and pilot work can be re-sequenced cleanly.
+- The post-18 roadmap has been partially rebuilt: Phase 19 reopens behavior-aware recourse hardening and Phase 20 reopens sequential trajectory hardening inside `v1.3`.
+- Future work after Phase 20 remains intentionally open until the next redesign pass.
 
 ## Accumulated Context
 
@@ -70,7 +71,13 @@ Recent decisions affecting current work:
   - deterministic action, checkpoint, offer, and reason narration
   - confidence labels plus controlled technical reveal
   - website typed mirror that consumes engine narrative instead of inventing story text
-- On 2026-03-19, all planned phases after 18 were intentionally removed from the roadmap so the remaining `v1.3` sequence can be redesigned from a clean state
+- On 2026-03-19, all planned phases after 18 were intentionally removed from the roadmap so the remaining `v1.3` sequence could be redesigned from a clean state
+- On 2026-03-19, `Phase 19: Behavior-Aware Recourse` and `Phase 20: Sequential / Trajectory Planning` were added back as explicit hardening passes over inherited `v1.2` capability
+
+### Roadmap Evolution
+
+- Phase 19 added: Behavior-Aware Recourse
+- Phase 20 added: Sequential / Trajectory Planning
 
 ### Pending Todos
 
@@ -85,5 +92,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Phase 18 complete and future phases cleared; next step is to redefine the post-18 phase sequence
+Stopped at: Phase 18 complete and Phases 19-20 re-added; next step is to discuss or plan Phase 19
 Resume file: None
