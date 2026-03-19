@@ -12,9 +12,9 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 Phase: 20
 Plan: Not planned
 Status: Ready for discussion
-Last activity: 2026-03-19 - Completed Phase 19 with conservative execution truth, stronger execution-aware ranking, and risk-band-centered behavior evidence
+Last activity: 2026-03-19 - Re-scoped Phase 20 into a focused trajectory hardening mini phase and queued Phase 21 as the next proof refresh
 
-Progress: Phases 17-19 complete; Phase 20 still pending discussion and planning
+Progress: Phases 17-19 complete; Phase 20 is now a focused trajectory hardening pass and Phase 21 is the next proof-facing follow-up
 
 ## Performance Metrics
 
@@ -30,15 +30,15 @@ Progress: Phases 17-19 complete; Phase 20 still pending discussion and planning
 | v1.0 historical baseline | 20 | historical import | Complete |
 | v1.1 completed milestone | 12 | phases 8-11 complete | Complete |
 | v1.2 completed milestone | 15 | phases 12-16 complete | Complete |
-| v1.3 active milestone | 9 complete | phases 17-19 complete, Phase 20 pending discussion | Open |
+| v1.3 active milestone | 9 complete | phases 17-19 complete, Phase 20 pending planning, Phase 21 queued | Open |
 
 **Recent Trend:**
 - The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
 - Full-portfolio proof now exists, including product-ready coverage, reality-gap audit, and demo representativeness diagnostics.
 - The engine now emits buyer- and analyst-ready roadmap narratives directly, including executive summary, checkpoint meaning, reasons, and technical reveal.
 - Behavior-aware recourse has now been re-hardened with conservative execution truth, stronger planner demotion, and nominal-vs-execution-aware executive evidence.
-- The post-18 roadmap has been partially rebuilt: Phase 19 reopens behavior-aware recourse hardening and Phase 20 reopens sequential trajectory hardening inside `v1.3`.
-- Future work after Phase 20 remains intentionally open until the next redesign pass.
+- The post-18 roadmap has been partially rebuilt: Phase 19 reopens behavior-aware recourse hardening, Phase 20 now narrows trajectory hardening to a mini deterministic-contract pass, and Phase 21 is reserved for proof refresh.
+- Future work after Phase 21 remains intentionally open until the next redesign pass.
 
 ## Accumulated Context
 
@@ -89,11 +89,21 @@ Recent decisions affecting current work:
   - dual executable vs approval-dependent realization truth
   - stronger execution-aware winner selection and provisional demotion
   - risk-band-centered nominal-vs-execution-aware behavior proof
+- On 2026-03-19, Phase 20 was re-scoped into a mini hardening phase centered on:
+  - deterministic phase assignment
+  - fixed 4w or 12w or 24w checkpoint contracts
+  - soft monotonicity and early-health protection
+  - deterministic replan and trajectory status semantics
+- On 2026-03-19, Phase 21 was reintroduced as the next proof-facing pass:
+  - rerun the hardened engine portfolio-wide
+  - regenerate proof artifacts
+  - answer the buyer-facing “is this really working?” question with refreshed evidence
 
 ### Roadmap Evolution
 
 - Phase 19 added: Behavior-Aware Recourse
-- Phase 20 added: Sequential / Trajectory Planning
+- Phase 20 re-scoped: Trajectory Hardening (mini phase)
+- Phase 21 added: Portfolio Proof & Product Confidence
 
 ### Pending Todos
 
@@ -108,5 +118,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-19
-Stopped at: Phase 19 complete; next step is to run `$gsd-discuss-phase 20` or `$gsd-plan-phase 20 --research`
+Stopped at: Phase 20 re-scoped; next step is to run `$gsd-discuss-phase 20`
 Resume file: None

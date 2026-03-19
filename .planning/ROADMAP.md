@@ -51,9 +51,9 @@ Historical archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 ### v1.3 Portfolio Intelligence & Productization
 
-**Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
-**Phases**: 17-20 currently defined
-**Status**: Active, Phases 17-19 complete; Phase 20 awaiting discussion and planning
+**Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, harden execution and trajectory truth where product credibility demands it, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
+**Phases**: 17-21 currently defined
+**Status**: Active, Phases 17-19 complete; Phase 20 re-scoped as a mini hardening phase, Phase 21 queued as the next proof pass
 
 ### Phase 17: Full Portfolio Evaluation & Coverage Audit
 
@@ -90,23 +90,74 @@ Plans:
 
 ### Phase 20: Sequential / Trajectory Planning
 
-**Goal**: Re-open the inherited phased-roadmap layer as an explicit v1.3 hardening target so plans remain understandable, checkpoint-driven, and safe over time rather than behaving like one-shot recommendations.
+**Goal**: Harden the inherited trajectory layer into a deterministic, checkpoint-safe, product-ready planning contract that keeps short-term health, monotonicity, and replan behavior under control.
 **Depends on**: Phase 19
+**Plans**: 3 planned
+
+Plans:
+- [ ] 20-01: Lock deterministic phase and checkpoint contracts across all roadmap outputs
+- [ ] 20-02: Harden trajectory consistency, soft monotonicity, and early-health protection
+- [ ] 20-03: Make replan logic, trajectory status, and policy labels deterministic and execution-layer aligned
+
+Planned scope:
+- Canonical phase assignment:
+  - every action has exactly one `primary_phase`
+  - multi-phase or ambiguous phase assignment is disallowed
+- Fixed phase set:
+  - `phase_1_stabilize` (`0-4w`)
+  - `phase_2_build` (`4-12w`)
+  - `phase_3_optimize` (`12-24w`)
+- Fixed checkpoint set:
+  - `week 4` / `primary`
+  - `week 12` / `confirmation`
+  - `week 24` / `stability`
+- Each checkpoint must carry:
+  - `predicted_pd`
+  - `pd_delta`
+  - `gate_pass_estimate`
+  - `status`
+- Soft monotonicity hardening:
+  - `4w >= 12w >= 24w` as the default expectation
+  - small drift tolerated, large jumps flagged
+- Deterministic trajectory flags:
+  - `trajectory_jump_flag`
+  - `non_monotonic_flag`
+  - `checkpoint_inconsistency_flag`
+- Early-health protection:
+  - weak `4w` health prevents a plan from reading as strong
+- Deterministic replan boundaries:
+  - allowed only at `week 4`, `week 12`, `week 24`
+- Stable trajectory status:
+  - `on_track`
+  - `needs_replan`
+  - `degraded`
+- Rule-based policy labels:
+  - `stabilize_first`
+  - `balanced_progress`
+  - `long_horizon_heavy`
+- Phase 19 alignment:
+  - `plan_execution_probability` and approval-dependent realization stay visible in trajectory evaluation
+
+### Phase 21: Portfolio Proof & Product Confidence
+
+**Goal**: Re-run the hardened engine across the full portfolio, refresh proof artifacts, and answer the product-facing question of whether the system is truly working beyond curated stories.
+**Depends on**: Phase 20
 **Plans**: Not planned yet
 
 Planned scope:
-- Finalize canonical `phases[]`, three fixed planning stages, and one primary phase per action
-- Reconfirm checkpoint semantics at 4w, 12w, and 24w, along with soft monotonicity expectations and controlled replan boundaries
-- Tighten trajectory status and policy-label semantics so roadmap outputs and checkpoint reviews stay product-ready and business-readable
+- run the full portfolio again after trajectory hardening
+- regenerate proof artifacts and website-facing confidence surfaces
+- measure whether hardened trajectory behavior improves real cohort credibility
+- produce a clearer “is this working?” answer for proof and product surfaces
 
-### Post-20 Sequence
+### Post-21 Sequence
 
 **Status**: Still intentionally open
 
 Notes:
-- Phase 19 and Phase 20 are now canonical again under `v1.3`.
-- Additional work after Phase 20 remains intentionally undefined until the next redesign pass.
-- This milestone remains active, with portfolio proof, narrative translation, and behavior-aware hardening complete and trajectory hardening next in sequence.
+- Phase 19, Phase 20, and Phase 21 are now the canonical near-term `v1.3` sequence.
+- Additional work after Phase 21 remains intentionally undefined until the next redesign pass.
+- This milestone remains active, with portfolio proof, narrative translation, and behavior-aware hardening complete; trajectory hardening is next and proof refresh follows it.
 
 ## Progress
 

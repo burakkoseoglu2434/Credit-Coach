@@ -34,28 +34,30 @@
 
 ## v1.3 Portfolio Intelligence & Productization (Active)
 
-**Goal:** Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
+**Goal:** Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, harden execution and trajectory truth where product credibility demands it, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 
-**Phases planned:** 17-20
+**Phases planned:** 17-21
 
 **Phase sequence:**
 - Phase 17: Full Portfolio Evaluation & Coverage Audit
 - Phase 18: Decision Narrative & Product Output Translation
 - Phase 19: Behavior-Aware Recourse
-- Phase 20: Sequential / Trajectory Planning
+- Phase 20: Trajectory Hardening
+- Phase 21: Portfolio Proof & Product Confidence
 
-**Post-20 status:** Future `v1.3` phases remain intentionally open after `2026-03-19` and will be redesigned before new phase numbers beyond 20 are added.
+**Post-21 status:** Future `v1.3` phases remain intentionally open after `2026-03-19` and will be redesigned before new phase numbers beyond 21 are added.
 
-**Current checkpoint:** Phases 17-19 are now complete; Phase 20 is the next queued hardening pass.
+**Current checkpoint:** Phases 17-19 are now complete; Phase 20 is the next mini hardening pass and Phase 21 is the next proof refresh.
 
 
 **Why this milestone exists:**
 - `v1.2` solved core recommendation-quality gaps, but demo and product claims still rely too heavily on curated stories and partially productized website surfaces
 - Full-cohort proof needs to come before stronger sales, investor, and pilot narratives
 - Portfolio proof and narrative translation also exposed that inherited behavior-aware ranking and phased trajectories need an explicit `v1.3` hardening pass rather than being treated as permanently solved
+- Trajectory correctness and portfolio proof now need to be separated so hardening and proof validation do not collapse into one oversized phase
 - The website now matters enough to be milestone scope rather than side documentation
 - Analyst trust, proof framing, and pilot readiness are now the highest-leverage gaps
-- The sequence after Phase 20 is still intentionally open so the remaining website, proof, UAT, and pilot work can be re-grouped more cleanly
+- The sequence after Phase 21 is still intentionally open so the remaining website, proof, UAT, and pilot work can be re-grouped more cleanly
 
 **Success bar:**
 - Full-portfolio coverage and segment proof exist for recommendation behavior

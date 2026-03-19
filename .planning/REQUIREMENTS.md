@@ -11,7 +11,7 @@
 - [x] **PORT-01**: The system can evaluate the full portfolio and report plan coverage, feasibility, execution-weighted improvement, offer reach, checkpoint health, and governance-safe rates across the whole evaluation population
 - [x] **PORT-02**: The system can translate technical recommendation outputs into controlled analyst-friendly and buyer-friendly narratives with executive summaries by default and expandable technical traceability on demand
 - [x] **PORT-03**: Behavior-aware recourse remains explicit, measurable, and ranking-relevant through action or plan execution probabilities, expected-utility ordering, execution scenarios, and supporting evidence artifacts
-- [ ] **PORT-04**: Sequential trajectory planning remains explicit, checkpoint-governed, and product-ready through canonical phases, controlled replan semantics, stable trajectory statuses, and readable roadmap outputs
+- [ ] **PORT-04**: Sequential trajectory planning remains deterministic, checkpoint-governed, and product-ready through canonical phase assignment, fixed 4w or 12w or 24w checkpoints, soft monotonicity controls, stable trajectory statuses, and controlled replan semantics
 
 ### Website & Demo Productization
 

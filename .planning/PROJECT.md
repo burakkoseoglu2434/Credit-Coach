@@ -28,6 +28,7 @@ The next active milestone is `v1.3 Portfolio Intelligence & Productization`.
 Its goals are to:
 - prove how the engine behaves across the full customer portfolio, not just in curated demos
 - translate recommendation outputs into analyst-friendly and buyer-friendly decision narratives
+- re-harden execution and trajectory truth only where product and proof credibility show clear gaps
 - stabilize artifact-to-website demo and proof sync so product surfaces stay consistent with engine truth
 - turn the website into a business-first enterprise product surface for buyers, proof review, and investor storytelling
 - validate analyst workflows and reach a credible pilot-readiness baseline
@@ -69,6 +70,7 @@ Its goals are to:
 - `v1.2 Recommendation Quality Hardening` shipped typed actions, execution-aware ranking, phased trajectories, offer optimization, and learning-loop evidence.
 - `credit-coach-website/` now exists as a brownfield website codebase and should be treated as a first-class product surface in the next milestone, not as a throwaway demo.
 - The next milestone should continue from Phase 17 and focus on proof, translation, productization, and only targeted hardening of inherited `v1.2` behavior-aware and trajectory contracts where portfolio or product-readiness evidence justifies reopening them.
+- Phase 20 should now stay intentionally small: deterministic trajectory contract hardening first, then refreshed proof in the next phase.
 
 ## Constraints
 
@@ -86,6 +88,7 @@ Its goals are to:
 | Preserve `v1.2` as the completed recommendation-quality baseline | Typed actions, behavior-aware ranking, trajectories, offers, and learning evidence are already shipped and should be inherited, not reopened | ✓ Good |
 | Open `v1.3 Portfolio Intelligence & Productization` as the next milestone | The main gap is no longer core recommendation mechanics; it is full-cohort proof, narrative translation, and product surface credibility | ✓ Good |
 | Re-add behavior-aware and trajectory phases inside `v1.3` as explicit hardening passes | Full-portfolio proof and product translation work can expose credibility gaps even in already shipped mechanics, so these layers may need a focused revisit without discarding the `v1.2` baseline | ✓ Good |
+| Keep Phase 20 as a mini hardening phase and push the next proof answer to Phase 21 | Trajectory correctness and portfolio proof answer different questions, so separating them reduces scope drift and keeps validation honest | ✓ Good |
 | Make full-portfolio evaluation the first new phase | Demo and proof claims should be grounded in cohort-wide evidence before more product storytelling is layered on top | ✓ Good |
 | Treat `credit-coach-website/` as milestone scope | The website is now central to buyer demos, investor communication, and pilot readiness | ✓ Good |
 | Keep the Python engine as source-of-truth and sync curated website snapshots from artifacts | This avoids duplicating model logic in the website stack and keeps product surfaces auditable | ✓ Good |
