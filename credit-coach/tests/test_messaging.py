@@ -3,6 +3,7 @@ from __future__ import annotations
 from credit_coach.coaching.messaging import (
     build_adverse_action_payload,
     build_adverse_action_reasons,
+    build_checkpoint_narrative,
     build_customer_roadmap_narrative,
     validate_reason_specificity,
 )
@@ -173,3 +174,21 @@ def test_build_customer_roadmap_narrative_separates_offer_and_checkpoint_layers(
     assert checkpoint.review_action is not None
     assert narrative.technical_reveal.approval_dependencies[0]["requires_acceptance"] is True
     assert narrative.technical_reveal.confidence_inputs["offer_acceptance_probability"] == 0.49
+
+
+def test_build_checkpoint_narrative_reflects_missed_status_and_inconsistency():
+    narrative = build_checkpoint_narrative(
+        {
+            "checkpoint_id": "checkpoint_week_24",
+            "week": 24,
+            "predicted_pd": 0.44,
+            "gate_pass_estimate": 0,
+            "status": "missed",
+            "trajectory_jump_flag": 1,
+            "checkpoint_inconsistency_flag": 1,
+        },
+        tau=0.35,
+    )
+
+    assert "kalicilasmakta zorlanabilir" in narrative.expected_state.tr
+    assert narrative.review_action.en.startswith("Review the checkpoint signal again")

@@ -1003,6 +1003,13 @@ def _plan_trajectory_metrics(
             "trajectory_phase_transition_reason": "no_actions",
             "trajectory_replanned_from_phase": "",
             "trajectory_soft_regression_penalty": 0.0,
+            "trajectory_checkpoint_status_4w": "missed",
+            "trajectory_checkpoint_status_12w": "missed",
+            "trajectory_checkpoint_status_24w": "missed",
+            "trajectory_weak_4w_health": 1,
+            "trajectory_jump_flag": 0,
+            "trajectory_non_monotonic_flag": 0,
+            "trajectory_checkpoint_inconsistency_flag": 0,
         }
 
     raw_plan_probability = getattr(plan, "plan_execution_probability", None)
@@ -1048,6 +1055,9 @@ def _plan_trajectory_metrics(
     pass_4w = int(pd_4w <= float(tau))
     pass_12w = int(pd_12w <= float(tau))
     pass_24w = int(pd_24w <= float(tau))
+    cp_4w_status = str(cp_4w.get("checkpoint_status", "on_track" if pass_4w == 1 else "at_risk") or "")
+    cp_12w_status = str(cp_12w.get("checkpoint_status", "on_track" if pass_12w == 1 else "at_risk") or "")
+    cp_24w_status = str(cp_24w.get("checkpoint_status", "on_track" if pass_24w == 1 else "at_risk") or "")
     time_to_pass_days = np.nan
     if pass_4w == 1:
         time_to_pass_days = 28.0
@@ -1075,6 +1085,16 @@ def _plan_trajectory_metrics(
         0.0,
         pd_24w - (pd_12w + regression_tolerance),
     )
+    trajectory_jump_flag = int((pd_12w > pd_4w + 0.03) or (pd_24w > pd_12w + 0.03))
+    non_monotonic_flag = int((pd_12w > pd_4w + 0.01) or (pd_24w > pd_12w + 0.01))
+    checkpoint_inconsistency_flag = int(
+        (cp_4w_status == "on_track" and pass_4w == 0)
+        or (cp_12w_status == "on_track" and pass_12w == 0)
+        or (cp_24w_status == "on_track" and pass_24w == 0)
+        or (cp_4w_status == "missed" and pass_4w == 1)
+        or (cp_12w_status == "missed" and pass_12w == 1)
+        or (cp_24w_status == "missed" and pass_24w == 1)
+    )
     trajectory_status = str(cp_24w.get("trajectory_status", "on_track") or "on_track")
     current_phase = str(cp_24w.get("current_phase", "phase_3_optimize") or "phase_3_optimize")
     next_review_week = int(_safe_int(cp_24w.get("next_review_week", 24), 24))
@@ -1099,6 +1119,13 @@ def _plan_trajectory_metrics(
         "trajectory_phase_transition_reason": phase_transition_reason,
         "trajectory_replanned_from_phase": replanned_from_phase,
         "trajectory_soft_regression_penalty": float(soft_regression_penalty),
+        "trajectory_checkpoint_status_4w": cp_4w_status,
+        "trajectory_checkpoint_status_12w": cp_12w_status,
+        "trajectory_checkpoint_status_24w": cp_24w_status,
+        "trajectory_weak_4w_health": int(cp_4w_status != "on_track"),
+        "trajectory_jump_flag": int(trajectory_jump_flag),
+        "trajectory_non_monotonic_flag": int(non_monotonic_flag),
+        "trajectory_checkpoint_inconsistency_flag": int(checkpoint_inconsistency_flag),
     }
 
 
@@ -1683,6 +1710,10 @@ def _build_trajectory_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any],
         "trajectory_partial_progress_rate",
         "trajectory_median_time_to_gate_pass_days",
         "trajectory_soft_regression_penalty_mean",
+        "trajectory_weak_4w_health_rate",
+        "trajectory_jump_flag_rate",
+        "trajectory_non_monotonic_flag_rate",
+        "trajectory_checkpoint_inconsistency_flag_rate",
         "trajectory_on_track_rate",
         "trajectory_needs_replan_rate",
         "trajectory_degraded_rate",
@@ -1698,6 +1729,7 @@ def _build_trajectory_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any],
         "supporting_artifacts": {
             "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
             "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",
+            "trajectory_consistency_breakdown_csv": "tables/trajectory_consistency_breakdown.csv",
             "trajectory_gate_by_risk_band_csv": "tables/trajectory_gate_by_risk_band.csv",
             "trajectory_gate_by_income_band_csv": "tables/trajectory_gate_by_income_band.csv",
             "trajectory_phase_action_mix_csv": "tables/trajectory_phase_action_mix.csv",
@@ -1717,6 +1749,10 @@ def _build_trajectory_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any],
                     "share",
                     "mean_next_review_week",
                     "mean_soft_regression_penalty",
+                    "mean_weak_4w_health",
+                    "mean_jump_flag",
+                    "mean_non_monotonic_flag",
+                    "mean_checkpoint_inconsistency_flag",
                 ]
             ),
             pd.DataFrame(
@@ -1764,6 +1800,18 @@ def _build_trajectory_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any],
             "trajectory_soft_regression_penalty_mean": _round_metric(
                 pd.to_numeric(rows["trajectory_soft_regression_penalty"], errors="coerce").fillna(0.0).mean()
             ),
+            "trajectory_weak_4w_health_rate": _round_metric(
+                pd.to_numeric(rows["trajectory_weak_4w_health"], errors="coerce").fillna(0.0).mean()
+            ),
+            "trajectory_jump_flag_rate": _round_metric(
+                pd.to_numeric(rows["trajectory_jump_flag"], errors="coerce").fillna(0.0).mean()
+            ),
+            "trajectory_non_monotonic_flag_rate": _round_metric(
+                pd.to_numeric(rows["trajectory_non_monotonic_flag"], errors="coerce").fillna(0.0).mean()
+            ),
+            "trajectory_checkpoint_inconsistency_flag_rate": _round_metric(
+                pd.to_numeric(rows["trajectory_checkpoint_inconsistency_flag"], errors="coerce").fillna(0.0).mean()
+            ),
             "trajectory_on_track_rate": _round_metric((rows["trajectory_status"] == "on_track").astype(float).mean()),
             "trajectory_needs_replan_rate": _round_metric((rows["trajectory_status"] == "needs_replan").astype(float).mean()),
             "trajectory_degraded_rate": _round_metric((rows["trajectory_status"] == "degraded").astype(float).mean()),
@@ -1786,6 +1834,10 @@ def _build_trajectory_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any],
                 count=("customer_id", "nunique"),
                 mean_next_review_week=("trajectory_next_review_week", "mean"),
                 mean_soft_regression_penalty=("trajectory_soft_regression_penalty", "mean"),
+                mean_weak_4w_health=("trajectory_weak_4w_health", "mean"),
+                mean_jump_flag=("trajectory_jump_flag", "mean"),
+                mean_non_monotonic_flag=("trajectory_non_monotonic_flag", "mean"),
+                mean_checkpoint_inconsistency_flag=("trajectory_checkpoint_inconsistency_flag", "mean"),
             )
             .reset_index()
         )
@@ -1804,6 +1856,10 @@ def _build_trajectory_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any],
                 "count",
                 "mean_next_review_week",
                 "mean_soft_regression_penalty",
+                "mean_weak_4w_health",
+                "mean_jump_flag",
+                "mean_non_monotonic_flag",
+                "mean_checkpoint_inconsistency_flag",
                 "share",
             ]
         )
@@ -1861,6 +1917,7 @@ def _build_trajectory_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any],
         "supporting_artifacts": {
             "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
             "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",
+            "trajectory_consistency_breakdown_csv": "tables/trajectory_consistency_breakdown.csv",
             "trajectory_gate_by_risk_band_csv": "tables/trajectory_gate_by_risk_band.csv",
             "trajectory_gate_by_income_band_csv": "tables/trajectory_gate_by_income_band.csv",
             "trajectory_phase_action_mix_csv": "tables/trajectory_phase_action_mix.csv",

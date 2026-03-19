@@ -628,70 +628,143 @@ def build_checkpoint_narrative(checkpoint: Mapping[str, Any], tau: float) -> Roa
     checkpoint_id = str(checkpoint.get("checkpoint_id", f"week_{week}"))
     predicted_pd = _safe_float(checkpoint.get("predicted_pd", 1.0), 1.0)
     gate_pass = bool(_safe_int(checkpoint.get("gate_pass_estimate", 0), 0))
+    checkpoint_status = str(checkpoint.get("status", "") or ("on_track" if gate_pass else "at_risk")).strip().lower()
+    trajectory_jump_flag = bool(checkpoint.get("trajectory_jump_flag", False))
+    non_monotonic_flag = bool(checkpoint.get("non_monotonic_flag", False))
+    checkpoint_inconsistency_flag = bool(checkpoint.get("checkpoint_inconsistency_flag", False))
     ready = predicted_pd <= float(tau) and gate_pass
 
     if week == 4:
-        expected_state = (
-            "Ilk 4 hafta sonunda profilin daha stabil gorunmesi beklenir.",
-            "By week 4, the profile is expected to look more stable.",
-        )
-        success = (
-            "Erken baski azalir ve ilk review kontrollu bir gecis sinyali verir."
-            if ready
-            else "Yeni negatif sinyal uretmeden ilk checkpoint'e kadar denge korunur.",
-            "Early pressure eases and the first review signals a controlled pass."
-            if ready
-            else "Stability is preserved into the first checkpoint without new negative signals.",
-        )
-        failure = (
-            "Ilk sinyal gelmezse planin sikilasmasi veya yeniden degerlendirilmesi gerekir.",
-            "If the early signal does not show up, the plan likely needs tightening or reassessment.",
-        )
-        review = (
-            "Plani surdur ve orta vadeli guclenmeye gec."
-            if gate_pass
-            else "Plani yeniden degerlendir veya destek katmani ekle.",
-            "Continue the plan and move into the mid-term strengthening phase."
-            if gate_pass
-            else "Reassess the plan or add another support layer.",
-        )
+        if checkpoint_status == "missed":
+            expected_state = (
+                "Ilk checkpoint zayif gorunuyor; erken toparlanma sinyali henuz kurulmus degil.",
+                "The first checkpoint looks weak; the early recovery signal has not formed yet.",
+            )
+            success = (
+                "Bu noktadan sonra daha guclu destek veya yeniden planlama gerekir.",
+                "From this point, the path likely needs stronger support or replanning.",
+            )
+            failure = (
+                "Erken checkpoint kacirilirsa mevcut plan oldugu gibi savunulamaz.",
+                "If the early checkpoint is missed, the current plan is no longer easy to defend as-is.",
+            )
+            review = (
+                "Plani sikilastir, yeniden planla veya ek destek katmani ekle.",
+                "Tighten the plan, replan it, or add another support layer.",
+            )
+        elif checkpoint_status == "at_risk":
+            expected_state = (
+                "Ilk 4 hafta sonunda profilin daha stabil ama halen dikkat gerektiren bir noktada olmasi beklenir.",
+                "By week 4, the profile should look more stable, but still require caution.",
+            )
+            success = (
+                "Yeni negatif sinyal uretmeden ilk checkpoint'e kadar denge korunur.",
+                "Stability is preserved into the first checkpoint without creating new negative signals.",
+            )
+            failure = (
+                "Bu sinyal zayif kalirsa planin sikilasmasi veya yeniden degerlendirilmesi gerekir.",
+                "If this signal remains weak, the plan likely needs tightening or reassessment.",
+            )
+            review = (
+                "Plani yeniden degerlendir veya destek katmani ekle.",
+                "Reassess the plan or add another support layer.",
+            )
+        else:
+            expected_state = (
+                "Ilk 4 hafta sonunda profilin daha stabil gorunmesi beklenir.",
+                "By week 4, the profile is expected to look more stable.",
+            )
+            success = (
+                "Erken baski azalir ve ilk review kontrollu bir gecis sinyali verir.",
+                "Early pressure eases and the first review signals a controlled pass.",
+            )
+            failure = (
+                "Ilk sinyal gelmezse planin sikilasmasi veya yeniden degerlendirilmesi gerekir.",
+                "If the early signal does not show up, the plan likely needs tightening or reassessment.",
+            )
+            review = (
+                "Plani surdur ve orta vadeli guclenmeye gec.",
+                "Continue the plan and move into the mid-term strengthening phase.",
+            )
     elif week == 12:
-        expected_state = (
-            "Orta vadede dosyanin yeniden basvuruya daha yakin gorunmesi beklenir.",
-            "By the mid-term checkpoint, the file should look closer to re-application readiness.",
-        )
-        success = (
-            "Profil kontrollu bicimde yeniden degerlendirme veya onay gorunumune yaklasir.",
-            "The profile moves into a controlled reassessment or approval-ready posture.",
-        )
-        failure = (
-            "Bu noktada ilerleme zayif kalirsa daha agir mudahale veya teklif destegi gerekebilir.",
-            "If progress is still weak here, heavier intervention or offer support may be required.",
-        )
-        review = (
-            "Guclu gorunum korunuyorsa iyilesmeyi kalicilastir."
-            if gate_pass
-            else "Daha guclu bir mudahale yoluna gec.",
-            "If the signal is healthy, protect the gains and make them durable."
-            if gate_pass
-            else "Escalate into a stronger intervention path.",
-        )
+        if checkpoint_status == "missed":
+            expected_state = (
+                "Orta vadeli guclenme beklenen seviyeye ulasmamis gorunuyor.",
+                "The mid-term strengthening does not yet appear to be reaching the required level.",
+            )
+            success = (
+                "Bu noktadan sonra daha agir mudahale veya kurumsal destek gerekebilir.",
+                "From here, the path may require heavier intervention or institution-side support.",
+            )
+            failure = (
+                "12 haftalik pencere de zayif kalirsa mevcut hikaye tek basina yeterli gorunmez.",
+                "If the 12-week window stays weak, the current story no longer looks sufficient on its own.",
+            )
+            review = (
+                "Daha guclu bir mudahale yoluna gec.",
+                "Escalate into a stronger intervention path.",
+            )
+        else:
+            expected_state = (
+                "Orta vadede dosyanin yeniden basvuruya daha yakin gorunmesi beklenir.",
+                "By the mid-term checkpoint, the file should look closer to re-application readiness.",
+            )
+            success = (
+                "Profil kontrollu bicimde yeniden degerlendirme veya onay gorunumune yaklasir.",
+                "The profile moves into a controlled reassessment or approval-ready posture.",
+            )
+            failure = (
+                "Bu noktada ilerleme zayif kalirsa daha agir mudahale veya teklif destegi gerekebilir.",
+                "If progress is still weak here, heavier intervention or offer support may be required.",
+            )
+            review = (
+                "Guclu gorunum korunuyorsa iyilesmeyi kalicilastir."
+                if gate_pass
+                else "Daha guclu bir mudahale yoluna gec.",
+                "If the signal is healthy, protect the gains and make them durable."
+                if gate_pass
+                else "Escalate into a stronger intervention path.",
+            )
     else:
-        expected_state = (
-            "Uzun vadede iyilesmenin kalici hale gelmesi beklenir.",
-            "Over the long horizon, the improvement should become durable.",
-        )
-        success = (
-            "Toparlanma hikayesi kirilmadan korunur ve profil daha guvenilir hale gelir.",
-            "The recovery story holds together and the profile becomes more dependable.",
-        )
-        failure = (
-            "Uzun vadeli kazanim kalicilasmiyorsa onceki iyilesme hikayesi kirilgan kalir.",
-            "If the long-horizon gain does not hold, the earlier improvement story remains fragile.",
-        )
+        if checkpoint_status == "missed" or trajectory_jump_flag or non_monotonic_flag:
+            expected_state = (
+                "Uzun vadeli iyilesme tutarsiz gorunuyor; kazanimlar kalicilasmakta zorlanabilir.",
+                "The long-horizon improvement looks unstable; gains may be struggling to hold.",
+            )
+            success = (
+                "Yol haritasi korunacaksa daha sik kontrol ve daha temiz sinyaller gerekir.",
+                "If the roadmap is to hold, it needs tighter monitoring and cleaner signals.",
+            )
+            failure = (
+                "Uzun vadeli kazanim kalicilasmiyorsa onceki iyilesme hikayesi kirilgan kalir.",
+                "If the long-horizon gain does not hold, the earlier improvement story remains fragile.",
+            )
+            review = (
+                "Plani yeniden degerlendir ve yeni risk olusumunu durdur.",
+                "Reassess the plan and stop any new risk from forming.",
+            )
+        else:
+            expected_state = (
+                "Uzun vadede iyilesmenin kalici hale gelmesi beklenir.",
+                "Over the long horizon, the improvement should become durable.",
+            )
+            success = (
+                "Toparlanma hikayesi kirilmadan korunur ve profil daha guvenilir hale gelir.",
+                "The recovery story holds together and the profile becomes more dependable.",
+            )
+            failure = (
+                "Uzun vadeli kazanim kalicilasmiyorsa onceki iyilesme hikayesi kirilgan kalir.",
+                "If the long-horizon gain does not hold, the earlier improvement story remains fragile.",
+            )
+            review = (
+                "Mevcut duzeni koru ve yeni risk yaratma.",
+                "Protect the current structure and avoid creating new risk.",
+            )
+
+    if checkpoint_inconsistency_flag:
         review = (
-            "Mevcut duzeni koru ve yeni risk yaratma.",
-            "Protect the current structure and avoid creating new risk.",
+            "Checkpoint sinyalini tekrar incele; etiket ile metrikler ayni hikayeyi anlatmiyor.",
+            "Review the checkpoint signal again; the label and metrics are not telling the same story.",
         )
 
     return RoadmapCheckpointNarrative(
@@ -875,15 +948,21 @@ def _checkpoint_4w_card(checkpoints: Sequence[Mapping[str, Any]], tau: float) ->
             "Bu plan icin ilk review yorumu henuz olusmadi.",
             "The first review view is not yet available for this plan.",
         )
-    ready = _safe_float(cp4.get("predicted_pd", 1.0), 1.0) <= float(tau) and bool(
-        _safe_int(cp4.get("gate_pass_estimate", 0), 0)
-    )
+    ready = _safe_float(cp4.get("predicted_pd", 1.0), 1.0) <= float(tau) and bool(_safe_int(cp4.get("gate_pass_estimate", 0), 0))
+    checkpoint_status = str(cp4.get("status", "") or ("on_track" if ready else "at_risk")).strip().lower()
     if ready:
         return _card(
             "Ilk 4 haftada olumlu gecis",
             "Positive first 4-week signal",
             "Erken checkpoint kontrollu bir guclenme sinyali veriyor.",
             "The early checkpoint shows a controlled strengthening signal.",
+        )
+    if checkpoint_status == "missed":
+        return _card(
+            "Ilk 4 hafta zayif gorunuyor",
+            "The first 4 weeks look weak",
+            "Erken checkpoint kaciyor; planin sikilasmasi veya yeniden kurulmasi gerekebilir.",
+            "The early checkpoint is being missed; the plan may need tightening or a reset.",
         )
     return _card(
         "Ilk 4 hafta denge kurma asamasi",
@@ -1056,6 +1135,16 @@ def build_customer_roadmap_narrative(
         status=status,
         confidence_label=confidence_label,
     )
+    for checkpoint in checkpoints:
+        if not isinstance(checkpoint, Mapping):
+            continue
+        for key in (
+            "trajectory_jump_flag",
+            "non_monotonic_flag",
+            "checkpoint_inconsistency_flag",
+        ):
+            if bool(checkpoint.get(key, False)) and key not in diagnostic_flags:
+                diagnostic_flags.append(key)
     return CustomerRoadmapNarrative(
         executive_summary=executive_summary,
         steps=step_narratives,

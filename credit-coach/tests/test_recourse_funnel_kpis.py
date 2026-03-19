@@ -14,6 +14,7 @@ from credit_coach.cli.run_batch_recourse_eval import (
 )
 from credit_coach.cli.run_recourse import _plan_to_row
 from credit_coach.data.schema import PlanAction, PlanRecord
+from credit_coach.recourse.trajectory import build_nominal_trajectory_checkpoints
 
 
 def test_build_denied_diagnostics_outputs_expected_rates():
@@ -324,6 +325,62 @@ def test_plan_trajectory_metrics_uses_time_layered_actions():
     assert str(out["trajectory_status"]) in {"on_track", "needs_replan", "degraded"}
     assert str(out["trajectory_current_phase"]) != ""
     assert int(out["trajectory_next_review_week"]) >= 4
+    assert str(out["trajectory_checkpoint_status_4w"]) in {"on_track", "at_risk", "missed"}
+    assert str(out["trajectory_checkpoint_status_12w"]) in {"on_track", "at_risk", "missed"}
+    assert str(out["trajectory_checkpoint_status_24w"]) in {"on_track", "at_risk", "missed"}
+
+
+def test_nominal_trajectory_checkpoints_lock_canonical_contract():
+    class _DummyModel:
+        def predict_proba(self, x):
+            p = np.clip(pd.to_numeric(x["score"], errors="coerce").fillna(0.0).to_numpy(dtype=float) / 100.0, 0.0, 1.0)
+            return np.column_stack([1.0 - p, p])
+
+    row = pd.Series({"score": 60.0})
+    plan = PlanRecord(
+        plan_id="p_contract",
+        customer_id="c1",
+        run_id="r1",
+        horizon_months=6,
+        strategy="balanced",
+        actions=[
+            PlanAction(
+                feature_name="score",
+                current_value=60.0,
+                target_value=45.0,
+                delta=-15.0,
+                time_months=1,
+                estimated_cost_usd=10.0,
+            ),
+            PlanAction(
+                feature_name="score",
+                current_value=45.0,
+                target_value=30.0,
+                delta=-15.0,
+                time_months=6,
+                estimated_cost_usd=15.0,
+            ),
+        ],
+        predicted_pd=0.30,
+        status="APPROVED",
+    )
+
+    checkpoints = build_nominal_trajectory_checkpoints(
+        row=row,
+        plan=plan,
+        base_pd=0.60,
+        tau=0.35,
+        model=_DummyModel(),
+        calibrator=None,
+        feature_cols=["score"],
+    )
+
+    assert [checkpoint.week for checkpoint in checkpoints] == [4, 12, 24]
+    assert [checkpoint.checkpoint_type for checkpoint in checkpoints] == ["primary", "confirmation", "stability"]
+    assert [checkpoint.status for checkpoint in checkpoints] == ["at_risk", "at_risk", "on_track"]
+    assert checkpoints[-1].month == 6
+    assert checkpoints[-1].phase_id == "phase_3_optimize"
+    assert checkpoints[-1].checkpoint_inconsistency_flag is False
 
 
 def test_plan_row_serialization_keeps_typed_action_fields():

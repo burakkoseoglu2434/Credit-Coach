@@ -10,6 +10,10 @@ from credit_coach.coaching.progress import classify_progress
 from credit_coach.coaching.reviewer import evaluate_replan
 from credit_coach.macro.shock_scenarios import scenario_pd_shift
 from credit_coach.recourse.execution_probability import classify_execution_scenario
+from credit_coach.recourse.trajectory import (
+    TRAJECTORY_JUMP_THRESHOLD,
+    checkpoint_type_for_week,
+)
 
 
 def _default_shock_scenario() -> dict:
@@ -131,6 +135,10 @@ def run_weekly_coaching_loop(
         else:
             missed_streak = 0
 
+        execution_scenario = classify_execution_scenario(
+            float(executed_actions / max(1, planned_actions)) if planned_actions > 0 else 1.0
+        )
+
         replan, replan_reasons = evaluate_replan(
             progress_label=label,
             ci_high=ci_high,
@@ -144,25 +152,44 @@ def run_weekly_coaching_loop(
             min_robust_margin=min_robust_margin,
         )
 
+        checkpoint_type = checkpoint_type_for_week(w) if phase_boundary_review else ""
+        severe_deterioration = bool(next_pd > current_pd + TRAJECTORY_JUMP_THRESHOLD)
+        gate_pass = bool(next_pd <= float(tau))
+        if gate_pass:
+            checkpoint_status = "on_track"
+        elif severe_deterioration or execution_scenario == "failed_execution":
+            checkpoint_status = "missed"
+        else:
+            checkpoint_status = "at_risk"
+
         if replan and phase_boundary_review:
             # Hybrid transition model: adapt only at canonical review boundaries.
             adaptive_target = float(max(0.0, min(adaptive_target, next_pd - 0.01, tau - 0.01)))
             if remaining_actions > 0:
                 remaining_actions = min(int(plan_action_count), remaining_actions + 1)
-            trajectory_status_state = "needs_replan"
+            degraded_boundary = bool(
+                (
+                    w > 4
+                    and severe_deterioration
+                )
+                or (
+                    checkpoint_status == "missed"
+                    and execution_scenario == "failed_execution"
+                    and w > 4
+                    and missed_streak > int(max_missed_actions)
+                )
+            )
+            trajectory_status_state = "degraded" if degraded_boundary else "needs_replan"
             current_phase_state = phase_for_week
             next_review_state = int(w)
             phase_transition_reason_state = "|".join(replan_reasons) if replan_reasons else "review_boundary_replan"
             replanned_from_phase_state = phase_for_week
         elif phase_boundary_review:
+            trajectory_status_state = "on_track"
             current_phase_state = _phase_for_week(min(weeks, w + 1))
             next_review_state = _next_review_week(w + 1, review_weeks)
             phase_transition_reason_state = "checkpoint_clear"
             replanned_from_phase_state = None
-
-        execution_scenario = classify_execution_scenario(
-            float(executed_actions / max(1, planned_actions)) if planned_actions > 0 else 1.0
-        )
         if w == weeks and execution_scenario == "failed_execution" and trajectory_status_state != "needs_replan":
             trajectory_status_state = "degraded"
             current_phase_state = phase_for_week
@@ -199,6 +226,8 @@ def run_weekly_coaching_loop(
                 "target_pd": adaptive_target,
                 "robust_margin": robust_margin,
                 "phase_boundary_review": int(phase_boundary_review),
+                "checkpoint_type": str(checkpoint_type),
+                "checkpoint_status": str(checkpoint_status),
                 "current_phase": str(current_phase_state),
                 "next_review_week": int(next_review_state),
                 "trajectory_status": str(trajectory_status_state),

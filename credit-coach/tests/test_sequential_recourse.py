@@ -73,7 +73,11 @@ def test_weekly_loop_emits_phase_boundary_transition_state():
     assert "current_phase" in out.columns
     assert "next_review_week" in out.columns
     assert "phase_transition_reason" in out.columns
+    assert "checkpoint_type" in out.columns
+    assert "checkpoint_status" in out.columns
     week4 = out[out["week"] == 4].iloc[-1]
     assert str(week4["trajectory_status"]) == "needs_replan"
     assert str(week4["current_phase"]) == "phase_1_stabilize"
     assert int(week4["next_review_week"]) == 4
+    assert str(week4["checkpoint_type"]) == "primary"
+    assert str(week4["checkpoint_status"]) in {"at_risk", "missed"}

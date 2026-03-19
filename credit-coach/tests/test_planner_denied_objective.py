@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from credit_coach.coaching.planner import choose_best_plan
-from credit_coach.data.schema import PlanAction, PlanRecord
+from credit_coach.data.schema import PlanAction, PlanRecord, TrajectoryCheckpoint
 
 
 def _mk_plan(
@@ -45,6 +45,30 @@ def _mk_plan(
     p.nominal_pd_improvement = max(0.0, 0.60 - predicted_pd)
     p.expected_pd_improvement = float(p.plan_execution_probability * p.nominal_pd_improvement)
     return p
+
+
+def _checkpoint(
+    *,
+    week: int,
+    phase_id: str,
+    checkpoint_type: str,
+    predicted_pd: float,
+    gate_pass_estimate: int,
+    checkpoint_priority: int,
+    status: str,
+) -> TrajectoryCheckpoint:
+    return TrajectoryCheckpoint(
+        week=week,
+        month={4: 1, 12: 3, 24: 6}[week],
+        phase_id=phase_id,
+        checkpoint_type=checkpoint_type,
+        checkpoint_label=f"{week}w_{checkpoint_type}",
+        predicted_pd=predicted_pd,
+        pd_delta_vs_base=max(0.0, 0.60 - predicted_pd),
+        gate_pass_estimate=gate_pass_estimate,
+        checkpoint_priority=checkpoint_priority,
+        status=status,
+    )
 
 
 def test_choose_best_plan_denied_mode_prefers_lower_gate_violations():
@@ -236,6 +260,106 @@ def test_choose_best_plan_high_risk_objective_penalizes_missing_gate_fields():
         },
     )
     assert best.plan_id == "p_complete"
+
+
+def test_choose_best_plan_prefers_checkpoint_safe_trajectory_story():
+    strong_early = _mk_plan(
+        "p_strong_early",
+        ci_high=0.34,
+        reliability=0.78,
+        worst_margin=-0.02,
+        predicted_pd=0.30,
+        robust_score=5.0,
+        status="NEEDS_REVIEW",
+        time_months=1,
+    )
+    strong_early.trajectory_checkpoints = [
+        _checkpoint(
+            week=4,
+            phase_id="phase_1_stabilize",
+            checkpoint_type="primary",
+            predicted_pd=0.34,
+            gate_pass_estimate=1,
+            checkpoint_priority=1,
+            status="on_track",
+        ),
+        _checkpoint(
+            week=12,
+            phase_id="phase_2_build",
+            checkpoint_type="confirmation",
+            predicted_pd=0.32,
+            gate_pass_estimate=1,
+            checkpoint_priority=2,
+            status="on_track",
+        ),
+        _checkpoint(
+            week=24,
+            phase_id="phase_3_optimize",
+            checkpoint_type="stability",
+            predicted_pd=0.30,
+            gate_pass_estimate=1,
+            checkpoint_priority=3,
+            status="on_track",
+        ),
+    ]
+    strong_early.plan_execution_probability = 0.72
+    strong_early.expected_pd_improvement = float(
+        strong_early.plan_execution_probability * strong_early.nominal_pd_improvement
+    )
+
+    late_heavy = _mk_plan(
+        "p_late_heavy",
+        ci_high=0.31,
+        reliability=0.75,
+        worst_margin=-0.01,
+        predicted_pd=0.28,
+        robust_score=8.0,
+        status="NEEDS_REVIEW",
+        time_months=6,
+    )
+    late_heavy.trajectory_checkpoints = [
+        _checkpoint(
+            week=4,
+            phase_id="phase_1_stabilize",
+            checkpoint_type="primary",
+            predicted_pd=0.48,
+            gate_pass_estimate=0,
+            checkpoint_priority=1,
+            status="at_risk",
+        ),
+        _checkpoint(
+            week=12,
+            phase_id="phase_2_build",
+            checkpoint_type="confirmation",
+            predicted_pd=0.36,
+            gate_pass_estimate=0,
+            checkpoint_priority=2,
+            status="at_risk",
+        ),
+        _checkpoint(
+            week=24,
+            phase_id="phase_3_optimize",
+            checkpoint_type="stability",
+            predicted_pd=0.28,
+            gate_pass_estimate=1,
+            checkpoint_priority=3,
+            status="on_track",
+        ),
+    ]
+    late_heavy.plan_execution_probability = 0.32
+    late_heavy.expected_pd_improvement = float(
+        late_heavy.plan_execution_probability * late_heavy.nominal_pd_improvement
+    )
+
+    best = choose_best_plan(
+        [late_heavy, strong_early],
+        base_pd=0.60,
+        tau=0.35,
+        segment_context={"risk_band": "mid"},
+    )
+
+    assert best.plan_id == "p_strong_early"
+    assert late_heavy.trajectory_policy_label == "long_horizon_heavy"
 
 
 def test_choose_best_plan_prefers_non_rejected_when_available():

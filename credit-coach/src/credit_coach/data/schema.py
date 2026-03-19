@@ -23,7 +23,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from credit_coach.utils.time import utc_now
 
@@ -251,17 +251,59 @@ class TrajectoryCheckpoint(BaseModel):
     Canonical trajectory checkpoint kaydi.
     """
 
-    week: int = Field(..., ge=1, description="Checkpoint haftasi")
-    month: int = Field(..., ge=1, description="Checkpoint ay eslesmesi")
+    week: Literal[4, 12, 24] = Field(..., description="Checkpoint haftasi")
+    month: Literal[1, 3, 6] = Field(..., description="Checkpoint ay eslesmesi")
     phase_id: Literal["phase_1_stabilize", "phase_2_build", "phase_3_optimize"] = Field(
         ...,
         description="Checkpoint'in bagli oldugu canonical faz",
+    )
+    checkpoint_type: Literal["primary", "confirmation", "stability"] = Field(
+        ...,
+        description="Canonical checkpoint tipi",
     )
     checkpoint_label: str | None = Field(default=None, description="Kisa checkpoint etiketi")
     predicted_pd: float | None = Field(default=None, ge=0.0, le=1.0, description="Checkpoint PD tahmini")
     pd_delta_vs_base: float | None = Field(default=None, description="Base PD'ye gore iyilesme")
     gate_pass_estimate: int = Field(default=0, ge=0, le=1, description="Checkpoint gate-pass tahmini")
-    checkpoint_priority: int = Field(default=0, ge=0, description="4w > 12w > 24w oncelik sirasi")
+    checkpoint_priority: Literal[1, 2, 3] = Field(
+        default=1,
+        description="4w > 12w > 24w oncelik sirasi",
+    )
+    status: Literal["on_track", "at_risk", "missed"] = Field(
+        default="at_risk",
+        description="Checkpoint-local durum etiketi",
+    )
+    trajectory_jump_flag: bool = Field(
+        default=False,
+        description="Bir onceki checkpoint'e gore anlamli kotulesme jump'i var mi",
+    )
+    non_monotonic_flag: bool = Field(
+        default=False,
+        description="Yumusak monotonicity beklentisi ihlal edildi mi",
+    )
+    checkpoint_inconsistency_flag: bool = Field(
+        default=False,
+        description="Checkpoint label/status ile numeric truth uyusmuyor mu",
+    )
+
+    @model_validator(mode="after")
+    def validate_canonical_checkpoint_contract(self) -> "TrajectoryCheckpoint":
+        contract = {
+            4: ("phase_1_stabilize", 1, "primary"),
+            12: ("phase_2_build", 3, "confirmation"),
+            24: ("phase_3_optimize", 6, "stability"),
+        }
+        expected_phase, expected_month, expected_type = contract[int(self.week)]
+        if str(self.phase_id) != expected_phase:
+            raise ValueError(f"week={self.week} icin phase_id {expected_phase} olmalidir")
+        if int(self.month) != expected_month:
+            raise ValueError(f"week={self.week} icin month {expected_month} olmalidir")
+        if str(self.checkpoint_type) != expected_type:
+            raise ValueError(f"week={self.week} icin checkpoint_type {expected_type} olmalidir")
+        expected_priority = {4: 1, 12: 2, 24: 3}[int(self.week)]
+        if int(self.checkpoint_priority) != expected_priority:
+            raise ValueError(f"week={self.week} icin checkpoint_priority {expected_priority} olmalidir")
+        return self
 
 
 class LocalReason(BaseModel):

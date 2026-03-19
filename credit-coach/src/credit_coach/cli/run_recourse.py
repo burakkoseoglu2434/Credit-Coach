@@ -515,11 +515,18 @@ def _build_customer_roadmap(
                 "week": checkpoint_week,
                 "month": int(_safe_int(getattr(checkpoint, "month", 0), 0)),
                 "phase_id": str(getattr(checkpoint, "phase_id", "") or ""),
+                "checkpoint_type": str(getattr(checkpoint, "checkpoint_type", "") or ""),
                 "checkpoint_label": str(getattr(checkpoint, "checkpoint_label", "") or ""),
                 "predicted_pd": _safe_float(getattr(checkpoint, "predicted_pd", base_pd), base_pd),
                 "pd_delta_vs_base": _safe_float(getattr(checkpoint, "pd_delta_vs_base", 0.0), 0.0),
                 "gate_pass_estimate": int(_safe_int(getattr(checkpoint, "gate_pass_estimate", 0), 0)),
                 "checkpoint_priority": int(_safe_int(getattr(checkpoint, "checkpoint_priority", 0), 0)),
+                "status": str(getattr(checkpoint, "status", "") or ""),
+                "trajectory_jump_flag": int(bool(getattr(checkpoint, "trajectory_jump_flag", False))),
+                "non_monotonic_flag": int(bool(getattr(checkpoint, "non_monotonic_flag", False))),
+                "checkpoint_inconsistency_flag": int(
+                    bool(getattr(checkpoint, "checkpoint_inconsistency_flag", False))
+                ),
             }
         )
 

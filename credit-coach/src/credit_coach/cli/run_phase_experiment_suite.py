@@ -658,6 +658,10 @@ def _build_phase_trajectory_summary(scale_df: pd.DataFrame) -> dict[str, Any]:
         "trajectory_partial_progress_rate",
         "trajectory_median_time_to_gate_pass_days",
         "trajectory_soft_regression_penalty_mean",
+        "trajectory_weak_4w_health_rate",
+        "trajectory_jump_flag_rate",
+        "trajectory_non_monotonic_flag_rate",
+        "trajectory_checkpoint_inconsistency_flag_rate",
         "trajectory_on_track_rate",
         "trajectory_needs_replan_rate",
         "trajectory_degraded_rate",
@@ -679,6 +683,7 @@ def _build_phase_trajectory_summary(scale_df: pd.DataFrame) -> dict[str, Any]:
             "supporting_artifacts": {
                 "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
                 "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",
+                "trajectory_consistency_breakdown_csv": "tables/trajectory_consistency_breakdown.csv",
                 "trajectory_gate_by_risk_band_csv": "tables/trajectory_gate_by_risk_band.csv",
                 "trajectory_gate_by_income_band_csv": "tables/trajectory_gate_by_income_band.csv",
                 "trajectory_phase_action_mix_csv": "tables/trajectory_phase_action_mix.csv",
@@ -712,6 +717,7 @@ def _build_phase_trajectory_summary(scale_df: pd.DataFrame) -> dict[str, Any]:
         "supporting_artifacts": {
             "trajectory_transition_breakdown_csv": "tables/trajectory_transition_breakdown.csv",
             "trajectory_policy_label_breakdown_csv": "tables/trajectory_policy_label_breakdown.csv",
+            "trajectory_consistency_breakdown_csv": "tables/trajectory_consistency_breakdown.csv",
             "trajectory_gate_by_risk_band_csv": "tables/trajectory_gate_by_risk_band.csv",
             "trajectory_gate_by_income_band_csv": "tables/trajectory_gate_by_income_band.csv",
             "trajectory_phase_action_mix_csv": "tables/trajectory_phase_action_mix.csv",
@@ -740,6 +746,10 @@ def _build_phase_trajectory_transition_breakdown(seed_breakdowns: list[pd.DataFr
                 "count",
                 "mean_next_review_week",
                 "mean_soft_regression_penalty",
+                "mean_weak_4w_health",
+                "mean_jump_flag",
+                "mean_non_monotonic_flag",
+                "mean_checkpoint_inconsistency_flag",
                 "share",
                 "breakdown_type",
             ]
@@ -763,11 +773,23 @@ def _build_phase_trajectory_transition_breakdown(seed_breakdowns: list[pd.DataFr
                 "count",
                 "mean_next_review_week",
                 "mean_soft_regression_penalty",
+                "mean_weak_4w_health",
+                "mean_jump_flag",
+                "mean_non_monotonic_flag",
+                "mean_checkpoint_inconsistency_flag",
                 "share",
                 "breakdown_type",
             ]
         )
     combined = pd.concat(frames, ignore_index=True)
+    for column in (
+        "mean_weak_4w_health",
+        "mean_jump_flag",
+        "mean_non_monotonic_flag",
+        "mean_checkpoint_inconsistency_flag",
+    ):
+        if column not in combined.columns:
+            combined[column] = 0.0
     rollup = (
         combined.groupby(
             ["population", "risk_band", "trajectory_status", "current_phase", "phase_transition_reason"],
@@ -777,6 +799,10 @@ def _build_phase_trajectory_transition_breakdown(seed_breakdowns: list[pd.DataFr
             count=("count", "sum"),
             mean_next_review_week=("mean_next_review_week", "mean"),
             mean_soft_regression_penalty=("mean_soft_regression_penalty", "mean"),
+            mean_weak_4w_health=("mean_weak_4w_health", "mean"),
+            mean_jump_flag=("mean_jump_flag", "mean"),
+            mean_non_monotonic_flag=("mean_non_monotonic_flag", "mean"),
+            mean_checkpoint_inconsistency_flag=("mean_checkpoint_inconsistency_flag", "mean"),
             share=("share", "mean"),
         )
         .reset_index()

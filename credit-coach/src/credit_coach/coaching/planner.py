@@ -3,6 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 from credit_coach.data.schema import PlanRecord
+from credit_coach.recourse.trajectory import (
+    TRAJECTORY_JUMP_THRESHOLD,
+    TRAJECTORY_MINOR_DRIFT_TOLERANCE,
+    summarize_trajectory_consistency,
+)
 
 _STATUS_PRIORITY = {
     "APPROVED": 0,
@@ -101,6 +106,7 @@ def _execution_rank_penalty(
     expected = _expected_pd_improvement(plan, base_pd=base_pd, tau=tau)
     gap = max(0.0, nominal - expected)
     risk_band = str((segment_context or {}).get("risk_band", "")).strip().lower()
+    consistency = _trajectory_consistency(plan)
 
     penalty = 0.0
     penalty += max(0.0, 0.65 - execution_probability) * 120.0
@@ -110,6 +116,16 @@ def _execution_rank_penalty(
         penalty += 10.0
     if nominal >= 0.08 and expected <= (0.50 * nominal):
         penalty += 12.0
+    if bool(consistency["weak_early_health"]):
+        penalty += 16.0
+    if str(consistency["primary_checkpoint_status"]) == "missed":
+        penalty += 10.0
+    if bool(consistency["trajectory_jump_flag"]):
+        penalty += 14.0
+    if bool(consistency["non_monotonic_flag"]):
+        penalty += 9.0
+    if bool(consistency["checkpoint_inconsistency_flag"]):
+        penalty += 10.0
 
     approval_pending_count = _safe_int(getattr(plan, "approval_pending_action_count", 0), 0)
     if approval_pending_count > 0:
@@ -182,6 +198,21 @@ def _trajectory_checkpoint_pds(plan: PlanRecord, *, base_pd: float | None, tau: 
     return float(pd4), float(pd12), float(pd24)
 
 
+def _trajectory_consistency(plan: PlanRecord) -> dict[str, Any]:
+    checkpoints = list(getattr(plan, "trajectory_checkpoints", []))
+    if not checkpoints:
+        return {
+            "primary_checkpoint_status": "at_risk",
+            "confirmation_checkpoint_status": "at_risk",
+            "stability_checkpoint_status": "at_risk",
+            "weak_early_health": False,
+            "trajectory_jump_flag": False,
+            "non_monotonic_flag": False,
+            "checkpoint_inconsistency_flag": False,
+        }
+    return summarize_trajectory_consistency(checkpoints)
+
+
 def _phase_aware_priority_score(
     plan: PlanRecord,
     *,
@@ -190,6 +221,7 @@ def _phase_aware_priority_score(
     segment_context: dict[str, Any] | None = None,
 ) -> float:
     pd4, pd12, pd24 = _trajectory_checkpoint_pds(plan, base_pd=base_pd, tau=tau)
+    consistency = _trajectory_consistency(plan)
     starting_pd = _safe_float(base_pd, max(pd4, pd12, pd24))
     early_improvement = max(0.0, starting_pd - pd4)
     mid_improvement = max(0.0, starting_pd - pd12)
@@ -197,24 +229,38 @@ def _phase_aware_priority_score(
     pass4 = 1.0 if tau is not None and pd4 <= float(tau) else 0.0
     pass12 = 1.0 if tau is not None and pd12 <= float(tau) else 0.0
     pass24 = 1.0 if tau is not None and pd24 <= float(tau) else 0.0
-    regression_tolerance = 0.01
+    regression_tolerance = TRAJECTORY_MINOR_DRIFT_TOLERANCE
     regression_penalty = max(0.0, pd12 - (pd4 + regression_tolerance)) + max(0.0, pd24 - (pd12 + regression_tolerance))
     phase1_share, phase2_share, _ = _phase_action_shares(plan)
-    early_health_ok = bool(pass4 > 0.0 or early_improvement >= max(0.03, 0.35 * max(long_improvement, 0.01)))
+    primary_checkpoint_status = str(consistency["primary_checkpoint_status"])
+    weak_early_health = bool(consistency["weak_early_health"])
+    early_health_ok = bool(
+        primary_checkpoint_status == "on_track"
+        or (pass4 > 0.0)
+        or early_improvement >= max(TRAJECTORY_JUMP_THRESHOLD, 0.35 * max(long_improvement, 0.01))
+    )
     risk_band = str((segment_context or {}).get("risk_band", "")).strip().lower()
     if risk_band == "high":
         weights = (0.70, 0.20, 0.10)
     else:
         weights = (0.55, 0.30, 0.15)
-    long_bonus_multiplier = 1.0 if early_health_ok else 0.20
+    long_bonus_multiplier = 1.0 if early_health_ok else 0.15
     score = (
         (weights[0] * ((early_improvement * 100.0) + (8.0 * pass4) + (5.0 * phase1_share)))
         + (weights[1] * ((mid_improvement * 100.0) + (5.0 * pass12) + (3.0 * phase2_share)))
         + (weights[2] * long_bonus_multiplier * ((long_improvement * 100.0) + (4.0 * pass24)))
         - (35.0 * regression_penalty)
     )
-    if not early_health_ok:
+    if weak_early_health:
         score -= 8.0
+    if primary_checkpoint_status == "missed":
+        score -= 6.0
+    if bool(consistency["trajectory_jump_flag"]):
+        score -= 12.0
+    if bool(consistency["non_monotonic_flag"]):
+        score -= 8.0
+    if bool(consistency["checkpoint_inconsistency_flag"]):
+        score -= 10.0
     return float(score)
 
 
@@ -226,17 +272,41 @@ def _trajectory_policy_label(
     segment_context: dict[str, Any] | None = None,
 ) -> str:
     pd4, pd12, pd24 = _trajectory_checkpoint_pds(plan, base_pd=base_pd, tau=tau)
+    consistency = _trajectory_consistency(plan)
     starting_pd = _safe_float(base_pd, max(pd4, pd12, pd24))
     early_improvement = max(0.0, starting_pd - pd4)
     long_improvement = max(0.0, starting_pd - pd24)
     phase1_share, _, _ = _phase_action_shares(plan)
     early_gate_ok = bool(tau is not None and pd4 <= float(tau))
-    early_health_ok = bool(early_gate_ok or early_improvement >= max(0.03, 0.35 * max(long_improvement, 0.01)))
-    if not early_health_ok and long_improvement > max(0.05, early_improvement + 0.02):
-        return "long_horizon_heavy"
-    if early_gate_ok or phase1_share >= 0.5:
-        return "stabilize_first"
-    return "balanced_progress"
+    execution_probability = _plan_execution_probability(plan)
+    weak_early_health = bool(consistency["weak_early_health"])
+    early_health_ok = bool(
+        str(consistency["primary_checkpoint_status"]) == "on_track"
+        or early_gate_ok
+        or early_improvement >= max(TRAJECTORY_JUMP_THRESHOLD, 0.35 * max(long_improvement, 0.01))
+    )
+    if weak_early_health and (
+        long_improvement > max(0.05, early_improvement + 0.02)
+        or execution_probability < 0.55
+        or bool(consistency["trajectory_jump_flag"])
+        or bool(consistency["non_monotonic_flag"])
+    ):
+        label = "long_horizon_heavy"
+    elif early_health_ok and phase1_share >= 0.5:
+        label = "stabilize_first"
+    elif early_gate_ok:
+        label = "stabilize_first"
+    else:
+        label = "balanced_progress"
+
+    if label == "stabilize_first" and execution_probability < 0.45:
+        label = "balanced_progress"
+    if label != "long_horizon_heavy" and (
+        bool(consistency["checkpoint_inconsistency_flag"])
+        or (execution_probability < 0.35 and weak_early_health)
+    ):
+        label = "long_horizon_heavy"
+    return label
 
 
 def _annotate_trajectory_policy(
@@ -335,6 +405,7 @@ def _gate_pass_score(
     min_reliability: float | None,
     min_worst_risk_margin: float | None,
 ) -> float:
+    consistency = _trajectory_consistency(plan)
     ci_margin = 0.0
     if tau is not None and plan.ci_high is not None:
         ci_margin = float(tau) - float(plan.ci_high)
@@ -347,7 +418,14 @@ def _gate_pass_score(
     if min_worst_risk_margin is not None and plan.robust_worst_risk_margin is not None:
         worst_margin = float(plan.robust_worst_risk_margin) - float(min_worst_risk_margin)
 
-    return float((0.6 * ci_margin) + (0.25 * rel_margin) + (0.15 * worst_margin))
+    score = float((0.6 * ci_margin) + (0.25 * rel_margin) + (0.15 * worst_margin))
+    if bool(consistency["weak_early_health"]):
+        score -= 0.30
+    if bool(consistency["trajectory_jump_flag"]):
+        score -= 0.15
+    if bool(consistency["checkpoint_inconsistency_flag"]):
+        score -= 0.10
+    return score
 
 
 def _gate_violations(

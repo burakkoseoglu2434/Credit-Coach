@@ -340,6 +340,10 @@ def test_build_trajectory_artifacts_surface_transition_state_and_policy_labels()
                 "trajectory_partial_progress": 1,
                 "trajectory_time_to_gate_pass_days": 28.0,
                 "trajectory_soft_regression_penalty": 0.0,
+                "trajectory_weak_4w_health": 0,
+                "trajectory_jump_flag": 0,
+                "trajectory_non_monotonic_flag": 0,
+                "trajectory_checkpoint_inconsistency_flag": 0,
                 "trajectory_status": "on_track",
                 "trajectory_current_phase": "phase_3_optimize",
                 "trajectory_next_review_week": 24,
@@ -357,6 +361,10 @@ def test_build_trajectory_artifacts_surface_transition_state_and_policy_labels()
                 "trajectory_partial_progress": 1,
                 "trajectory_time_to_gate_pass_days": 168.0,
                 "trajectory_soft_regression_penalty": 0.03,
+                "trajectory_weak_4w_health": 1,
+                "trajectory_jump_flag": 1,
+                "trajectory_non_monotonic_flag": 1,
+                "trajectory_checkpoint_inconsistency_flag": 0,
                 "trajectory_status": "needs_replan",
                 "trajectory_current_phase": "phase_1_stabilize",
                 "trajectory_next_review_week": 4,
@@ -372,9 +380,13 @@ def test_build_trajectory_artifacts_surface_transition_state_and_policy_labels()
     assert summary["primary_checkpoint_week"] == 4
     assert summary["canonical_metrics"]["trajectory_gate_pass_rate_24w"] == 1.0
     assert summary["canonical_metrics"]["trajectory_needs_replan_rate"] == 0.5
+    assert summary["canonical_metrics"]["trajectory_weak_4w_health_rate"] == 0.5
+    assert summary["canonical_metrics"]["trajectory_jump_flag_rate"] == 0.5
+    assert "trajectory_consistency_breakdown_csv" in summary["supporting_artifacts"]
     assert summary["dominant_transition_reason"] in {"checkpoint_clear", "missed_actions_streak"}
     assert "trajectory_transition_breakdown_csv" in summary["supporting_artifacts"]
     assert set(transition_breakdown["trajectory_status"]) == {"on_track", "needs_replan"}
+    assert "mean_jump_flag" in transition_breakdown.columns
     assert set(policy_breakdown["trajectory_policy_label"]) == {"balanced_progress", "long_horizon_heavy"}
 
 
