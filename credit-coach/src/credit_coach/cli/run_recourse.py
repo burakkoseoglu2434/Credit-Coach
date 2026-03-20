@@ -586,15 +586,8 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                 "phase_id": phase_id,
                 "phase_title": _phase_title(phase_id),
                 "time_months": int(m),
-                "action_key": str(getattr(action, "action_key", "") or ""),
-                "action_class": str(getattr(action, "action_class", "") or ""),
-                "action_title": str(getattr(action, "action_title", "") or ""),
-                "action_group_id": str(getattr(action, "action_group_id", "") or ""),
-                "composite_action": int(bool(getattr(action, "composite_action", False))),
-                "feature_name": str(getattr(action, "feature_name", "")),
-                "current_value": _safe_float(getattr(action, "current_value", 0.0), 0.0),
-                "target_value": _safe_float(getattr(action, "target_value", 0.0), 0.0),
-                "delta": _safe_float(getattr(action, "delta", 0.0), 0.0),
+                "business_view": dict(getattr(action, "business_view").model_dump(mode="json")),
+                "technical_view": dict(getattr(action, "technical_view").model_dump(mode="json")),
                 "estimated_cost_usd": _safe_float(getattr(action, "estimated_cost_usd", 0.0), 0.0),
                 "requires_institutional_approval": int(
                     bool(getattr(action, "requires_institutional_approval", False))
@@ -739,7 +732,9 @@ def _dice_plan_record(
     for a in actions:
         feature = str(a["feature_name"])
         spec = get_action_spec(feature)
-        action_meta = get_action_metadata(feature, action_month=max(1, int(spec.time_months)))
+        action_month = max(1, int(spec.time_months))
+        phase_id = _phase_id_for_month(action_month)
+        action_meta = get_action_metadata(feature, action_month=action_month, action_phase=phase_id)
         current = float(a["current_value"])
         detail = apply_target_feasibility_with_details(
             feature_name=feature,
@@ -755,7 +750,6 @@ def _dice_plan_record(
         delta = float(target - current)
         if str(detail["status"]) == "rejected":
             continue
-        action_month = max(1, int(spec.time_months))
         week_start = int(((action_month - 1) * 4) + 1)
         week_end = int(action_month * 4)
         offer_contract = build_offer_contract(
@@ -779,7 +773,9 @@ def _dice_plan_record(
                 checkpoint_metric=f"{feature} -> {float(target):.6f}",
                 action_key=str(action_meta.get("action_key") or ""),
                 action_class=action_meta.get("action_class"),
+                action_family=str(action_meta.get("action_family") or "") or None,
                 action_title=str(action_meta.get("action_title") or ""),
+                action_description=str(action_meta.get("action_description") or ""),
                 action_group_id=str(action_meta.get("action_group_id") or ""),
                 composite_action=bool(action_meta.get("composite_action", False)),
                 requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),

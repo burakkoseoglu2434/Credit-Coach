@@ -99,7 +99,7 @@ def _make_plan_action(
     spec = get_action_spec(feature_name)
     phase_id = _phase_id_for_month(action_month)
     week_start, week_end = _week_window_for_month(action_month)
-    action_meta = get_action_metadata(feature_name, action_month=action_month)
+    action_meta = get_action_metadata(feature_name, action_month=action_month, action_phase=phase_id)
     offer_contract = build_offer_contract(
         action_meta,
         current_value=float(current_value),
@@ -120,7 +120,9 @@ def _make_plan_action(
         checkpoint_metric=f"{feature_name} -> {float(target_value):.6f}",
         action_key=str(action_meta.get("action_key") or ""),
         action_class=action_meta.get("action_class"),
+        action_family=str(action_meta.get("action_family") or "") or None,
         action_title=str(action_meta.get("action_title") or ""),
+        action_description=str(action_meta.get("action_description") or ""),
         action_group_id=str(action_meta.get("action_group_id") or ""),
         composite_action=bool(action_meta.get("composite_action", False)),
         requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
@@ -159,12 +161,14 @@ def _record_action_realism_event(
 ) -> None:
     if action_realism_events is None:
         return
-    action_meta = get_action_metadata(feature_name, action_month=action_month)
+    phase_id = _phase_id_for_month(action_month)
+    action_meta = get_action_metadata(feature_name, action_month=action_month, action_phase=phase_id)
     action_realism_events.append(
         {
             "feature_name": feature_name,
             "action_key": str(action_meta.get("action_key") or ""),
             "action_class": str(action_meta.get("action_class") or ""),
+            "action_family": str(action_meta.get("action_family") or ""),
             "action_group_id": str(action_meta.get("action_group_id") or ""),
             "composite_action": bool(action_meta.get("composite_action", False)),
             "requires_institutional_approval": bool(action_meta.get("requires_institutional_approval", False)),

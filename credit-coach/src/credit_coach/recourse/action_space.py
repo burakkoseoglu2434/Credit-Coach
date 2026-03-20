@@ -547,19 +547,33 @@ def validate_action_space_contract() -> list[str]:
     return errors
 
 
-def derive_action_group_id(action_key: str | None, action_month: int | None = None) -> str | None:
+def _phase_token_for_month(action_month: int | None) -> str:
+    month = max(1, int(action_month or 1))
+    if month <= 1:
+        return "phase_1_stabilize"
+    if month <= 3:
+        return "phase_2_build"
+    return "phase_3_optimize"
+
+
+def derive_action_group_id(
+    action_key: str | None,
+    action_month: int | None = None,
+    *,
+    action_phase: str | None = None,
+) -> str | None:
     key = str(action_key or "").strip()
     if not key:
         return None
-    if action_month is None:
-        return key
-    return f"{key}:m{max(1, int(action_month))}"
+    phase_token = str(action_phase or "").strip() or _phase_token_for_month(action_month)
+    return f"{key}:{phase_token}"
 
 
 def get_action_metadata(
     feature_name: str,
     *,
     action_month: int | None = None,
+    action_phase: str | None = None,
     action_group_id: str | None = None,
 ) -> dict[str, Any]:
     spec = get_action_spec(feature_name)
@@ -569,6 +583,7 @@ def get_action_metadata(
             "action_class": None,
             "action_family": None,
             "action_title": "",
+            "action_description": "",
             "action_group_id": action_group_id,
             "composite_action": False,
             "requires_institutional_approval": False,
@@ -590,7 +605,9 @@ def get_action_metadata(
         "action_class": template.action_class,
         "action_family": template.action_family,
         "action_title": template.title,
-        "action_group_id": action_group_id or derive_action_group_id(template.action_key, action_month),
+        "action_description": template.description,
+        "action_group_id": action_group_id
+        or derive_action_group_id(template.action_key, action_month, action_phase=action_phase),
         "composite_action": len(template.feature_names) > 1,
         "requires_institutional_approval": bool(template.requires_institutional_approval),
         "approval_pending_semantic_only": bool(template.approval_pending_semantic_only),

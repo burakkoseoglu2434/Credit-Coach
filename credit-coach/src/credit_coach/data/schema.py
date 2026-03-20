@@ -98,6 +98,41 @@ class MacroSnapshot(BaseModel):
 
 
 # ------------------------------------------------------------------ #
+# PlanAction views — semantic vs technical
+# ------------------------------------------------------------------ #
+class ActionBusinessView(BaseModel):
+    """
+    Product-facing semantic action identity.
+    """
+
+    action_key: str | None = Field(default=None, description="Semantic action key")
+    action_family: str | None = Field(default=None, description="Canonical action family")
+    action_class: Literal["behavioral", "structural", "institutional"] | None = Field(
+        default=None,
+        description="Top-level action class",
+    )
+    action_title: str | None = Field(default=None, description="Catalog-driven action title")
+    action_description: str | None = Field(default=None, description="Catalog-driven short description")
+    action_group_id: str | None = Field(default=None, description="Deterministic grouped action kimligi")
+
+
+class ActionTechnicalView(BaseModel):
+    """
+    Engine-facing low-level effect traceability layer.
+    """
+
+    feature_name: str = Field(..., description="Effect anchor feature name")
+    current_value: float | None = Field(default=None, description="Current raw feature value")
+    target_value: float = Field(..., description="Target raw feature value")
+    delta: float = Field(..., description="Raw feature delta")
+    time_months: int = Field(..., ge=1, description="Action horizon in months")
+    phase_id: str | None = Field(default=None, description="Canonical phase id")
+    week_start: int | None = Field(default=None, ge=1, description="Action start week")
+    week_end: int | None = Field(default=None, ge=1, description="Action end week")
+    checkpoint_metric: str | None = Field(default=None, description="Technical checkpoint metric")
+
+
+# ------------------------------------------------------------------ #
 # PlanAction — tek bir aksiyon
 # ------------------------------------------------------------------ #
 class PlanAction(BaseModel):
@@ -135,10 +170,26 @@ class PlanAction(BaseModel):
         default=None,
         description="Aksiyon sinifi: behavioral | structural | institutional",
     )
+    action_family: str | None = Field(
+        default=None,
+        description="Canonical ikinci katman aksiyon ailesi",
+    )
     action_title: str | None = Field(default=None, description="Aksiyonun okunabilir basligi")
+    action_description: str | None = Field(
+        default=None,
+        description="Catalog-driven kisa aksiyon aciklamasi",
+    )
     action_group_id: str | None = Field(
         default=None,
         description="Composite aksiyonlari ayni grup altinda toplamak icin stabil grup kimligi",
+    )
+    business_view: ActionBusinessView | None = Field(
+        default=None,
+        description="Schema-level product-facing semantic action view",
+    )
+    technical_view: ActionTechnicalView | None = Field(
+        default=None,
+        description="Schema-level technical effect traceability view",
     )
     composite_action: bool = Field(
         default=False,
@@ -226,6 +277,47 @@ class PlanAction(BaseModel):
         le=1.0,
         description="Composite aksiyon grubu seviyesinde toplanmis uygulanma olasiligi",
     )
+
+    @model_validator(mode="after")
+    def populate_action_views(self) -> "PlanAction":
+        if self.action_key:
+            try:
+                from credit_coach.recourse.action_space import get_action_template
+
+                template = get_action_template(str(self.action_key))
+                if self.action_class is None:
+                    self.action_class = template.action_class
+                if self.action_family is None:
+                    self.action_family = template.action_family
+                if self.action_title is None:
+                    self.action_title = template.title
+                if self.action_description is None:
+                    self.action_description = template.description
+            except Exception:
+                pass
+
+        if self.business_view is None:
+            self.business_view = ActionBusinessView(
+                action_key=self.action_key,
+                action_family=self.action_family,
+                action_class=self.action_class,
+                action_title=self.action_title,
+                action_description=self.action_description,
+                action_group_id=self.action_group_id,
+            )
+        if self.technical_view is None:
+            self.technical_view = ActionTechnicalView(
+                feature_name=self.feature_name,
+                current_value=self.current_value,
+                target_value=self.target_value,
+                delta=self.delta,
+                time_months=self.time_months,
+                phase_id=self.phase_id,
+                week_start=self.week_start,
+                week_end=self.week_end,
+                checkpoint_metric=self.checkpoint_metric,
+            )
+        return self
 
 
 class TrajectoryPhase(BaseModel):

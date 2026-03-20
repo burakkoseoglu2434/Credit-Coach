@@ -198,6 +198,7 @@ class TestTypedActionCatalog:
         assert first["action_key"] == "refinance"
         assert first["action_family"] == "debt_restructuring"
         assert first["action_group_id"] == second["action_group_id"]
+        assert derive_action_group_id("refinance", 3) == "refinance:phase_2_build"
         assert derive_action_group_id("refinance", 3) == first["action_group_id"]
         assert first["composite_action"] is True
 
@@ -233,7 +234,7 @@ class TestTypedActionCatalog:
                 action_key="debt_consolidation",
                 action_class="structural",
                 action_title="Consolidate revolving debt",
-                action_group_id="debt_consolidation:m2",
+                action_group_id="debt_consolidation:phase_2_build",
                 conflict_tags=["settlement_discount"],
             ),
             PlanAction(
@@ -246,7 +247,7 @@ class TestTypedActionCatalog:
                 action_key="settlement_discount",
                 action_class="institutional",
                 action_title="Negotiate settlement discount",
-                action_group_id="settlement_discount:m2",
+                action_group_id="settlement_discount:phase_2_build",
                 requires_institutional_approval=True,
                 approval_pending_semantic_only=True,
                 conflict_tags=["installment_plan"],
@@ -273,7 +274,7 @@ class TestTypedActionCatalog:
                 action_key="increase_regular_income",
                 action_class="behavioral",
                 action_title="Increase regular income",
-                action_group_id="increase_regular_income:m3",
+                action_group_id="increase_regular_income:phase_2_build",
             ),
             PlanAction(
                 feature_name="int_rate",
@@ -285,7 +286,7 @@ class TestTypedActionCatalog:
                 action_key="refinance",
                 action_class="structural",
                 action_title="Refinance or restructure debt",
-                action_group_id="refinance:m3",
+                action_group_id="refinance:phase_2_build",
                 prerequisite_tags=["stable_income"],
             ),
             PlanAction(
@@ -298,7 +299,7 @@ class TestTypedActionCatalog:
                 action_key="credit_limit_adjustment",
                 action_class="institutional",
                 action_title="Request or negotiate credit limit adjustment",
-                action_group_id="credit_limit_adjustment:m3",
+                action_group_id="credit_limit_adjustment:phase_2_build",
                 requires_institutional_approval=True,
             ),
         ]

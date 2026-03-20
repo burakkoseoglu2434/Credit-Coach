@@ -228,6 +228,10 @@ def test_generate_plan_record_emits_execution_probability_contract():
     assert int(plan.executable_action_group_count) >= 1
     assert all(action.action_group_execution_probability is not None for action in plan.actions)
     assert all(action.action_execution_probability is not None for action in plan.actions)
+    assert all(action.business_view is not None for action in plan.actions)
+    assert all(action.technical_view is not None for action in plan.actions)
+    assert all(action.business_view.action_key == action.action_key for action in plan.actions)
+    assert all(action.technical_view.feature_name == action.feature_name for action in plan.actions)
     assert [phase.phase_id for phase in plan.phases] == [
         "phase_1_stabilize",
         "phase_2_build",
@@ -323,7 +327,7 @@ def test_execution_probability_keeps_approval_dependent_realization_separate():
             action_key="limit_credit_usage",
             action_class="behavioral",
             action_title="Limit credit usage",
-            action_group_id="limit_credit_usage:m1",
+            action_group_id="limit_credit_usage:phase_1_stabilize",
         ),
         PlanAction(
             feature_name="total_rev_hi_lim",
@@ -369,7 +373,7 @@ def test_annotate_offer_optimization_emits_combined_realization_contract():
                     action_key="installment_plan",
                     action_class="institutional",
                     action_title="Request installment plan",
-                    action_group_id="installment_plan:m2",
+                    action_group_id="installment_plan:phase_2_build",
                     institutional_approval_state="approved",
                     offer_type="installment_terms",
                     offer_terms={
@@ -423,7 +427,7 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
         action_key="limit_credit_usage",
         action_class="behavioral",
         action_title="Limit credit usage",
-        action_group_id="limit_credit_usage:m1",
+        action_group_id="limit_credit_usage:phase_1_stabilize",
         action_execution_probability=0.68,
         diagnostic_flags=["utilization_relief"],
     )
@@ -538,7 +542,9 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
 
     assert "narrative" in roadmap
     assert roadmap["narrative"]["executive_summary"]["decision_view"]["label"]["en"] == "Approval-ready view"
-    assert roadmap["narrative"]["steps"][0]["step_id"] == "limit_credit_usage:m1"
+    assert roadmap["narrative"]["steps"][0]["step_id"] == "limit_credit_usage:phase_1_stabilize"
     assert roadmap["narrative"]["steps"][0]["action_summary"]["tr"]
     assert roadmap["narrative"]["checkpoints"][1]["review_action"]["en"]
     assert roadmap["narrative"]["technical_reveal"]["feature_changes"][0]["feature_name"] == "revol_util"
+    assert action.business_view.action_family == "utilization"
+    assert action.technical_view.feature_name == "revol_util"
