@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 ## Current Position
 
-Phase: 23 - Proof & Investor Narrative Hardening
+Phase: 24 - Analyst Workflow & UAT Validation
 Plan: phase complete
-Status: Phase 23 executed - ready for Phase 24 planning
-Last activity: 2026-03-20 - Executed Proof and Investor narrative hardening, closing `WEB-03` with buyer-first proof and investor rewrites
+Status: Phase 24 executed - ready for Phase 25 planning
+Last activity: 2026-03-20 - Executed analyst workflow validation, closing `OPS-01` with a milestone-local UAT matrix, runbook, and scored results packet
 
-Progress: Phases 17-23 complete; remaining open requirements are `OPS-01` and `OPS-02`
+Progress: Phases 17-24 complete; remaining open requirement is `OPS-02`
 
 ## Performance Metrics
 
@@ -30,7 +30,7 @@ Progress: Phases 17-23 complete; remaining open requirements are `OPS-01` and `O
 | v1.0 historical baseline | 20 | historical import | Complete |
 | v1.1 completed milestone | 12 | phases 8-11 complete | Complete |
 | v1.2 completed milestone | 15 | phases 12-16 complete | Complete |
-| v1.3 active milestone | 22 complete | phases 17-23 complete, gap-closure continues with phases 24-25 | Open |
+| v1.3 active milestone | 25 complete | phases 17-24 complete, Phase 25 remains for pilot-readiness closure | Open |
 
 **Recent Trend:**
 - The engine remains typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
@@ -43,8 +43,12 @@ Progress: Phases 17-23 complete; remaining open requirements are `OPS-01` and `O
   - a verdict-first Proof page with compact trust rail and translated benchmark language
   - an Investor page that reads market pain -> wedge -> proof -> monetization
   - second-layer `decision intelligence infrastructure` positioning and default `pilot -> platform` commercial framing
-- The 2026-03-19 milestone audit gaps on `WEB-01`, `WEB-02`, and `WEB-03` are now closed.
-- Remaining milestone blockers are `OPS-01` and `OPS-02`.
+- Phase 24 closed `OPS-01` by shipping:
+  - one analyst UAT matrix with an explicit pass or caution or fail gate
+  - one route-level walkthrough runbook tied to `/demo` and `/proof`
+  - one milestone-local results packet that records five of five analyst tasks as pass
+- The 2026-03-19 milestone audit gaps on `WEB-01`, `WEB-02`, `WEB-03`, and `OPS-01` are now closed.
+- The only remaining milestone blocker is `OPS-02`.
 
 ## Accumulated Context
 
@@ -67,6 +71,7 @@ Recent decisions affecting current work:
 - Phase 21 shipped product-facing proof verdicts, confidence labels, and the curated `product_confidence_snapshot.json`.
 - Phase 22 shipped the buyer-first Demo Center refactor and closed `WEB-02`.
 - Phase 23 shipped the shared proof/investor vocabulary seam, the executive-memo Proof page, and the disciplined Investor brief, closing `WEB-03`.
+- Phase 24 defines analyst validation through a matrix, a runbook, and milestone-local results rather than generic UX feedback.
 
 ### Roadmap Evolution
 
@@ -75,6 +80,7 @@ Recent decisions affecting current work:
 - Phase 21 added: Portfolio Proof & Product Confidence
 - Phase 22 executed: Business-First Demo Center Refactor
 - Phase 23 executed: Proof & Investor Narrative Hardening
+- Phase 24 executed: Analyst Workflow & UAT Validation
 
 ### Pending Todos
 
@@ -83,11 +89,11 @@ None yet.
 ### Blockers/Concerns
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so some GSD workflow helpers remain manual
-- The website exists as a brownfield surface with live and curated demo seams, but its proof language is still ahead of full-portfolio validation
+- The website now has buyer-safe and analyst-safe demo surfaces, but buyer handoff and pilot operations are still not hardened
 - Some recent website demo work is still uncommitted outside `.planning`; milestone-definition work should avoid mixing with those unrelated edits
 
 ## Session Continuity
 
 Last session: 2026-03-20
-Stopped at: Completed Phase 23 execution; next step is `$gsd-plan-phase 24`
-Resume file: .planning/phases/24-analyst-workflow-uat-validation/24-CONTEXT.md
+Stopped at: Completed Phase 24 execution; next step is `$gsd-plan-phase 25`
+Resume file: .planning/phases/25-pilot-readiness-demo-ops-baseline/25-CONTEXT.md

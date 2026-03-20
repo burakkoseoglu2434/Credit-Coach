@@ -200,12 +200,17 @@ Delivered scope:
 **Depends on**: Phase 23
 **Requirements**: OPS-01
 **Gap Closure**: Closes the analyst workflow and UAT flow
-**Plans**: 0 planned
+**Plans**: 3 executed
 
-Planned scope:
-- define representative analyst tasks across single-customer review, portfolio interpretation, offer assessment, and learning-readiness interpretation
-- run structured bilingual UAT and capture trust, usefulness, and comprehension findings in milestone-local artifacts
-- add verification criteria that convert analyst feedback into a pass or fail closure signal for the milestone
+- [x] 24-01: Define the analyst UAT matrix and explicit `OPS-01` closure gate
+- [x] 24-02: Add the route-level analyst walkthrough packet for Demo Center and Proof
+- [x] 24-03: Record milestone-local analyst results and explicit `OPS-01` recommendation
+
+Delivered scope:
+- defined five representative analyst tasks across single-customer review, portfolio interpretation, offer assessment, learning-readiness interpretation, and proof-confidence review
+- mapped each task to current `/demo` and `/proof` sections, artifact slugs, locale discipline, and technical-reveal expectations
+- captured milestone-local walkthrough results showing that the current product surfaces pass on understandable, useful, and trustworthy criteria
+- closed `OPS-01` with explicit task scoring, no blocked tasks, and clear separation from remaining pilot-readiness work
 
 ### Phase 25: Pilot Readiness & Demo Ops Baseline
 
@@ -226,8 +231,9 @@ Planned scope:
 
 Notes:
 - Phases 19-23 are now the canonical near-term `v1.3` sequence.
-- Phases 24-25 are the remaining post-audit closure sequence for analyst and pilot blockers.
-- This milestone remains active until `OPS-01` and `OPS-02` are re-verified and the audit passes cleanly.
+- Phase 24 is now complete and closes the analyst-validation blocker.
+- Phase 25 is the only remaining post-audit closure phase for `v1.3`.
+- This milestone remains active until `OPS-02` is re-verified and the audit passes cleanly.
 
 ## Progress
 
@@ -256,5 +262,5 @@ Notes:
 | 21. Portfolio Proof & Product Confidence | v1.3 | 3/3 | Complete | 2026-03-19 |
 | 22. Business-First Demo Center Refactor | v1.3 | 4/4 | Complete | 2026-03-20 |
 | 23. Proof & Investor Narrative Hardening | v1.3 | 3/3 | Complete | 2026-03-20 |
-| 24. Analyst Workflow & UAT Validation | v1.3 | 0/0 | Planned | - |
+| 24. Analyst Workflow & UAT Validation | v1.3 | 3/3 | Complete | 2026-03-20 |
 | 25. Pilot Readiness & Demo Ops Baseline | v1.3 | 0/0 | Planned | - |

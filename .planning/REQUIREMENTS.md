@@ -21,7 +21,7 @@
 
 ### Operational Validation
 
-- [ ] **OPS-01**: Analyst workflow and UAT can validate that outputs are understandable, useful, and trustworthy in representative institution tasks
+- [x] **OPS-01**: Analyst workflow and UAT can validate that outputs are understandable, useful, and trustworthy in representative institution tasks
 - [ ] **OPS-02**: Pilot-readiness baseline can support lead capture, deployment, auth or ops basics, and institution-specific curated demo flows
 
 ## Requirement Outcome Intent
@@ -57,7 +57,7 @@
 | WEB-01 | Phase 22 | Complete |
 | WEB-02 | Phase 22 | Complete |
 | WEB-03 | Phase 23 | Complete |
-| OPS-01 | Phase 24 | Pending |
+| OPS-01 | Phase 24 | Complete |
 | OPS-02 | Phase 25 | Pending |
 
 **Coverage:**
