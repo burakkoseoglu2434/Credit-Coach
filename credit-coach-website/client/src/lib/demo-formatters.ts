@@ -122,12 +122,12 @@ export function formatPhaseTitle(phaseId: string, fallback: string, lang: Langua
       en: "Stabilize cash flow in the first 4 weeks",
     },
     phase_2_build: {
-      tr: "Basvuruya hazirligi guclendir",
-      en: "Rebuild approval readiness",
+      tr: "4-12. haftalarda basvuru hazirligini guclendir",
+      en: "Strengthen approval readiness in weeks 4-12",
     },
     phase_3_optimize: {
-      tr: "Kalici iyilesmeyi guclendir",
-      en: "Optimize for durable approval",
+      tr: "12-24. haftalarda iyilesmeyi kalici hale getir",
+      en: "Make the improvement durable in weeks 12-24",
     },
   };
 
@@ -137,28 +137,28 @@ export function formatPhaseTitle(phaseId: string, fallback: string, lang: Langua
 export function formatWindowLabel(value: string, lang: Language) {
   const labels: Record<string, { tr: string; en: string }> = {
     "0-4 weeks": {
-      tr: "0-4 hafta",
-      en: "0-4 weeks",
+      tr: "Ilk 4 hafta",
+      en: "First 4 weeks",
     },
     "4-12 weeks": {
-      tr: "4-12 hafta",
-      en: "4-12 weeks",
+      tr: "4-12. haftalar",
+      en: "Weeks 4-12",
     },
     "12-24 weeks": {
-      tr: "12-24 hafta",
-      en: "12-24 weeks",
+      tr: "12-24. haftalar",
+      en: "Weeks 12-24",
     },
     "1-4": {
-      tr: "1-4 hafta",
-      en: "Weeks 1-4",
+      tr: "Ilk 4 hafta",
+      en: "First 4 weeks",
     },
     "5-12": {
-      tr: "5-12 hafta",
-      en: "Weeks 5-12",
+      tr: "4-12. haftalar",
+      en: "Weeks 4-12",
     },
     "13-24": {
-      tr: "13-24 hafta",
-      en: "Weeks 13-24",
+      tr: "12-24. haftalar",
+      en: "Weeks 12-24",
     },
   };
 

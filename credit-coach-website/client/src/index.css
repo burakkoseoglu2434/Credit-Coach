@@ -39,11 +39,11 @@ a {
   }
 
   .panel-product {
-    @apply rounded-[28px] border border-white/8 bg-slate-950/55 shadow-panel backdrop-blur-md;
+    @apply rounded-[28px] border border-white/10 bg-slate-950/55 shadow-panel backdrop-blur-md;
   }
 
   .detail-panel {
-    @apply rounded-[24px] border border-white/8 bg-white/[0.03] backdrop-blur-sm;
+    @apply rounded-[24px] border border-white/10 bg-white/[0.03] backdrop-blur-sm;
   }
 
   .eyebrow {

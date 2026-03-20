@@ -32,7 +32,7 @@ export function PageHero({
   const isProduct = variant === "product";
 
   return (
-    <section className={`relative overflow-hidden ${isProduct ? "border-b border-white/6" : "border-b border-white/10"}`}>
+    <section className={`relative overflow-hidden ${isProduct ? "border-b border-white/10" : "border-b border-white/10"}`}>
       <div className={`absolute inset-0 bg-hero-grid ${isProduct ? "opacity-60" : "opacity-100"}`} />
       <div className="shell relative py-20 sm:py-24 lg:py-28">
         <div className={`grid gap-10 ${aside ? "lg:grid-cols-[1.05fr_0.95fr] lg:items-center" : ""}`}>
