@@ -19,16 +19,19 @@ Generate credit recourse plans that are actionable, behaviorally realistic, safe
 - curated Demo Center, Proof, and Investor surfaces synchronized to engine artifacts
 - analyst UAT, structured buyer intake, and repeatable pilot demo handoff guidance
 
-No active milestone is open right now. The next planning move is `$gsd-new-milestone`.
+The active milestone is now `v2.0 Personalized Action & Decision Intelligence`. This milestone should extend the shipped baseline by turning model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans that are easier to trust, explain, and validate at portfolio scale.
 
 ## Next Milestone Goals
 
-No new milestone is open yet. The next step is to define it explicitly with `$gsd-new-milestone`.
+## Current Milestone: v2.0 Personalized Action & Decision Intelligence
 
-Near-term candidate directions already visible in the repo:
-- pilot-grade external institution integrations and data exchange beyond curated artifact handoff
-- richer regulatory explanation and adverse-action communication packs
-- recurring automation for release review, proof refresh, and milestone health
+**Goal:** Turn model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans with clear product-ready narratives and portfolio-level validation.
+
+**Target features:**
+- convert selected recourse outputs into numeric action contracts with explicit deltas, units, timing, and completion criteria
+- connect each plan to customer-specific decision readiness, review posture, and institution-side dependencies
+- keep product narratives business-first while preserving numeric and technical traceability behind the same engine-owned contract
+- validate the personalized planning layer across the portfolio and compare it against the shipped `v1.3` baseline
 
 <details>
 <summary>Archived Milestone Context: v1.3 Portfolio Intelligence & Productization</summary>
@@ -57,9 +60,10 @@ Near-term candidate directions already visible in the repo:
 
 ### Active
 
-- [ ] Define the next milestone and its requirement contract with `$gsd-new-milestone`
-- [ ] Choose which carried-forward themes become the next milestone's active scope
-- [ ] Keep new work milestone-backed rather than reopening shipped `v1.3` scope ad hoc
+- [ ] Personalized action plans become customer-specific, numeric, feasible, and ordered
+- [ ] Decision intelligence explains readiness, review posture, and institution-side dependencies per customer plan
+- [ ] Product surfaces consume engine-owned personalized narratives without inventing plan meaning in the UI
+- [ ] Portfolio proof validates whether personalization improves action specificity and decision usefulness versus the `v1.3` baseline
 
 ### Out of Scope
 
@@ -75,7 +79,9 @@ Near-term candidate directions already visible in the repo:
 - `v1.1 Fairness Stability & KPI Hardening` remains the audited governance baseline.
 - `v1.2 Recommendation Quality Hardening` remains the shipped recommendation-quality baseline for typed actions, execution-aware ranking, trajectories, offers, and learning evidence.
 - `v1.3 Portfolio Intelligence & Productization` is now shipped and audited, adding full-portfolio proof, narrative translation, buyer-safe product surfaces, analyst validation, and pilot-baseline operations.
-- No next milestone has been locked yet, so planning should reopen with explicit scope definition instead of drifting into unsourced build work.
+- `v2.0 Personalized Action & Decision Intelligence` now reopens the engine at the plan-contract layer rather than at the raw model or portfolio-proof baseline.
+- This milestone is intentionally focused on making outputs more customer-specific and decision-useful, not on rebuilding the core scoring stack.
+- Separate research was skipped for milestone initialization because the user supplied a focused milestone goal and the repo already carries rich brownfield evidence from `v1.2` and `v1.3`.
 
 ## Constraints
 
@@ -99,6 +105,7 @@ Near-term candidate directions already visible in the repo:
 | Require business-first defaults with explicit technical reveal | The target users are institutional decision-makers, but technical trust still has to remain accessible | ✓ Good |
 | Require milestone-local analyst validation before claiming pilot readiness | Trustworthiness needed explicit UAT evidence instead of implied future review | ✓ Good |
 | Archive `v1.3` before opening more work | The product now sits at a milestone boundary and should move forward under a fresh requirement contract | ✓ Good |
+| Open `v2.0 Personalized Action & Decision Intelligence` as the next milestone | The next leverage point is not more generic proof or productization, but sharper customer-specific plan contracts and decision-facing intelligence | — Pending |
 
 ---
-*Last updated: 2026-03-20 after completing and archiving milestone v1.3*
+*Last updated: 2026-03-20 after opening milestone v2.0 Personalized Action & Decision Intelligence*

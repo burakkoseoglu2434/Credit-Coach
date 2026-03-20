@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints, then surface those plans in a form that enterprise buyers and analysts can trust.
-**Current focus:** Milestone `v1.3 Portfolio Intelligence & Productization` is archived; the next work is opening a new milestone with `$gsd-new-milestone`
+**Current focus:** `v2.0 Personalized Action & Decision Intelligence` milestone definition
 
 ## Current Position
 
-Phase: no active phase
-Plan: n/a
-Status: Milestone archived
-Last activity: 2026-03-20 - Archived and tagged `v1.3 Portfolio Intelligence & Productization` after milestone audit pass
+Phase: Not started (defining requirements)
+Plan: -
+Status: Defining requirements
+Last activity: 2026-03-20 - Started milestone `v2.0 Personalized Action & Decision Intelligence`
 
-Progress: awaiting next milestone definition
+Progress: milestone opened; requirements and roadmap are being defined
 
 ## Performance Metrics
 
@@ -31,9 +31,11 @@ Progress: awaiting next milestone definition
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
 | v1.2 completed milestone | 15 | phases 12-16 complete | n/a |
 | v1.3 completed milestone | 28 | phases 17-25 complete | n/a |
+| v2.0 active milestone | 0 | requirements not yet defined | n/a |
 
 **Recent Trend:**
-- The engine now has audited full-portfolio proof plus buyer-safe demo, proof, investor, analyst, and pilot-baseline surfaces, so the next step is fresh milestone definition rather than more unscoped v1.3 work.
+- The engine now has audited full-portfolio proof plus buyer-safe demo, proof, investor, analyst, and pilot-baseline surfaces.
+- The new milestone is focused on making outputs more customer-specific, numeric, decision-intelligent, and easier to validate at portfolio scale.
 
 ## Accumulated Context
 
@@ -53,6 +55,8 @@ Recent decisions affecting current work:
 - Phase 25 closed pilot-readiness baseline through structured intake, explicit ops docs, and a curated demo handoff playbook
 - Milestone audit: `v1.3 Portfolio Intelligence & Productization` passed with 9/9 requirements satisfied, 7/7 integrations, and 6/6 end-to-end flows
 - Milestone archive: `v1.3` roadmap and requirements are now snapshotted under `.planning/milestones/`, and active planning files have been reset for the next milestone boundary
+- Milestone open: `v2.0 Personalized Action & Decision Intelligence` is now the active planning target
+- v2.0 initialization is intentionally skipping separate research because the milestone goal is already explicit and grounded in fresh brownfield milestone history
 
 ### Pending Todos
 
@@ -67,5 +71,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-20
-Stopped at: v1.3 milestone archived; next step is `$gsd-new-milestone`
+Stopped at: milestone v2.0 opened; next step is defining requirements and roadmap
 Resume file: None
