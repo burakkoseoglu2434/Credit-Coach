@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 30
-Plan: context gathered
-Status: Ready for planning
-Last activity: 2026-03-20 - Gathered Phase 30 context for action taxonomy, grouping, serialization, and business-vs-technical view separation
+Plan: research complete, plans written
+Status: Ready for execution
+Last activity: 2026-03-20 - Planned Phase 30 around catalog hardening, grouped serialization, and business-vs-technical action contract separation
 
-Progress: `v2.0` initialized with phases 30-39; Phase 30 context is locked and ready for planning
+Progress: `v2.0` initialized with phases 30-39; Phase 30 is now researched and planned with three execution waves
 
 ## Performance Metrics
 
@@ -66,6 +66,10 @@ Recent decisions affecting current work:
   - one primary action per actionable feature
   - deterministic grouped-action semantics
   - schema-level `business_view` vs `technical_view`
+- Phase 30 planning is now split into:
+  - catalog and mapping hardening
+  - grouped action and serialization contract
+  - downstream semantic-consumer alignment
 
 ### Pending Todos
 
@@ -80,5 +84,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-20
-Stopped at: Phase 30 context captured; next step is `$gsd-plan-phase 30 --research`
+Stopped at: Phase 30 planning complete; next step is `$gsd-execute-phase 30`
 Resume file: None
