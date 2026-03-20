@@ -33,6 +33,7 @@ from credit_coach.recourse.action_space import (
     get_actionable_features,
     get_action_spec,
     get_action_template,
+    validate_action_space_contract,
     validate_action_space_coverage,
 )
 
@@ -154,7 +155,12 @@ class TestActionSpecValues:
                 continue
             assert spec.action_key, f"'{name}' icin action_key eksik."
             assert spec.action_class in {"behavioral", "structural", "institutional"}
+            assert spec.action_family, f"'{name}' icin action_family eksik."
             assert spec.action_title, f"'{name}' icin action_title eksik."
+
+    def test_action_space_contract_has_no_mapping_errors(self) -> None:
+        """Actionable feature mapping kontrati Phase 30 sonrasinda temiz olmali."""
+        assert validate_action_space_contract() == []
 
 
 class TestTypedActionCatalog:
@@ -174,15 +180,23 @@ class TestTypedActionCatalog:
         classes = {template.action_class for template in ACTION_CATALOG.values()}
         assert classes == {"behavioral", "structural", "institutional"}
 
+    def test_action_catalog_exposes_families_for_all_templates(self) -> None:
+        assert all(template.action_family for template in ACTION_CATALOG.values())
+        families = {template.action_family for template in ACTION_CATALOG.values()}
+        assert "debt_restructuring" in families
+        assert "hardship_relief" in families
+
     def test_get_action_template_returns_catalog_entry(self) -> None:
         template = get_action_template("refinance")
         assert template.action_class == "structural"
+        assert template.action_family == "debt_restructuring"
         assert {"int_rate", "installment"} <= set(template.feature_names)
 
     def test_action_metadata_builds_shared_group_for_composite_actions(self) -> None:
         first = get_action_metadata("int_rate", action_month=3)
         second = get_action_metadata("installment", action_month=3)
         assert first["action_key"] == "refinance"
+        assert first["action_family"] == "debt_restructuring"
         assert first["action_group_id"] == second["action_group_id"]
         assert derive_action_group_id("refinance", 3) == first["action_group_id"]
         assert first["composite_action"] is True
@@ -323,6 +337,30 @@ class TestHelperFunctions:
         """Bilinmeyen feature → KeyError."""
         with pytest.raises(KeyError):
             get_action_spec("this_feature_does_not_exist_xyz")
+
+    def test_get_action_spec_hard_fails_for_unmapped_actionable_feature(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        original = ACTION_SPACE["dti"]
+        monkeypatch.setitem(
+            ACTION_SPACE,
+            "dti",
+            ActionSpec(
+                feature_name="dti",
+                actionable=True,
+                direction="decrease",
+                action_key=None,
+                action_class=None,
+                action_family=None,
+                action_title="",
+                step=1.0,
+                cost_weight=0.6,
+                time_months=1,
+            ),
+        )
+
+        with pytest.raises(ValueError, match="canonical action_key eksik"):
+            get_action_spec("dti")
+
+        monkeypatch.setitem(ACTION_SPACE, "dti", original)
 
     def test_validate_coverage_no_missing(self, feature_list_48: list[str]) -> None:
         """features_48.yaml listesi ACTION_SPACE tarafından tam kapsanmalı."""

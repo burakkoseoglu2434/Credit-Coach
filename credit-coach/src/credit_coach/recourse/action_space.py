@@ -16,12 +16,24 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 ActionClass = Literal["behavioral", "structural", "institutional"]
+ActionFamily = Literal[
+    "loan_sizing",
+    "debt_restructuring",
+    "income_strength",
+    "documentation",
+    "cashflow_management",
+    "utilization",
+    "payment_discipline",
+    "limit_management",
+    "hardship_relief",
+]
 
 
 @dataclass(frozen=True)
 class ActionTemplate:
     action_key: str
     action_class: ActionClass
+    action_family: ActionFamily
     title: str
     description: str = ""
     feature_names: tuple[str, ...] = field(default_factory=tuple)
@@ -52,6 +64,7 @@ class ActionSpec:
     description: str = ""
     action_key: str | None = None
     action_class: ActionClass | None = None
+    action_family: ActionFamily | None = None
     action_title: str = ""
     requires_institutional_approval: bool = False
     approval_pending_semantic_only: bool = False
@@ -71,6 +84,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     "adjust_requested_loan_amount": ActionTemplate(
         action_key="adjust_requested_loan_amount",
         action_class="structural",
+        action_family="loan_sizing",
         title="Adjust requested loan amount",
         description="Reduce the requested loan size to improve affordability and approval odds.",
         feature_names=("loan_amnt",),
@@ -78,6 +92,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     "refinance": ActionTemplate(
         action_key="refinance",
         action_class="structural",
+        action_family="debt_restructuring",
         title="Refinance or restructure debt",
         description="Use refinancing to improve rate and installment affordability.",
         feature_names=("int_rate", "installment"),
@@ -86,6 +101,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     "increase_regular_income": ActionTemplate(
         action_key="increase_regular_income",
         action_class="behavioral",
+        action_family="income_strength",
         title="Increase regular income",
         description="Improve recurring income through additional work or stable earnings.",
         feature_names=("annual_inc",),
@@ -94,6 +110,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     "verify_income_documentation": ActionTemplate(
         action_key="verify_income_documentation",
         action_class="structural",
+        action_family="documentation",
         title="Verify income documentation",
         description="Complete documentation or verification steps to strengthen the file.",
         feature_names=("verification_status",),
@@ -102,6 +119,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     "reduce_spending": ActionTemplate(
         action_key="reduce_spending",
         action_class="behavioral",
+        action_family="cashflow_management",
         title="Reduce spending pressure",
         description="Reduce ongoing spending to improve debt-to-income behavior.",
         feature_names=("dti",),
@@ -109,6 +127,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     "debt_consolidation": ActionTemplate(
         action_key="debt_consolidation",
         action_class="structural",
+        action_family="debt_restructuring",
         title="Consolidate revolving debt",
         description="Use consolidation or structured repayment to reduce revolving balances.",
         feature_names=("revol_bal", "tot_cur_bal", "total_bal_ex_mort"),
@@ -117,6 +136,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     "limit_credit_usage": ActionTemplate(
         action_key="limit_credit_usage",
         action_class="behavioral",
+        action_family="utilization",
         title="Limit credit usage",
         description="Reduce revolving utilization and slow new card usage.",
         feature_names=("revol_util",),
@@ -124,6 +144,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     "improve_payment_consistency": ActionTemplate(
         action_key="improve_payment_consistency",
         action_class="behavioral",
+        action_family="payment_discipline",
         title="Improve payment consistency",
         description="Build more consistent repayment behavior over time.",
         feature_names=("fico_range_low", "fico_range_high", "last_fico_range_low", "last_fico_range_high"),
@@ -131,6 +152,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     "credit_limit_adjustment": ActionTemplate(
         action_key="credit_limit_adjustment",
         action_class="institutional",
+        action_family="limit_management",
         title="Request or negotiate credit limit adjustment",
         description="Institution-mediated credit limit changes can improve utilization headroom.",
         feature_names=("total_rev_hi_lim", "total_bc_limit", "tot_hi_cred_lim"),
@@ -146,6 +168,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     "settlement_discount": ActionTemplate(
         action_key="settlement_discount",
         action_class="institutional",
+        action_family="hardship_relief",
         title="Negotiate settlement discount",
         description="Use an institution-approved settlement to reduce collections pressure.",
         feature_names=("tot_coll_amt",),
@@ -162,6 +185,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     "installment_plan": ActionTemplate(
         action_key="installment_plan",
         action_class="institutional",
+        action_family="hardship_relief",
         title="Enter an installment plan",
         description="Restructure delinquent balances into an approved installment plan.",
         feature_names=("acc_now_delinq", "delinq_amnt", "collections_12_mths_ex_med"),
@@ -205,6 +229,7 @@ def _spec(
         description=description or (template.description if template else ""),
         action_key=template.action_key if template else None,
         action_class=template.action_class if template else None,
+        action_family=template.action_family if template else None,
         action_title=template.title if template else "",
         requires_institutional_approval=bool(template.requires_institutional_approval) if template else False,
         approval_pending_semantic_only=bool(template.approval_pending_semantic_only) if template else False,
@@ -456,7 +481,13 @@ ACTION_SPACE: dict[str, ActionSpec] = {
 
 
 def get_actionable_features() -> list[str]:
-    return [name for name, spec in ACTION_SPACE.items() if spec.actionable]
+    actionable = []
+    for name, spec in ACTION_SPACE.items():
+        if not spec.actionable:
+            continue
+        _validate_action_mapping(name, spec)
+        actionable.append(name)
+    return actionable
 
 
 def get_action_spec(feature_name: str) -> ActionSpec:
@@ -465,13 +496,55 @@ def get_action_spec(feature_name: str) -> ActionSpec:
             f"'{feature_name}' ACTION_SPACE icinde tanimli degil. "
             f"features_48.yaml ile senkron mu?"
         )
-    return ACTION_SPACE[feature_name]
+    spec = ACTION_SPACE[feature_name]
+    _validate_action_mapping(feature_name, spec)
+    return spec
 
 
 def get_action_template(action_key: str) -> ActionTemplate:
     if action_key not in ACTION_CATALOG:
         raise KeyError(f"'{action_key}' ACTION_CATALOG icinde tanimli degil.")
     return ACTION_CATALOG[action_key]
+
+
+def _validate_action_mapping(feature_name: str, spec: ActionSpec) -> None:
+    if not spec.actionable:
+        return
+    if not spec.action_key:
+        raise ValueError(
+            f"Actionable feature '{feature_name}' icin canonical action_key eksik. "
+            "Phase 30 kontrati raw-feature fallback'i kabul etmez."
+        )
+    if spec.action_key not in ACTION_CATALOG:
+        raise KeyError(
+            f"Actionable feature '{feature_name}' bilinmeyen action_key='{spec.action_key}' kullaniyor."
+        )
+    template = ACTION_CATALOG[spec.action_key]
+    if not spec.action_class or spec.action_class != template.action_class:
+        raise ValueError(
+            f"Actionable feature '{feature_name}' icin action_class kontrati bozuk: "
+            f"spec={spec.action_class!r}, catalog={template.action_class!r}"
+        )
+    if not spec.action_family or spec.action_family != template.action_family:
+        raise ValueError(
+            f"Actionable feature '{feature_name}' icin action_family kontrati bozuk: "
+            f"spec={spec.action_family!r}, catalog={template.action_family!r}"
+        )
+    if not spec.action_title or spec.action_title != template.title:
+        raise ValueError(
+            f"Actionable feature '{feature_name}' icin action_title kontrati bozuk: "
+            f"spec={spec.action_title!r}, catalog={template.title!r}"
+        )
+
+
+def validate_action_space_contract() -> list[str]:
+    errors: list[str] = []
+    for name, spec in ACTION_SPACE.items():
+        try:
+            _validate_action_mapping(name, spec)
+        except (KeyError, ValueError) as exc:
+            errors.append(str(exc))
+    return errors
 
 
 def derive_action_group_id(action_key: str | None, action_month: int | None = None) -> str | None:
@@ -494,6 +567,7 @@ def get_action_metadata(
         return {
             "action_key": None,
             "action_class": None,
+            "action_family": None,
             "action_title": "",
             "action_group_id": action_group_id,
             "composite_action": False,
@@ -514,6 +588,7 @@ def get_action_metadata(
     return {
         "action_key": template.action_key,
         "action_class": template.action_class,
+        "action_family": template.action_family,
         "action_title": template.title,
         "action_group_id": action_group_id or derive_action_group_id(template.action_key, action_month),
         "composite_action": len(template.feature_names) > 1,
