@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 30
-Plan: not started
-Status: Ready for discussion
-Last activity: 2026-03-20 - Replanned milestone `v2.0 Personalized Action & Decision Intelligence` around phases 30-39
+Plan: context gathered
+Status: Ready for planning
+Last activity: 2026-03-20 - Gathered Phase 30 context for action taxonomy, grouping, serialization, and business-vs-technical view separation
 
-Progress: `v2.0` initialized with phases 30-39; next step is discussing Phase 30
+Progress: `v2.0` initialized with phases 30-39; Phase 30 context is locked and ready for planning
 
 ## Performance Metrics
 
@@ -60,6 +60,12 @@ Recent decisions affecting current work:
 - v2.0 initialization intentionally skipped separate research because the milestone goal was already explicit and grounded in fresh brownfield milestone history
 - The milestone was then replanned around a longer `Phase 30-39` sequence to reflect the user's desired build order
 - The first planned execution step is `Phase 30: Action Semantics Hardening`
+- Phase 30 context now locks:
+  - final top-level taxonomy `behavioral | structural | institutional`
+  - canonical `action_family`
+  - one primary action per actionable feature
+  - deterministic grouped-action semantics
+  - schema-level `business_view` vs `technical_view`
 
 ### Pending Todos
 
@@ -74,5 +80,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-20
-Stopped at: v2.0 replanned; next step is `$gsd-discuss-phase 30`
+Stopped at: Phase 30 context captured; next step is `$gsd-plan-phase 30 --research`
 Resume file: None
