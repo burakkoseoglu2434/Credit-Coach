@@ -64,9 +64,70 @@ Historical archive: `.planning/milestones/v1.3-ROADMAP.md`
 
 </details>
 
-## Next Milestone
+## Active Milestone
 
-No active milestone is open right now. Run `$gsd-new-milestone` to define the next shipped scope, create fresh milestone requirements, and continue phase numbering from Phase 26.
+### v2.0 Personalized Action & Decision Intelligence
+
+**Goal**: Turn model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans with clear product-ready narratives and portfolio-level validation.
+**Phases**: 26-29 currently defined
+**Status**: Active, requirements and roadmap defined; ready to start Phase 26
+
+### Phase 26: Personalized Numeric Action Contracts
+
+**Goal**: Convert selected recourse outputs into customer-specific numeric action contracts with explicit deltas, units, timing, and completion criteria.
+**Depends on**: Phase 25
+**Requirements**: `PACT-01`, `PACT-02`
+**Success criteria:**
+1. Every selected action step carries customer-specific current value, target value, delta, unit, and due window.
+2. Every step includes a concrete completion criterion and burden or feasibility context instead of abstract advice.
+3. Default serialized artifacts expose numeric action contracts while preserving traceability back to underlying technical effects.
+4. Regression coverage protects deterministic serialization for representative behavioral, structural, and institutional steps.
+
+### Phase 27: Institution-Aware Decision Intelligence
+
+**Goal**: Attach customer-specific decision-readiness meaning and institution-side dependencies to each personalized plan without breaking the engine-owned contract.
+**Depends on**: Phase 26
+**Requirements**: `PACT-03`, `DINT-01`, `DINT-02`
+**Success criteria:**
+1. Customer actions and institution actions are clearly separated but still live inside one ordered plan contract.
+2. Each plan can explain how the roadmap changes approval readiness, review posture, or offer eligibility at `4w / 12w / 24w`.
+3. Approvals, prerequisite actions, and offer conditions are explicit and safe for product consumption.
+4. Institution-aware dependencies stay deterministic and traceable across engine artifacts and downstream consumers.
+
+### Phase 28: Product-Ready Personalized Narratives
+
+**Goal**: Render personalized numeric action plans into clear product narratives for buyer, analyst, and demo surfaces without UI-side reinterpretation.
+**Depends on**: Phase 27
+**Requirements**: `NARR-01`, `NARR-02`
+**Success criteria:**
+1. The engine can explain what to do, why it matters, expected numeric effect, and the consequence of completion or miss for each step.
+2. Business-first product surfaces consume the same engine-owned contract and keep numeric or technical detail available on demand.
+3. Representative personalized plans are understandable without exposing raw engine-native delta language.
+4. UI consumers render personalized plans without inventing their own decision logic or narrative meaning.
+
+### Phase 29: Portfolio Validation For Personalized Action Intelligence
+
+**Goal**: Validate the personalized planning layer across the portfolio and compare it against the shipped `v1.3` baseline on specificity, realism, and decision usefulness.
+**Depends on**: Phase 28
+**Requirements**: `PVAL-01`, `PVAL-02`
+**Success criteria:**
+1. Portfolio artifacts quantify coverage, realism, and outcome distribution for personalized numeric plans.
+2. Proof artifacts compare the personalized-action layer against the `v1.3` baseline on customer specificity, decision clarity, and institution awareness.
+3. Supporting evidence shows where personalization improves usefulness and where it remains mixed or narrow.
+4. Product confidence surfaces can tell an honest “is this more useful?” story without hiding weaker segments or tradeoffs.
+
+### Why This Milestone Exists
+
+- `v1.3` proved that the engine can be trusted and surfaced cleanly, but many plans still read like transformed model outputs rather than truly customer-specific action contracts.
+- The next leverage point is not more generic proof or more website breadth; it is sharper personalized planning intelligence that connects action steps to concrete customer outcomes and institution decisions.
+- Portfolio validation now needs to judge whether personalization makes plans more specific and more decision-useful, not just whether the recourse stack still works in aggregate.
+
+### Success Bar
+
+- Personalized plans are numeric, feasible, and customer-specific rather than generic recourse summaries
+- Institution-side actions, approvals, and dependencies are explicit in the same plan contract
+- Product surfaces can explain personalized plans without adding UI-side interpretation
+- Portfolio proof can say whether the personalized planning layer is actually more useful than the shipped `v1.3` baseline
 
 ## Progress
 
@@ -97,3 +158,7 @@ No active milestone is open right now. Run `$gsd-new-milestone` to define the ne
 | 23. Proof & Investor Narrative Hardening | v1.3 | 3/3 | Complete | 2026-03-20 |
 | 24. Analyst Workflow & UAT Validation | v1.3 | 3/3 | Complete | 2026-03-20 |
 | 25. Pilot Readiness & Demo Ops Baseline | v1.3 | 3/3 | Complete | 2026-03-20 |
+| 26. Personalized Numeric Action Contracts | v2.0 | roadmap defined | Planned | - |
+| 27. Institution-Aware Decision Intelligence | v2.0 | roadmap defined | Planned | - |
+| 28. Product-Ready Personalized Narratives | v2.0 | roadmap defined | Planned | - |
+| 29. Portfolio Validation For Personalized Action Intelligence | v2.0 | roadmap defined | Planned | - |

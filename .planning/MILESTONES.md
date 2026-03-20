@@ -1,6 +1,6 @@
 # Project Milestones: Credit Coach
 
-**Current active milestone:** None - ready for `$gsd-new-milestone`
+**Current active milestone:** `v2.0 Personalized Action & Decision Intelligence`
 
 ## v1.0 Brownfield Baseline (Shipped: 2026-03-10)
 
@@ -115,5 +115,37 @@
 - Local `gsd-tools.cjs` milestone-op automation still requires manual fallback
 
 **What's next:** Define the next milestone with `$gsd-new-milestone`
+
+---
+
+## v2.0 Personalized Action & Decision Intelligence (Active)
+
+**Goal:** Turn model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans with clear product-ready narratives and portfolio-level validation.
+
+**Phases planned:** 26-29
+
+**Why this milestone exists:**
+- `v1.3` proved the engine and product surfaces can be trusted, but many outputs still need to become more customer-specific and numerically concrete.
+- The next product leap is sharper action intelligence: what exactly this customer should do, by how much, by when, and how that changes institution-side decision posture.
+- Portfolio proof now needs to evaluate whether personalization makes plans more useful and more decision-relevant than the already-shipped `v1.3` layer.
+
+**Planned phase sequence:**
+- Phase 26: Personalized Numeric Action Contracts
+- Phase 27: Institution-Aware Decision Intelligence
+- Phase 28: Product-Ready Personalized Narratives
+- Phase 29: Portfolio Validation For Personalized Action Intelligence
+
+**Current checkpoint:** Requirements and roadmap are defined; next step is `Phase 26` discussion and planning.
+
+**Success bar:**
+- Plans become numeric, feasible, and customer-specific
+- Decision readiness and institution dependencies are explicit in the same contract
+- Product surfaces consume engine-owned personalized narratives without UI-side reinterpretation
+- Portfolio proof can compare personalized action intelligence against the shipped `v1.3` baseline honestly
+
+**Likely future follow-on themes:**
+- pilot-grade external institution integrations beyond artifact handoff
+- richer regulatory explanation and adverse-action communication packs
+- recurring automation for release review, proof refresh, and milestone health
 
 ---
