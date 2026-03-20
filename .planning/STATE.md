@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 ## Current Position
 
-Phase: 22 - Business-First Demo Center Refactor
-Plan: complete (01-04)
-Status: Phase complete - buyer-first Demo Center shipped, verification green, ready for Phase 23 planning
-Last activity: 2026-03-20 - Executed Phase 22, closed WEB-01 and WEB-02, and verified Demo Center hierarchy plus roadmap language refactor
+Phase: 23 - Proof & Investor Narrative Hardening
+Plan: context gathered
+Status: Context captured - ready for Phase 23 planning
+Last activity: 2026-03-20 - Captured Proof and Investor narrative decisions covering proof hierarchy, trust rail, wedge story order, and commercial positioning
 
 Progress: Phases 17-22 complete; remaining open requirements are `WEB-03`, `OPS-01`, and `OPS-02`
 
@@ -168,6 +168,7 @@ Recent decisions affecting current work:
 - Phase 20 re-scoped: Trajectory Hardening (mini phase)
 - Phase 21 added: Portfolio Proof & Product Confidence
 - Phase 22 executed: Business-First Demo Center Refactor
+- Phase 23 context gathered: Proof & Investor Narrative Hardening
 
 ### Pending Todos
 
@@ -182,5 +183,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-20
-Stopped at: Phase 22 complete and verified; next step is `$gsd-plan-phase 23`
-Resume file: None
+Stopped at: Phase 23 context gathered; next step is `$gsd-plan-phase 23`
+Resume file: .planning/phases/23-proof-investor-narrative-hardening/23-CONTEXT.md
