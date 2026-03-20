@@ -38,8 +38,24 @@ a {
     @apply rounded-[28px] border border-border bg-white/5 shadow-panel backdrop-blur-xl;
   }
 
+  .panel-product {
+    @apply rounded-[28px] border border-white/8 bg-slate-950/55 shadow-panel backdrop-blur-md;
+  }
+
+  .detail-panel {
+    @apply rounded-[24px] border border-white/8 bg-white/[0.03] backdrop-blur-sm;
+  }
+
   .eyebrow {
     @apply mb-4 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-arctic/80;
+  }
+
+  .surface-label {
+    @apply inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-arctic/75;
+  }
+
+  .section-bridge {
+    @apply text-xs font-semibold uppercase tracking-[0.18em] text-arctic/60;
   }
 
   .headline {
