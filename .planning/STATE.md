@@ -2,57 +2,38 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-17)
+See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints, then surface those plans in a form that enterprise buyers and analysts can trust.
-**Current focus:** `v1.3 Portfolio Intelligence & Productization`
+**Current focus:** Milestone `v1.3 Portfolio Intelligence & Productization` is archived; the next work is opening a new milestone with `$gsd-new-milestone`
 
 ## Current Position
 
-Phase: v1.3 milestone audit
-Plan: audit complete
-Status: v1.3 milestone audit passed - ready for closeout
-Last activity: 2026-03-20 - Audited `v1.3` and confirmed 9/9 requirements satisfied across Phases 17-25
+Phase: no active phase
+Plan: n/a
+Status: Milestone archived
+Last activity: 2026-03-20 - Archived and tagged `v1.3 Portfolio Intelligence & Productization` after milestone audit pass
 
-Progress: Phases 17-25 complete; milestone audit passed; ready for `$gsd-complete-milestone v1.3`
+Progress: awaiting next milestone definition
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 72
+- Total plans completed: 75 (historical import + phases 8-25)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
 **By Milestone:**
 
-| Milestone | Plans | Total | Status |
-|-----------|-------|-------|--------|
-| v1.0 historical baseline | 20 | historical import | Complete |
-| v1.1 completed milestone | 12 | phases 8-11 complete | Complete |
-| v1.2 completed milestone | 15 | phases 12-16 complete | Complete |
-| v1.3 active milestone | 28 complete | phases 17-25 complete; milestone audit passed; ready for closeout | Open |
+| Milestone | Plans | Total | Avg/Plan |
+|-----------|-------|-------|----------|
+| v1.0 historical baseline | 20 | historical import | n/a |
+| v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
+| v1.2 completed milestone | 15 | phases 12-16 complete | n/a |
+| v1.3 completed milestone | 28 | phases 17-25 complete | n/a |
 
 **Recent Trend:**
-- The engine remains typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
-- Full-portfolio proof, curated confidence packaging, and typed buyer-facing roadmap narratives are all now in place.
-- Phase 19 and Phase 20 re-hardened execution-aware ranking and deterministic trajectory contracts.
-- Phase 21 refreshed the canonical proof seam and shipped the engine-owned `product_confidence_snapshot.json`.
-- Phase 22 turned the Demo Center into an executive-first buyer surface with calmer UI, reduced KPI density, CTA seams, and technical detail on demand.
-- Phase 23 closed `WEB-03` by shipping:
-  - one shared Proof and Investor vocabulary seam
-  - a verdict-first Proof page with compact trust rail and translated benchmark language
-  - an Investor page that reads market pain -> wedge -> proof -> monetization
-  - second-layer `decision intelligence infrastructure` positioning and default `pilot -> platform` commercial framing
-- Phase 24 closed `OPS-01` by shipping:
-  - one analyst UAT matrix with an explicit pass or caution or fail gate
-  - one route-level walkthrough runbook tied to `/demo` and `/proof`
-  - one milestone-local results packet that records five of five analyst tasks as pass
-- Phase 25 closed `OPS-02` by shipping:
-  - one structured pilot-intake contract across the contact surface and inbound pipeline
-  - one explicit `PILOT_READINESS.md` baseline for runtime, persistence, and auth posture
-  - one `CURATED_DEMO_HANDOFF.md` playbook that maps intake into `/demo` and `/proof`
-- The 2026-03-19 milestone audit gaps on `WEB-01`, `WEB-02`, `WEB-03`, `OPS-01`, and `OPS-02` are now closed.
-- The 2026-03-20 final milestone audit passed with 9/9 requirements satisfied, 0 orphaned requirements, and 0 unverified phases.
+- The engine now has audited full-portfolio proof plus buyer-safe demo, proof, investor, analyst, and pilot-baseline surfaces, so the next step is fresh milestone definition rather than more unscoped v1.3 work.
 
 ## Accumulated Context
 
@@ -61,32 +42,17 @@ Progress: Phases 17-25 complete; milestone audit passed; ready for `$gsd-complet
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- `v1.2 Recommendation Quality Hardening` remains the shipped baseline for typed actions, behavior-aware ranking, trajectories, offers, and learning evidence
-- The next milestone is `v1.3 Portfolio Intelligence & Productization`
-- Phase numbering continues from 17 rather than restarting around website work
-- Full-portfolio evaluation is now the first planned phase because demo and proof claims must be grounded in whole-cohort evidence
-- `credit-coach-website/` is now treated as milestone scope, not side documentation
-- The Python engine remains source-of-truth and website surfaces should consume curated artifact-derived snapshots rather than reimplement model logic
-- Business-first analyst and buyer language is now an explicit milestone requirement rather than an implied polishing task
-- Phase 17 established the canonical portfolio proof seam and the full-cohort coverage vocabulary.
-- Phase 18 established the engine-owned narrative contract with executive summary by default and technical reveal on demand.
-- Phase 19 re-hardened conservative execution truth and stronger execution-aware ranking behavior.
-- Phase 20 locked the deterministic 4w/12w/24w trajectory and checkpoint contract.
-- Phase 21 shipped product-facing proof verdicts, confidence labels, and the curated `product_confidence_snapshot.json`.
-- Phase 22 shipped the buyer-first Demo Center refactor and closed `WEB-02`.
-- Phase 23 shipped the shared proof/investor vocabulary seam, the executive-memo Proof page, and the disciplined Investor brief, closing `WEB-03`.
-- Phase 24 defines analyst validation through a matrix, a runbook, and milestone-local results rather than generic UX feedback.
-- Phase 25 defines buyer handoff readiness through structured intake, an explicit ops baseline, and a curated demo playbook.
-
-### Roadmap Evolution
-
-- Phase 19 added: Behavior-Aware Recourse
-- Phase 20 re-scoped: Trajectory Hardening (mini phase)
-- Phase 21 added: Portfolio Proof & Product Confidence
-- Phase 22 executed: Business-First Demo Center Refactor
-- Phase 23 executed: Proof & Investor Narrative Hardening
-- Phase 24 executed: Analyst Workflow & UAT Validation
-- Phase 25 executed: Pilot Readiness & Demo Ops Baseline
+- `v1.2 Recommendation Quality Hardening` remains the shipped recommendation-quality baseline
+- `v1.3 Portfolio Intelligence & Productization` treated the website as milestone scope rather than side documentation
+- Phase 17 anchored product claims to full-portfolio evidence and demo representativeness
+- Phase 18 moved buyer and analyst narrative translation into the engine-owned contract
+- Phase 19 and Phase 20 re-hardened execution-aware ranking and deterministic trajectory behavior
+- Phase 21 shipped product-facing proof verdicts and the curated `product_confidence_snapshot.json`
+- Phase 22 and Phase 23 turned Demo, Proof, and Investor into business-first surfaces with technical detail on demand
+- Phase 24 closed analyst validation through one matrix, one walkthrough packet, and one milestone-local results artifact
+- Phase 25 closed pilot-readiness baseline through structured intake, explicit ops docs, and a curated demo handoff playbook
+- Milestone audit: `v1.3 Portfolio Intelligence & Productization` passed with 9/9 requirements satisfied, 7/7 integrations, and 6/6 end-to-end flows
+- Milestone archive: `v1.3` roadmap and requirements are now snapshotted under `.planning/milestones/`, and active planning files have been reset for the next milestone boundary
 
 ### Pending Todos
 
@@ -94,12 +60,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- The local `gsd-tools.cjs` helper is still missing internal modules, so some GSD workflow helpers remain manual
-- The website now has buyer-safe, analyst-safe, and pilot-baseline surfaces, and the next step is milestone archival and handoff
-- Some recent website demo work is still uncommitted outside `.planning`; milestone-definition work should avoid mixing with those unrelated edits
+- The local `gsd-tools.cjs` helper is missing internal modules, so milestone-op automation and some workflow helpers still require manual fallback.
+- The website build still emits the existing Vite chunk-size warning for the main bundle, though it remained non-blocking for `v1.3`.
+- Unrelated local work outside `.planning` still exists in the repo and should stay isolated from next-milestone setup.
 
 ## Session Continuity
 
 Last session: 2026-03-20
-Stopped at: Completed v1.3 milestone audit; next step is `$gsd-complete-milestone v1.3`
-Resume file: .planning/ROADMAP.md
+Stopped at: v1.3 milestone archived; next step is `$gsd-new-milestone`
+Resume file: None
