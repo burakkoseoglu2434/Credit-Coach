@@ -218,12 +218,17 @@ Delivered scope:
 **Depends on**: Phase 24
 **Requirements**: OPS-02
 **Gap Closure**: Closes the pilot-readiness flow
-**Plans**: 0 planned
+**Plans**: 3 executed
 
-Planned scope:
-- harden contact and demo-request paths and define the institution-intake information needed for serious buyer follow-up
-- document or implement the auth, deployment, and operational basics required for a controlled pilot-style handoff
-- package institution-specific curated demo flows so the product story can be tailored to a target portfolio without losing trust or traceability
+- [x] 25-01: Harden structured buyer and demo intake across contact, schemas, and inbound persistence
+- [x] 25-02: Publish the explicit pilot-readiness baseline and link it from website docs
+- [x] 25-03: Package the curated institution-specific demo handoff flow
+
+Delivered scope:
+- extended the contact and demo-request flow with structured pilot-intake fields for institution, portfolio, track, timeline, and data readiness
+- published one explicit pilot-readiness baseline covering runtime commands, environment needs, persistence rules, auth posture, and operator checklist
+- added one curated demo handoff pack that maps intake context into the existing `/demo` and `/proof` surfaces while preserving trust cues and artifact traceability
+- closed `OPS-02` with milestone-local buyer handoff, ops, and curated demo packaging evidence
 
 ### Gap Closure Sequence
 
@@ -232,8 +237,9 @@ Planned scope:
 Notes:
 - Phases 19-23 are now the canonical near-term `v1.3` sequence.
 - Phase 24 is now complete and closes the analyst-validation blocker.
-- Phase 25 is the only remaining post-audit closure phase for `v1.3`.
-- This milestone remains active until `OPS-02` is re-verified and the audit passes cleanly.
+- Phase 25 is now complete and closes the pilot-readiness blocker.
+- All post-audit closure phases are now complete for `v1.3`.
+- This milestone is now ready for final milestone audit and closeout.
 
 ## Progress
 
@@ -263,4 +269,4 @@ Notes:
 | 22. Business-First Demo Center Refactor | v1.3 | 4/4 | Complete | 2026-03-20 |
 | 23. Proof & Investor Narrative Hardening | v1.3 | 3/3 | Complete | 2026-03-20 |
 | 24. Analyst Workflow & UAT Validation | v1.3 | 3/3 | Complete | 2026-03-20 |
-| 25. Pilot Readiness & Demo Ops Baseline | v1.3 | 0/0 | Planned | - |
+| 25. Pilot Readiness & Demo Ops Baseline | v1.3 | 3/3 | Complete | 2026-03-20 |
