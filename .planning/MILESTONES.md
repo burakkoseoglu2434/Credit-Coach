@@ -141,7 +141,7 @@
 - Phase 38: Calibration & Validation
 - Phase 39: Pilot Integration
 
-**Current checkpoint:** Requirements and roadmap are defined; next step is `Phase 30` discussion and planning.
+**Current checkpoint:** Phase 30 is complete; next step is `Phase 31` discussion and planning.
 
 **Success bar:**
 - Feature deltas become real actions, then numeric targets, then validated personalized plans

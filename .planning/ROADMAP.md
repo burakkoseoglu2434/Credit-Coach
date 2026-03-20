@@ -70,7 +70,7 @@ Historical archive: `.planning/milestones/v1.3-ROADMAP.md`
 
 **Goal**: Turn model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans with clear product-ready narratives and portfolio-level validation.
 **Phases**: 30-39 currently defined
-**Status**: Active, requirements and roadmap defined; ready to start Phase 30
+**Status**: Active; Phase 30 complete and ready to start Phase 31
 
 ### Phase 30: Action Semantics Hardening
 
@@ -216,7 +216,7 @@ Historical archive: `.planning/milestones/v1.3-ROADMAP.md`
 | 23. Proof & Investor Narrative Hardening | v1.3 | 3/3 | Complete | 2026-03-20 |
 | 24. Analyst Workflow & UAT Validation | v1.3 | 3/3 | Complete | 2026-03-20 |
 | 25. Pilot Readiness & Demo Ops Baseline | v1.3 | 3/3 | Complete | 2026-03-20 |
-| 30. Action Semantics Hardening | v2.0 | roadmap defined | Planned | - |
+| 30. Action Semantics Hardening | v2.0 | 3/3 | Complete | 2026-03-20 |
 | 31. Numeric Target Engine | v2.0 | roadmap defined | Planned | - |
 | 32. Feasibility & Constraint Engine | v2.0 | roadmap defined | Planned | - |
 | 33. Action Difficulty & Execution Modeling | v2.0 | roadmap defined | Planned | - |

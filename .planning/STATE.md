@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 ## Current Position
 
-Phase: 30
-Plan: research complete, plans written
-Status: Ready for execution
-Last activity: 2026-03-20 - Planned Phase 30 around catalog hardening, grouped serialization, and business-vs-technical action contract separation
+Phase: 31
+Plan: no plan yet
+Status: Ready for discussion
+Last activity: 2026-03-20 - Completed Phase 30 by hardening action taxonomy, grouped semantic serialization, and semantic-by-default downstream consumers
 
-Progress: `v2.0` initialized with phases 30-39; Phase 30 is now researched and planned with three execution waves
+Progress: `v2.0` is underway; Phase 30 is complete and the milestone is ready to discuss Phase 31 numeric target generation
 
 ## Performance Metrics
 
@@ -31,7 +31,7 @@ Progress: `v2.0` initialized with phases 30-39; Phase 30 is now researched and p
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
 | v1.2 completed milestone | 15 | phases 12-16 complete | n/a |
 | v1.3 completed milestone | 28 | phases 17-25 complete | n/a |
-| v2.0 active milestone | 0 | phases 30-39 defined, not yet started | n/a |
+| v2.0 active milestone | 3 | phase 30 complete, phases 31-39 remaining | n/a |
 
 **Recent Trend:**
 - The engine now has audited full-portfolio proof plus buyer-safe demo, proof, investor, analyst, and pilot-baseline surfaces.
@@ -59,17 +59,14 @@ Recent decisions affecting current work:
 - Milestone open: `v2.0 Personalized Action & Decision Intelligence` is now the active planning target
 - v2.0 initialization intentionally skipped separate research because the milestone goal was already explicit and grounded in fresh brownfield milestone history
 - The milestone was then replanned around a longer `Phase 30-39` sequence to reflect the user's desired build order
-- The first planned execution step is `Phase 30: Action Semantics Hardening`
-- Phase 30 context now locks:
+- Phase 30 execution is complete and establishes:
   - final top-level taxonomy `behavioral | structural | institutional`
   - canonical `action_family`
   - one primary action per actionable feature
   - deterministic grouped-action semantics
   - schema-level `business_view` vs `technical_view`
-- Phase 30 planning is now split into:
-  - catalog and mapping hardening
-  - grouped action and serialization contract
-  - downstream semantic-consumer alignment
+- Phase 30 also aligns roadmap, messaging, and batch consumers to grouped semantic actions rather than raw feature-first defaults
+- The next active design seam is `Phase 31: Numeric Target Engine`
 
 ### Pending Todos
 
@@ -84,5 +81,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-20
-Stopped at: Phase 30 planning complete; next step is `$gsd-execute-phase 30`
+Stopped at: Phase 30 complete; next step is `$gsd-discuss-phase 31`
 Resume file: None

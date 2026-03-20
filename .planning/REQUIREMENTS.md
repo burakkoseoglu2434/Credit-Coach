@@ -8,7 +8,7 @@
 
 ### Action Semantics
 
-- [ ] **ACT-01**: Feature-level recourse changes can be mapped deterministically into real-world action types, action groups, and user-facing action contracts
+- [x] **ACT-01**: Feature-level recourse changes can be mapped deterministically into real-world action types, action groups, and user-facing action contracts
 
 ### Numeric Targeting
 
@@ -77,7 +77,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ACT-01 | Phase 30 | Pending |
+| ACT-01 | Phase 30 | Satisfied |
 | NUM-01 | Phase 31 | Pending |
 | FEAS-01 | Phase 32 | Pending |
 | EXEC-01 | Phase 33 | Pending |
