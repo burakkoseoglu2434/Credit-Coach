@@ -514,11 +514,16 @@ def build_reason_narratives(local_reasons: list[dict], max_items: int = 4) -> li
 
 
 def build_step_narrative(action: Mapping[str, Any], *, step_id: str, phase_id: str) -> RoadmapStepNarrative:
-    action_key = str(action.get("action_key", "") or "")
-    action_group_id = str(action.get("action_group_id", "") or "")
-    action_class = str(action.get("action_class", "") or "")
+    business_view = action.get("business_view", {})
+    if not isinstance(business_view, Mapping):
+        business_view = {}
+    action_key = str(business_view.get("action_key", action.get("action_key", "")) or "")
+    action_group_id = str(business_view.get("action_group_id", action.get("action_group_id", "")) or "")
+    action_class = str(business_view.get("action_class", action.get("action_class", "")) or "")
     template = _ACTION_NARRATIVE_TEMPLATES.get(action_key)
-    action_title = str(action.get("action_title", "") or action_key.replace("_", " ").strip())
+    action_title = str(
+        business_view.get("action_title", action.get("action_title", "")) or action_key.replace("_", " ").strip()
+    )
     if template is None:
         summary = (
             f"{action_title} adimini oncelikli pencere icinde tamamla.",
@@ -1061,40 +1066,54 @@ def build_customer_roadmap_narrative(
     feature_changes: list[dict[str, Any]] = []
     approval_dependencies: list[dict[str, Any]] = []
     diagnostic_flags: list[str] = []
+    seen_step_ids: set[str] = set()
+    seen_approval_steps: set[str] = set()
 
     for phase in phases:
         phase_id = str(phase.get("phase_id", "") or "")
         for step in list(phase.get("steps", [])):
             if not isinstance(step, Mapping):
                 continue
+            business_view = step.get("business_view", {})
+            if not isinstance(business_view, Mapping):
+                business_view = {}
+            technical_view = step.get("technical_view", {})
+            if not isinstance(technical_view, Mapping):
+                technical_view = {}
             raw_actions.append(step)
             step_id = str(step.get("step_id", "") or "")
-            step_narratives.append(build_step_narrative(step, step_id=step_id, phase_id=phase_id))
+            if step_id not in seen_step_ids:
+                step_narratives.append(build_step_narrative(step, step_id=step_id, phase_id=phase_id))
+                seen_step_ids.add(step_id)
             feature_changes.append(
                 {
                     "step_id": step_id,
                     "phase_id": phase_id,
-                    "feature_name": str(step.get("feature_name", "") or ""),
-                    "action_key": str(step.get("action_key", "") or ""),
-                    "action_title": str(step.get("action_title", "") or ""),
-                    "current_value": _safe_float(step.get("current_value", 0.0), 0.0),
-                    "target_value": _safe_float(step.get("target_value", 0.0), 0.0),
-                    "delta": _safe_float(step.get("delta", 0.0), 0.0),
-                    "time_months": _safe_int(step.get("time_months", 0), 0),
+                    "feature_name": str(technical_view.get("feature_name", step.get("feature_name", "")) or ""),
+                    "action_key": str(business_view.get("action_key", step.get("action_key", "")) or ""),
+                    "action_title": str(business_view.get("action_title", step.get("action_title", "")) or ""),
+                    "current_value": _safe_float(technical_view.get("current_value", step.get("current_value", 0.0)), 0.0),
+                    "target_value": _safe_float(technical_view.get("target_value", step.get("target_value", 0.0)), 0.0),
+                    "delta": _safe_float(technical_view.get("delta", step.get("delta", 0.0)), 0.0),
+                    "time_months": _safe_int(technical_view.get("time_months", step.get("time_months", 0)), 0),
                 }
             )
-            if bool(step.get("requires_institutional_approval", False)) or bool(step.get("requires_acceptance", False)):
+            if (
+                (bool(step.get("requires_institutional_approval", False)) or bool(step.get("requires_acceptance", False)))
+                and step_id not in seen_approval_steps
+            ):
                 approval_dependencies.append(
                     {
                         "step_id": step_id,
-                        "action_key": str(step.get("action_key", "") or ""),
-                        "action_title": str(step.get("action_title", "") or ""),
+                        "action_key": str(business_view.get("action_key", step.get("action_key", "")) or ""),
+                        "action_title": str(business_view.get("action_title", step.get("action_title", "")) or ""),
                         "institutional_approval_state": str(step.get("institutional_approval_state", "") or ""),
                         "requires_institutional_approval": bool(step.get("requires_institutional_approval", False)),
                         "requires_acceptance": bool(step.get("requires_acceptance", False)),
                         "offer_type": str(step.get("offer_type", "") or ""),
                     }
                 )
+                seen_approval_steps.add(step_id)
             for flag in list(step.get("diagnostic_flags", [])):
                 flag_str = str(flag)
                 if flag_str and flag_str not in diagnostic_flags:

@@ -1927,7 +1927,8 @@ def _build_trajectory_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any],
 
 
 def _plan_trajectory_steps(plan: PlanRecord) -> list[dict[str, Any]]:
-    steps: list[dict[str, Any]] = []
+    grouped: dict[str, list[PlanAction]] = {}
+    order: list[str] = []
     for action in sorted(
         list(plan.actions),
         key=lambda a: (
@@ -1935,6 +1936,16 @@ def _plan_trajectory_steps(plan: PlanRecord) -> list[dict[str, Any]]:
             _safe_str(getattr(a, "feature_name", "")),
         ),
     ):
+        group_id = _safe_str(getattr(action, "action_group_id", ""), "") or _safe_str(getattr(action, "action_key", ""), "")
+        if group_id not in grouped:
+            grouped[group_id] = []
+            order.append(group_id)
+        grouped[group_id].append(action)
+
+    steps: list[dict[str, Any]] = []
+    for group_id in order:
+        group_actions = grouped[group_id]
+        action = group_actions[0]
         m = max(1, _safe_int(getattr(action, "time_months", 1), 1))
         phase_id = _phase_id_for_month(m)
         steps.append(
@@ -1942,10 +1953,21 @@ def _plan_trajectory_steps(plan: PlanRecord) -> list[dict[str, Any]]:
                 "phase_id": phase_id,
                 "phase_title": _phase_title(phase_id),
                 "time_months": int(m),
-                "feature_name": _safe_str(getattr(action, "feature_name", "")),
-                "current_value": _safe_float(getattr(action, "current_value", np.nan), np.nan),
-                "target_value": _safe_float(getattr(action, "target_value", np.nan), np.nan),
-                "delta": _safe_float(getattr(action, "delta", 0.0), 0.0),
+                "business_view": getattr(action, "business_view").model_dump(mode="json"),
+                "technical_view": {
+                    **getattr(action, "technical_view").model_dump(mode="json"),
+                    "sub_effects": [
+                        getattr(group_action, "technical_view").model_dump(mode="json")
+                        for group_action in group_actions
+                    ],
+                    "grouped_feature_names": sorted(
+                        {
+                            _safe_str(getattr(group_action, "feature_name", ""), "")
+                            for group_action in group_actions
+                            if _safe_str(getattr(group_action, "feature_name", ""), "")
+                        }
+                    ),
+                },
                 "estimated_cost_usd": _safe_float(getattr(action, "estimated_cost_usd", 0.0), 0.0),
             }
         )
@@ -4977,20 +4999,37 @@ def main() -> None:
         for step in parsed:
             if not isinstance(step, dict):
                 continue
+            business_view = step.get("business_view", {})
+            if not isinstance(business_view, dict):
+                business_view = {}
+            technical_view = step.get("technical_view", {})
+            if not isinstance(technical_view, dict):
+                technical_view = {}
             timeline_step_rows.append(
                 {
                     "phase_id": _safe_str(step.get("phase_id", ""), ""),
                     "phase_title": _safe_str(step.get("phase_title", ""), ""),
-                    "feature_name": _safe_str(step.get("feature_name", ""), ""),
+                    "action_title": _safe_str(
+                        business_view.get("action_title", step.get("action_title", "")),
+                        "",
+                    ),
+                    "action_family": _safe_str(
+                        business_view.get("action_family", step.get("action_family", "")),
+                        "",
+                    ),
+                    "feature_name": _safe_str(
+                        technical_view.get("feature_name", step.get("feature_name", "")),
+                        "",
+                    ),
                 }
             )
     if timeline_step_rows:
         top_steps_by_phase = (
             pd.DataFrame(timeline_step_rows)
-            .groupby(["phase_id", "phase_title", "feature_name"], dropna=False)
+            .groupby(["phase_id", "phase_title", "action_title", "action_family"], dropna=False)
             .size()
             .reset_index(name="count")
-            .sort_values(["phase_id", "count", "feature_name"], ascending=[True, False, True])
+            .sort_values(["phase_id", "count", "action_title"], ascending=[True, False, True])
             .reset_index(drop=True)
         )
         top_steps_by_phase["share"] = (
@@ -4998,7 +5037,7 @@ def main() -> None:
         )
     else:
         top_steps_by_phase = pd.DataFrame(
-            columns=["phase_id", "phase_title", "feature_name", "count", "share"]
+            columns=["phase_id", "phase_title", "action_title", "action_family", "count", "share"]
         )
     top_steps_by_phase_out = run_ctx.tables_dir / "top_recommended_steps_by_phase.csv"
     top_steps_by_phase.to_csv(top_steps_by_phase_out, index=False)
@@ -5868,6 +5907,8 @@ def main() -> None:
         "top_plan_denied_share": _safe_float(top_plan_denied.get("share", 0.0)),
         "top_recommended_step_phase_id": _safe_str(top_step.get("phase_id", "")),
         "top_recommended_step_phase_title": _safe_str(top_step.get("phase_title", "")),
+        "top_recommended_step_action_title": _safe_str(top_step.get("action_title", "")),
+        "top_recommended_step_action_family": _safe_str(top_step.get("action_family", "")),
         "top_recommended_step_feature": _safe_str(top_step.get("feature_name", "")),
         "top_recommended_step_count": _safe_int(top_step.get("count", 0)),
         "top_recommended_step_share": _safe_float(top_step.get("share", 0.0)),

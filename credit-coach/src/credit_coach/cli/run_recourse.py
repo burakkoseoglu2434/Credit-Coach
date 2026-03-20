@@ -437,21 +437,22 @@ def _build_customer_roadmap(
                 or str(getattr(action, "action_key", "") or "")
                 or f"{getattr(phase, 'phase_id', 'phase')}_step_{step_idx}"
             )
+            business_view = getattr(action, "business_view").model_dump(mode="json")
+            technical_view = getattr(action, "technical_view").model_dump(mode="json")
             steps.append(
                 {
                     "step_id": step_id,
-                    "action_key": str(getattr(action, "action_key", "") or ""),
-                    "action_class": str(getattr(action, "action_class", "") or ""),
-                    "action_title": str(getattr(action, "action_title", "") or ""),
-                    "action_group_id": str(getattr(action, "action_group_id", "") or ""),
+                    "action_key": str(business_view.get("action_key", "") or ""),
+                    "action_class": str(business_view.get("action_class", "") or ""),
+                    "action_family": str(business_view.get("action_family", "") or ""),
+                    "action_title": str(business_view.get("action_title", "") or ""),
+                    "action_description": str(business_view.get("action_description", "") or ""),
+                    "action_group_id": str(business_view.get("action_group_id", "") or ""),
+                    "business_view": business_view,
+                    "technical_view": technical_view,
                     "composite_action": int(bool(getattr(action, "composite_action", False))),
-                    "feature_name": str(getattr(action, "feature_name", "")),
-                    "current_value": _safe_float(getattr(action, "current_value", 0.0), 0.0),
-                    "target_value": _safe_float(getattr(action, "target_value", 0.0), 0.0),
-                    "delta": _safe_float(getattr(action, "delta", 0.0), 0.0),
                     "time_months": int(max(1, _safe_int(getattr(action, "time_months", 1), 1))),
                     "estimated_cost_usd": _safe_float(getattr(action, "estimated_cost_usd", 0.0), 0.0),
-                    "checkpoint_metric": str(getattr(action, "checkpoint_metric", "") or ""),
                     "requires_institutional_approval": int(
                         bool(getattr(action, "requires_institutional_approval", False))
                     ),

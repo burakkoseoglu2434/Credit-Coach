@@ -54,15 +54,28 @@ def test_build_customer_roadmap_narrative_is_deterministic():
             "phase_id": "phase_1_stabilize",
             "steps": [
                 {
-                    "step_id": "reduce_spending",
+                    "step_id": "reduce_spending:phase_1_stabilize",
                     "action_key": "reduce_spending",
                     "action_class": "behavioral",
                     "action_title": "Reduce spending pressure",
                     "time_months": 1,
-                    "current_value": 28.0,
-                    "target_value": 24.0,
-                    "delta": -4.0,
-                    "action_group_id": "reduce_spending:m1",
+                    "action_group_id": "reduce_spending:phase_1_stabilize",
+                    "business_view": {
+                        "action_key": "reduce_spending",
+                        "action_family": "cashflow_management",
+                        "action_class": "behavioral",
+                        "action_title": "Reduce spending pressure",
+                        "action_description": "Reduce ongoing spending to improve debt-to-income behavior.",
+                        "action_group_id": "reduce_spending:phase_1_stabilize",
+                    },
+                    "technical_view": {
+                        "feature_name": "dti",
+                        "current_value": 28.0,
+                        "target_value": 24.0,
+                        "delta": -4.0,
+                        "time_months": 1,
+                        "phase_id": "phase_1_stabilize",
+                    },
                     "diagnostic_flags": ["light_burden"],
                 }
             ],
@@ -133,11 +146,27 @@ def test_build_customer_roadmap_narrative_separates_offer_and_checkpoint_layers(
                 "phase_id": "phase_2_build",
                 "steps": [
                     {
-                        "step_id": "installment_plan:m2",
+                        "step_id": "installment_plan:phase_2_build",
                         "action_key": "installment_plan",
                         "action_class": "institutional",
                         "action_title": "Enter an installment plan",
                         "time_months": 3,
+                        "business_view": {
+                            "action_key": "installment_plan",
+                            "action_family": "hardship_relief",
+                            "action_class": "institutional",
+                            "action_title": "Enter an installment plan",
+                            "action_description": "Restructure delinquent balances into an approved installment plan.",
+                            "action_group_id": "installment_plan:phase_2_build",
+                        },
+                        "technical_view": {
+                            "feature_name": "delinq_amnt",
+                            "current_value": 2400.0,
+                            "target_value": 1200.0,
+                            "delta": -1200.0,
+                            "time_months": 3,
+                            "phase_id": "phase_2_build",
+                        },
                         "offer_type": "installment_terms",
                         "offer_terms": {
                             "payment_delta_monthly": -120.0,
@@ -174,6 +203,80 @@ def test_build_customer_roadmap_narrative_separates_offer_and_checkpoint_layers(
     assert checkpoint.review_action is not None
     assert narrative.technical_reveal.approval_dependencies[0]["requires_acceptance"] is True
     assert narrative.technical_reveal.confidence_inputs["offer_acceptance_probability"] == 0.49
+
+
+def test_build_customer_roadmap_narrative_groups_same_action_step_in_default_view():
+    narrative = build_customer_roadmap_narrative(
+        base_pd=0.48,
+        tau=0.35,
+        phases=[
+            {
+                "phase_id": "phase_2_build",
+                "steps": [
+                    {
+                        "step_id": "refinance:phase_2_build",
+                        "action_key": "refinance",
+                        "action_class": "structural",
+                        "action_title": "Refinance or restructure debt",
+                        "action_group_id": "refinance:phase_2_build",
+                        "business_view": {
+                            "action_key": "refinance",
+                            "action_family": "debt_restructuring",
+                            "action_class": "structural",
+                            "action_title": "Refinance or restructure debt",
+                            "action_description": "Use refinancing to improve rate and installment affordability.",
+                            "action_group_id": "refinance:phase_2_build",
+                        },
+                        "technical_view": {
+                            "feature_name": "int_rate",
+                            "current_value": 21.0,
+                            "target_value": 18.5,
+                            "delta": -2.5,
+                            "time_months": 3,
+                            "phase_id": "phase_2_build",
+                        },
+                    },
+                    {
+                        "step_id": "refinance:phase_2_build",
+                        "action_key": "refinance",
+                        "action_class": "structural",
+                        "action_title": "Refinance or restructure debt",
+                        "action_group_id": "refinance:phase_2_build",
+                        "business_view": {
+                            "action_key": "refinance",
+                            "action_family": "debt_restructuring",
+                            "action_class": "structural",
+                            "action_title": "Refinance or restructure debt",
+                            "action_description": "Use refinancing to improve rate and installment affordability.",
+                            "action_group_id": "refinance:phase_2_build",
+                        },
+                        "technical_view": {
+                            "feature_name": "installment",
+                            "current_value": 510.0,
+                            "target_value": 450.0,
+                            "delta": -60.0,
+                            "time_months": 3,
+                            "phase_id": "phase_2_build",
+                        },
+                    },
+                ],
+            }
+        ],
+        checkpoints=[
+            {
+                "checkpoint_id": "checkpoint_week_12",
+                "week": 12,
+                "predicted_pd": 0.34,
+                "gate_pass_estimate": 1,
+            }
+        ],
+        status="NEEDS_REVIEW",
+        local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.72}},
+    )
+
+    assert len(narrative.steps) == 1
+    assert narrative.steps[0].step_id == "refinance:phase_2_build"
+    assert len(narrative.technical_reveal.feature_changes) == 2
 
 
 def test_build_checkpoint_narrative_reflects_missed_status_and_inconsistency():

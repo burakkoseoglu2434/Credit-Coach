@@ -14,6 +14,7 @@ from credit_coach.cli.run_batch_recourse_eval import (
     _candidate_source_entropy,
     _extract_model_importance_vector,
     _effective_recourse_search,
+    _plan_trajectory_steps,
     _prune_candidate_pool,
     _stage1_filter_candidate_pool,
     _tune_internal_search_profile_for_budget,
@@ -388,6 +389,40 @@ def test_build_trajectory_artifacts_surface_transition_state_and_policy_labels()
     assert set(transition_breakdown["trajectory_status"]) == {"on_track", "needs_replan"}
     assert "mean_jump_flag" in transition_breakdown.columns
     assert set(policy_breakdown["trajectory_policy_label"]) == {"balanced_progress", "long_horizon_heavy"}
+
+
+def test_plan_trajectory_steps_emit_business_and_technical_views():
+    plan = PlanRecord(
+        plan_id="semantic-plan",
+        customer_id="c1",
+        run_id="r1",
+        horizon_months=6,
+        strategy="balanced",
+        actions=[
+            PlanAction(
+                feature_name="revol_util",
+                current_value=72.0,
+                target_value=54.0,
+                delta=-18.0,
+                time_months=1,
+                estimated_cost_usd=18.0,
+                action_key="limit_credit_usage",
+                action_class="behavioral",
+                action_title="Limit credit usage",
+            )
+        ],
+        predicted_pd=0.32,
+        score=1.0,
+        robust_score=1.0,
+        status="APPROVED",
+    )
+
+    steps = _plan_trajectory_steps(plan)
+
+    assert len(steps) == 1
+    assert steps[0]["business_view"]["action_key"] == "limit_credit_usage"
+    assert steps[0]["business_view"]["action_family"] == "utilization"
+    assert steps[0]["technical_view"]["feature_name"] == "revol_util"
 
 
 def test_stage1_filter_candidate_pool_applies_source_cap():
