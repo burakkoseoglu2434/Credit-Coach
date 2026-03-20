@@ -36,7 +36,7 @@
 
 **Goal:** Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, harden execution and trajectory truth where product credibility demands it, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 
-**Phases planned:** 17-21
+**Phases planned:** 17-25
 
 **Phase sequence:**
 - Phase 17: Full Portfolio Evaluation & Coverage Audit
@@ -44,10 +44,14 @@
 - Phase 19: Behavior-Aware Recourse
 - Phase 20: Trajectory Hardening
 - Phase 21: Portfolio Proof & Product Confidence
+- Phase 22: Business-First Demo Center Refactor
+- Phase 23: Proof & Investor Narrative Hardening
+- Phase 24: Analyst Workflow & UAT Validation
+- Phase 25: Pilot Readiness & Demo Ops Baseline
 
-**Post-21 status:** Future `v1.3` phases remain intentionally open after `2026-03-19` and will be redesigned before new phase numbers beyond 21 are added.
+**Post-21 status:** Gap-closure phases 22-25 are complete and the milestone audit passed on `2026-03-20`.
 
-**Current checkpoint:** Phases 17-21 are complete and milestone audit is finished; next step is milestone gap planning before closeout.
+**Current checkpoint:** Phases 17-25 are complete; next step is milestone closeout.
 
 
 **Why this milestone exists:**
@@ -57,7 +61,7 @@
 - Trajectory correctness and portfolio proof now need to be separated so hardening and proof validation do not collapse into one oversized phase
 - The website now matters enough to be milestone scope rather than side documentation
 - Analyst trust, proof framing, and pilot readiness are now the highest-leverage gaps
-- The sequence after Phase 21 is still intentionally open so the remaining website, proof, UAT, and pilot work can be re-grouped more cleanly
+- The post-21 gap-closure chain shipped across Demo Center, Proof and Investor, analyst validation, and pilot-readiness work
 
 **Success bar:**
 - Full-portfolio coverage and segment proof exist for recommendation behavior

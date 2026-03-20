@@ -5,7 +5,7 @@
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
 - ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
 - ✅ **v1.2 Recommendation Quality Hardening** - Phases 12-16 (completed 2026-03-16)
-- 🚧 **v1.3 Portfolio Intelligence & Productization** - Phases 17-25 (Phases 17-22 complete; gap-closure phases 23-25 remain after the 2026-03-19 milestone audit)
+- 🚧 **v1.3 Portfolio Intelligence & Productization** - Phases 17-25 (All phases complete; milestone audit passed 2026-03-20; ready for closeout)
 
 <details>
 <summary>✅ v1.0 Brownfield Baseline (Phases 1-7) - SHIPPED 2026-03-10</summary>
@@ -53,7 +53,7 @@ Historical archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 **Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, harden execution and trajectory truth where product credibility demands it, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 **Phases**: 17-25 currently defined
-**Status**: Active, Phases 17-22 complete; Phases 23-25 planned to close remaining website and ops gaps
+**Status**: Active, Phases 17-25 complete; milestone audit passed on 2026-03-20 and closeout is next
 
 ### Phase 17: Full Portfolio Evaluation & Coverage Audit
 
@@ -232,14 +232,14 @@ Delivered scope:
 
 ### Gap Closure Sequence
 
-**Status**: Active, roadmap extended with explicit gap-closure phases
+**Status**: Complete, explicit gap-closure phases executed and audit-backed
 
 Notes:
 - Phases 19-23 are now the canonical near-term `v1.3` sequence.
 - Phase 24 is now complete and closes the analyst-validation blocker.
 - Phase 25 is now complete and closes the pilot-readiness blocker.
 - All post-audit closure phases are now complete for `v1.3`.
-- This milestone is now ready for final milestone audit and closeout.
+- This milestone passed final milestone audit on 2026-03-20 and is now ready for closeout.
 
 ## Progress
 
