@@ -41,6 +41,11 @@ export async function saveDemoRequest(payload: DemoRequest) {
       email: payload.email,
       useCase: payload.useCase,
       teamSize: payload.teamSize,
+      institutionType: payload.institutionType,
+      portfolioFocus: payload.portfolioFocus,
+      demoTrack: payload.demoTrack,
+      timeline: payload.timeline,
+      dataReadiness: payload.dataReadiness,
       message: payload.message,
     });
     return { persisted: true, mode: "database" as const };

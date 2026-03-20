@@ -16,6 +16,11 @@ export const demoRequestSchema = baseInquirySchema.extend({
   inquiryType: z.literal("demo"),
   useCase: z.string().min(4, "Please describe the primary use case."),
   teamSize: z.string().min(1, "Please select a team size."),
+  institutionType: z.string().min(1, "Please select an institution type."),
+  portfolioFocus: z.string().min(4, "Please describe the portfolio focus."),
+  demoTrack: z.string().min(1, "Please select a demo track."),
+  timeline: z.string().min(1, "Please select a pilot timeline."),
+  dataReadiness: z.string().min(1, "Please select a data readiness posture."),
 });
 
 export const investorRequestSchema = baseInquirySchema.extend({

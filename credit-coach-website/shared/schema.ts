@@ -20,6 +20,11 @@ export const demoRequests = pgTable("demo_requests", {
   email: varchar("email", { length: 180 }).notNull(),
   useCase: text("use_case").notNull(),
   teamSize: varchar("team_size", { length: 40 }).notNull(),
+  institutionType: varchar("institution_type", { length: 80 }).notNull(),
+  portfolioFocus: text("portfolio_focus").notNull(),
+  demoTrack: varchar("demo_track", { length: 80 }).notNull(),
+  timeline: varchar("timeline", { length: 80 }).notNull(),
+  dataReadiness: varchar("data_readiness", { length: 80 }).notNull(),
   message: text("message").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

@@ -16,15 +16,15 @@ export function ContactPage() {
           en: "Talk to Kuantitive about credit-coach.",
         })}
         description={text({
-          tr: "Demo talebi, lender pilot gorusmesi veya yatirimci tanisimi icin bu sayfayi kullanin.",
-          en: "Use this page to request a product walkthrough, discuss a lender pilot, or start an investor conversation.",
+          tr: "Demo talebi, kontrollu pilot gorusmesi veya yatirimci tanisimi icin bu sayfayi kullanin.",
+          en: "Use this page to request a product walkthrough, discuss a controlled pilot, or start an investor conversation.",
         })}
         aside={
           <SchemaPreviewCard
             title={text({ tr: "Hizli Baslangic", en: "Fast Start" })}
             description={text({
-              tr: "Dogru ekip ile hizlica gorusme planlayip size uygun akisa gecebiliriz.",
-              en: "We can quickly route you to the right conversation and next step.",
+              tr: "Dogru demo track'i ve sonraki adimi secmek icin kurumsal baglaminizi hizlica toplariz.",
+              en: "We collect enough institution context to route you to the right demo track and next step quickly.",
             })}
           />
         }
@@ -40,8 +40,8 @@ export function ContactPage() {
                 en: "The fastest way to move this forward is a focused conversation.",
               })}
               description={text({
-                tr: "Kurum kullanim senaryosu, canli demo ya da yatirimci gorusmesi; form hepsini ayri kaydeder.",
-                en: "Tell us whether you are exploring a lender use case, a live demo, or an investor discussion. The backend captures all three.",
+                tr: "Kurum kullanim senaryosu, demo track'i, pilot zamani ve veri hazirligi; form bunlari ayri kaydeder.",
+                en: "Share the institution use case, demo track, pilot timeline, and data readiness. The form records them separately for follow-up.",
               })}
             />
             <div className="mt-8 grid gap-4">
@@ -51,8 +51,8 @@ export function ContactPage() {
                 </div>
                 <p className="mt-3 text-sm leading-7 text-slate-400">
                   {text({
-                    tr: "Degerlendirme, geri kazanım, aksiyon planlama veya teklif optimizasyonu kullanimlarini konusmak icin en dogru giris.",
-                    en: "Best when you want to discuss underwriting, recovery, recourse, or policy optimization use cases.",
+                    tr: "Degerlendirme, geri kazanım, aksiyon planlama veya teklif optimizasyonu kullanimlarini kendi portfoyunuz baglaminda konusmak icin en dogru giris.",
+                    en: "Best when you want to discuss underwriting, recovery, recourse, or policy optimization in the context of your own portfolio.",
                   })}
                 </p>
               </div>
@@ -69,13 +69,24 @@ export function ContactPage() {
               </div>
               <div className="rounded-[28px] border border-white/10 bg-gradient-to-br from-cobalt/10 to-ocean/5 p-5">
                 <div className="text-xs uppercase tracking-[0.2em] text-arctic/65">
-                  {text({ tr: "Hizli beklenti", en: "What to expect" })}
+                  {text({ tr: "Sonraki adim", en: "Next step" })}
                 </div>
                 <div className="mt-4 grid gap-3 text-sm text-slate-300">
-                  <div>{text({ tr: "1. Talep tipi kaydedilir", en: "1. Request type is captured" })}</div>
-                  <div>{text({ tr: "2. Uygun akisa yonlendirilir", en: "2. Routed to the right workflow" })}</div>
-                  <div>{text({ tr: "3. Demo veya gorusme planlanir", en: "3. Demo or conversation is scheduled" })}</div>
+                  <div>{text({ tr: "1. Kurum ve portfoy baglami kaydedilir", en: "1. Institution and portfolio context are captured" })}</div>
+                  <div>{text({ tr: "2. Uygun demo track'i secilir", en: "2. The right demo track is selected" })}</div>
+                  <div>{text({ tr: "3. Pilot veya gorusme akisi netlestirilir", en: "3. The pilot or follow-up path is clarified" })}</div>
                 </div>
+              </div>
+              <div className="panel p-5">
+                <div className="font-display text-xl font-semibold text-white">
+                  {text({ tr: "Pilot baseline notu", en: "Pilot baseline note" })}
+                </div>
+                <p className="mt-3 text-sm leading-7 text-slate-400">
+                  {text({
+                    tr: "Ciddi pilot handoff icin database-backed persistence ve net operator sahipligi gerekir. Bu sayfa o giris bilgisini toplar; tam ops baseline bir sonraki katmandadir.",
+                    en: "A serious pilot handoff needs database-backed persistence and clear operator ownership. This page captures the entry context; the full ops baseline lives in the next layer.",
+                  })}
+                </p>
               </div>
             </div>
           </div>
