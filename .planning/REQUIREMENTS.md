@@ -17,7 +17,7 @@
 
 - [x] **WEB-01**: The website can consume curated demo and proof snapshots through a typed artifact-sync contract sourced from the engine
 - [x] **WEB-02**: Demo Center and buyer-facing product surfaces can present single-customer, portfolio, offer, and learning views in business-first bilingual language
-- [ ] **WEB-03**: Proof and investor surfaces can explain measurement, governance, release controls, category story, and monetization logic without exposing raw internal artifact vocabulary
+- [x] **WEB-03**: Proof and investor surfaces can explain measurement, governance, release controls, category story, and monetization logic without exposing raw internal artifact vocabulary
 
 ### Operational Validation
 
@@ -56,7 +56,7 @@
 | PORT-04 | Phase 20 | Complete |
 | WEB-01 | Phase 22 | Complete |
 | WEB-02 | Phase 22 | Complete |
-| WEB-03 | Phase 23 | Pending |
+| WEB-03 | Phase 23 | Complete |
 | OPS-01 | Phase 24 | Pending |
 | OPS-02 | Phase 25 | Pending |
 

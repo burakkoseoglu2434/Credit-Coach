@@ -182,12 +182,17 @@ Delivered scope:
 **Depends on**: Phase 22
 **Requirements**: WEB-03
 **Gap Closure**: Closes the proof plus investor story flow
-**Plans**: 0 planned
+**Plans**: 3 executed
 
-Planned scope:
-- restructure Proof and Investor pages into executive narrative first with controlled technical detail behind clear reveals
-- align proof metrics, governance messaging, category story, and monetization language to one business-first bilingual vocabulary
-- remove raw artifact or release jargon from buyer-facing copy while preserving benchmark and simulation context labels
+- [x] 23-01: Add a shared bilingual proof and investor vocabulary seam in `site-content.ts`
+- [x] 23-02: Refactor the Proof page into an executive memo with compact trust framing
+- [x] 23-03: Refactor the Investor page into a disciplined product brief
+
+Delivered scope:
+- added one shared buyer-safe vocabulary seam for benchmark labels, trust rail copy, and investor story helpers
+- rebuilt the Proof page around the buyer question, buyer-confidence verdict, compact trust rail, and translated baseline comparison
+- rebuilt the Investor page around market pain, product wedge, translated proof logic, and `pilot -> platform` commercial framing
+- kept deeper proof inputs behind explicit technical reveals while preserving context labels and locale purity
 
 ### Phase 24: Analyst Workflow & UAT Validation
 
@@ -220,9 +225,9 @@ Planned scope:
 **Status**: Active, roadmap extended with explicit gap-closure phases
 
 Notes:
-- Phases 19-22 are now the canonical near-term `v1.3` sequence.
-- Phases 23-25 are the remaining post-audit closure sequence for proof, analyst, and pilot blockers.
-- This milestone remains active until `WEB-03`, `OPS-01`, and `OPS-02` are re-verified and the audit passes cleanly.
+- Phases 19-23 are now the canonical near-term `v1.3` sequence.
+- Phases 24-25 are the remaining post-audit closure sequence for analyst and pilot blockers.
+- This milestone remains active until `OPS-01` and `OPS-02` are re-verified and the audit passes cleanly.
 
 ## Progress
 
@@ -250,6 +255,6 @@ Notes:
 | 20. Trajectory Hardening | v1.3 | 3/3 | Complete | 2026-03-19 |
 | 21. Portfolio Proof & Product Confidence | v1.3 | 3/3 | Complete | 2026-03-19 |
 | 22. Business-First Demo Center Refactor | v1.3 | 4/4 | Complete | 2026-03-20 |
-| 23. Proof & Investor Narrative Hardening | v1.3 | 0/0 | Planned | - |
+| 23. Proof & Investor Narrative Hardening | v1.3 | 3/3 | Complete | 2026-03-20 |
 | 24. Analyst Workflow & UAT Validation | v1.3 | 0/0 | Planned | - |
 | 25. Pilot Readiness & Demo Ops Baseline | v1.3 | 0/0 | Planned | - |

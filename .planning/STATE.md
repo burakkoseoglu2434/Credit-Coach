@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 ## Current Position
 
 Phase: 23 - Proof & Investor Narrative Hardening
-Plan: context gathered
-Status: Context captured - ready for Phase 23 planning
-Last activity: 2026-03-20 - Captured Proof and Investor narrative decisions covering proof hierarchy, trust rail, wedge story order, and commercial positioning
+Plan: phase complete
+Status: Phase 23 executed - ready for Phase 24 planning
+Last activity: 2026-03-20 - Executed Proof and Investor narrative hardening, closing `WEB-03` with buyer-first proof and investor rewrites
 
-Progress: Phases 17-22 complete; remaining open requirements are `WEB-03`, `OPS-01`, and `OPS-02`
+Progress: Phases 17-23 complete; remaining open requirements are `OPS-01` and `OPS-02`
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 66
+- Total plans completed: 69
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -30,41 +30,21 @@ Progress: Phases 17-22 complete; remaining open requirements are `WEB-03`, `OPS-
 | v1.0 historical baseline | 20 | historical import | Complete |
 | v1.1 completed milestone | 12 | phases 8-11 complete | Complete |
 | v1.2 completed milestone | 15 | phases 12-16 complete | Complete |
-| v1.3 active milestone | 19 complete | phases 17-22 complete, gap-closure continues with phases 23-25 | Open |
+| v1.3 active milestone | 22 complete | phases 17-23 complete, gap-closure continues with phases 24-25 | Open |
 
 **Recent Trend:**
-- The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
-- Full-portfolio proof now exists, including product-ready coverage, reality-gap audit, and demo representativeness diagnostics.
-- The engine now emits buyer- and analyst-ready roadmap narratives directly, including executive summary, checkpoint meaning, reasons, and technical reveal.
-- Behavior-aware recourse has now been re-hardened with conservative execution truth, stronger planner demotion, and nominal-vs-execution-aware executive evidence.
-- The post-18 roadmap has now been rebuilt through the first closure phase: Phase 19 reopened behavior-aware recourse hardening, Phase 20 completed deterministic trajectory hardening, Phase 21 refreshed portfolio proof and proof-page sync, and Phase 22 shipped the buyer-first Demo Center refactor.
-- Phase 22 is now shipped across four closed plans:
-  - Phase 21 summary traceability repair for `WEB-01`
-  - shared demo-surface primitives for calmer product framing
-  - executive and section hierarchy rewrite for the Demo Center
-  - phase-window roadmap language and technical-on-demand rewrite
-- Phase 22 now leaves the website with:
-  - a top-level representative-preview disclaimer
-  - executive-first customer, portfolio, offer, and learning sections
-  - repeated request-demo CTA seams
-  - technical detail hidden behind explicit reveals
-  - fully localized `EN` and `TR` business-facing roadmap language
-- Phase 21 is now shipped across three closed waves:
-  - product-facing proof verdict and confidence over the canonical portfolio seam
-  - suite-level curated `product_confidence_snapshot.json` packaging
-  - proof-page sync to one engine-owned curated proof artifact
-- The 2026-03-19 milestone audit gap on `WEB-01` is now closed, and `WEB-02` is closed through the Phase 22 Demo Center refactor.
-- Remaining milestone blockers are now narrowed to `WEB-03`, `OPS-01`, and `OPS-02`.
-- Phase 20 is now shipped across three closed waves:
-  - deterministic phase and checkpoint contract locking
-  - consistency, monotonicity, and early-health hardening
-  - deterministic replan, status, and policy-label semantics
-- Phase 20 now leaves the engine with:
-  - fixed `4 / 12 / 24` checkpoint semantics
-  - explicit `on_track / at_risk / missed` checkpoint-local truth
-  - weak-4w-sensitive planner behavior
-  - boundary-only formal replan and stable trajectory labels
-- Future work after Phase 21 remains intentionally open until the next redesign pass.
+- The engine remains typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
+- Full-portfolio proof, curated confidence packaging, and typed buyer-facing roadmap narratives are all now in place.
+- Phase 19 and Phase 20 re-hardened execution-aware ranking and deterministic trajectory contracts.
+- Phase 21 refreshed the canonical proof seam and shipped the engine-owned `product_confidence_snapshot.json`.
+- Phase 22 turned the Demo Center into an executive-first buyer surface with calmer UI, reduced KPI density, CTA seams, and technical detail on demand.
+- Phase 23 closed `WEB-03` by shipping:
+  - one shared Proof and Investor vocabulary seam
+  - a verdict-first Proof page with compact trust rail and translated benchmark language
+  - an Investor page that reads market pain -> wedge -> proof -> monetization
+  - second-layer `decision intelligence infrastructure` positioning and default `pilot -> platform` commercial framing
+- The 2026-03-19 milestone audit gaps on `WEB-01`, `WEB-02`, and `WEB-03` are now closed.
+- Remaining milestone blockers are `OPS-01` and `OPS-02`.
 
 ## Accumulated Context
 
@@ -80,87 +60,13 @@ Recent decisions affecting current work:
 - `credit-coach-website/` is now treated as milestone scope, not side documentation
 - The Python engine remains source-of-truth and website surfaces should consume curated artifact-derived snapshots rather than reimplement model logic
 - Business-first analyst and buyer language is now an explicit milestone requirement rather than an implied polishing task
-- Phase 17 shipped a canonical portfolio proof seam under `portfolio_validation.py` and batch/suite artifact emission
-- Phase 17 locked and implemented:
-  - `raw / valid / governance-safe / product-ready` coverage as the canonical funnel
-  - reality-gap as audit-first and non-blocking
-  - derived `recoverability_segment` and `offer_needed_segment`
-  - canonical demo verdicts: `representative | optimistic | narrow | misleading`
-  - suite-level supporting and release artifact references for portfolio proof
-- Phase 18 discussion locked:
-  - engine-side canonical narrative contract
-  - `customer_roadmap.narrative` as sibling translated layer
-  - executive summary by default and `technical_reveal` on demand
-  - one shared UI-ready schema for website and analyst views
-  - template-driven, deterministic, controlled-vocabulary narration
-- Phase 18 shipped:
-  - engine-owned roadmap narrative schema and serialization
-  - deterministic action, checkpoint, offer, and reason narration
-  - confidence labels plus controlled technical reveal
-  - website typed mirror that consumes engine narrative instead of inventing story text
-- On 2026-03-19, all planned phases after 18 were intentionally removed from the roadmap so the remaining `v1.3` sequence could be redesigned from a clean state
-- On 2026-03-19, `Phase 19: Behavior-Aware Recourse` and `Phase 20: Trajectory Hardening` were added back as explicit hardening passes over inherited `v1.2` capability
-- On 2026-03-19, Phase 19 discussion locked:
-  - balanced but mildly conservative execution-probability posture
-  - strong execution-aware ranking demotion
-  - weighted min-average composite aggregation
-  - dual realization layers for executable vs approval-dependent branches
-  - nominal-vs-execution-aware comparison as the executive evidence center
-- On 2026-03-19, Phase 19 planning split the work into:
-  - estimator and realization hardening
-  - ranking leverage and provisional contender behavior
-  - artifact, suite, and review emphasis
-- On 2026-03-19, Phase 19 shipped:
-  - conservative execution-probability posture with burden+horizon hardening
-  - dual executable vs approval-dependent realization truth
-  - stronger execution-aware winner selection and provisional demotion
-  - risk-band-centered nominal-vs-execution-aware behavior proof
-- On 2026-03-19, Phase 20 was re-scoped into a mini hardening phase centered on:
-  - deterministic phase assignment
-  - fixed 4w or 12w or 24w checkpoint contracts
-  - soft monotonicity and early-health protection
-  - deterministic replan and trajectory status semantics
-- On 2026-03-19, Phase 20 planning split the work into:
-  - contract hardening for phases and checkpoints
-  - consistency and soft-monotonicity hardening
-  - deterministic replan, status, and policy-label hardening
-- On 2026-03-19, Phase 20 discussion locked:
-  - `phase_3_optimize` to `13-24w` / `3-6 ay`
-  - checkpoint type enum to `primary | confirmation | stability`
-  - checkpoint-local status enum to `on_track | at_risk | missed`
-  - `24w` as the closing proof and product horizon
-  - `0.01` monotonicity tolerance and `>0.03` worsening jump flag
-  - weak `4w` health as dominant negative signal without hard reject
-  - `needs_replan` only at canonical review boundaries and `degraded` as keep-going-no-longer-rational state
-  - fully rule-based policy labels, with execution truth allowed only as a conservative secondary adjustment
-- On 2026-03-19, Phase 21 was reintroduced as the next proof-facing pass:
-  - rerun the hardened engine portfolio-wide
-  - regenerate proof artifacts
-  - answer the buyer-facing “is this really working?” question with refreshed evidence
-- On 2026-03-19, Phase 21 discussion locked:
-  - product-facing proof verdicts separate from internal release decisions
-  - canonical verdict set `working | promising | mixed | not_proven`
-  - separate proof confidence labels `strong | moderate | weak`
-  - headline proof hierarchy centered on product-ready coverage, governance-safe coverage, and execution-aware value
-  - `weak_4w` and delayed trajectory truth as first-class supporting proof
-  - explicit delta versus the Phase 17 canonical proof baseline
-  - website proof sync via one engine-derived curated proof snapshot
-- On 2026-03-19, Phase 20 shipped:
-  - locked `phase_3_optimize` to `13-24w` / `3-6 ay`
-  - fixed checkpoint enums and machine-readable checkpoint-local status
-  - explicit weak-4w, jump, non-monotonic, and inconsistency trajectory truth
-  - boundary-only replan with safer `needs_replan` vs `degraded` separation
-  - rule-based trajectory labels that remain checkpoint-first and only conservatively execution-adjusted
-- On 2026-03-19, Phase 21 shipped:
-  - product-facing proof verdicts and proof confidence in the canonical portfolio proof seam
-  - explicit delta versus the Phase 17 proof baseline
-  - one engine-owned `product_confidence_snapshot.json` for downstream proof consumers
-  - a proof page that consumes one curated artifact instead of stitching many raw proof files
-- On 2026-03-20, Phase 22 shipped:
-  - audit-ready Phase 21 summary metadata for `WEB-01`
-  - shared Demo Center primitives for calmer product framing, context labels, and CTA reuse
-  - executive, section, and technical-detail hierarchy across customer, portfolio, offer, and learning
-  - roadmap cards rewritten around `first 4 weeks`, `weeks 4-12`, and `weeks 12-24`
+- Phase 17 established the canonical portfolio proof seam and the full-cohort coverage vocabulary.
+- Phase 18 established the engine-owned narrative contract with executive summary by default and technical reveal on demand.
+- Phase 19 re-hardened conservative execution truth and stronger execution-aware ranking behavior.
+- Phase 20 locked the deterministic 4w/12w/24w trajectory and checkpoint contract.
+- Phase 21 shipped product-facing proof verdicts, confidence labels, and the curated `product_confidence_snapshot.json`.
+- Phase 22 shipped the buyer-first Demo Center refactor and closed `WEB-02`.
+- Phase 23 shipped the shared proof/investor vocabulary seam, the executive-memo Proof page, and the disciplined Investor brief, closing `WEB-03`.
 
 ### Roadmap Evolution
 
@@ -168,7 +74,7 @@ Recent decisions affecting current work:
 - Phase 20 re-scoped: Trajectory Hardening (mini phase)
 - Phase 21 added: Portfolio Proof & Product Confidence
 - Phase 22 executed: Business-First Demo Center Refactor
-- Phase 23 context gathered: Proof & Investor Narrative Hardening
+- Phase 23 executed: Proof & Investor Narrative Hardening
 
 ### Pending Todos
 
@@ -183,5 +89,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-20
-Stopped at: Phase 23 context gathered; next step is `$gsd-plan-phase 23`
-Resume file: .planning/phases/23-proof-investor-narrative-hardening/23-CONTEXT.md
+Stopped at: Completed Phase 23 execution; next step is `$gsd-plan-phase 24`
+Resume file: .planning/phases/24-analyst-workflow-uat-validation/24-CONTEXT.md
