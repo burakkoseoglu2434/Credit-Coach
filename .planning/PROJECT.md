@@ -28,10 +28,10 @@ The active milestone is now `v2.0 Personalized Action & Decision Intelligence`. 
 **Goal:** Turn model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans with clear product-ready narratives and portfolio-level validation.
 
 **Target features:**
-- convert selected recourse outputs into numeric action contracts with explicit deltas, units, timing, and completion criteria
-- connect each plan to customer-specific decision readiness, review posture, and institution-side dependencies
-- keep product narratives business-first while preserving numeric and technical traceability behind the same engine-owned contract
-- validate the personalized planning layer across the portfolio and compare it against the shipped `v1.3` baseline
+- harden action semantics before numeric targeting so feature deltas become real customer actions
+- turn those actions into numeric, feasible, and execution-aware targets with explicit institution-side offer handling
+- render the new personalized plans through engine-owned narratives and typed product surfaces
+- validate the new layer at portfolio scale, calibrate realism, and carry it into pilot integration seams
 
 <details>
 <summary>Archived Milestone Context: v1.3 Portfolio Intelligence & Productization</summary>
@@ -60,10 +60,10 @@ The active milestone is now `v2.0 Personalized Action & Decision Intelligence`. 
 
 ### Active
 
-- [ ] Personalized action plans become customer-specific, numeric, feasible, and ordered
-- [ ] Decision intelligence explains readiness, review posture, and institution-side dependencies per customer plan
-- [ ] Product surfaces consume engine-owned personalized narratives without inventing plan meaning in the UI
-- [ ] Portfolio proof validates whether personalization improves action specificity and decision usefulness versus the `v1.3` baseline
+- [ ] Feature deltas become real-world action contracts before they become numeric customer targets
+- [ ] Personalized plans become numeric, feasible, execution-aware, and institution-aware
+- [ ] Engine-owned narratives and product surfaces present the new plans without UI-side reinterpretation
+- [ ] Portfolio proof, calibration, and pilot integration validate whether the new layer is realistic and more useful than the `v1.3` baseline
 
 ### Out of Scope
 
@@ -81,6 +81,7 @@ The active milestone is now `v2.0 Personalized Action & Decision Intelligence`. 
 - `v1.3 Portfolio Intelligence & Productization` is now shipped and audited, adding full-portfolio proof, narrative translation, buyer-safe product surfaces, analyst validation, and pilot-baseline operations.
 - `v2.0 Personalized Action & Decision Intelligence` now reopens the engine at the plan-contract layer rather than at the raw model or portfolio-proof baseline.
 - This milestone is intentionally focused on making outputs more customer-specific and decision-useful, not on rebuilding the core scoring stack.
+- The milestone has been explicitly resequenced into a longer `Phase 30-39` chain covering semantics, numeric targets, constraints, execution realism, offers, narratives, surfaces, portfolio proof, calibration, and pilot integration.
 - Separate research was skipped for milestone initialization because the user supplied a focused milestone goal and the repo already carries rich brownfield evidence from `v1.2` and `v1.3`.
 
 ## Constraints
@@ -90,7 +91,7 @@ The active milestone is now `v2.0 Personalized Action & Decision Intelligence`. 
 - **Business-First Surface**: Default UI must speak in analyst and enterprise-buyer language; raw technical traces belong in controlled secondary views
 - **Proof Before Hype**: Demo, proof, and investor claims should stay anchored to full-portfolio evidence and explicit trust cues
 - **Brownfield**: Existing CLI runners, artifacts, website stack, and review surfaces should be evolved rather than replaced
-- **Milestone Continuity**: The next roadmap should continue from Phase 26 rather than resetting numbering
+- **Milestone Continuity**: The active roadmap now continues from Phase 30 rather than resetting numbering
 
 ## Key Decisions
 
@@ -105,7 +106,8 @@ The active milestone is now `v2.0 Personalized Action & Decision Intelligence`. 
 | Require business-first defaults with explicit technical reveal | The target users are institutional decision-makers, but technical trust still has to remain accessible | ✓ Good |
 | Require milestone-local analyst validation before claiming pilot readiness | Trustworthiness needed explicit UAT evidence instead of implied future review | ✓ Good |
 | Archive `v1.3` before opening more work | The product now sits at a milestone boundary and should move forward under a fresh requirement contract | ✓ Good |
-| Open `v2.0 Personalized Action & Decision Intelligence` as the next milestone | The next leverage point is not more generic proof or productization, but sharper customer-specific plan contracts and decision-facing intelligence | — Pending |
+| Open `v2.0 Personalized Action & Decision Intelligence` as the next milestone | The next leverage point is not more generic proof or productization, but sharper customer-specific plan contracts and decision-facing intelligence | ✓ Good |
+| Replan `v2.0` around Phase 30-39 instead of the earlier short draft | The user wants a fuller sequence that separates semantics, numeric targets, feasibility, execution, offer integration, narrative generation, surfaces, portfolio impact, calibration, and pilot integration | ✓ Good |
 
 ---
-*Last updated: 2026-03-20 after opening milestone v2.0 Personalized Action & Decision Intelligence*
+*Last updated: 2026-03-20 after replanning milestone v2.0 around phases 30-39*

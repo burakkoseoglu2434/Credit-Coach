@@ -122,26 +122,34 @@
 
 **Goal:** Turn model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans with clear product-ready narratives and portfolio-level validation.
 
-**Phases planned:** 26-29
+**Phases planned:** 30-39
 
 **Why this milestone exists:**
 - `v1.3` proved the engine and product surfaces can be trusted, but many outputs still need to become more customer-specific and numerically concrete.
-- The next product leap is sharper action intelligence: what exactly this customer should do, by how much, by when, and how that changes institution-side decision posture.
-- Portfolio proof now needs to evaluate whether personalization makes plans more useful and more decision-relevant than the already-shipped `v1.3` layer.
+- The next product leap is sharper action intelligence: what exactly this customer should do, by how much, by when, how feasible that is, and how that changes institution-side decision posture.
+- This requires a fuller sequence than the initial short draft: semantics, numeric targeting, constraints, execution realism, offers, narratives, surfaces, portfolio proof, calibration, and pilot integration.
 
 **Planned phase sequence:**
-- Phase 26: Personalized Numeric Action Contracts
-- Phase 27: Institution-Aware Decision Intelligence
-- Phase 28: Product-Ready Personalized Narratives
-- Phase 29: Portfolio Validation For Personalized Action Intelligence
+- Phase 30: Action Semantics Hardening
+- Phase 31: Numeric Target Engine
+- Phase 32: Feasibility & Constraint Engine
+- Phase 33: Action Difficulty & Execution Modeling
+- Phase 34: Offer Layer Integration
+- Phase 35: Narrative Generation v2
+- Phase 36: Product Surface Upgrade
+- Phase 37: Portfolio-Level Numeric Impact
+- Phase 38: Calibration & Validation
+- Phase 39: Pilot Integration
 
-**Current checkpoint:** Requirements and roadmap are defined; next step is `Phase 26` discussion and planning.
+**Current checkpoint:** Requirements and roadmap are defined; next step is `Phase 30` discussion and planning.
 
 **Success bar:**
+- Feature deltas become real actions, then numeric targets, then validated personalized plans
 - Plans become numeric, feasible, and customer-specific
 - Decision readiness and institution dependencies are explicit in the same contract
 - Product surfaces consume engine-owned personalized narratives without UI-side reinterpretation
 - Portfolio proof can compare personalized action intelligence against the shipped `v1.3` baseline honestly
+- Calibration and pilot integration show the new layer is usable beyond synthetic milestone demos
 
 **Likely future follow-on themes:**
 - pilot-grade external institution integrations beyond artifact handoff

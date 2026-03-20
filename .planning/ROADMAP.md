@@ -69,65 +69,123 @@ Historical archive: `.planning/milestones/v1.3-ROADMAP.md`
 ### v2.0 Personalized Action & Decision Intelligence
 
 **Goal**: Turn model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans with clear product-ready narratives and portfolio-level validation.
-**Phases**: 26-29 currently defined
-**Status**: Active, requirements and roadmap defined; ready to start Phase 26
+**Phases**: 30-39 currently defined
+**Status**: Active, requirements and roadmap defined; ready to start Phase 30
 
-### Phase 26: Personalized Numeric Action Contracts
+### Phase 30: Action Semantics Hardening
 
-**Goal**: Convert selected recourse outputs into customer-specific numeric action contracts with explicit deltas, units, timing, and completion criteria.
+**Goal**: Turn feature deltas into a stable real-world action mapping layer that is deterministic, typed, and product-safe.
 **Depends on**: Phase 25
-**Requirements**: `PACT-01`, `PACT-02`
+**Requirements**: `ACT-01`
 **Success criteria:**
-1. Every selected action step carries customer-specific current value, target value, delta, unit, and due window.
-2. Every step includes a concrete completion criterion and burden or feasibility context instead of abstract advice.
-3. Default serialized artifacts expose numeric action contracts while preserving traceability back to underlying technical effects.
-4. Regression coverage protects deterministic serialization for representative behavioral, structural, and institutional steps.
+1. Feature-level changes map deterministically to action types, action groups, and user-facing action keys.
+2. Composite and grouped actions remain traceable back to technical effects without leaking raw feature language into default outputs.
+3. Regression coverage protects action-semantic stability across representative behavioral, structural, and institutional cases.
 
-### Phase 27: Institution-Aware Decision Intelligence
+### Phase 31: Numeric Target Engine
 
-**Goal**: Attach customer-specific decision-readiness meaning and institution-side dependencies to each personalized plan without breaking the engine-owned contract.
-**Depends on**: Phase 26
-**Requirements**: `PACT-03`, `DINT-01`, `DINT-02`
+**Goal**: Convert action semantics into customer-specific numeric targets with explicit units, deltas, and time windows.
+**Depends on**: Phase 30
+**Requirements**: `NUM-01`
 **Success criteria:**
-1. Customer actions and institution actions are clearly separated but still live inside one ordered plan contract.
-2. Each plan can explain how the roadmap changes approval readiness, review posture, or offer eligibility at `4w / 12w / 24w`.
-3. Approvals, prerequisite actions, and offer conditions are explicit and safe for product consumption.
-4. Institution-aware dependencies stay deterministic and traceable across engine artifacts and downstream consumers.
+1. Each selected action step carries current value, target value, delta, unit, and due horizon.
+2. Numeric targets are customer-specific rather than template-only defaults.
+3. Numeric target serialization stays deterministic and auditable across the engine contract.
 
-### Phase 28: Product-Ready Personalized Narratives
+### Phase 32: Feasibility & Constraint Engine
 
-**Goal**: Render personalized numeric action plans into clear product narratives for buyer, analyst, and demo surfaces without UI-side reinterpretation.
-**Depends on**: Phase 27
-**Requirements**: `NARR-01`, `NARR-02`
+**Goal**: Ensure numeric targets are realistic, repairable when safe, and rejected when infeasible.
+**Depends on**: Phase 31
+**Requirements**: `FEAS-01`
 **Success criteria:**
-1. The engine can explain what to do, why it matters, expected numeric effect, and the consequence of completion or miss for each step.
-2. Business-first product surfaces consume the same engine-owned contract and keep numeric or technical detail available on demand.
-3. Representative personalized plans are understandable without exposing raw engine-native delta language.
-4. UI consumers render personalized plans without inventing their own decision logic or narrative meaning.
+1. Numeric targets pass through explicit clip, repair, reject, and dependency rules before they become valid steps.
+2. Feasibility logic explains why a target is valid, repaired, or rejected.
+3. Unrealistic numeric recommendations cannot surface as normal valid winners.
 
-### Phase 29: Portfolio Validation For Personalized Action Intelligence
+### Phase 33: Action Difficulty & Execution Modeling
 
-**Goal**: Validate the personalized planning layer across the portfolio and compare it against the shipped `v1.3` baseline on specificity, realism, and decision usefulness.
-**Depends on**: Phase 28
-**Requirements**: `PVAL-01`, `PVAL-02`
+**Goal**: Strengthen the difficulty and follow-through profile of each action so realistic completion becomes part of plan quality.
+**Depends on**: Phase 32
+**Requirements**: `EXEC-01`
 **Success criteria:**
-1. Portfolio artifacts quantify coverage, realism, and outcome distribution for personalized numeric plans.
-2. Proof artifacts compare the personalized-action layer against the `v1.3` baseline on customer specificity, decision clarity, and institution awareness.
-3. Supporting evidence shows where personalization improves usefulness and where it remains mixed or narrow.
-4. Product confidence surfaces can tell an honest “is this more useful?” story without hiding weaker segments or tradeoffs.
+1. Every action carries a measurable difficulty or execution-likelihood profile.
+2. Harder or longer-horizon steps are penalized in realistic plan quality rather than treated like neutral targets.
+3. The engine can distinguish nominally strong but execution-weak plans from realistically executable ones.
+
+### Phase 34: Offer Layer Integration
+
+**Goal**: Make institution actions explicit through a separate offer layer with terms, approvals, and dependencies.
+**Depends on**: Phase 33
+**Requirements**: `OFFR-01`
+**Success criteria:**
+1. Institution-side actions are represented as explicit offers instead of being mixed indistinguishably with customer actions.
+2. Offer terms, approval state, and dependencies are machine-readable and product-safe.
+3. Customer and institution steps can coexist in one plan without collapsing their semantics.
+
+### Phase 35: Narrative Generation v2
+
+**Goal**: Translate numeric and institution-aware plans into clear product narratives while preserving traceability.
+**Depends on**: Phase 34
+**Requirements**: `NARV-01`
+**Success criteria:**
+1. Narratives explain what to do, why it matters, expected numeric effect, and consequence of completion or miss.
+2. Numeric and offer-aware plan meaning comes from the engine contract rather than UI-side invention.
+3. Default language is business-first while numeric and technical detail remain available on demand.
+
+### Phase 36: Product Surface Upgrade
+
+**Goal**: Bring the new numeric personalized plans into demo and product surfaces through typed artifact consumption.
+**Depends on**: Phase 35
+**Requirements**: `SURF-01`
+**Success criteria:**
+1. Demo and product surfaces render personalized numeric plans directly from engine-owned artifacts.
+2. UI layers do not re-interpret plan meaning or invent new decision logic.
+3. Numeric, institution-aware, and narrative layers remain coherent across product surfaces.
+
+### Phase 37: Portfolio-Level Numeric Impact
+
+**Goal**: Measure the portfolio-wide distribution and impact of the personalized numeric action layer.
+**Depends on**: Phase 36
+**Requirements**: `PVAL-01`
+**Success criteria:**
+1. Portfolio artifacts quantify how often personalized numeric plans exist, what they recommend, and how their impact distributes across segments.
+2. Portfolio views surface where numeric personalization improves usefulness and where it remains narrow or weak.
+3. Product-facing proof can speak about personalized-action impact beyond single-case demos.
+
+### Phase 38: Calibration & Validation
+
+**Goal**: Validate that numeric recommendations and impact distributions are realistic, calibrated, and not falsely optimistic.
+**Depends on**: Phase 37
+**Requirements**: `CAL-01`
+**Success criteria:**
+1. Numeric targets and impact distributions are checked for realism and calibration drift.
+2. False optimism and unstable target ranges are surfaced explicitly in validation outputs.
+3. The personalized numeric layer can be trusted as a controlled recommendation surface rather than a speculative generator.
+
+### Phase 39: Pilot Integration
+
+**Goal**: Start the personalized planning loop against real institution-style data and pilot integration seams.
+**Depends on**: Phase 38
+**Requirements**: `PILT-01`
+**Success criteria:**
+1. The personalized planning loop can run through pilot-style input and output contracts without breaking engine-owned truth.
+2. Real institution data seams are explicit enough to support pilot onboarding and evaluation.
+3. The system can start a learning loop from pilot integration rather than staying purely milestone-local and synthetic.
 
 ### Why This Milestone Exists
 
-- `v1.3` proved that the engine can be trusted and surfaced cleanly, but many plans still read like transformed model outputs rather than truly customer-specific action contracts.
-- The next leverage point is not more generic proof or more website breadth; it is sharper personalized planning intelligence that connects action steps to concrete customer outcomes and institution decisions.
-- Portfolio validation now needs to judge whether personalization makes plans more specific and more decision-useful, not just whether the recourse stack still works in aggregate.
+- `v1.3` proved the engine and surfaces can be trusted, but many outputs still stop at model-native recourse rather than truly personalized action intelligence.
+- The next milestone needs a deeper stack than a four-phase pass: semantics, numeric targeting, feasibility, execution realism, offer integration, narrative generation, product consumption, portfolio impact, calibration, and pilot integration all need explicit closure.
+- Portfolio validation now needs to answer not just whether plans work, but whether customer-specific numeric plans are realistic, interpretable, and institution-usable.
 
 ### Success Bar
 
+- Feature deltas become real actions before they become numeric targets
 - Personalized plans are numeric, feasible, and customer-specific rather than generic recourse summaries
 - Institution-side actions, approvals, and dependencies are explicit in the same plan contract
 - Product surfaces can explain personalized plans without adding UI-side interpretation
 - Portfolio proof can say whether the personalized planning layer is actually more useful than the shipped `v1.3` baseline
+- Calibration and pilot integration confirm the new layer is realistic enough to carry into institution workflows
 
 ## Progress
 
@@ -158,7 +216,13 @@ Historical archive: `.planning/milestones/v1.3-ROADMAP.md`
 | 23. Proof & Investor Narrative Hardening | v1.3 | 3/3 | Complete | 2026-03-20 |
 | 24. Analyst Workflow & UAT Validation | v1.3 | 3/3 | Complete | 2026-03-20 |
 | 25. Pilot Readiness & Demo Ops Baseline | v1.3 | 3/3 | Complete | 2026-03-20 |
-| 26. Personalized Numeric Action Contracts | v2.0 | roadmap defined | Planned | - |
-| 27. Institution-Aware Decision Intelligence | v2.0 | roadmap defined | Planned | - |
-| 28. Product-Ready Personalized Narratives | v2.0 | roadmap defined | Planned | - |
-| 29. Portfolio Validation For Personalized Action Intelligence | v2.0 | roadmap defined | Planned | - |
+| 30. Action Semantics Hardening | v2.0 | roadmap defined | Planned | - |
+| 31. Numeric Target Engine | v2.0 | roadmap defined | Planned | - |
+| 32. Feasibility & Constraint Engine | v2.0 | roadmap defined | Planned | - |
+| 33. Action Difficulty & Execution Modeling | v2.0 | roadmap defined | Planned | - |
+| 34. Offer Layer Integration | v2.0 | roadmap defined | Planned | - |
+| 35. Narrative Generation v2 | v2.0 | roadmap defined | Planned | - |
+| 36. Product Surface Upgrade | v2.0 | roadmap defined | Planned | - |
+| 37. Portfolio-Level Numeric Impact | v2.0 | roadmap defined | Planned | - |
+| 38. Calibration & Validation | v2.0 | roadmap defined | Planned | - |
+| 39. Pilot Integration | v2.0 | roadmap defined | Planned | - |

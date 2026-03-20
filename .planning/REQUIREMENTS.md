@@ -6,26 +6,45 @@
 
 ## v2.0 Requirements
 
-### Personalized Action Plans
+### Action Semantics
 
-- [ ] **PACT-01**: Each selected plan can be serialized into customer-specific numeric action steps with current value, target value, delta, unit, and due window
-- [ ] **PACT-02**: Each action step includes feasibility-safe completion criteria, burden context, and a concrete definition of what “done” means for that customer
-- [ ] **PACT-03**: Customer actions and institution actions can coexist in one ordered plan while remaining clearly separated and traceable
+- [ ] **ACT-01**: Feature-level recourse changes can be mapped deterministically into real-world action types, action groups, and user-facing action contracts
 
-### Decision Intelligence
+### Numeric Targeting
 
-- [ ] **DINT-01**: The system can explain how a personalized plan changes approval readiness, review posture, or offer eligibility for a specific customer across `4w / 12w / 24w`
-- [ ] **DINT-02**: Institution-aware dependencies such as approvals, prerequisite actions, and offer conditions are explicit in the plan contract and safe for product use
+- [ ] **NUM-01**: Selected actions can be translated into customer-specific numeric targets with current value, target value, delta, unit, and due horizon
 
-### Product Narratives
+### Feasibility And Constraints
 
-- [ ] **NARR-01**: Engine-owned narratives can explain what the customer should do, why it matters, what numeric effect is expected, and what happens if the step is completed or missed
-- [ ] **NARR-02**: Product surfaces can render personalized numeric plans in business-first language by default while keeping numeric and technical detail available on demand
+- [ ] **FEAS-01**: Numeric targets are clipped, repaired, or rejected by explicit feasibility and constraint logic before they are treated as valid plan steps
 
-### Portfolio Validation
+### Execution Modeling
 
-- [ ] **PVAL-01**: Portfolio evaluation can measure coverage, realism, and outcome distribution for personalized numeric plans instead of only generic recourse outputs
-- [ ] **PVAL-02**: Proof artifacts can compare the personalized-action layer against the shipped `v1.3` baseline on customer specificity, decision clarity, and institution awareness
+- [ ] **EXEC-01**: Each action carries a difficulty and execution-likelihood profile that affects plan quality and realistic completion expectations
+
+### Offer Integration
+
+- [ ] **OFFR-01**: Institution actions are represented through an explicit offer layer with terms, approval state, and dependencies that stay separate from customer actions
+
+### Narrative Generation
+
+- [ ] **NARV-01**: Engine-owned narratives can explain personalized numeric and institution-aware plans in product language without losing numeric and technical traceability
+
+### Product Surface
+
+- [ ] **SURF-01**: Demo and product surfaces can render the new numeric personalized plans and decision intelligence directly from typed engine artifacts
+
+### Portfolio Impact
+
+- [ ] **PVAL-01**: Portfolio evaluation can quantify the distribution and impact of personalized numeric plans rather than only generic recourse outputs
+
+### Calibration And Validation
+
+- [ ] **CAL-01**: The system can validate whether suggested numeric targets and resulting impact distributions are realistic, calibrated, and not falsely optimistic
+
+### Pilot Integration
+
+- [ ] **PILT-01**: The personalized planning loop can be exercised against real institution-style data and pilot integration seams without breaking engine-owned truth
 
 ## Future Requirements Carried Forward
 
@@ -58,19 +77,20 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PACT-01 | Phase 26 | Pending |
-| PACT-02 | Phase 26 | Pending |
-| PACT-03 | Phase 27 | Pending |
-| DINT-01 | Phase 27 | Pending |
-| DINT-02 | Phase 27 | Pending |
-| NARR-01 | Phase 28 | Pending |
-| NARR-02 | Phase 28 | Pending |
-| PVAL-01 | Phase 29 | Pending |
-| PVAL-02 | Phase 29 | Pending |
+| ACT-01 | Phase 30 | Pending |
+| NUM-01 | Phase 31 | Pending |
+| FEAS-01 | Phase 32 | Pending |
+| EXEC-01 | Phase 33 | Pending |
+| OFFR-01 | Phase 34 | Pending |
+| NARV-01 | Phase 35 | Pending |
+| SURF-01 | Phase 36 | Pending |
+| PVAL-01 | Phase 37 | Pending |
+| CAL-01 | Phase 38 | Pending |
+| PILT-01 | Phase 39 | Pending |
 
 **Coverage:**
-- v2.0 requirements: 9 total
-- Mapped to phases: 9
+- v2.0 requirements: 10 total
+- Mapped to phases: 10
 - Unmapped: 0
 
 ---
