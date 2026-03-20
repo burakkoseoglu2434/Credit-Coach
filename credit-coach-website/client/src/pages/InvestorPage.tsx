@@ -1,8 +1,11 @@
-import { CapabilityCard } from "@/components/CapabilityCard";
+import { DemoSectionCta } from "@/components/DemoSectionCta";
 import { MetricTile } from "@/components/MetricTile";
 import { PageHero } from "@/components/PageHero";
 import { SectionHeading } from "@/components/SectionHeading";
-import { investorNarrative } from "@/data/site-content";
+import {
+  investorPageNarrative,
+  proofInvestorSharedLanguage,
+} from "@/data/site-content";
 import { useDemoItem } from "@/hooks/useDemoData";
 import { useLanguage } from "@/i18n/language";
 
@@ -24,6 +27,9 @@ export function InvestorPage() {
   const offerMetrics =
     ((offer.data?.content as GenericContent)?.canonical_metrics as GenericContent) ?? {};
   const learningContent = learning.data?.content ?? {};
+  const learningReadiness =
+    ((learningContent.learning_readiness_status_distribution as GenericContent)
+      ?.learning_ready as GenericContent) ?? {};
 
   const formatPercent = (value: number, digits = 0) =>
     new Intl.NumberFormat(locale, {
@@ -32,223 +38,274 @@ export function InvestorPage() {
       minimumFractionDigits: digits,
     }).format(value);
 
+  const formatNumber = (value: number, digits = 1) =>
+    new Intl.NumberFormat(locale, {
+      maximumFractionDigits: digits,
+      minimumFractionDigits: digits,
+    }).format(value);
+
   return (
     <div>
       <PageHero
         eyebrow={text({ tr: "Yatirimci", en: "Investor" })}
-        title={text({
-          tr: "Kredi kararindan sonra acilan yeni yazilim katmani.",
-          en: "A new software layer that opens after the credit decision.",
-        })}
-        supportingNote={text({
-          tr: "Kuantitive, red sonrasi mudahale ve teklif optimizasyonunu urunlestiriyor.",
-          en: "Kuantitive is productizing post-decline intervention and offer optimization.",
-        })}
-        description={text({
-          tr: "Bu yalnizca baska bir skor urunu degil. credit-coach, finans kurumlarinin red sonrasinda kaybettigi musteri ve gelir alanini yeniden yoneten bir karar urunu olma iddiasinda.",
-          en: "This is not another scoring product. credit-coach aims to become the decision platform financial institutions use to recover value after a decline.",
-        })}
-        primaryCta={{ href: "/contact", label: text({ tr: "Yatirimci Gorusu Planla", en: "Schedule an Investor Conversation" }) }}
+        title={text(investorPageNarrative.hero.title)}
+        supportingNote={text(investorPageNarrative.hero.supportingNote)}
+        description={text(investorPageNarrative.hero.description)}
+        primaryCta={{
+          href: "/contact",
+          label: text({ tr: "Yatirimci Gorusu Planla", en: "Schedule Investor Conversation" }),
+        }}
         secondaryCta={{ href: "/demo", label: text({ tr: "Urunu Gor", en: "See the Product" }) }}
         tertiaryCta={{ href: "/proof", label: text({ tr: "Kanitlari Incele", en: "Review Proof" }) }}
+        badges={[
+          text(proofInvestorSharedLanguage.contextLabels.curated),
+          text(proofInvestorSharedLanguage.contextLabels.simulation),
+          text(proofInvestorSharedLanguage.contextLabels.benchmark),
+        ]}
+        variant="product"
+        aside={
+          <div className="panel-product p-6 lg:w-[430px]">
+            <div className="surface-label">{text({ tr: "Okuma akisi", en: "Story order" })}</div>
+            <div className="mt-3 font-display text-2xl font-semibold text-white">
+              {text({
+                tr: "Pazar problemi, giris noktasi, calistigina dair kanit ve ticari genisleme ayni akista okunur.",
+                en: "Market pain, wedge, proof it works, and commercial expansion read in one flow.",
+              })}
+            </div>
+            <div className="mt-6 space-y-3 text-sm leading-7 text-slate-300">
+              <div>
+                <span className="text-white">{text({ tr: "1.", en: "1." })}</span>{" "}
+                {text({ tr: "Nerede deger kayboluyor?", en: "Where does value disappear?" })}
+              </div>
+              <div>
+                <span className="text-white">{text({ tr: "2.", en: "2." })}</span>{" "}
+                {text({ tr: "Bu urun neyi farkli cozer?", en: "What does this product solve differently?" })}
+              </div>
+              <div>
+                <span className="text-white">{text({ tr: "3.", en: "3." })}</span>{" "}
+                {text({ tr: "Bu neden tekrarlanabilir?", en: "Why is this repeatable?" })}
+              </div>
+              <div>
+                <span className="text-white">{text({ tr: "4.", en: "4." })}</span>{" "}
+                {text({ tr: "Bu nasil buyuyebilir?", en: "How can this grow?" })}
+              </div>
+            </div>
+          </div>
+        }
       />
 
-      <section className="shell py-20">
+      <section className="shell py-16 sm:py-20">
         <SectionHeading
-          eyebrow={text({ tr: "Yatirim hikayesi", en: "Investor narrative" })}
-          title={text({
-            tr: "Neden simdi, nereden giriyor ve neden ayrisiyor?",
-            en: "Why now, where it enters, and why it differs.",
-          })}
-          description={text({
-            tr: "Bu ilk blok, pazara cikis mantigini teknik detaylarin icinde kaybetmeden ozetler.",
-            en: "This first block summarizes the go-to-market logic without hiding it inside technical detail.",
-          })}
+          eyebrow={text(investorPageNarrative.sections.marketPain.eyebrow)}
+          title={text(investorPageNarrative.sections.marketPain.title)}
+          description={text(investorPageNarrative.sections.marketPain.description)}
         />
-        <div className="mt-10 grid gap-5 lg:grid-cols-2 xl:grid-cols-5">
-          {investorNarrative.map((item) => (
-            <CapabilityCard
-              key={item.title.tr}
-              eyebrow={text({ tr: "Yatirim tezi", en: "Investment thesis" })}
-              title={text(item.title)}
-              description={text(item.description)}
-              icon={item.icon}
-            />
+
+        <div className="mt-8 grid gap-5 lg:grid-cols-2">
+          {investorPageNarrative.sections.marketPain.cards.map((item) => (
+            <div key={item.title.en} className="panel-product p-6">
+              <div className="font-display text-2xl font-semibold text-white">{item.title[lang]}</div>
+              <p className="mt-4 text-sm leading-7 text-slate-300">{item.description[lang]}</p>
+            </div>
           ))}
         </div>
       </section>
 
       <section className="border-t border-white/5 bg-white/[0.02]">
-        <div className="shell py-20">
-          <SectionHeading
-            eyebrow={text({ tr: "Neden simdi", en: "Why now" })}
-            title={text({
-              tr: "Finans kurumlari sadece karar aciklamasi degil, sonraki en iyi adimi satin almak istiyor.",
-              en: "Financial institutions need more than explainability; they need the next best action layer.",
-            })}
-            description={text({
-              tr: "Red karari artik surecin sonu degil. Kurumlar, geri kazanimi artirirken karar guvencesini koruyan yeni bir yazilim katmanina ihtiyac duyuyor.",
-              en: "A decline is no longer the end of the process. Institutions need a new software layer that improves recovery without breaking governance boundaries.",
-            })}
-          />
-          <div className="mt-10 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="panel p-7">
-              <div className="eyebrow">{text({ tr: "Ilk wedge", en: "Initial wedge" })}</div>
-              <div className="font-display text-3xl font-semibold text-white">
-                {text({
-                  tr: "Reddedilmis veya sinira yakin musteri geri kazanimi.",
-                  en: "Recovery for denied or near-threshold applicants.",
-                })}
+        <div className="shell py-16 sm:py-20">
+          <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr] xl:items-start">
+            <div className="panel-product p-6">
+              <SectionHeading
+                eyebrow={text(investorPageNarrative.sections.wedge.eyebrow)}
+                title={text(investorPageNarrative.sections.wedge.title)}
+                description={text(investorPageNarrative.sections.wedge.description)}
+              />
+              <div className="mt-6 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-arctic/80">
+                {text(proofInvestorSharedLanguage.positioning.decisionIntelligenceInfrastructure)}
               </div>
-              <p className="mt-4 text-sm leading-7 text-slate-300">
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
                 {text({
-                  tr: "Ilk giris noktasi, hem acik aci hissedilen hem de olculebilir bir alan: kaybedilen basvurulari, uygulanabilir aksiyonlar ve kurum teklifleriyle tekrar deger ureten bir yuzeye cevirmek.",
-                  en: "The initial wedge is an area where pain is obvious and outcomes are measurable: turning lost applications into a surface that can create value again through feasible actions and institution-side offers.",
+                  tr: "Bu ifade baslik iddiasi degil, ikinci katman konumlama: once reddedilen musteri toparlanmasinda ise yarayan sistem, sonra kurum ici daha genis karar akislarina yayilan yeni bir katman.",
+                  en: "This is a second-layer positioning claim, not the headline: a system that first works in declined-customer recovery, then spreads into broader decision workflows inside the institution.",
                 })}
               </p>
             </div>
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-1">
-              <MetricTile
-                label={text({ tr: "Temsili uplift", en: "Illustrative uplift" })}
-                value={formatPercent(readNumber(batchContent.denied_to_approved_lift))}
-                context={text({ tr: "Temsili offline", en: "Offline demo" })}
-                hint={text({
-                  tr: "Temsili portfoyde redden geri kazanima acilan alan.",
-                  en: "Illustrative portfolio lift from decline into recovery-ready value.",
-                })}
-              />
-              <MetricTile
-                label={text({ tr: "Teklif kabul sinyali", en: "Offer acceptance signal" })}
-                value={formatPercent(readNumber(offerMetrics.offer_acceptance_probability_mean))}
-                context={text({ tr: "Temsili gorunum", en: "Representative snapshot" })}
-                hint={text({
-                  tr: "Kurum tekliflerinin ticari bir yan kanal degil, ana karar yuzeyinin parcasi olabilecegini gosterir.",
-                  en: "Shows institution-side offers can act as part of the main decision surface rather than a side channel.",
-                })}
-              />
+
+            <div className="grid gap-5 md:grid-cols-3 xl:grid-cols-1">
+              {investorPageNarrative.sections.wedge.cards.map((item) => (
+                <div key={item.title.en} className="panel-product p-6">
+                  <div className="surface-label">{item.title[lang]}</div>
+                  <p className="mt-4 text-sm leading-7 text-slate-300">{item.description[lang]}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      <section className="shell py-20">
-        <SectionHeading
-          eyebrow={text({ tr: "Nasil para kazanir", en: "How it makes money" })}
-          title={text({
-            tr: "B2B yazilim olarak baslar, kurumsal is akisi icinde genisler.",
-            en: "Starts as B2B software and expands inside institutional workflows.",
-          })}
-            description={text({
-              tr: "Urun mantigi, once net bir pilot sorununu cozmeye sonra ayni urunu daha fazla karar noktasina tasimaya dayanir.",
-              en: "The commercial model starts by solving a clear pilot problem and then extending the same platform into more decision points.",
-            })}
-        />
-        <div className="mt-10 grid gap-5 lg:grid-cols-3">
-          <CapabilityCard
-            eyebrow={text({ tr: "Asama 1", en: "Phase 1" })}
-            title={text({ tr: "Pilot ve proof of value", en: "Pilot and proof of value" })}
-            description={text({
-              tr: "Risk veya recovery ekibiyle sinirli kapsamda baslar; musteri geri kazanimi ve teklif stratejisi uzerinden somut ROI olcer.",
-              en: "Starts with a limited scope pilot for risk or recovery teams and measures ROI through customer recovery and offer strategy.",
-            })}
-            icon="demo"
-            tone="blue"
-          />
-          <CapabilityCard
-            eyebrow={text({ tr: "Asama 2", en: "Phase 2" })}
-            title={text({ tr: "Yillik platform gelirine gecis", en: "Expansion into platform revenue" })}
-            description={text({
-              tr: "Demo katmanindan kullanim urunune gecisle birlikte kurum ici karar ekiplerine daha genis lisans modeline tasinir.",
-              en: "As the product moves from demo layer to operator-facing software, it expands into a wider institutional licensing model.",
-            })}
-            icon="platform"
-            tone="green"
-          />
-          <CapabilityCard
-            eyebrow={text({ tr: "Asama 3", en: "Phase 3" })}
-            title={text({ tr: "Karar altyapisi etkisi", en: "Decision infrastructure leverage" })}
-            description={text({
-              tr: "Ayni karar motoru, risk, teklif, geri kazanım ve politika ogrenimi yuzeylerinde tekrar kullanilan bir altyapi katmanina donusur.",
-              en: "The same decision engine becomes infrastructure reused across risk, offers, recovery, and policy learning surfaces.",
-            })}
-            icon="process"
-            tone="amber"
-          />
+      <section className="shell py-16 sm:py-20">
+        <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr] xl:items-start">
+          <div className="panel-product p-6">
+            <SectionHeading
+              eyebrow={text(investorPageNarrative.sections.proof.eyebrow)}
+              title={text(investorPageNarrative.sections.proof.title)}
+              description={text(investorPageNarrative.sections.proof.description)}
+            />
+            <p className="mt-6 text-sm leading-7 text-slate-300">
+              {text(investorPageNarrative.sections.proof.narrative)}
+            </p>
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <MetricTile
+              label={text({ tr: "Toparlanma acilan alan", en: "Recovery opening" })}
+              value={formatPercent(readNumber(batchContent.denied_to_approved_lift))}
+              context={text(proofInvestorSharedLanguage.contextLabels.simulation)}
+              hint={text({
+                tr: "Temsili portfoyde redden yonetilebilir toparlanmaya acilan alan.",
+                en: "Illustrative room to move denied cases into managed recovery.",
+              })}
+              variant="product"
+            />
+            <MetricTile
+              label={text({ tr: "Teklif yanit sinyali", en: "Offer response signal" })}
+              value={formatPercent(readNumber(offerMetrics.offer_acceptance_probability_mean))}
+              context={text(proofInvestorSharedLanguage.contextLabels.curated)}
+              hint={text({
+                tr: "Tekliflerin yan kanal degil, urunun merkezindeki karar yuzeyinin parcasi olabilecegini gosterir.",
+                en: "Shows offers can live inside the main product surface, not as a side channel.",
+              })}
+              variant="product"
+            />
+            <MetricTile
+              label={text({ tr: "Ogrenmeye hazir kayit", en: "Learning-ready records" })}
+              value={formatPercent(readNumber(learningReadiness.share))}
+              context={text(proofInvestorSharedLanguage.contextLabels.benchmark)}
+              hint={text({
+                tr: "Urunun yalnizca bugunu degil, gelecekteki politika kalitesini de ogrenebilecegini gosterir.",
+                en: "Shows the product can learn not only about today, but about future policy quality as well.",
+              })}
+              variant="product"
+            />
+          </div>
         </div>
+
+        <details className="detail-panel mt-8 px-6 py-5 text-sm text-slate-300">
+          <summary className="cursor-pointer list-none font-semibold text-white">
+            {text({ tr: "Teknik detaylari goster", en: "Show technical details" })}
+          </summary>
+          <div className="mt-5 grid gap-5 lg:grid-cols-3">
+            <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+              <div className="surface-label">{text({ tr: "Portfoy girdisi", en: "Portfolio input" })}</div>
+              <div className="mt-4 grid gap-2">
+                <div className="flex items-center justify-between gap-4">
+                  <span>{text({ tr: "4 haftalik gecis", en: "4-week gate pass" })}</span>
+                  <span className="text-white">
+                    {formatPercent(readNumber(batchContent.trajectory_gate_pass_rate_4w))}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span>{text({ tr: "24 haftalik gecis", en: "24-week gate pass" })}</span>
+                  <span className="text-white">
+                    {formatPercent(readNumber(batchContent.trajectory_gate_pass_rate_24w))}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+              <div className="surface-label">{text({ tr: "Teklif girdisi", en: "Offer input" })}</div>
+              <div className="mt-4 grid gap-2">
+                <div className="flex items-center justify-between gap-4">
+                  <span>{text({ tr: "Guvenceli teklif payi", en: "Safeguarded offer share" })}</span>
+                  <span className="text-white">
+                    {formatPercent(readNumber(offerMetrics.governance_safe_offer_rate))}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span>{text({ tr: "Beklenen etki", en: "Expected impact" })}</span>
+                  <span className="text-white">
+                    {formatNumber(readNumber(offerMetrics.expected_recovery_proxy), 1)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+              <div className="surface-label">{text({ tr: "Ogrenme girdisi", en: "Learning input" })}</div>
+              <div className="mt-4 grid gap-2">
+                <div className="flex items-center justify-between gap-4">
+                  <span>{text({ tr: "Karar kayit tamligi", en: "Decision log completeness" })}</span>
+                  <span className="text-white">
+                    {formatPercent(readNumber(learningContent.decision_log_completeness))}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span>{text({ tr: "90 gunluk sonuc kapsami", en: "90-day outcome coverage" })}</span>
+                  <span className="text-white">
+                    {formatPercent(readNumber(learningContent.reward_90d_coverage))}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
       </section>
 
       <section className="border-t border-white/5 bg-white/[0.02]">
-        <div className="shell py-20">
+        <div className="shell py-16 sm:py-20">
           <SectionHeading
-            eyebrow={text({ tr: "Bugun ne var", en: "What exists today" })}
-            title={text({
-              tr: "Teknik cekirdek hazir; asil is urunlestirme ve dagitimda.",
-              en: "The technical core is built; the remaining work is productization and distribution.",
-            })}
-            description={text({
-              tr: "Bu ayrim onemli: ortada bir fikir degil, kurulmus bir karar cekirdegi var. Yatirim ihtiyaci bunun kullanim urunune ve ticari paketlemeye donusmesinde.",
-              en: "This distinction matters: the company already has a shipped decision core. The funding need is to turn it into an operator-facing product and commercial package.",
-            })}
+            eyebrow={text(investorPageNarrative.sections.monetization.eyebrow)}
+            title={text(investorPageNarrative.sections.monetization.title)}
+            description={text(investorPageNarrative.sections.monetization.description)}
           />
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
-            <div className="panel p-6">
-              <div className="eyebrow">{text({ tr: "Hazir olan", en: "Already built" })}</div>
-              <div className="font-display text-2xl font-semibold text-white">
-                {text({ tr: "Karar motoru gercek.", en: "The decision core is real." })}
-              </div>
-              <p className="mt-4 text-sm leading-7 text-slate-300">
-                {text({
-                  tr: "Aksiyon planlama, davranis farkindalikli siralama, asamali yol haritasi, teklif optimizasyonu ve ogrenme sinyalleri bugun ayni urun hikayesi icinde calisiyor.",
-                  en: "Recourse planning, behavior-aware ranking, phased trajectories, offer optimization, and learning signals already work inside one platform story today.",
-                })}
-              </p>
-            </div>
-            <div className="panel p-6">
-              <div className="eyebrow">{text({ tr: "Eksik olan", en: "What is missing" })}</div>
-              <div className="font-display text-2xl font-semibold text-white">
-                {text({ tr: "Operator yuzeyi ve paketleme.", en: "Operator surface and packaging." })}
-              </div>
-              <p className="mt-4 text-sm leading-7 text-slate-300">
-                {text({
-                  tr: "Asil bosluk model kalitesi degil; kurumsal kullanicinin satin alabilecegi arayuz, pazara cikis paketleme ve dagitim kasidir.",
-                  en: "The gap is not model quality. It is the buyer-ready interface, go-to-market packaging, and distribution muscle.",
-                })}
-              </p>
-            </div>
-            <div className="panel p-6">
-              <div className="eyebrow">{text({ tr: "Ogrenme hazirligi", en: "Learning readiness" })}</div>
-              <div className="font-display text-2xl font-semibold text-white">
-                {formatPercent(readNumber(learningContent.decision_log_completeness))}
-              </div>
-              <p className="mt-4 text-sm leading-7 text-slate-300">
-                {text({
-                  tr: "Karar kayit disiplini ve gecikmeli sonuc kapsami, urunun gelecekte politika ogrenimi tarafina da acilabilecegini gosteriyor.",
-                  en: "Decision logging discipline and delayed outcome coverage show the product can eventually open into policy learning as well.",
-                })}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section className="shell py-20">
-        <div className="panel overflow-hidden border-cobalt/20 bg-[linear-gradient(135deg,rgba(35,78,184,0.22),rgba(255,255,255,0.04))] p-8 sm:p-10">
-          <div className="max-w-3xl">
-            <div className="eyebrow">{text({ tr: "Son soz", en: "Bottom line" })}</div>
-            <div className="font-display text-3xl font-semibold text-white sm:text-4xl">
-              {text({
-                tr: "Bu sirketin firsati baska bir skor satmak degil; karar sonrasindaki ticari ve operasyonel katmani sahiplenmek.",
-                en: "The opportunity is not to sell another score, but to own the commercial and operational layer that comes after the decision.",
-              })}
+          <div className="mt-8 grid gap-5 lg:grid-cols-3">
+            {investorPageNarrative.sections.monetization.stages.map((stage) => (
+              <div key={stage.title.en} className="panel-product p-6">
+                <div className="surface-label">{stage.title[lang]}</div>
+                <p className="mt-4 text-sm leading-7 text-slate-300">{stage.description[lang]}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="panel-product mt-8 p-6">
+            <div className="surface-label">{text(proofInvestorSharedLanguage.positioning.pilotToPlatform)}</div>
+            <div className="mt-3 font-display text-2xl font-semibold text-white">
+              {text(proofInvestorSharedLanguage.positioning.decisionIntelligenceInfrastructure)}
             </div>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-200/85 sm:text-base">
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
               {text({
-                tr: "Teknik cekirdek var, urun hikayesi netlesiyor ve finans kurumlari icin anlamli bir wedge aciliyor. Simdi ihtiyac, bunu enterprise hazir bir yazilim urunune cevirmek.",
-                en: "The technical core exists, the product story is sharpening, and the wedge is meaningful for financial institutions. The next step is turning it into enterprise-ready software.",
+                tr: "Varsayilan ticari hareket, bir pilotu dogrudan genis fiyatlandirma anlatisina cevirmek degil; ayni kurum icinde daha fazla karar ekibine acilan ortak bir urun yuzeyi kurmaktir.",
+                en: "The default commercial motion is not to jump from a pilot into a pricing story. It is to establish a shared product surface that opens to more decision teams inside the same institution.",
               })}
             </p>
           </div>
         </div>
+      </section>
+
+      <section className="shell py-16 sm:py-20">
+        <div className="panel-product p-8 sm:p-10">
+          <div className="surface-label">{text({ tr: "Sonuc", en: "Bottom line" })}</div>
+          <div className="mt-3 max-w-4xl font-display text-3xl font-semibold text-white sm:text-4xl">
+            {text(investorPageNarrative.bottomLine.title)}
+          </div>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
+            {text(investorPageNarrative.bottomLine.description)}
+          </p>
+        </div>
+
+        <DemoSectionCta
+          title={text({
+            tr: "Bu sistemi kendi kurum yapiniz icinde tartismak ister misiniz?",
+            en: "Would you like to discuss this system in the context of your institution?",
+          })}
+          description={text({
+            tr: "Giris noktasi, kanit ve pilottan platforma genisleme yolunu kurum gerceginiz uzerinden acabiliriz.",
+            en: "We can walk through the wedge, proof, and pilot-to-platform path against your institution's reality.",
+          })}
+          ctaLabel={text({ tr: "Gorusme Planla", en: "Schedule Conversation" })}
+        />
       </section>
     </div>
   );
