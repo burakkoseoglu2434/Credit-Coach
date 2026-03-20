@@ -330,7 +330,7 @@ export const investorNarrative = [
   },
   {
     title: {
-      tr: "Ilk wedge",
+      tr: "Ilk giris noktasi",
       en: "Initial wedge",
     },
     description: {
@@ -373,6 +373,395 @@ export const investorNarrative = [
     icon: "proof" as const,
   },
 ];
+
+export const proofInvestorSharedLanguage = {
+  contextLabels: {
+    curated: {
+      tr: "Derlenmis demo gorunumu",
+      en: "Curated demo snapshot",
+    },
+    simulation: {
+      tr: "Temsili simulasyon",
+      en: "Representative simulation",
+    },
+    benchmark: {
+      tr: "Cevrimdisi karsilastirma",
+      en: "Offline benchmark",
+    },
+    portfolio: {
+      tr: "Derlenmis portfoy gorunumu",
+      en: "Curated portfolio snapshot",
+    },
+  },
+  trust: {
+    safeToPilot: {
+      tr: "Pilot icin guvenli baslangic",
+      en: "Safe to pilot",
+    },
+    controlledRollout: {
+      tr: "Kontrollu yayina alim",
+      en: "Controlled rollout",
+    },
+    institutionReadySafeguards: {
+      tr: "Kuruma hazir guvenceler",
+      en: "Institution-ready safeguards",
+    },
+  },
+  benchmark: {
+    baselinePortfolioSnapshot: {
+      tr: "Baz portfoy gorunumu",
+      en: "Baseline portfolio snapshot",
+    },
+    previousBenchmark: {
+      tr: "Onceki karsilastirma",
+      en: "Previous benchmark",
+    },
+  },
+  positioning: {
+    decisionIntelligenceInfrastructure: {
+      tr: "Karar istihbarati altyapisi",
+      en: "Decision intelligence infrastructure",
+    },
+    pilotToPlatform: {
+      tr: "Pilottan platforma",
+      en: "Pilot to platform",
+    },
+  },
+};
+
+export const proofPageNarrative = {
+  question: {
+    tr: "Bu sistem gercekten portfoyumde ise yarar mi?",
+    en: "Will this system actually work on my portfolio?",
+  },
+  description: {
+    tr: "Karar diliyle okundugunda bu kanit, portfoy etkisini, kontrollu kullanim disiplinini ve izlenecek riskleri tek yonetici okumasinda toplar.",
+    en: "Read in business language, this proof brings portfolio impact, rollout discipline, and watch items into one executive decision read.",
+  },
+  verdicts: {
+    working: {
+      label: {
+        tr: "Calisiyor",
+        en: "Working",
+      },
+      statement: {
+        tr: "Bu sistem kontrollu bir kullanim icinde gercek portfoy etkisi yaratmaya hazir gorunuyor.",
+        en: "This system looks ready to create real portfolio impact inside a controlled rollout.",
+      },
+      support: {
+        tr: "Kapsam, guvence ve gercekci etki ayni anda yeterince guclu.",
+        en: "Coverage, safeguards, and realistic impact are all strong enough together.",
+      },
+    },
+    promising: {
+      label: {
+        tr: "Umut veriyor",
+        en: "Promising",
+      },
+      statement: {
+        tr: "Sistem pilot icin guvenli bir baslangic sinyali veriyor, ancak yakindan izlenmesi gereken alanlar var.",
+        en: "The system looks safe to pilot, with a few areas that still need close monitoring.",
+      },
+      support: {
+        tr: "Portfoy sinyali guclendi; erken saglik ve temsil kapsamasi halen dikkat istiyor.",
+        en: "The portfolio signal improved, while early health and representativeness still need attention.",
+      },
+    },
+    mixed: {
+      label: {
+        tr: "Karisik",
+        en: "Mixed",
+      },
+      statement: {
+        tr: "Deger sinyali var, ancak bugun icin alici guvenini temiz bicimde tasimiyor.",
+        en: "There is value signal here, but it is not yet carrying clean buyer confidence.",
+      },
+      support: {
+        tr: "Pilot karari icin once daha tutarli bir guven tablosu gerekiyor.",
+        en: "A pilot decision still needs a more consistent trust picture first.",
+      },
+    },
+    not_proven: {
+      label: {
+        tr: "Henuz kanitli degil",
+        en: "Not proven",
+      },
+      statement: {
+        tr: "Bu sistem henuz alici guveniyle savunulacak kadar net kanit biriktirmedi.",
+        en: "This system has not yet built enough proof to support buyer confidence.",
+      },
+      support: {
+        tr: "Hikaye var, ancak portfoy seviyesi karar icin kanit daha fazla olgunlasmali.",
+        en: "The story exists, but the evidence still needs to mature for a portfolio decision.",
+      },
+    },
+  },
+  trustRail: [
+    {
+      title: {
+        tr: "Pilot icin guvenli baslangic",
+        en: "Safe to pilot",
+      },
+      description: {
+        tr: "Giriste genis yayina alim yerine sinirli kapsam ve net gozden gecirme adimlari onerir.",
+        en: "Recommends a contained starting scope instead of a broad rollout.",
+      },
+    },
+    {
+      title: {
+        tr: "Kontrollu yayina alim",
+        en: "Controlled rollout",
+      },
+      description: {
+        tr: "Ekip, portfoy dilimini kontrollu genisleterek performansi takip edebilir.",
+        en: "Teams can expand through explicit portfolio slices and review gates.",
+      },
+    },
+    {
+      title: {
+        tr: "Kuruma hazir guvenceler",
+        en: "Institution-ready safeguards",
+      },
+      description: {
+        tr: "Adalet, guvenilirlik ve izleme disiplini teknik katmanda korunuyor.",
+        en: "Fairness, reliability, and telemetry discipline remain available underneath.",
+      },
+    },
+  ],
+  sections: {
+    proofNow: {
+      eyebrow: {
+        tr: "Karar ozet",
+        en: "Decision read",
+      },
+      title: {
+        tr: "Neden guven artiyor",
+        en: "Why confidence is improving",
+      },
+      description: {
+        tr: "Ilk cevap, portfoyde neyin daha kullanilabilir, daha kontrollu ve daha anlamli hale geldigini gosterir.",
+        en: "The first answer shows what is becoming more usable, more controlled, and more meaningful on the portfolio.",
+      },
+    },
+    watchlist: {
+      eyebrow: {
+        tr: "Yakindan izlenecekler",
+        en: "What still needs watching",
+      },
+      title: {
+        tr: "Pilot oncesi gizlenmeyen izleme listesi",
+        en: "The watchlist we would not hide before a pilot",
+      },
+      description: {
+        tr: "Guven yalnizca iyi sinyalleri degil, halen baski yaratan alanlari da acikca gostermeyi gerektirir.",
+        en: "Trust comes from showing the pressure points as clearly as the positives.",
+      },
+    },
+    learning: {
+      eyebrow: {
+        tr: "Ikinci katman kanit",
+        en: "Second-layer evidence",
+      },
+      title: {
+        tr: "Ogrenme disiplini gelecekteki politika kalitesini destekliyor",
+        en: "Learning discipline supports future policy quality",
+      },
+      description: {
+        tr: "Bu katman bugunku portfoy kararini destekler ve yarin daha iyi politika secimine zemin hazirlar.",
+        en: "This layer supports today's portfolio decision and creates the base for future policy improvement.",
+      },
+    },
+    technicalDetails: {
+      eyebrow: {
+        tr: "Teknik detay",
+        en: "Technical detail",
+      },
+      title: {
+        tr: "Alt seviyedeki kanit girdileri",
+        en: "Underlying proof inputs",
+      },
+      description: {
+        tr: "Ham cikti isimleri yerine, hangi karsilastirma ve sinyal ailesinin bu karari destekledigini gosteren detay katmani.",
+        en: "A lower-detail view of the benchmark and signal families behind this decision read.",
+      },
+    },
+  },
+};
+
+export const investorPageNarrative = {
+  hero: {
+    title: {
+      tr: "Red sonrasinda kaybolan degeri geri alan urun katmani.",
+      en: "The product layer that recovers value after the credit decision.",
+    },
+    supportingNote: {
+      tr: "Giris noktasi net: reddedilen veya sinira yakin musteri toparlanmasi.",
+      en: "The entry wedge is clear: recovery for denied and near-threshold customers.",
+    },
+    description: {
+      tr: "Hedef once tek bir aci noktayi net bicimde cozmektir, sonra ayni kurum icinde daha fazla ekibe yayilan bir karar istihbarati altyapisina donusmektir.",
+      en: "The goal is to solve one painful workflow first, then grow into decision intelligence infrastructure across more teams in the same institution.",
+    },
+  },
+  sections: {
+    marketPain: {
+      eyebrow: {
+        tr: "Pazar problemi",
+        en: "Market pain",
+      },
+      title: {
+        tr: "Kredi karari sonrasinda deger ve yonlendirme ayni anda kayboluyor.",
+        en: "After the credit decision, both value and guidance tend to disappear.",
+      },
+      description: {
+        tr: "Kurumlar hayir dedikten sonra ne yapacaklarini bilen sistemlere degil, sadece neden hayir dediklerini gosteren araclara sahip.",
+        en: "Institutions often own tools that explain a decline, but not systems that manage what should happen next.",
+      },
+      cards: [
+        {
+          title: {
+            tr: "Gelir ve musteri iliskisi kopuyor",
+            en: "Value drops out of the funnel",
+          },
+          description: {
+            tr: "Reddedilen veya sinira gelen dosyalar genelde tamamen kaybediliyor, halbuki bir kismi yonetilebilir toparlanma icinde kalabilir.",
+            en: "Denied and near-threshold files are often lost entirely, even when part of that book could move into managed recovery.",
+          },
+        },
+        {
+          title: {
+            tr: "Ekipler ortak bir sonraki adim yuzeyine sahip degil",
+            en: "Teams lack one next-step surface",
+          },
+          description: {
+            tr: "Risk, recovery ve teklif ekipleri ayni musteri icin farkli araclarda hareket ediyor.",
+            en: "Risk, recovery, and offer teams often act in different tools against the same customer file.",
+          },
+        },
+      ],
+    },
+    wedge: {
+      eyebrow: {
+        tr: "Urun giris noktasi",
+        en: "Product wedge",
+      },
+      title: {
+        tr: "Ilk adim, olculebilir aci ve net sahiplik olan yerde basliyor.",
+        en: "The first step starts where pain is measurable and ownership is clear.",
+      },
+      description: {
+        tr: "Ilk giris noktasi, reddedilen veya sinira yakin musteri toparlanmasi. Yeni yaklasim ise aksiyon, teklif ve takip noktalarini tek yonetilen yuzeyde toplamak.",
+        en: "The first wedge is denied and near-threshold recovery. The new approach is to manage actions, offers, and follow-up checkpoints in one surface.",
+      },
+      cards: [
+        {
+          title: {
+            tr: "Baslangic giris noktasi",
+            en: "Starting wedge",
+          },
+          description: {
+            tr: "Kuruma somut ROI gosterebilen, operasyonel sahipligi net bir kullanim alani.",
+            en: "A use case with clear ownership and a direct path to showing ROI.",
+          },
+        },
+        {
+          title: {
+            tr: "Yeni yaklasim",
+            en: "New approach",
+          },
+          description: {
+            tr: "Skorun yanina ikinci bir rapor koymak degil, karar sonrasini yoneten yeni bir katman kurmak.",
+            en: "Not another report next to the score, but a new layer that manages what happens after the decision.",
+          },
+        },
+        {
+          title: {
+            tr: "Neden genisleyebilir",
+            en: "Why it can expand",
+          },
+          description: {
+            tr: "Ayni mantik once ayni kurum icinde daha fazla ekibe, sonra komsu kullanim alanlarina tasinabilir.",
+            en: "The same logic can spread to more teams inside one institution before it expands into adjacent use cases.",
+          },
+        },
+      ],
+    },
+    proof: {
+      eyebrow: {
+        tr: "Neden calisabilir",
+        en: "Proof it works",
+      },
+      title: {
+        tr: "Kanit, bunun yalnizca fikir degil urunlesebilir bir sistem oldugunu gosteriyor.",
+        en: "The proof suggests this is not just an idea, but a system that can become software.",
+      },
+      description: {
+        tr: "Portfoy etkisi, teklif yaniti ve ogrenme disiplini birlikte okundugunda, kurum ici tekrar eden bir urun davranisi gorunuyor.",
+        en: "Read together, portfolio impact, offer response, and learning discipline look like repeatable product behavior inside an institution.",
+      },
+      narrative: {
+        tr: "Bu kanitin anlattigi sey yalnizca calisiyor olmasi degil; ayni kurum icinde tekrar tekrar uygulanabilecek bir kullanim kalibi olmasi.",
+        en: "The proof matters not only because it works, but because it resembles a usage pattern that can be deployed again and again inside one institution.",
+      },
+    },
+    monetization: {
+      eyebrow: {
+        tr: "Ticari model",
+        en: "Monetization",
+      },
+      title: {
+        tr: "Ticari yol dar bir girisle baslar, kullanim derinligiyle genisler.",
+        en: "The commercial path starts narrow and expands through product depth.",
+      },
+      description: {
+        tr: "Varsayilan ticari okuma pilottan platforma gider. Ilk genisleme ayni kurum icinde daha fazla ekip ve karar akisina yayilmaktir; daha genis kullanim alani ikinci asamadir.",
+        en: "The default commercial read is pilot to platform. Expansion starts with more teams and workflows inside one institution, with broader use cases as a later step.",
+      },
+      stages: [
+        {
+          title: {
+            tr: "Pilot girisi",
+            en: "Pilot entry",
+          },
+          description: {
+            tr: "Sinirli bir portfoy veya ekipte hizli deger gosteren kontrollu kullanim.",
+            en: "A controlled deployment in one portfolio slice or team that can show value quickly.",
+          },
+        },
+        {
+          title: {
+            tr: "Platform derinligi",
+            en: "Platform depth",
+          },
+          description: {
+            tr: "Ayni kurum icinde risk, recovery ve teklif ekiplerine yayilan ortak yuzey.",
+            en: "A shared surface that spreads across risk, recovery, and offer teams inside the same institution.",
+          },
+        },
+        {
+          title: {
+            tr: "Genisleme opsiyonu",
+            en: "Expansion option",
+          },
+          description: {
+            tr: "Temel urun oturduktan sonra komsu karar kullanim alanlarina gecis.",
+            en: "Adjacent decision workflows once the core product is established.",
+          },
+        },
+      ],
+    },
+  },
+  bottomLine: {
+    title: {
+      tr: "Firsat, tek bir modeli satmak degil; karar sonrasinin kurumsal yazilimini sahiplenmek.",
+      en: "The opportunity is not to sell one model, but to own the institutional software layer after the decision.",
+    },
+    description: {
+      tr: "Bugun gorulen kanit, yarin ayni kurum icinde daha fazla ekip tarafindan kullanilabilecek bir karar istihbarati altyapisina isaret ediyor.",
+      en: "The proof visible today points toward decision intelligence infrastructure that more teams inside the same institution can use tomorrow.",
+    },
+  },
+};
 
 export const demoOverviewCards = [
   {
