@@ -21,6 +21,10 @@ Sinir su olacak:
 - `credit-coach/` -> model, recourse, KPI, artifact uretimi
 - `credit-coach-website/` -> sunum, demo, lead capture, content, proof surface
 
+Pilot-ready buyer handoff baseline'i icin ek dokuman:
+
+- [PILOT_READINESS.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach-website/PILOT_READINESS.md)
+
 ---
 
 ## 1. Mimari Prensipler
@@ -352,6 +356,12 @@ Benim tavsiye ettigim `V1` kapsamı:
 - live artifact browse
 - CRM entegrasyonu
 
+Faz 25 notu:
+
+- buyer handoff baseline'i artik dokumante edilmis durumda
+- ancak `auth` ve `CRM entegrasyonu` halen V1 scope disindadir
+- ciddi pilot posture, uygulama ici login yerine operator-mediated ve controlled-access varsayimi ile tanimlanir
+
 V1'in hedefi:
 
 `serious product website + strong demo surface`
@@ -564,4 +574,3 @@ Bu mimariyi baz alip bir sonraki adimda su isi yapabiliriz:
 1. `credit-coach-website` iskeletini olusturmak
 2. temel package dosyalarini eklemek
 3. `Home` ve `Demo Center` ile ilk implementasyona baslamak
-
