@@ -5,7 +5,7 @@
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
 - ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
 - ✅ **v1.2 Recommendation Quality Hardening** - Phases 12-16 (completed 2026-03-16)
-- 🚧 **v1.3 Portfolio Intelligence & Productization** - Phases 17-21 (behavior and trajectory hardening re-added after post-18 resequencing; milestone opened 2026-03-17)
+- 🚧 **v1.3 Portfolio Intelligence & Productization** - Phases 17-25 (Phases 17-21 complete; gap-closure phases 22-25 added after the 2026-03-19 milestone audit)
 
 <details>
 <summary>✅ v1.0 Brownfield Baseline (Phases 1-7) - SHIPPED 2026-03-10</summary>
@@ -52,8 +52,8 @@ Historical archive: `.planning/milestones/v1.2-ROADMAP.md`
 ### v1.3 Portfolio Intelligence & Productization
 
 **Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, harden execution and trajectory truth where product credibility demands it, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
-**Phases**: 17-21 currently defined
-**Status**: Active, Phases 17-21 complete; milestone audit found remaining website and ops gaps
+**Phases**: 17-25 currently defined
+**Status**: Active, Phases 17-21 complete; Phases 22-25 planned to close remaining website and ops gaps
 
 ### Phase 17: Full Portfolio Evaluation & Coverage Audit
 
@@ -156,14 +156,67 @@ Planned scope:
 - measure whether hardened trajectory behavior improves real cohort credibility
 - produce a clearer “is this working?” answer for proof and product surfaces
 
-### Post-21 Sequence
+### Phase 22: Business-First Demo Center Refactor
 
-**Status**: Milestone closeout blocked pending gap planning
+**Goal**: Turn the Demo Center from an engine-output-heavy walkthrough into a buyer-ready product experience with executive-by-default hierarchy, business-first bilingual language, and trustworthy traceability on the curated snapshot chain.
+**Depends on**: Phase 21
+**Requirements**: WEB-01, WEB-02
+**Gap Closure**: Repairs the partial `WEB-01` traceability gap and closes the buyer-facing bilingual demo flow for `WEB-02`
+**Plans**: 0 planned
+
+Planned scope:
+- repair Phase 21 summary frontmatter and `requirements-completed` evidence so curated demo and proof snapshot traceability passes the 3-source audit
+- refactor the Demo Center into executive, section, and technical-detail layers with technical content collapsed by default
+- rewrite single-customer, portfolio, offer, and learning surfaces in business-first bilingual language, using `first 4 weeks`, `weeks 4-12`, and `weeks 12-24` instead of month labels
+- reduce KPI and visual density, add context labels plus disclaimer plus CTA bridges, and make the surface feel like a product UI rather than a glowing dashboard
+
+### Phase 23: Proof & Investor Narrative Hardening
+
+**Goal**: Reframe proof and investor surfaces around measurement, governance, category wedge, and monetization logic in executive language without leaking raw internal artifact vocabulary.
+**Depends on**: Phase 22
+**Requirements**: WEB-03
+**Gap Closure**: Closes the proof plus investor story flow
+**Plans**: 0 planned
+
+Planned scope:
+- restructure Proof and Investor pages into executive narrative first with controlled technical detail behind clear reveals
+- align proof metrics, governance messaging, category story, and monetization language to one business-first bilingual vocabulary
+- remove raw artifact or release jargon from buyer-facing copy while preserving benchmark and simulation context labels
+
+### Phase 24: Analyst Workflow & UAT Validation
+
+**Goal**: Produce milestone-local analyst validation evidence that the product surfaces are understandable, useful, and trustworthy in representative institution tasks.
+**Depends on**: Phase 23
+**Requirements**: OPS-01
+**Gap Closure**: Closes the analyst workflow and UAT flow
+**Plans**: 0 planned
+
+Planned scope:
+- define representative analyst tasks across single-customer review, portfolio interpretation, offer assessment, and learning-readiness interpretation
+- run structured bilingual UAT and capture trust, usefulness, and comprehension findings in milestone-local artifacts
+- add verification criteria that convert analyst feedback into a pass or fail closure signal for the milestone
+
+### Phase 25: Pilot Readiness & Demo Ops Baseline
+
+**Goal**: Establish the minimum buyer-handoff baseline across lead capture, demo operations, auth or deployment readiness, and institution-specific curated demo flows.
+**Depends on**: Phase 24
+**Requirements**: OPS-02
+**Gap Closure**: Closes the pilot-readiness flow
+**Plans**: 0 planned
+
+Planned scope:
+- harden contact and demo-request paths and define the institution-intake information needed for serious buyer follow-up
+- document or implement the auth, deployment, and operational basics required for a controlled pilot-style handoff
+- package institution-specific curated demo flows so the product story can be tailored to a target portfolio without losing trust or traceability
+
+### Gap Closure Sequence
+
+**Status**: Active, roadmap extended with explicit gap-closure phases
 
 Notes:
 - Phase 19, Phase 20, and Phase 21 are now the canonical near-term `v1.3` sequence.
-- Additional work after Phase 21 remains intentionally undefined until the next redesign pass.
-- This milestone remains active for gap planning and closeout; all currently defined `v1.3` phases are complete, but milestone audit found unresolved requirement gaps.
+- Phases 22-25 are the canonical post-audit closure sequence for the remaining website and ops blockers.
+- This milestone remains active until `WEB-01`, `WEB-02`, `WEB-03`, `OPS-01`, and `OPS-02` are re-verified and the audit passes cleanly.
 
 ## Progress
 
@@ -190,3 +243,7 @@ Notes:
 | 19. Behavior-Aware Recourse | v1.3 | 3/3 | Complete | 2026-03-19 |
 | 20. Trajectory Hardening | v1.3 | 3/3 | Complete | 2026-03-19 |
 | 21. Portfolio Proof & Product Confidence | v1.3 | 3/3 | Complete | 2026-03-19 |
+| 22. Business-First Demo Center Refactor | v1.3 | 0/0 | Planned | - |
+| 23. Proof & Investor Narrative Hardening | v1.3 | 0/0 | Planned | - |
+| 24. Analyst Workflow & UAT Validation | v1.3 | 0/0 | Planned | - |
+| 25. Pilot Readiness & Demo Ops Baseline | v1.3 | 0/0 | Planned | - |

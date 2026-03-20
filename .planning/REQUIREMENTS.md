@@ -15,7 +15,7 @@
 
 ### Website & Demo Productization
 
-- [x] **WEB-01**: The website can consume curated demo and proof snapshots through a typed artifact-sync contract sourced from the engine
+- [ ] **WEB-01**: The website can consume curated demo and proof snapshots through a typed artifact-sync contract sourced from the engine
 - [ ] **WEB-02**: Demo Center and buyer-facing product surfaces can present single-customer, portfolio, offer, and learning views in business-first bilingual language
 - [ ] **WEB-03**: Proof and investor surfaces can explain measurement, governance, release controls, category story, and monetization logic without exposing raw internal artifact vocabulary
 
@@ -54,16 +54,16 @@
 | PORT-02 | Phase 18 | Complete |
 | PORT-03 | Phase 19 | Complete |
 | PORT-04 | Phase 20 | Complete |
-| WEB-01 | Phase 21 | Complete |
-| WEB-02 | - | Unmapped pending post-18 redesign |
-| WEB-03 | - | Unmapped pending post-18 redesign |
-| OPS-01 | - | Unmapped pending post-18 redesign |
-| OPS-02 | - | Unmapped pending post-18 redesign |
+| WEB-01 | Phase 22 | Pending |
+| WEB-02 | Phase 22 | Pending |
+| WEB-03 | Phase 23 | Pending |
+| OPS-01 | Phase 24 | Pending |
+| OPS-02 | Phase 25 | Pending |
 
 **Coverage:**
 - v1.3 requirements: 9 total
-- Mapped to phases: 5
-- Unmapped: 4
+- Mapped to phases: 9
+- Unmapped: 0
 
 ---
 *Active requirement set opened on 2026-03-17*
