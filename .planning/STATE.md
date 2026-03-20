@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-03-17)
 
 ## Current Position
 
-Phase: Milestone Audit
-Plan: n/a
-Status: Audit complete - gaps found, ready for milestone gap planning
-Last activity: 2026-03-19 - Audited v1.3 and found open website/ops requirements plus Phase 21 traceability gaps
+Phase: 22 - Business-First Demo Center Refactor
+Plan: complete (01-04)
+Status: Phase complete - buyer-first Demo Center shipped, verification green, ready for Phase 23 planning
+Last activity: 2026-03-20 - Executed Phase 22, closed WEB-01 and WEB-02, and verified Demo Center hierarchy plus roadmap language refactor
 
-Progress: Phases 17-21 complete; milestone audit found `WEB-01` partial plus open `WEB-02`, `WEB-03`, `OPS-01`, and `OPS-02`
+Progress: Phases 17-22 complete; remaining open requirements are `WEB-03`, `OPS-01`, and `OPS-02`
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 47 (historical import + phases 8-16)
+- Total plans completed: 66
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -30,22 +30,31 @@ Progress: Phases 17-21 complete; milestone audit found `WEB-01` partial plus ope
 | v1.0 historical baseline | 20 | historical import | Complete |
 | v1.1 completed milestone | 12 | phases 8-11 complete | Complete |
 | v1.2 completed milestone | 15 | phases 12-16 complete | Complete |
-| v1.3 active milestone | 15 complete | phases 17-21 complete, audit found remaining gaps | Open |
+| v1.3 active milestone | 19 complete | phases 17-22 complete, gap-closure continues with phases 23-25 | Open |
 
 **Recent Trend:**
 - The recourse engine is already typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-capable.
 - Full-portfolio proof now exists, including product-ready coverage, reality-gap audit, and demo representativeness diagnostics.
 - The engine now emits buyer- and analyst-ready roadmap narratives directly, including executive summary, checkpoint meaning, reasons, and technical reveal.
 - Behavior-aware recourse has now been re-hardened with conservative execution truth, stronger planner demotion, and nominal-vs-execution-aware executive evidence.
-- The post-18 roadmap has been partially rebuilt: Phase 19 reopened behavior-aware recourse hardening, Phase 20 completed the deterministic trajectory contract hardening pass, and Phase 21 refreshed portfolio proof and proof-page sync.
+- The post-18 roadmap has now been rebuilt through the first closure phase: Phase 19 reopened behavior-aware recourse hardening, Phase 20 completed deterministic trajectory hardening, Phase 21 refreshed portfolio proof and proof-page sync, and Phase 22 shipped the buyer-first Demo Center refactor.
+- Phase 22 is now shipped across four closed plans:
+  - Phase 21 summary traceability repair for `WEB-01`
+  - shared demo-surface primitives for calmer product framing
+  - executive and section hierarchy rewrite for the Demo Center
+  - phase-window roadmap language and technical-on-demand rewrite
+- Phase 22 now leaves the website with:
+  - a top-level representative-preview disclaimer
+  - executive-first customer, portfolio, offer, and learning sections
+  - repeated request-demo CTA seams
+  - technical detail hidden behind explicit reveals
+  - fully localized `EN` and `TR` business-facing roadmap language
 - Phase 21 is now shipped across three closed waves:
   - product-facing proof verdict and confidence over the canonical portfolio seam
   - suite-level curated `product_confidence_snapshot.json` packaging
   - proof-page sync to one engine-owned curated proof artifact
-- Milestone audit completed on 2026-03-19 with no critical cross-phase integration failures across Phases 17-21, but with remaining milestone blockers:
-  - `WEB-01` is only partially closed because Phase 21 summary frontmatter is missing
-  - `WEB-02`, `WEB-03`, `OPS-01`, and `OPS-02` remain open
-  - next step is explicit milestone-gap planning rather than closeout
+- The 2026-03-19 milestone audit gap on `WEB-01` is now closed, and `WEB-02` is closed through the Phase 22 Demo Center refactor.
+- Remaining milestone blockers are now narrowed to `WEB-03`, `OPS-01`, and `OPS-02`.
 - Phase 20 is now shipped across three closed waves:
   - deterministic phase and checkpoint contract locking
   - consistency, monotonicity, and early-health hardening
@@ -147,12 +156,18 @@ Recent decisions affecting current work:
   - explicit delta versus the Phase 17 proof baseline
   - one engine-owned `product_confidence_snapshot.json` for downstream proof consumers
   - a proof page that consumes one curated artifact instead of stitching many raw proof files
+- On 2026-03-20, Phase 22 shipped:
+  - audit-ready Phase 21 summary metadata for `WEB-01`
+  - shared Demo Center primitives for calmer product framing, context labels, and CTA reuse
+  - executive, section, and technical-detail hierarchy across customer, portfolio, offer, and learning
+  - roadmap cards rewritten around `first 4 weeks`, `weeks 4-12`, and `weeks 12-24`
 
 ### Roadmap Evolution
 
 - Phase 19 added: Behavior-Aware Recourse
 - Phase 20 re-scoped: Trajectory Hardening (mini phase)
 - Phase 21 added: Portfolio Proof & Product Confidence
+- Phase 22 executed: Business-First Demo Center Refactor
 
 ### Pending Todos
 
@@ -166,6 +181,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19
-Stopped at: Milestone audit complete with gaps; next step is `$gsd-plan-milestone-gaps`
+Last session: 2026-03-20
+Stopped at: Phase 22 complete and verified; next step is `$gsd-plan-phase 23`
 Resume file: None

@@ -5,7 +5,7 @@
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
 - ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
 - ✅ **v1.2 Recommendation Quality Hardening** - Phases 12-16 (completed 2026-03-16)
-- 🚧 **v1.3 Portfolio Intelligence & Productization** - Phases 17-25 (Phases 17-21 complete; gap-closure phases 22-25 added after the 2026-03-19 milestone audit)
+- 🚧 **v1.3 Portfolio Intelligence & Productization** - Phases 17-25 (Phases 17-22 complete; gap-closure phases 23-25 remain after the 2026-03-19 milestone audit)
 
 <details>
 <summary>✅ v1.0 Brownfield Baseline (Phases 1-7) - SHIPPED 2026-03-10</summary>
@@ -53,7 +53,7 @@ Historical archive: `.planning/milestones/v1.2-ROADMAP.md`
 
 **Goal**: Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, harden execution and trajectory truth where product credibility demands it, stabilize artifact-driven website surfaces, and reach analyst- and pilot-ready product credibility.
 **Phases**: 17-25 currently defined
-**Status**: Active, Phases 17-21 complete; Phases 22-25 planned to close remaining website and ops gaps
+**Status**: Active, Phases 17-22 complete; Phases 23-25 planned to close remaining website and ops gaps
 
 ### Phase 17: Full Portfolio Evaluation & Coverage Audit
 
@@ -162,13 +162,19 @@ Planned scope:
 **Depends on**: Phase 21
 **Requirements**: WEB-01, WEB-02
 **Gap Closure**: Repairs the partial `WEB-01` traceability gap and closes the buyer-facing bilingual demo flow for `WEB-02`
-**Plans**: 0 planned
+**Plans**: 4 complete
 
-Planned scope:
-- repair Phase 21 summary frontmatter and `requirements-completed` evidence so curated demo and proof snapshot traceability passes the 3-source audit
-- refactor the Demo Center into executive, section, and technical-detail layers with technical content collapsed by default
-- rewrite single-customer, portfolio, offer, and learning surfaces in business-first bilingual language, using `first 4 weeks`, `weeks 4-12`, and `weeks 12-24` instead of month labels
-- reduce KPI and visual density, add context labels plus disclaimer plus CTA bridges, and make the surface feel like a product UI rather than a glowing dashboard
+Plans:
+- [x] 22-01: Repair Phase 21 summary traceability for curated proof and demo snapshot sync
+- [x] 22-02: Build shared demo-surface primitives for calmer product framing and repeated CTA support
+- [x] 22-03: Reframe `DemoCenterPage` into executive, section, and technical-detail hierarchy
+- [x] 22-04: Rewrite roadmap cards around phase-window business language and technical-on-demand detail
+
+Delivered scope:
+- repaired Phase 21 summary frontmatter and `requirements-completed` evidence so curated demo and proof snapshot traceability now passes the summary-side audit check
+- refactored the Demo Center into executive, section, and technical-detail layers with technical content collapsed by default
+- rewrote single-customer, portfolio, offer, and learning surfaces in business-first bilingual language, using `first 4 weeks`, `weeks 4-12`, and `weeks 12-24` instead of month labels
+- reduced KPI and visual density, added context labels plus disclaimer plus CTA bridges, and shifted the surface toward a restrained product UI
 
 ### Phase 23: Proof & Investor Narrative Hardening
 
@@ -214,9 +220,9 @@ Planned scope:
 **Status**: Active, roadmap extended with explicit gap-closure phases
 
 Notes:
-- Phase 19, Phase 20, and Phase 21 are now the canonical near-term `v1.3` sequence.
-- Phases 22-25 are the canonical post-audit closure sequence for the remaining website and ops blockers.
-- This milestone remains active until `WEB-01`, `WEB-02`, `WEB-03`, `OPS-01`, and `OPS-02` are re-verified and the audit passes cleanly.
+- Phases 19-22 are now the canonical near-term `v1.3` sequence.
+- Phases 23-25 are the remaining post-audit closure sequence for proof, analyst, and pilot blockers.
+- This milestone remains active until `WEB-03`, `OPS-01`, and `OPS-02` are re-verified and the audit passes cleanly.
 
 ## Progress
 
@@ -243,7 +249,7 @@ Notes:
 | 19. Behavior-Aware Recourse | v1.3 | 3/3 | Complete | 2026-03-19 |
 | 20. Trajectory Hardening | v1.3 | 3/3 | Complete | 2026-03-19 |
 | 21. Portfolio Proof & Product Confidence | v1.3 | 3/3 | Complete | 2026-03-19 |
-| 22. Business-First Demo Center Refactor | v1.3 | 0/0 | Planned | - |
+| 22. Business-First Demo Center Refactor | v1.3 | 4/4 | Complete | 2026-03-20 |
 | 23. Proof & Investor Narrative Hardening | v1.3 | 0/0 | Planned | - |
 | 24. Analyst Workflow & UAT Validation | v1.3 | 0/0 | Planned | - |
 | 25. Pilot Readiness & Demo Ops Baseline | v1.3 | 0/0 | Planned | - |
