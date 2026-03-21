@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from credit_coach.causality.action_constraints import causal_penalty
-from credit_coach.data.schema import PlanAction, PlanRecord
+from credit_coach.data.schema import PlanAction, PlanRecord, PrimaryNumericTarget
 from credit_coach.macro.reliability import (
     compute_effective_reliability,
     compute_robust_anchor_pd,
@@ -19,6 +19,7 @@ from credit_coach.model.predict import predict_proba_pd
 from credit_coach.recourse.action_space import (
     estimate_action_cost_usd,
     get_action_metadata,
+    get_numeric_target_metadata,
     get_action_spec,
     get_actionable_features,
 )
@@ -90,6 +91,7 @@ def _make_plan_action(
     feature_name: str,
     current_value: float,
     target_value: float,
+    requested_target_value: float | None = None,
     action_month: int,
     action_context: dict[str, Any] | None = None,
     action_status: str = "valid",
@@ -106,6 +108,12 @@ def _make_plan_action(
         target_value=float(target_value),
         action_month=int(action_month),
         action_context=action_context,
+    )
+    numeric_target = _build_primary_numeric_target(
+        feature_name=feature_name,
+        current_value=float(current_value),
+        requested_target_value=float(requested_target_value if requested_target_value is not None else target_value),
+        action_month=int(action_month),
     )
     return PlanAction(
         feature_name=feature_name,
@@ -124,6 +132,7 @@ def _make_plan_action(
         action_title=str(action_meta.get("action_title") or ""),
         action_description=str(action_meta.get("action_description") or ""),
         action_group_id=str(action_meta.get("action_group_id") or ""),
+        primary_numeric_target=numeric_target,
         composite_action=bool(action_meta.get("composite_action", False)),
         requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
         institutional_approval_state=offer_contract.get("institutional_approval_state"),
@@ -141,6 +150,60 @@ def _make_plan_action(
         action_status=str(action_status),
         action_status_reason=action_status_reason,
         diagnostic_flags=list(diagnostic_flags or []),
+    )
+
+
+def _sanitize_numeric_target_value(
+    *,
+    feature_name: str,
+    current_value: float,
+    requested_target_value: float,
+) -> float:
+    spec = get_action_spec(feature_name)
+    out = _clip_target(spec, float(requested_target_value))
+    if spec.direction == "decrease":
+        out = min(float(current_value), out)
+    elif spec.direction == "increase":
+        out = max(float(current_value), out)
+    return float(out)
+
+
+def _build_primary_numeric_target(
+    *,
+    feature_name: str,
+    current_value: float,
+    requested_target_value: float,
+    action_month: int,
+) -> PrimaryNumericTarget | None:
+    numeric_meta = get_numeric_target_metadata(feature_name, action_month=action_month)
+    if not bool(numeric_meta.get("is_primary_target")):
+        return None
+    direction = str(numeric_meta.get("direction") or "")
+    if direction not in {"increase", "decrease"}:
+        return None
+    sanitized_target = _sanitize_numeric_target_value(
+        feature_name=feature_name,
+        current_value=float(current_value),
+        requested_target_value=float(requested_target_value),
+    )
+    notes = ["minimum_credible_change", "semantic_sanity_only", "phase_32_feasibility_pending"]
+    rule_source = str(numeric_meta.get("rule_source") or "")
+    notes.append("feature_override_metric" if rule_source == "feature_override" else "action_family_default_metric")
+    return PrimaryNumericTarget(
+        metric_key=str(numeric_meta.get("metric_key") or ""),
+        unit=str(numeric_meta.get("unit") or ""),
+        current_value=float(current_value),
+        target_value=float(sanitized_target),
+        delta_value=float(sanitized_target - float(current_value)),
+        due_month=int(numeric_meta.get("due_month") or action_month),
+        direction=direction,
+        generation_notes=notes,
+        raw_generation_basis={
+            "source_feature_name": str(feature_name),
+            "requested_target_value": float(requested_target_value),
+            "sanitized_target_value": float(sanitized_target),
+            "rule_source": rule_source,
+        },
     )
 
 
@@ -419,6 +482,7 @@ def _build_actions(
         if phase1_enabled and feat in phase1_prioritized:
             step *= float(phase1_step_multiplier)
         target = _target_from_step(spec, current, step)
+        requested_target = float(target)
 
         if can_adapt and baseline_pd is not None:
             tpd = float(target_pd if target_pd is not None else max(0.0, baseline_pd - 0.02))
@@ -435,6 +499,7 @@ def _build_actions(
                 target_pd=tpd,
                 adaptive_cfg=adaptive_cfg,
             )
+            requested_target = float(target)
 
         detail = apply_target_feasibility_with_details(
             feature_name=feat,
@@ -469,6 +534,7 @@ def _build_actions(
                 feature_name=feat,
                 current_value=current,
                 target_value=float(target),
+                requested_target_value=float(requested_target),
                 action_month=action_month,
                 action_context=action_context,
                 action_status=str(detail["status"]),
@@ -991,6 +1057,7 @@ def _build_actions_weekly(
             if phase1_enabled and feat in phase1_prioritized:
                 step *= float(phase1_step_multiplier)
             target = _target_from_step(spec, current, step)
+            requested_target = float(target)
             detail = apply_target_feasibility_with_details(
                 feature_name=feat,
                 current_value=current,
@@ -1077,18 +1144,19 @@ def _build_actions_weekly(
         )
         if str(detail["status"]) == "rejected":
             continue
-        if abs(final_target - current) <= float(min_abs_delta):
-            continue
-        actions.append(
-            _make_plan_action(
-                feature_name=feat,
-                current_value=current,
-                target_value=float(final_target),
-                action_month=action_month,
-                action_context=action_context,
-                action_status=str(detail["status"]),
-                action_status_reason=detail.get("status_reason"),
-                diagnostic_flags=list(detail.get("reason_codes", [])),
+            if abs(final_target - current) <= float(min_abs_delta):
+                continue
+            actions.append(
+                _make_plan_action(
+                    feature_name=feat,
+                    current_value=current,
+                    target_value=float(final_target),
+                    requested_target_value=float(requested_target),
+                    action_month=action_month,
+                    action_context=action_context,
+                    action_status=str(detail["status"]),
+                    action_status_reason=detail.get("status_reason"),
+                    diagnostic_flags=list(detail.get("reason_codes", [])),
             )
         )
 

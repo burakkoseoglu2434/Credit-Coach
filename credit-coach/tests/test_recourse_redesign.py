@@ -236,6 +236,10 @@ def test_generate_plan_record_emits_execution_probability_contract():
     assert primary_targets
     assert any(target.metric_key in {"debt_to_income_pct", "revolving_balance_amount"} for target in primary_targets)
     assert all(target.direction == "decrease" for target in primary_targets)
+    assert all("semantic_sanity_only" in target.generation_notes for target in primary_targets)
+    assert all("phase_32_feasibility_pending" in target.generation_notes for target in primary_targets)
+    assert all(target.raw_generation_basis["source_feature_name"] for target in primary_targets)
+    assert all(target.raw_generation_basis["requested_target_value"] != 0.0 for target in primary_targets)
     assert [phase.phase_id for phase in plan.phases] == [
         "phase_1_stabilize",
         "phase_2_build",

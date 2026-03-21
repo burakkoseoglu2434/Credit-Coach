@@ -152,6 +152,14 @@ class PrimaryNumericTarget(BaseModel):
     delta_value: float = Field(..., description="Signed target delta")
     due_month: int = Field(..., ge=1, description="Canonical due month for reaching the target")
     direction: Literal["decrease", "increase"] = Field(..., description="Target movement direction")
+    generation_notes: list[str] = Field(
+        default_factory=list,
+        description="Non-verdict generation notes for later feasibility handling",
+    )
+    raw_generation_basis: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Lightweight generation provenance carried into feasibility",
+    )
 
 
 # ------------------------------------------------------------------ #
@@ -360,6 +368,11 @@ class PlanAction(BaseModel):
                             delta_value=self.delta,
                             due_month=int(numeric_meta.get("due_month") or self.time_months),
                             direction=direction,
+                            generation_notes=["auto_populated_fallback"],
+                            raw_generation_basis={
+                                "source_feature_name": self.feature_name,
+                                "rule_source": str(numeric_meta.get("rule_source") or "unknown"),
+                            },
                         )
             except Exception:
                 pass

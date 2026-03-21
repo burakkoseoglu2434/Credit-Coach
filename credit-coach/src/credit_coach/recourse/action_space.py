@@ -738,6 +738,7 @@ def get_numeric_target_metadata(
         "due_month": int(max(1, int(action_month or spec.time_months))),
         "primary_target_feature_name": primary_target_feature_name,
         "is_primary_target": is_primary_target,
+        "rule_source": "feature_override" if override is not None else "action_family_default",
     }
 
 
