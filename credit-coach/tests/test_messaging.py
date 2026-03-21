@@ -169,22 +169,27 @@ def test_build_customer_roadmap_narrative_is_deterministic():
     assert left.executive_summary.time_to_readiness.label.en == "4 weeks"
     assert left.steps[0].action_summary.en.startswith("Reduce non-essential spending")
     assert "debt-to-income ratio" in left.steps[0].expected_outcome.en
+    assert "currently at %28" in left.steps[0].expected_outcome.en
     assert "%24" in left.steps[0].expected_outcome.en
     assert "-4 pts" in left.steps[0].expected_outcome.en
+    assert "within the next 2 months" in left.steps[0].expected_outcome.en
     assert left.steps[0].feasibility_outcome_label is not None
     assert left.steps[0].feasibility_outcome_label.en == "Softened but usable"
     assert left.steps[0].difficulty_label is not None
     assert left.steps[0].difficulty_label.en == "Moderate difficulty"
     assert left.steps[0].follow_through_note is not None
-    assert left.steps[0].action_timing_hint.en == "Complete within the next 3 months."
+    assert left.steps[0].action_timing_hint.en == "Complete within the next 2 months."
     assert left.checkpoints[0].success_condition.en
     assert left.executive_summary.follow_through_readiness is not None
     assert left.executive_summary.follow_through_readiness.label.en == "Moderate follow-through readiness"
+    assert "%" not in left.executive_summary.follow_through_readiness.description.en
+    assert "%" not in left.executive_summary.risk_start.description.en
     assert left.reasons[0].reason_title.en == "Debt-to-income ratio is high"
     assert left.technical_reveal.narrative_confidence_label == "high"
     assert left.technical_reveal.constraints_applied[0]["constraint_status"] == "repaired"
     assert left.technical_reveal.constraints_applied[0]["constraint_family"] == "capacity"
     assert left.technical_reveal.constraints_applied[0]["repair_applied"] is True
+    assert left.technical_reveal.primary_numeric_targets[0]["primary_numeric_target"]["metric_key"] == "debt_to_income_pct"
     assert left.technical_reveal.execution_details["follow_through_readiness_label"] == "moderate"
     assert left.technical_reveal.execution_details["step_execution_details"][0]["difficulty_label"] == "moderate"
 
@@ -267,6 +272,7 @@ def test_build_customer_roadmap_narrative_separates_offer_and_checkpoint_layers(
     assert narrative.technical_reveal.approval_dependencies[0]["offer_policy_arm"] == "installment_terms_policy_v1"
     assert narrative.technical_reveal.approval_dependencies[0]["approval_dependent_probability"] == 0.73
     assert narrative.technical_reveal.confidence_inputs["offer_acceptance_probability"] == 0.49
+    assert narrative.technical_reveal.execution_details["combined_plan_realization_probability"] == 0.2989
 
 
 def test_build_customer_roadmap_narrative_keeps_dependency_gated_feasibility_business_safe():
@@ -404,8 +410,40 @@ def test_build_customer_roadmap_narrative_groups_same_action_step_in_default_vie
     assert len(narrative.steps) == 1
     assert narrative.steps[0].step_id == "refinance:phase_2_build"
     assert "monthly payment amount" in narrative.steps[0].expected_outcome.en
+    assert "currently at 510 units" in narrative.steps[0].expected_outcome.en
     assert "450 units" in narrative.steps[0].expected_outcome.en
+    assert "within the next 3 months" in narrative.steps[0].expected_outcome.en
     assert len(narrative.technical_reveal.feature_changes) == 2
+    assert len(narrative.technical_reveal.primary_numeric_targets) == 1
+
+
+def test_build_customer_roadmap_narrative_limits_default_reasons_but_keeps_full_technical_reason_trace():
+    narrative = build_customer_roadmap_narrative(
+        base_pd=0.58,
+        tau=0.35,
+        phases=[],
+        checkpoints=[
+            {
+                "checkpoint_id": "checkpoint_week_4",
+                "week": 4,
+                "predicted_pd": 0.48,
+                "gate_pass_estimate": 0,
+            }
+        ],
+        status="REJECTED",
+        local_reason_bundle={
+            "reasons": [
+                {"feature": "dti", "direction": "increase_risk", "abs_contribution": 0.31},
+                {"feature": "revol_util", "direction": "increase_risk", "abs_contribution": 0.22},
+                {"feature": "int_rate", "direction": "increase_risk", "abs_contribution": 0.18},
+                {"feature": "annual_inc", "direction": "increase_risk", "abs_contribution": 0.12},
+            ],
+            "meta": {"explainability_confidence": 0.57},
+        },
+    )
+
+    assert len(narrative.reasons) == 3
+    assert len(narrative.technical_reveal.explainability_reasons) == 4
 
 
 def test_build_checkpoint_narrative_reflects_missed_status_and_inconsistency():

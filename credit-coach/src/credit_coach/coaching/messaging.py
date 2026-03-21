@@ -543,6 +543,17 @@ def _primary_target_direction_verb(direction: str) -> tuple[str, str]:
     return ("indir", "reduce")
 
 
+def _due_month_phrase(months: int, *, locale: str) -> str:
+    bounded = max(1, int(months))
+    if locale == "tr":
+        if bounded == 1:
+            return "bu ay icinde"
+        return f"onumuzdeki {bounded} ay icinde"
+    if bounded == 1:
+        return "within this month"
+    return f"within the next {bounded} months"
+
+
 def _primary_numeric_target(action: Mapping[str, Any]) -> Mapping[str, Any]:
     target = action.get("primary_numeric_target", {})
     if isinstance(target, Mapping):
@@ -572,26 +583,45 @@ def _primary_target_sentence(action: Mapping[str, Any]) -> LocalizedText | None:
     if not metric_key:
         return None
     unit = str(target.get("unit", "") or "")
+    current_value = target.get("current_value", None)
     target_value = _safe_float(target.get("target_value", 0.0), 0.0)
     delta_value = _safe_float(target.get("delta_value", 0.0), 0.0)
+    due_month = _safe_int(target.get("due_month", action.get("time_months", 1)), 1)
     direction = str(target.get("direction", "") or "decrease")
     label_tr, label_en = _PRIMARY_TARGET_METRIC_LABELS.get(
         metric_key,
         (metric_key.replace("_", " "), metric_key.replace("_", " ")),
     )
     verb_tr, verb_en = _primary_target_direction_verb(direction)
+    current_tr = (
+        _format_primary_target_value(_safe_float(current_value, 0.0), unit, locale="tr")
+        if current_value is not None
+        else None
+    )
+    current_en = (
+        _format_primary_target_value(_safe_float(current_value, 0.0), unit, locale="en")
+        if current_value is not None
+        else None
+    )
     target_tr = _format_primary_target_value(target_value, unit, locale="tr")
     target_en = _format_primary_target_value(target_value, unit, locale="en")
     delta_tr = _format_primary_target_delta(delta_value, unit, locale="tr")
     delta_en = _format_primary_target_delta(delta_value, unit, locale="en")
+    due_tr = _due_month_phrase(due_month, locale="tr")
+    due_en = _due_month_phrase(due_month, locale="en")
     if unit == "boolean_state":
         return _lt(
-            f"Hedef: {label_tr} durumunu {target_tr} seviyesine getir ({delta_tr}).",
-            f"Target: move {label_en} to {target_en} ({delta_en}).",
+            f"Hedef, {label_tr} durumunu {due_tr} {target_tr} hale getirmek ({delta_tr}).",
+            f"The target is to move {label_en} to {target_en} {due_en} ({delta_en}).",
+        )
+    if current_tr and current_en:
+        return _lt(
+            f"Mevcut {label_tr} {current_tr} seviyesindeyken hedef, bunu {due_tr} {target_tr} seviyesine {verb_tr}mek ({delta_tr}).",
+            f"With {label_en} currently at {current_en}, the target is to {verb_en} it to {target_en} {due_en} ({delta_en}).",
         )
     return _lt(
-        f"Hedef: {label_tr} icin {target_tr} seviyesine {verb_tr} ({delta_tr}).",
-        f"Target: {verb_en} {label_en} to {target_en} ({delta_en}).",
+        f"Hedef, {label_tr} icin {due_tr} {target_tr} seviyesine {verb_tr}mek ({delta_tr}).",
+        f"The target is to {verb_en} {label_en} to {target_en} {due_en} ({delta_en}).",
     )
 
 
@@ -599,9 +629,9 @@ def _timing_hint(time_months: int) -> LocalizedText:
     months = max(1, int(time_months))
     if months <= 1:
         return _lt("Hemen, bu ay icinde baslat.", "Start immediately, within this month.")
-    if months <= 3:
-        return _lt("Onumuzdeki 3 ay icinde tamamla.", "Complete within the next 3 months.")
-    return _lt("Bu adimi orta vadeli pencere icinde tamamla.", "Complete this move within the mid-term window.")
+    if months <= 6:
+        return _lt(f"Onumuzdeki {months} ay icinde tamamla.", f"Complete within the next {months} months.")
+    return _lt(f"Bu adimi {months} ay icinde tamamla.", f"Complete this move within {months} months.")
 
 
 def _feasibility_status_for_action(action: Mapping[str, Any]) -> str:
@@ -703,11 +733,11 @@ def _follow_through_readiness_card(
             "High follow-through readiness",
             (
                 "Planin mevcut siralamasi uygulanabilir gorunuyor;"
-                f" zorluk seviyesi {_format_pct(peak_difficulty)} civarinda kalsa da erken takip savunulabilir."
+                " erken takip hikayesi savunulabilir kalmaya devam ediyor."
             ),
             (
-                "The plan sequencing looks realistic to carry through;"
-                f" even with about {_format_pct(peak_difficulty)} difficulty pressure, the early follow-through story stays defensible."
+                "The current sequencing looks realistic to carry through;"
+                " the early follow-through story remains defensible."
             ),
         )
     if label == "moderate":
@@ -716,11 +746,11 @@ def _follow_through_readiness_card(
             "Moderate follow-through readiness",
             (
                 "Beklenen etkiyi almak icin istikrarli takip gerekir;"
-                f" etkinin korunmasi yaklasik {_format_pct(effective_probability)} gerceklesme disiplini ister."
+                " ritim zayiflarsa planin etkisi yumusayabilir."
             ),
             (
                 "Steady follow-through is needed to realize the expected impact;"
-                f" preserving the uplift asks for roughly {_format_pct(effective_probability)} execution discipline."
+                " if momentum weakens, the uplift can soften."
             ),
         )
     return _card(
@@ -1201,8 +1231,8 @@ def _risk_card(base_pd: float, tau: float) -> NarrativeCard:
         return _card(
             "Esik altinda risk",
             "Below-threshold risk",
-            "Profil su anda politika esiginin altinda gorunuyor.",
-            "The profile is already below the policy threshold.",
+            "Profil su anda politika esiginin altinda ve karar gorunumu daha dengeli.",
+            "The profile is already below threshold and the decision outlook is more balanced.",
         )
     if margin <= 0.07:
         return _card(
@@ -1403,21 +1433,21 @@ def _expected_result_card(base_pd: float, checkpoints: Sequence[Mapping[str, Any
         return _card(
             "Profil su anda yeniden basvuruya uygun",
             "The profile is approval-ready now",
-            f"Risk gorunumu {_format_pct(base_pd)} seviyesinden politika esiginin altinda kalabiliyor.",
-            f"The risk view can stay below threshold after starting from {_format_pct(base_pd)}.",
+            "Plan, mevcut gorunumu karar esiginin guvenli tarafinda tutabiliyor.",
+            "The plan keeps the current view on the safe side of the decision threshold.",
         )
     if readiness_week is not None:
         return _card(
             f"{readiness_week} hafta icinde yeniden basvuruya hazirlik",
             f"Re-application readiness in {readiness_week} weeks",
-            f"Profilin {_format_pct(base_pd)} seviyesinden {_format_pct(latest_pd)} seviyesine iyilesmesi bekleniyor.",
-            f"The profile is expected to improve from {_format_pct(base_pd)} to about {_format_pct(latest_pd)}.",
+            "Profilin bu pencere icinde daha savunulabilir ve daha kontrollu hale gelmesi bekleniyor.",
+            "The profile is expected to become more defensible and controlled in this window.",
         )
     return _card(
         "Toparlaniyor ama henuz hazir degil",
         "Improving but not yet ready",
-        f"Risk gorunumu {_format_pct(base_pd)} seviyesinden iyilesse de karar hikayesi icin daha fazla guclenme gerekiyor.",
-        f"The risk view improves from {_format_pct(base_pd)}, but more strengthening is still needed for a credible decision story.",
+        "Risk gorunumu iyilesse de karar hikayesinin daha guclu hale gelmesi gerekiyor.",
+        "The risk view improves, but the decision story still needs more strengthening.",
     )
 
 
@@ -1441,12 +1471,12 @@ def build_executive_summary(
     expected_result = _expected_result_card(base_pd, checkpoints, readiness_stage, readiness_week)
     return RoadmapExecutiveSummary(
         headline=_lt(
-            "Musteri kontrollu bir toparlanma yoluna alinmis durumda.",
-            "The customer is now on a controlled recovery path.",
+            "Musteri icin kontrollu ve kisisellestirilmis bir toparlanma yolu kuruldu.",
+            "A controlled and personalized recovery path is now in place for the customer.",
         ),
         summary_line=_lt(
-            "Bu plan, ham motor ciktisini sirali aksiyonlara ve karar anlatimina cevirir.",
-            "This plan turns raw engine output into sequenced actions and a decision-ready story.",
+            "Plan, mevcut durumdan hedefe giden adimlari ve kontrol noktalarini tek bir yol haritasinda toplar.",
+            "The plan brings the current state, target moves, and checkpoints into one roadmap.",
         ),
         risk_start=_risk_card(base_pd, tau),
         recommended_path=_recommended_path_card(actions, offer_status),
@@ -1496,6 +1526,7 @@ def build_customer_roadmap_narrative(
     step_narratives: list[RoadmapStepNarrative] = []
     raw_actions: list[Mapping[str, Any]] = []
     feature_changes: list[dict[str, Any]] = []
+    primary_numeric_targets: list[dict[str, Any]] = []
     approval_dependencies: list[dict[str, Any]] = []
     diagnostic_flags: list[str] = []
     seen_approval_steps: set[str] = set()
@@ -1533,6 +1564,17 @@ def build_customer_roadmap_narrative(
                     "time_months": _safe_int(technical_view.get("time_months", step.get("time_months", 0)), 0),
                 }
             )
+            primary_target = _primary_numeric_target(step)
+            if primary_target:
+                primary_numeric_targets.append(
+                    {
+                        "step_id": step_id,
+                        "phase_id": phase_id,
+                        "action_key": str(business_view.get("action_key", step.get("action_key", "")) or ""),
+                        "action_title": str(business_view.get("action_title", step.get("action_title", "")) or ""),
+                        "primary_numeric_target": dict(primary_target),
+                    }
+                )
             if (
                 (
                     bool(_offer_contract_payload(step).get("requires_institutional_approval", False))
@@ -1568,12 +1610,16 @@ def build_customer_roadmap_narrative(
         phase_id, representative_step = representative_steps[step_id]
         step_narratives.append(build_step_narrative(representative_step, step_id=step_id, phase_id=phase_id))
 
+    sorted_checkpoints = sorted(
+        [checkpoint for checkpoint in checkpoints if isinstance(checkpoint, Mapping)],
+        key=lambda checkpoint: _safe_int(checkpoint.get("week", 0), 0),
+    )
     checkpoint_narratives = [
         build_checkpoint_narrative(checkpoint, tau)
-        for checkpoint in checkpoints
-        if isinstance(checkpoint, Mapping)
+        for checkpoint in sorted_checkpoints
     ]
-    reason_narratives = build_reason_narratives(reason_rows, max_items=4)
+    reason_narratives = build_reason_narratives(reason_rows, max_items=3)
+    technical_reason_narratives = build_reason_narratives(reason_rows, max_items=max(3, len(reason_rows)))
     explainability_reasons = [
         {
             "reason_code": reason.reason_code,
@@ -1593,7 +1639,7 @@ def build_customer_roadmap_narrative(
                 0.0,
             ),
         }
-        for reason in reason_narratives
+        for reason in technical_reason_narratives
     ]
     executive_summary = build_executive_summary(
         base_pd=base_pd,
@@ -1622,9 +1668,7 @@ def build_customer_roadmap_narrative(
                 "approval_friction": representative_step.get("approval_friction"),
             }
         )
-    for checkpoint in checkpoints:
-        if not isinstance(checkpoint, Mapping):
-            continue
+    for checkpoint in sorted_checkpoints:
         for key in (
             "trajectory_jump_flag",
             "non_monotonic_flag",
@@ -1639,6 +1683,7 @@ def build_customer_roadmap_narrative(
         reasons=reason_narratives,
         technical_reveal=RoadmapTechnicalReveal(
             feature_changes=feature_changes,
+            primary_numeric_targets=primary_numeric_targets,
             explainability_reasons=explainability_reasons,
             constraints_applied=_normalized_constraints_applied(actions=raw_actions, constraint_trace=constraint_trace),
             approval_dependencies=approval_dependencies,

@@ -773,6 +773,10 @@ class RoadmapTechnicalReveal(BaseModel):
     """
 
     feature_changes: list[dict[str, Any]] = Field(default_factory=list, description="Step-level feature degisim kayitlari")
+    primary_numeric_targets: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Step-level primary numeric target truth set",
+    )
     explainability_reasons: list[dict[str, Any]] = Field(default_factory=list, description="Reason ve katkilar")
     constraints_applied: list[dict[str, Any]] = Field(default_factory=list, description="Constraint ve repair trace kayitlari")
     approval_dependencies: list[dict[str, Any]] = Field(default_factory=list, description="Onay veya kabul bagimliliklari")

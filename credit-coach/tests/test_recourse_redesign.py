@@ -760,6 +760,7 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
     assert roadmap["narrative"]["steps"][0]["step_id"] == "limit_credit_usage:phase_1_stabilize"
     assert roadmap["narrative"]["steps"][0]["action_summary"]["tr"]
     assert "credit utilization" in roadmap["narrative"]["steps"][0]["expected_outcome"]["en"]
+    assert "within this month" in roadmap["narrative"]["steps"][0]["expected_outcome"]["en"]
     assert roadmap["phases"][0]["steps"][0]["difficulty_label"] == "moderate"
     assert roadmap["summary"]["follow_through_readiness_label"] == "moderate"
     assert roadmap["summary"]["dominant_difficulty_label"] == "moderate"
@@ -767,6 +768,8 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
     assert roadmap["phases"][0]["steps"][0]["primary_numeric_target"]["metric_key"] == "credit_utilization_pct"
     assert roadmap["phases"][0]["steps"][0]["primary_numeric_target"]["generation_notes"] == ["auto_populated_fallback"]
     assert roadmap["narrative"]["technical_reveal"]["feature_changes"][0]["feature_name"] == "revol_util"
+    assert roadmap["narrative"]["technical_reveal"]["primary_numeric_targets"][0]["primary_numeric_target"]["metric_key"] == "credit_utilization_pct"
+    assert "%" not in roadmap["narrative"]["executive_summary"]["follow_through_readiness"]["description"]["en"]
     assert action.business_view.action_family == "utilization"
     assert action.technical_view.feature_name == "revol_util"
 
