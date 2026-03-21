@@ -16,7 +16,7 @@
 
 ### Feasibility And Constraints
 
-- [ ] **FEAS-01**: Numeric targets are clipped, repaired, or rejected by explicit feasibility and constraint logic before they are treated as valid plan steps
+- [x] **FEAS-01**: Numeric targets are clipped, repaired, or rejected by explicit feasibility and constraint logic before they are treated as valid plan steps
 
 ### Execution Modeling
 
@@ -79,7 +79,7 @@
 |-------------|-------|--------|
 | ACT-01 | Phase 30 | Satisfied |
 | NUM-01 | Phase 31 | Satisfied |
-| FEAS-01 | Phase 32 | Pending |
+| FEAS-01 | Phase 32 | Satisfied |
 | EXEC-01 | Phase 33 | Pending |
 | OFFR-01 | Phase 34 | Pending |
 | NARV-01 | Phase 35 | Pending |
