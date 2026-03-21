@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 31
-Plan: no plan yet
-Status: Ready for discussion
-Last activity: 2026-03-20 - Completed Phase 30 by hardening action taxonomy, grouped semantic serialization, and semantic-by-default downstream consumers
+Plan: context captured
+Status: Ready for planning
+Last activity: 2026-03-21 - Captured Phase 31 numeric-target decisions around minimum-credible targets, unit families, numeric contract shape, and the feasibility handoff boundary
 
-Progress: `v2.0` is underway; Phase 30 is complete and the milestone is ready to discuss Phase 31 numeric target generation
+Progress: `v2.0` is underway; Phase 30 is complete and Phase 31 now has locked context for numeric target generation
 
 ## Performance Metrics
 
@@ -67,6 +67,13 @@ Recent decisions affecting current work:
   - schema-level `business_view` vs `technical_view`
 - Phase 30 also aligns roadmap, messaging, and batch consumers to grouped semantic actions rather than raw feature-first defaults
 - The next active design seam is `Phase 31: Numeric Target Engine`
+- Phase 31 context now locks:
+  - minimum-credible-change posture
+  - one canonical point target per action
+  - absolute target plus signed delta
+  - `action_family`-first unit selection with controlled overrides
+  - one primary numeric target for mixed-unit actions
+  - semantic-sanity-only generation guardrails before Phase 32 feasibility
 
 ### Pending Todos
 
@@ -80,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20
-Stopped at: Phase 30 complete; next step is `$gsd-discuss-phase 31`
+Last session: 2026-03-21
+Stopped at: Phase 31 context captured; next step is `$gsd-plan-phase 31 --research`
 Resume file: None
