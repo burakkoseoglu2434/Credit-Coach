@@ -132,6 +132,28 @@ class ActionTechnicalView(BaseModel):
     checkpoint_metric: str | None = Field(default=None, description="Technical checkpoint metric")
 
 
+class PrimaryNumericTarget(BaseModel):
+    """
+    Business-readable primary numeric target contract for one semantic action.
+    """
+
+    metric_key: str = Field(..., description="Business-friendly deterministic numeric metric key")
+    unit: Literal[
+        "currency",
+        "percentage_points",
+        "ratio",
+        "score_points",
+        "months",
+        "boolean_state",
+        "count",
+    ] = Field(..., description="Canonical unit family")
+    current_value: float | None = Field(default=None, description="Current business-readable target value")
+    target_value: float = Field(..., description="Recommended absolute target value")
+    delta_value: float = Field(..., description="Signed target delta")
+    due_month: int = Field(..., ge=1, description="Canonical due month for reaching the target")
+    direction: Literal["decrease", "increase"] = Field(..., description="Target movement direction")
+
+
 # ------------------------------------------------------------------ #
 # PlanAction — tek bir aksiyon
 # ------------------------------------------------------------------ #
@@ -190,6 +212,10 @@ class PlanAction(BaseModel):
     technical_view: ActionTechnicalView | None = Field(
         default=None,
         description="Schema-level technical effect traceability view",
+    )
+    primary_numeric_target: PrimaryNumericTarget | None = Field(
+        default=None,
+        description="Business-readable canonical primary numeric target",
     )
     composite_action: bool = Field(
         default=False,
@@ -282,7 +308,7 @@ class PlanAction(BaseModel):
     def populate_action_views(self) -> "PlanAction":
         if self.action_key:
             try:
-                from credit_coach.recourse.action_space import get_action_template
+                from credit_coach.recourse.action_space import get_action_template, get_numeric_target_metadata
 
                 template = get_action_template(str(self.action_key))
                 if self.action_class is None:
@@ -317,6 +343,26 @@ class PlanAction(BaseModel):
                 week_end=self.week_end,
                 checkpoint_metric=self.checkpoint_metric,
             )
+        if self.primary_numeric_target is None and self.action_key:
+            try:
+                numeric_meta = get_numeric_target_metadata(
+                    self.feature_name,
+                    action_month=self.time_months,
+                )
+                if bool(numeric_meta.get("is_primary_target")):
+                    direction = str(numeric_meta.get("direction") or "")
+                    if direction in {"increase", "decrease"}:
+                        self.primary_numeric_target = PrimaryNumericTarget(
+                            metric_key=str(numeric_meta.get("metric_key") or ""),
+                            unit=str(numeric_meta.get("unit") or ""),
+                            current_value=self.current_value,
+                            target_value=self.target_value,
+                            delta_value=self.delta,
+                            due_month=int(numeric_meta.get("due_month") or self.time_months),
+                            direction=direction,
+                        )
+            except Exception:
+                pass
         return self
 
 

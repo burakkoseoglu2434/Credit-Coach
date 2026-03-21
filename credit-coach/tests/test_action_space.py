@@ -25,11 +25,14 @@ from credit_coach.data.schema import PlanAction
 from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.action_space import (
     ACTION_CATALOG,
+    ACTION_FAMILY_NUMERIC_DEFAULTS,
     ACTION_SPACE,
+    FEATURE_NUMERIC_OVERRIDES,
     ActionSpec,
     derive_action_group_id,
     estimate_action_cost_usd,
     get_action_metadata,
+    get_numeric_target_metadata,
     get_actionable_features,
     get_action_spec,
     get_action_template,
@@ -186,11 +189,16 @@ class TestTypedActionCatalog:
         assert "debt_restructuring" in families
         assert "hardship_relief" in families
 
+    def test_numeric_target_defaults_exist_for_all_action_families(self) -> None:
+        families = {template.action_family for template in ACTION_CATALOG.values()}
+        assert families <= set(ACTION_FAMILY_NUMERIC_DEFAULTS.keys())
+
     def test_get_action_template_returns_catalog_entry(self) -> None:
         template = get_action_template("refinance")
         assert template.action_class == "structural"
         assert template.action_family == "debt_restructuring"
         assert {"int_rate", "installment"} <= set(template.feature_names)
+        assert template.primary_target_feature_name == "installment"
 
     def test_action_metadata_builds_shared_group_for_composite_actions(self) -> None:
         first = get_action_metadata("int_rate", action_month=3)
@@ -201,6 +209,28 @@ class TestTypedActionCatalog:
         assert derive_action_group_id("refinance", 3) == "refinance:phase_2_build"
         assert derive_action_group_id("refinance", 3) == first["action_group_id"]
         assert first["composite_action"] is True
+        assert first["primary_numeric_target"]["metric_key"] == "interest_rate_pct"
+        assert first["primary_numeric_target"]["unit"] == "percentage_points"
+        assert first["primary_numeric_target"]["is_primary_target"] is False
+        assert second["primary_numeric_target"]["metric_key"] == "monthly_payment_amount"
+        assert second["primary_numeric_target"]["is_primary_target"] is True
+
+    def test_numeric_target_metadata_uses_family_defaults_and_feature_overrides(self) -> None:
+        annual_inc = get_numeric_target_metadata("annual_inc")
+        dti = get_numeric_target_metadata("dti")
+        int_rate = get_numeric_target_metadata("int_rate", action_month=3)
+        installment = get_numeric_target_metadata("installment", action_month=3)
+        assert annual_inc["metric_key"] == "documented_income_amount"
+        assert annual_inc["unit"] == "currency"
+        assert annual_inc["is_primary_target"] is True
+        assert dti["metric_key"] == "debt_to_income_pct"
+        assert dti["unit"] == "percentage_points"
+        assert int_rate["metric_key"] == FEATURE_NUMERIC_OVERRIDES["int_rate"].metric_key
+        assert int_rate["unit"] == "percentage_points"
+        assert int_rate["due_month"] == 3
+        assert int_rate["is_primary_target"] is False
+        assert installment["metric_key"] == "monthly_payment_amount"
+        assert installment["is_primary_target"] is True
 
     def test_action_catalog_exposes_dependency_and_provider_tags(self) -> None:
         refinance = get_action_template("refinance")

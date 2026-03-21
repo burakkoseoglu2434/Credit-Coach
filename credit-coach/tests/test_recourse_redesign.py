@@ -232,6 +232,10 @@ def test_generate_plan_record_emits_execution_probability_contract():
     assert all(action.technical_view is not None for action in plan.actions)
     assert all(action.business_view.action_key == action.action_key for action in plan.actions)
     assert all(action.technical_view.feature_name == action.feature_name for action in plan.actions)
+    primary_targets = [action.primary_numeric_target for action in plan.actions if action.primary_numeric_target is not None]
+    assert primary_targets
+    assert any(target.metric_key in {"debt_to_income_pct", "revolving_balance_amount"} for target in primary_targets)
+    assert all(target.direction == "decrease" for target in primary_targets)
     assert [phase.phase_id for phase in plan.phases] == [
         "phase_1_stabilize",
         "phase_2_build",
