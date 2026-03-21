@@ -70,7 +70,7 @@ Historical archive: `.planning/milestones/v1.3-ROADMAP.md`
 
 **Goal**: Turn model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans with clear product-ready narratives and portfolio-level validation.
 **Phases**: 30-39 currently defined
-**Status**: Active; Phases 30-34 complete and ready to start Phase 35
+**Status**: Active; Phases 30-34 complete and Phase 35 is planned for execution
 
 ### Phase 30: Action Semantics Hardening
 

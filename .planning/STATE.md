@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 35
-Plan: None yet
-Status: Ready for planning
-Last activity: 2026-03-22 - Captured Phase 35 context across granularity, personalization, business-vs-technical split, and tone policy
+Plan: 35-01, 35-02, 35-03 ready
+Status: Ready for execution
+Last activity: 2026-03-22 - Planned Phase 35 across contract/order hardening, personalization/tone, and business-vs-technical narrative closure
 
-Progress: `v2.0` is underway; Phases 30-34 are complete and Phase 35 context is now locked for planning
+Progress: `v2.0` is underway; Phases 30-34 are complete and the next active seam is `Phase 35: Narrative Generation v2`
 
 ## Performance Metrics
 
@@ -145,6 +145,10 @@ Recent decisions affecting current work:
   - personalization anchored to current state, target, and timing
   - calm, confident, gently directive, non-judgmental tone
   - default business output with no raw probabilities and only top `2-3` principal reasons
+- Phase 35 planning is now split into:
+  - narrative contract and ordering hardening
+  - personalization and tone hardening
+  - business-vs-technical split and runtime closure
 
 ### Pending Todos
 
@@ -159,5 +163,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Phase 35 context captured; next step is `$gsd-plan-phase 35 --research`
+Stopped at: Phase 35 planned; next step is `$gsd-execute-phase 35`
 Resume file: None
