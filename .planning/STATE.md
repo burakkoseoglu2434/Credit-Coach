@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 Phase: 35
 Plan: None yet
-Status: Ready for discussion
-Last activity: 2026-03-22 - Executed Phase 34 across nested offer contracts, rankability semantics, and business-safe offer visibility
+Status: Ready for planning
+Last activity: 2026-03-22 - Captured Phase 35 context across granularity, personalization, business-vs-technical split, and tone policy
 
-Progress: `v2.0` is underway; Phases 30-34 are complete and the next active seam is `Phase 35: Narrative Generation v2`
+Progress: `v2.0` is underway; Phases 30-34 are complete and Phase 35 context is now locked for planning
 
 ## Performance Metrics
 
@@ -136,6 +136,15 @@ Recent decisions affecting current work:
   - business-safe offer narratives that keep customer action primary and offer state explicit
   - technical reveal offer trace with full contract, policy metadata, and approval-dependent execution detail
 - `OFFR-01` is now satisfied
+- The next active design seam is `Phase 35: Narrative Generation v2`
+- Phase 35 context now locks:
+  - default narrative order `executive_summary -> steps -> checkpoints -> reasons`
+  - one primary numeric statement per step inside `expected_outcome`
+  - short feasibility, difficulty, and follow-through cues on every visible step
+  - `4w` checkpoint emphasis with `12w/24w` as shorter supporting layers
+  - personalization anchored to current state, target, and timing
+  - calm, confident, gently directive, non-judgmental tone
+  - default business output with no raw probabilities and only top `2-3` principal reasons
 
 ### Pending Todos
 
@@ -150,5 +159,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Phase 34 completed; next step is `$gsd-discuss-phase 35`
+Stopped at: Phase 35 context captured; next step is `$gsd-plan-phase 35 --research`
 Resume file: None
