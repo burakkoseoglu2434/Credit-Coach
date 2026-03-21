@@ -12,7 +12,7 @@
 
 ### Numeric Targeting
 
-- [ ] **NUM-01**: Selected actions can be translated into customer-specific numeric targets with current value, target value, delta, unit, and due horizon
+- [x] **NUM-01**: Selected actions can be translated into customer-specific numeric targets with current value, target value, delta, unit, and due horizon
 
 ### Feasibility And Constraints
 
@@ -78,7 +78,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ACT-01 | Phase 30 | Satisfied |
-| NUM-01 | Phase 31 | Pending |
+| NUM-01 | Phase 31 | Satisfied |
 | FEAS-01 | Phase 32 | Pending |
 | EXEC-01 | Phase 33 | Pending |
 | OFFR-01 | Phase 34 | Pending |

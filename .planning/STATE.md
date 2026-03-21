@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 ## Current Position
 
-Phase: 31
-Plan: research complete, plans written
-Status: Ready for execution
-Last activity: 2026-03-21 - Planned Phase 31 around numeric target contract hardening, generator integration, and feasibility-neutral downstream alignment
+Phase: 32
+Plan: no active plan
+Status: Ready for discussion
+Last activity: 2026-03-21 - Completed Phase 31 numeric target contract, generator handoff, and consumer alignment
 
-Progress: `v2.0` is underway; Phase 30 is complete and Phase 31 is now researched and split into three execution waves for numeric target generation
+Progress: `v2.0` is underway; Phases 30-31 are complete and the next active design seam is Phase 32 feasibility and constraint hardening
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 75 (historical import + phases 8-25)
+- Total plans completed: 81 (historical import + phases 8-25 plus phases 30-31)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -31,12 +31,12 @@ Progress: `v2.0` is underway; Phase 30 is complete and Phase 31 is now researche
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
 | v1.2 completed milestone | 15 | phases 12-16 complete | n/a |
 | v1.3 completed milestone | 28 | phases 17-25 complete | n/a |
-| v2.0 active milestone | 3 | phase 30 complete, phases 31-39 remaining | n/a |
+| v2.0 active milestone | 6 | phases 30-31 complete, phases 32-39 remaining | n/a |
 
 **Recent Trend:**
 - The engine now has audited full-portfolio proof plus buyer-safe demo, proof, investor, analyst, and pilot-baseline surfaces.
 - The new milestone is focused on making outputs more customer-specific, numeric, decision-intelligent, and easier to validate at portfolio scale.
-- The roadmap now continues from Phase 30 with a ten-phase sequence covering semantics, numeric targets, constraints, execution realism, offers, narratives, surfaces, portfolio impact, calibration, and pilot integration.
+- The roadmap now continues from Phase 32 with the next sequence covering feasibility, execution realism, offers, narratives, surfaces, portfolio impact, calibration, and pilot integration.
 
 ## Accumulated Context
 
@@ -78,6 +78,14 @@ Recent decisions affecting current work:
   - numeric target contract and unit catalog
   - generator integration and feasibility handoff
   - runtime consumer alignment and regression closure
+- Phase 31 execution is complete and establishes:
+  - one canonical `PrimaryNumericTarget` per action
+  - deterministic `action_family`-driven metric and unit selection
+  - generator-emitted numeric targets with feasibility-neutral handoff notes
+  - runtime and messaging consumers that prefer primary numeric targets over raw feature deltas
+  - grouped-step narrative selection that prefers the step carrying the primary numeric target
+- `NUM-01` is now satisfied
+- The next active design seam is `Phase 32: Feasibility & Constraint Engine`
 
 ### Pending Todos
 
@@ -92,5 +100,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Phase 31 planning complete; next step is `$gsd-execute-phase 31`
+Stopped at: Phase 31 complete; next step is `$gsd-discuss-phase 32`
 Resume file: None
