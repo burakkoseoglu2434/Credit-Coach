@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+from math import isclose
 
 import numpy as np
 import pandas as pd
 
 from credit_coach.cli.run_recourse import _build_customer_roadmap, _effective_recourse_search, _plan_to_row
-from credit_coach.data.schema import PlanAction, PlanRecord, TrajectoryCheckpoint, TrajectoryPhase
+from credit_coach.data.schema import OfferContract, PlanAction, PlanRecord, TrajectoryCheckpoint, TrajectoryPhase
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.recourse.generator import PlanGenConfig, generate_plan_record
 from credit_coach.recourse.execution_probability import (
@@ -197,6 +198,85 @@ def test_generate_plan_record_marks_approval_required_action_provisional():
     assert "offer_terms_incomplete" in plan.actions[0].diagnostic_flags
     assert plan.actions[0].action_execution_probability is None
     assert float(plan.actions[0].approval_dependent_probability or 0.0) > 0.0
+    assert plan.actions[0].offer_contract is not None
+    assert plan.actions[0].offer_contract.offer_type == "credit_limit_adjustment"
+    assert plan.actions[0].offer_contract.offer_terms_complete is False
+    assert plan.actions[0].offer_contract.requires_institutional_approval is True
+    assert plan.actions[0].offer_contract.institutional_approval_state == "pending"
+
+
+def test_plan_action_builds_nested_offer_contract_from_flat_fields():
+    action = PlanAction(
+        feature_name="delinq_amnt",
+        current_value=2400.0,
+        target_value=1200.0,
+        delta=-1200.0,
+        time_months=3,
+        estimated_cost_usd=25.0,
+        action_key="installment_plan",
+        action_class="institutional",
+        action_title="Request installment plan",
+        offer_type="installment_terms",
+        offer_terms={
+            "payment_delta_monthly": -120.0,
+            "term_extension_months": 6,
+            "grace_period_weeks": 2,
+            "custom_note": "pilot_extension",
+        },
+        offer_terms_complete=True,
+        requires_acceptance=True,
+        requires_institutional_approval=False,
+        institutional_approval_state="approved",
+        offer_family="payment_relief",
+        offer_scoring_profile="installment_terms_v1",
+        term_generation_rule="installment_terms_v1",
+        offer_policy_arm="installment_terms_policy_v1",
+    )
+
+    assert action.offer_contract is not None
+    assert action.offer_contract.offer_type == "installment_terms"
+    assert action.offer_contract.offer_family == "payment_relief"
+    assert action.offer_contract.offer_terms_complete is True
+    assert action.offer_contract.requires_acceptance is True
+    assert action.offer_contract.offer_terms.term_extension_months == 6
+    assert action.offer_contract.offer_terms.extensions["custom_note"] == "pilot_extension"
+
+
+def test_plan_action_backfills_flat_offer_fields_from_nested_contract():
+    action = PlanAction(
+        feature_name="delinq_amnt",
+        current_value=2400.0,
+        target_value=1200.0,
+        delta=-1200.0,
+        time_months=3,
+        estimated_cost_usd=25.0,
+        action_key="installment_plan",
+        action_class="institutional",
+        action_title="Request installment plan",
+        offer_contract=OfferContract(
+            offer_type="installment_terms",
+            offer_family="payment_relief",
+            offer_terms={
+                "payment_delta_monthly": -120.0,
+                "term_extension_months": 6,
+                "grace_period_weeks": 2,
+            },
+            offer_terms_complete=True,
+            requires_acceptance=True,
+            requires_institutional_approval=False,
+            institutional_approval_state="approved",
+            offer_policy_arm="installment_terms_policy_v1",
+            offer_scoring_profile="installment_terms_v1",
+            term_generation_rule="installment_terms_v1",
+        ),
+    )
+
+    assert action.offer_type == "installment_terms"
+    assert action.offer_terms_complete is True
+    assert action.requires_acceptance is True
+    assert action.offer_family == "payment_relief"
+    assert action.offer_policy_arm == "installment_terms_policy_v1"
+    assert isclose(float(action.offer_terms["payment_delta_monthly"]), -120.0)
 
 
 def test_generate_plan_record_emits_execution_probability_contract():
@@ -433,24 +513,25 @@ def test_annotate_offer_optimization_emits_combined_realization_contract():
                     action_class="institutional",
                     action_title="Request installment plan",
                     action_group_id="installment_plan:phase_2_build",
-                    institutional_approval_state="approved",
-                    offer_type="installment_terms",
-                    offer_terms={
-                        "payment_delta_monthly": -120.0,
-                        "discount_amount": 0.0,
-                        "discount_pct": 0.0,
-                        "term_extension_months": 6,
-                        "interest_rate_delta": -0.25,
-                        "grace_period_weeks": 2,
-                        "requires_acceptance": True,
-                        "requires_institutional_approval": False,
-                    },
-                    offer_terms_complete=True,
-                    requires_acceptance=True,
-                    offer_family="payment_relief",
-                    offer_scoring_profile="installment_terms_v1",
-                    term_generation_rule="installment_terms_v1",
-                    offer_policy_arm="installment_terms_policy_v1",
+                    offer_contract=OfferContract(
+                        offer_type="installment_terms",
+                        offer_family="payment_relief",
+                        offer_terms={
+                            "payment_delta_monthly": -120.0,
+                            "discount_amount": 0.0,
+                            "discount_pct": 0.0,
+                            "term_extension_months": 6,
+                            "interest_rate_delta": -0.25,
+                            "grace_period_weeks": 2,
+                        },
+                        offer_terms_complete=True,
+                        requires_acceptance=True,
+                        requires_institutional_approval=False,
+                        institutional_approval_state="approved",
+                        offer_scoring_profile="installment_terms_v1",
+                        term_generation_rule="installment_terms_v1",
+                        offer_policy_arm="installment_terms_policy_v1",
+                    ),
                 )
             ],
             predicted_pd=0.41,
@@ -473,6 +554,68 @@ def test_annotate_offer_optimization_emits_combined_realization_contract():
     assert float(plan.expected_recovery_proxy or 0.0) > 0.0
     assert plan.offer_policy_arm == "installment_terms_policy_v1"
     assert plan.governance_safe_offer is True
+    assert plan.actions[0].offer_contract is not None
+    assert plan.actions[0].offer_contract.offer_type == "installment_terms"
+    assert plan.actions[0].offer_contract.offer_family == "payment_relief"
+    assert plan.actions[0].offer_contract.offer_terms.term_extension_months == 6
+
+
+def test_annotate_offer_optimization_keeps_approval_pending_offer_non_rankable():
+    plan = annotate_offer_optimization(
+        PlanRecord(
+            plan_id="offer-approval-pending",
+            customer_id="cust-offer-pending",
+            run_id="run-offer-pending",
+            horizon_months=6,
+            strategy="balanced",
+            actions=[
+                PlanAction(
+                    feature_name="total_rev_hi_lim",
+                    current_value=6000.0,
+                    target_value=7200.0,
+                    delta=1200.0,
+                    time_months=3,
+                    estimated_cost_usd=12.0,
+                    action_key="credit_limit_adjustment",
+                    action_class="institutional",
+                    action_title="Request credit limit adjustment",
+                    action_group_id="credit_limit_adjustment:phase_2_build",
+                    offer_contract=OfferContract(
+                        offer_type="credit_limit_adjustment",
+                        offer_family="limit_management",
+                        offer_terms={"grace_period_weeks": 0},
+                        offer_terms_complete=False,
+                        requires_acceptance=False,
+                        requires_institutional_approval=True,
+                        institutional_approval_state="pending",
+                        offer_scoring_profile="credit_limit_adjustment_v1",
+                        term_generation_rule="credit_limit_adjustment_terms_v1",
+                        offer_policy_arm="credit_limit_adjustment_policy_v1",
+                    ),
+                    action_status="provisional",
+                    dependency_gate=True,
+                )
+            ],
+            predicted_pd=0.44,
+            score=0.10,
+            robust_score=0.10,
+            status="NEEDS_REVIEW",
+            constraint_status="provisional",
+            trajectory_status="on_track",
+            executable_action_group_count=0,
+            approval_pending_action_count=1,
+            approval_dependent_plan_probability=0.42,
+        ),
+        customer_context={"income_band": "q2"},
+        segment_context={"risk_band": "mid"},
+    )
+
+    assert plan.offer_plan is True
+    assert plan.rankable_offer_count == 0
+    assert plan.offer_acceptance_probability is None
+    assert plan.combined_plan_realization_probability is None
+    assert plan.governance_safe_offer is False
+    assert plan.dominant_offer_type == "credit_limit_adjustment"
 
 
 def test_build_customer_roadmap_emits_sibling_narrative_layer():
@@ -663,3 +806,58 @@ def test_plan_to_row_serializes_primary_numeric_target_in_timeline():
     assert timeline_steps[0]["primary_numeric_target"]["metric_key"] == "monthly_payment_amount"
     assert timeline_steps[0]["primary_numeric_target"]["unit"] == "currency"
     assert timeline_steps[0]["primary_numeric_target"]["generation_notes"] == ["auto_populated_fallback"]
+
+
+def test_plan_to_row_serializes_nested_offer_contract_in_timeline():
+    action = PlanAction(
+        feature_name="delinq_amnt",
+        current_value=2400.0,
+        target_value=1200.0,
+        delta=-1200.0,
+        time_months=3,
+        estimated_cost_usd=25.0,
+        action_key="installment_plan",
+        action_class="institutional",
+        action_title="Request installment plan",
+        action_group_id="installment_plan:phase_2_build",
+        offer_contract=OfferContract(
+            offer_type="installment_terms",
+            offer_family="payment_relief",
+            offer_terms={
+                "payment_delta_monthly": -120.0,
+                "term_extension_months": 6,
+                "grace_period_weeks": 2,
+            },
+            offer_terms_complete=True,
+            requires_acceptance=True,
+            requires_institutional_approval=False,
+            institutional_approval_state="approved",
+            offer_policy_arm="installment_terms_policy_v1",
+            offer_scoring_profile="installment_terms_v1",
+            term_generation_rule="installment_terms_v1",
+        ),
+        action_execution_probability=0.64,
+        approval_dependent_probability=0.0,
+        action_group_execution_probability=0.64,
+    )
+    plan = PlanRecord(
+        plan_id="offer-row-plan",
+        customer_id="cust-offer-row",
+        run_id="run-offer-row",
+        horizon_months=6,
+        strategy="balanced",
+        actions=[action],
+        predicted_pd=0.31,
+        score=0.2,
+        robust_score=0.2,
+        status="NEEDS_REVIEW",
+        constraint_status="valid",
+    )
+
+    row = _plan_to_row(plan)
+    timeline_steps = json.loads(row["timeline_steps_json"])
+
+    assert timeline_steps[0]["offer_contract"]["offer_type"] == "installment_terms"
+    assert timeline_steps[0]["offer_contract"]["offer_terms"]["term_extension_months"] == 6
+    assert timeline_steps[0]["offer_policy_arm"] == "installment_terms_policy_v1"
+    assert timeline_steps[0]["action_execution_probability"] == 0.64

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any, Mapping, Sequence
 
-from credit_coach.data.schema import PlanAction, PlanRecord
+from credit_coach.data.schema import OfferContract, OfferTerms, PlanAction, PlanRecord
 
 ACTIVE_OFFER_APPROVAL_STATES = {"approved", "not_required"}
 
@@ -45,21 +45,79 @@ def _offer_group_key(action: PlanAction, index: int) -> str:
     return f"offer:{index}:{_safe_str(getattr(action, 'feature_name', ''))}"
 
 
+def offer_contract_for_action(action: PlanAction) -> OfferContract | None:
+    contract = getattr(action, "offer_contract", None)
+    if isinstance(contract, OfferContract):
+        return contract
+    has_flat_offer_truth = bool(
+        _safe_str(getattr(action, "offer_type", ""))
+        or _safe_str(getattr(action, "offer_family", ""))
+        or bool(getattr(action, "requires_acceptance", False))
+        or bool(getattr(action, "requires_institutional_approval", False))
+        or _safe_str(getattr(action, "institutional_approval_state", "")) not in {"", "not_required"}
+        or bool(getattr(action, "offer_terms", {}))
+    )
+    if not has_flat_offer_truth:
+        return None
+    return OfferContract(
+        offer_type=_safe_str(getattr(action, "offer_type", "")) or None,
+        offer_family=_safe_str(getattr(action, "offer_family", "")) or None,
+        offer_terms=dict(getattr(action, "offer_terms", {}) or {}),
+        offer_terms_complete=bool(getattr(action, "offer_terms_complete", False)),
+        requires_acceptance=bool(getattr(action, "requires_acceptance", False)),
+        requires_institutional_approval=bool(getattr(action, "requires_institutional_approval", False)),
+        institutional_approval_state=_safe_str(getattr(action, "institutional_approval_state", "not_required")),
+        offer_policy_arm=_safe_str(getattr(action, "offer_policy_arm", "")) or None,
+        offer_scoring_profile=_safe_str(getattr(action, "offer_scoring_profile", "")) or None,
+        term_generation_rule=_safe_str(getattr(action, "term_generation_rule", "")) or None,
+    )
+
+
 def approval_state_for_action(action: PlanAction) -> str:
-    state = _safe_str(getattr(action, "institutional_approval_state", ""), "unknown").lower()
+    contract = offer_contract_for_action(action)
+    state = _safe_str(
+        getattr(contract, "institutional_approval_state", None)
+        if contract is not None
+        else getattr(action, "institutional_approval_state", ""),
+        "unknown",
+    ).lower()
     return state if state else "unknown"
 
 
 def is_offer_action(action: PlanAction) -> bool:
+    contract = offer_contract_for_action(action)
+    if contract is not None and bool(_safe_str(getattr(contract, "offer_type", ""))):
+        return True
     return bool(_safe_str(getattr(action, "offer_type", "")))
 
 
 def is_rankable_offer_action(action: PlanAction) -> bool:
     if not is_offer_action(action):
         return False
-    if not bool(getattr(action, "offer_terms_complete", False)):
+    contract = offer_contract_for_action(action)
+    offer_terms_complete = (
+        bool(getattr(contract, "offer_terms_complete", False))
+        if contract is not None
+        else bool(getattr(action, "offer_terms_complete", False))
+    )
+    if not offer_terms_complete:
         return False
     return approval_state_for_action(action) in ACTIVE_OFFER_APPROVAL_STATES
+
+
+def is_provisional_offer_action(action: PlanAction) -> bool:
+    contract = offer_contract_for_action(action)
+    if contract is None or not is_offer_action(action):
+        return False
+    if str(getattr(action, "action_status", "") or "").strip().lower() == "provisional":
+        return True
+    if approval_state_for_action(action) in {"pending", "unknown"}:
+        return True
+    if not bool(contract.offer_terms_complete):
+        return True
+    if bool(getattr(action, "dependency_gate", False)) or bool(getattr(action, "approval_pending_semantic_only", False)):
+        return True
+    return False
 
 
 def build_offer_contract(
@@ -69,25 +127,25 @@ def build_offer_contract(
     target_value: float,
     action_month: int,
     action_context: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> OfferContract:
     offer_type = _safe_str(action_meta.get("offer_type", ""))
     if not offer_type:
-        return {
-            "offer_type": None,
-            "offer_terms": {},
-            "offer_terms_complete": False,
-            "requires_acceptance": False,
-            "institutional_approval_state": _safe_str(action_meta.get("institutional_approval_state", "not_required")),
-            "offer_family": None,
-            "offer_scoring_profile": None,
-            "term_generation_rule": None,
-            "offer_policy_arm": None,
-        }
+        return OfferContract(
+            offer_type=None,
+            offer_terms=OfferTerms(),
+            offer_terms_complete=False,
+            requires_acceptance=False,
+            requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
+            institutional_approval_state=_safe_str(action_meta.get("institutional_approval_state", "not_required")),
+            offer_family=None,
+            offer_scoring_profile=None,
+            term_generation_rule=None,
+            offer_policy_arm=None,
+        )
 
     context = dict(action_context or {})
     current_abs = abs(_safe_float(current_value, 0.0))
     target_abs = abs(_safe_float(target_value, 0.0))
-    requested_delta = float(target_value - current_value)
     requires_acceptance = bool(action_meta.get("requires_acceptance", False))
     approval_state = _safe_str(action_meta.get("institutional_approval_state", "unknown"), "unknown").lower()
 
@@ -121,27 +179,26 @@ def build_offer_contract(
         approval_state = "pending"
         offer_terms_complete = False
 
-    offer_terms = {
-        "payment_delta_monthly": float(payment_delta_monthly),
-        "discount_amount": float(discount_amount),
-        "discount_pct": float(discount_pct),
-        "term_extension_months": int(term_extension_months),
-        "interest_rate_delta": float(interest_rate_delta),
-        "grace_period_weeks": int(grace_period_weeks),
-        "requires_acceptance": bool(requires_acceptance),
-        "requires_institutional_approval": bool(action_meta.get("requires_institutional_approval", False)),
-    }
-    return {
-        "offer_type": offer_type,
-        "offer_terms": offer_terms,
-        "offer_terms_complete": bool(offer_terms_complete),
-        "requires_acceptance": bool(requires_acceptance),
-        "institutional_approval_state": approval_state,
-        "offer_family": _safe_str(action_meta.get("offer_family", "")) or None,
-        "offer_scoring_profile": _safe_str(action_meta.get("offer_scoring_profile", "")) or None,
-        "term_generation_rule": _safe_str(action_meta.get("term_generation_rule", "")) or None,
-        "offer_policy_arm": _safe_str(action_meta.get("offer_policy_arm", "")) or None,
-    }
+    offer_terms = OfferTerms(
+        payment_delta_monthly=float(payment_delta_monthly),
+        discount_amount=float(discount_amount),
+        discount_pct=float(discount_pct),
+        term_extension_months=int(term_extension_months),
+        interest_rate_delta=float(interest_rate_delta),
+        grace_period_weeks=int(grace_period_weeks),
+    )
+    return OfferContract(
+        offer_type=offer_type,
+        offer_family=_safe_str(action_meta.get("offer_family", "")) or None,
+        offer_terms=offer_terms,
+        offer_terms_complete=bool(offer_terms_complete),
+        requires_acceptance=bool(requires_acceptance),
+        requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
+        institutional_approval_state=approval_state,
+        offer_scoring_profile=_safe_str(action_meta.get("offer_scoring_profile", "")) or None,
+        term_generation_rule=_safe_str(action_meta.get("term_generation_rule", "")) or None,
+        offer_policy_arm=_safe_str(action_meta.get("offer_policy_arm", "")) or None,
+    )
 
 
 def _rankable_offer_groups(actions: Sequence[PlanAction]) -> dict[str, list[PlanAction]]:
@@ -160,8 +217,12 @@ def estimate_offer_acceptance_probability(
     customer_context: Mapping[str, Any] | None = None,
     segment_context: Mapping[str, Any] | None = None,
 ) -> float:
-    offer_type = _safe_str(getattr(action, "offer_type", ""))
-    terms = getattr(action, "offer_terms", {}) if isinstance(getattr(action, "offer_terms", {}), Mapping) else {}
+    contract = offer_contract_for_action(action)
+    offer_type = _safe_str(getattr(contract, "offer_type", "") if contract is not None else getattr(action, "offer_type", ""))
+    if contract is not None:
+        terms = getattr(getattr(contract, "offer_terms", None), "to_legacy_dict", lambda: {})()
+    else:
+        terms = getattr(action, "offer_terms", {}) if isinstance(getattr(action, "offer_terms", {}), Mapping) else {}
     anchor = {
         "discount_offer": 0.56,
         "installment_terms": 0.64,
@@ -217,7 +278,11 @@ def _offer_proxy_deltas(
     plan_execution_probability: float,
     offer_acceptance_probability: float,
 ) -> dict[str, float]:
-    terms = getattr(action, "offer_terms", {}) if isinstance(getattr(action, "offer_terms", {}), Mapping) else {}
+    contract = offer_contract_for_action(action)
+    if contract is not None:
+        terms = getattr(getattr(contract, "offer_terms", None), "to_legacy_dict", lambda: {})()
+    else:
+        terms = getattr(action, "offer_terms", {}) if isinstance(getattr(action, "offer_terms", {}), Mapping) else {}
     combined = float(plan_execution_probability * offer_acceptance_probability)
     payment_relief = max(0.0, -_safe_float(terms.get("payment_delta_monthly"), 0.0))
     discount_pct = max(0.0, _safe_float(terms.get("discount_pct"), 0.0))
@@ -278,16 +343,34 @@ def annotate_offer_optimization(
 
     primary_action = None
     if rankable_groups:
-        primary_group_actions = next(iter(rankable_groups.values()))
+        primary_group_key = sorted(rankable_groups.keys())[0]
+        primary_group_actions = rankable_groups[primary_group_key]
         primary_action = primary_group_actions[0]
     else:
         primary_action = offer_actions[0]
 
-    plan.dominant_offer_type = _safe_str(getattr(primary_action, "offer_type", "")) or None
-    plan.offer_policy_arm = _safe_str(getattr(primary_action, "offer_policy_arm", "")) or None
-    plan.offer_family = _safe_str(getattr(primary_action, "offer_family", "")) or None
-    plan.offer_scoring_profile = _safe_str(getattr(primary_action, "offer_scoring_profile", "")) or None
-    plan.term_generation_rule = _safe_str(getattr(primary_action, "term_generation_rule", "")) or None
+    primary_contract = offer_contract_for_action(primary_action)
+    plan.dominant_offer_type = _safe_str(
+        getattr(primary_contract, "offer_type", None) if primary_contract is not None else getattr(primary_action, "offer_type", "")
+    ) or None
+    plan.offer_policy_arm = _safe_str(
+        getattr(primary_contract, "offer_policy_arm", None)
+        if primary_contract is not None
+        else getattr(primary_action, "offer_policy_arm", "")
+    ) or None
+    plan.offer_family = _safe_str(
+        getattr(primary_contract, "offer_family", None) if primary_contract is not None else getattr(primary_action, "offer_family", "")
+    ) or None
+    plan.offer_scoring_profile = _safe_str(
+        getattr(primary_contract, "offer_scoring_profile", None)
+        if primary_contract is not None
+        else getattr(primary_action, "offer_scoring_profile", "")
+    ) or None
+    plan.term_generation_rule = _safe_str(
+        getattr(primary_contract, "term_generation_rule", None)
+        if primary_contract is not None
+        else getattr(primary_action, "term_generation_rule", "")
+    ) or None
 
     if rankable_offer_count <= 0 or primary_action is None or not is_rankable_offer_action(primary_action):
         plan.offer_acceptance_probability = None

@@ -690,6 +690,7 @@ def _plan_to_row(plan: PlanRecord) -> dict:
         else:
             phase_3_count += 1
         primary_numeric_target = getattr(action, "primary_numeric_target", None)
+        offer_contract = getattr(action, "offer_contract", None)
         timeline_steps.append(
             {
                 "phase_id": phase_id,
@@ -709,6 +710,11 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                 "institutional_approval_state": str(getattr(action, "institutional_approval_state", "") or ""),
                 "approval_pending_semantic_only": int(
                     bool(getattr(action, "approval_pending_semantic_only", False))
+                ),
+                "offer_contract": (
+                    offer_contract.model_dump(mode="json")
+                    if offer_contract is not None
+                    else None
                 ),
                 "offer_type": str(getattr(action, "offer_type", "") or ""),
                 "offer_terms": dict(getattr(action, "offer_terms", {}) or {}),
@@ -731,6 +737,21 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                 "difficulty_score": (
                     _safe_float(getattr(action, "difficulty_score", 0.0), 0.0)
                     if getattr(action, "difficulty_score", None) is not None
+                    else None
+                ),
+                "action_execution_probability": (
+                    _safe_float(getattr(action, "action_execution_probability", 0.0), 0.0)
+                    if getattr(action, "action_execution_probability", None) is not None
+                    else None
+                ),
+                "approval_dependent_probability": (
+                    _safe_float(getattr(action, "approval_dependent_probability", 0.0), 0.0)
+                    if getattr(action, "approval_dependent_probability", None) is not None
+                    else None
+                ),
+                "action_group_execution_probability": (
+                    _safe_float(getattr(action, "action_group_execution_probability", 0.0), 0.0)
+                    if getattr(action, "action_group_execution_probability", None) is not None
                     else None
                 ),
                 "difficulty_label": str(getattr(action, "difficulty_label", "") or ""),
@@ -924,16 +945,8 @@ def _dice_plan_record(
                 action_group_id=str(action_meta.get("action_group_id") or ""),
                 composite_action=bool(action_meta.get("composite_action", False)),
                 requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
-                institutional_approval_state=offer_contract.get("institutional_approval_state"),
                 approval_pending_semantic_only=bool(action_meta.get("approval_pending_semantic_only", False)),
-                offer_type=offer_contract.get("offer_type"),
-                offer_terms=dict(offer_contract.get("offer_terms", {})),
-                offer_terms_complete=bool(offer_contract.get("offer_terms_complete", False)),
-                requires_acceptance=bool(offer_contract.get("requires_acceptance", False)),
-                offer_family=offer_contract.get("offer_family"),
-                offer_scoring_profile=offer_contract.get("offer_scoring_profile"),
-                term_generation_rule=offer_contract.get("term_generation_rule"),
-                offer_policy_arm=offer_contract.get("offer_policy_arm"),
+                offer_contract=offer_contract,
                 prerequisite_tags=list(action_meta.get("prerequisite_tags", [])),
                 conflict_tags=list(action_meta.get("conflict_tags", [])),
                 action_status=str(detail["status"]),

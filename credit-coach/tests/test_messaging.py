@@ -219,14 +219,23 @@ def test_build_customer_roadmap_narrative_separates_offer_and_checkpoint_layers(
                             "time_months": 3,
                             "phase_id": "phase_2_build",
                         },
-                        "offer_type": "installment_terms",
-                        "offer_terms": {
-                            "payment_delta_monthly": -120.0,
-                            "term_extension_months": 6,
-                            "grace_period_weeks": 2,
+                        "offer_contract": {
+                            "offer_type": "installment_terms",
+                            "offer_family": "payment_relief",
+                            "offer_terms": {
+                                "payment_delta_monthly": -120.0,
+                                "term_extension_months": 6,
+                                "grace_period_weeks": 2,
+                            },
+                            "offer_terms_complete": True,
+                            "requires_acceptance": True,
+                            "requires_institutional_approval": False,
+                            "institutional_approval_state": "approved",
+                            "offer_policy_arm": "installment_terms_policy_v1",
+                            "offer_scoring_profile": "installment_terms_v1",
+                            "term_generation_rule": "installment_terms_v1",
                         },
-                        "requires_acceptance": True,
-                        "requires_institutional_approval": False,
+                        "approval_dependent_probability": 0.73,
                     }
                 ],
             }
@@ -254,6 +263,9 @@ def test_build_customer_roadmap_narrative_separates_offer_and_checkpoint_layers(
     assert checkpoint.expected_state.en.startswith("By the mid-term checkpoint")
     assert checkpoint.review_action is not None
     assert narrative.technical_reveal.approval_dependencies[0]["requires_acceptance"] is True
+    assert narrative.technical_reveal.approval_dependencies[0]["offer_contract"]["offer_type"] == "installment_terms"
+    assert narrative.technical_reveal.approval_dependencies[0]["offer_policy_arm"] == "installment_terms_policy_v1"
+    assert narrative.technical_reveal.approval_dependencies[0]["approval_dependent_probability"] == 0.73
     assert narrative.technical_reveal.confidence_inputs["offer_acceptance_probability"] == 0.49
 
 
@@ -277,6 +289,7 @@ def test_build_customer_roadmap_narrative_keeps_dependency_gated_feasibility_bus
                         "dependency_gate": True,
                         "semantic_preserved": True,
                         "requires_institutional_approval": True,
+                        "institutional_approval_state": "pending",
                         "business_view": {
                             "action_key": "credit_limit_adjustment",
                             "action_family": "limit_management",
@@ -302,6 +315,7 @@ def test_build_customer_roadmap_narrative_keeps_dependency_gated_feasibility_bus
         local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.6}},
     )
     assert narrative.steps[0].feasibility_outcome_label is not None
+    assert narrative.steps[0].offer_narrative is None
     assert narrative.steps[0].feasibility_outcome_label.tr == "Dis bagimlilik nedeniyle kosullu"
     assert narrative.technical_reveal.constraints_applied[0]["dependency_gate"] is True
     assert narrative.technical_reveal.constraints_applied[0]["reason_code"] == "requires_institutional_approval"

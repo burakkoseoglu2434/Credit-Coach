@@ -34,6 +34,7 @@ ActionConstraintStatus = Literal["valid", "clipped", "repaired", "provisional", 
 PlanConstraintStatus = Literal["valid", "repaired", "provisional", "invalid"]
 DifficultyLabel = Literal["low", "moderate", "high"]
 ReadinessLabel = Literal["low", "moderate", "high"]
+InstitutionalApprovalState = Literal["not_required", "approved", "pending", "unknown"]
 
 
 # ------------------------------------------------------------------ #
@@ -170,6 +171,92 @@ class PrimaryNumericTarget(BaseModel):
     )
 
 
+class OfferTerms(BaseModel):
+    """
+    Semi-typed canonical offer term contract with a narrow extension map.
+    """
+
+    payment_delta_monthly: float | None = Field(default=None, description="Aylik odeme degisimi")
+    discount_amount: float | None = Field(default=None, description="Mutlak indirim tutari")
+    discount_pct: float | None = Field(default=None, description="Oransal indirim")
+    term_extension_months: int | None = Field(default=None, ge=0, description="Vade uzatma ayi")
+    interest_rate_delta: float | None = Field(default=None, description="Faiz orani farki")
+    grace_period_weeks: int | None = Field(default=None, ge=0, description="Grace period haftasi")
+    extensions: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Canonical alanlar disindaki kucuk extension map",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def capture_extensions(cls, value: Any) -> Any:
+        if isinstance(value, OfferTerms):
+            return value
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        known_keys = {
+            "payment_delta_monthly",
+            "discount_amount",
+            "discount_pct",
+            "term_extension_months",
+            "interest_rate_delta",
+            "grace_period_weeks",
+            "extensions",
+        }
+        extensions = dict(data.get("extensions", {}) or {})
+        for key in list(data.keys()):
+            if key not in known_keys:
+                extensions[key] = data.pop(key)
+        data["extensions"] = extensions
+        return data
+
+    def to_legacy_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for key in (
+            "payment_delta_monthly",
+            "discount_amount",
+            "discount_pct",
+            "term_extension_months",
+            "interest_rate_delta",
+            "grace_period_weeks",
+        ):
+            value = getattr(self, key)
+            if value is not None:
+                out[key] = value
+        out.update(dict(self.extensions or {}))
+        return out
+
+
+class OfferContract(BaseModel):
+    """
+    Canonical institution-side offer layer attached to a semantic action.
+    """
+
+    offer_type: str | None = Field(default=None, description="Canonical offer type")
+    offer_family: str | None = Field(default=None, description="Canonical offer family")
+    offer_terms: OfferTerms = Field(default_factory=OfferTerms, description="Semi-typed offer terms")
+    offer_terms_complete: bool = Field(default=False, description="Offer term seti ordinary ranking icin complete mi")
+    requires_acceptance: bool = Field(default=False, description="Offer musteri kabulune bagli mi")
+    requires_institutional_approval: bool = Field(default=False, description="Offer kurum onayina bagli mi")
+    institutional_approval_state: InstitutionalApprovalState | None = Field(
+        default="not_required",
+        description="Institution-side approval durumu",
+    )
+    offer_policy_arm: str | None = Field(default=None, description="Canonical offer policy arm")
+    offer_scoring_profile: str | None = Field(default=None, description="Canonical offer scoring profile")
+    term_generation_rule: str | None = Field(default=None, description="Canonical term generation rule")
+
+    def is_present(self) -> bool:
+        return bool(
+            self.offer_type
+            or self.requires_acceptance
+            or self.requires_institutional_approval
+            or self.institutional_approval_state not in {None, "", "not_required"}
+            or bool(self.offer_terms.to_legacy_dict())
+        )
+
+
 # ------------------------------------------------------------------ #
 # PlanAction — tek bir aksiyon
 # ------------------------------------------------------------------ #
@@ -248,6 +335,10 @@ class PlanAction(BaseModel):
     approval_pending_semantic_only: bool = Field(
         default=False,
         description="Feature effect'e henuz donusmeyen semantik placeholder institutional aksiyon mu",
+    )
+    offer_contract: OfferContract | None = Field(
+        default=None,
+        description="Canonical nested institution-side offer contract",
     )
     offer_type: str | None = Field(
         default=None,
@@ -428,6 +519,47 @@ class PlanAction(BaseModel):
                         )
             except Exception:
                 pass
+        if self.offer_contract is None:
+            raw_terms = dict(self.offer_terms or {}) if isinstance(self.offer_terms, dict) else {}
+            candidate = OfferContract(
+                offer_type=self.offer_type,
+                offer_family=self.offer_family,
+                offer_terms=raw_terms,
+                offer_terms_complete=bool(self.offer_terms_complete),
+                requires_acceptance=bool(self.requires_acceptance),
+                requires_institutional_approval=bool(self.requires_institutional_approval),
+                institutional_approval_state=self.institutional_approval_state,
+                offer_policy_arm=self.offer_policy_arm,
+                offer_scoring_profile=self.offer_scoring_profile,
+                term_generation_rule=self.term_generation_rule,
+            )
+            if candidate.is_present():
+                self.offer_contract = candidate
+        elif not isinstance(self.offer_contract, OfferContract):
+            self.offer_contract = OfferContract.model_validate(self.offer_contract)
+
+        if self.offer_contract is not None:
+            contract = self.offer_contract
+            if self.offer_type is None:
+                self.offer_type = contract.offer_type
+            if not self.offer_terms:
+                self.offer_terms = contract.offer_terms.to_legacy_dict()
+            if not self.offer_terms_complete:
+                self.offer_terms_complete = bool(contract.offer_terms_complete)
+            if not self.requires_acceptance:
+                self.requires_acceptance = bool(contract.requires_acceptance)
+            if self.offer_family is None:
+                self.offer_family = contract.offer_family
+            if self.offer_scoring_profile is None:
+                self.offer_scoring_profile = contract.offer_scoring_profile
+            if self.term_generation_rule is None:
+                self.term_generation_rule = contract.term_generation_rule
+            if self.offer_policy_arm is None:
+                self.offer_policy_arm = contract.offer_policy_arm
+            if self.institutional_approval_state is None:
+                self.institutional_approval_state = contract.institutional_approval_state
+            if not self.requires_institutional_approval:
+                self.requires_institutional_approval = bool(contract.requires_institutional_approval)
         return self
 
 

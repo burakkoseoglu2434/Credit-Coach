@@ -429,6 +429,51 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return int(default)
 
 
+def _offer_contract_payload(action: Mapping[str, Any]) -> dict[str, Any]:
+    contract = action.get("offer_contract")
+    if isinstance(contract, Mapping):
+        payload = dict(contract)
+        terms = payload.get("offer_terms", {})
+        payload["offer_terms"] = dict(terms or {}) if isinstance(terms, Mapping) else {}
+        return payload
+    offer_terms = action.get("offer_terms", {})
+    return {
+        "offer_type": str(action.get("offer_type", "") or "") or None,
+        "offer_family": str(action.get("offer_family", "") or "") or None,
+        "offer_terms": dict(offer_terms or {}) if isinstance(offer_terms, Mapping) else {},
+        "offer_terms_complete": bool(action.get("offer_terms_complete", False)),
+        "requires_acceptance": bool(action.get("requires_acceptance", False)),
+        "requires_institutional_approval": bool(action.get("requires_institutional_approval", False)),
+        "institutional_approval_state": str(action.get("institutional_approval_state", "") or "not_required"),
+        "offer_policy_arm": str(action.get("offer_policy_arm", "") or "") or None,
+        "offer_scoring_profile": str(action.get("offer_scoring_profile", "") or "") or None,
+        "term_generation_rule": str(action.get("term_generation_rule", "") or "") or None,
+    }
+
+
+def _has_visible_offer(action: Mapping[str, Any]) -> bool:
+    contract = _offer_contract_payload(action)
+    return bool(str(contract.get("offer_type", "") or "").strip() or dict(contract.get("offer_terms", {}) or {}))
+
+
+def _offer_state_note(action: Mapping[str, Any]) -> LocalizedText | None:
+    contract = _offer_contract_payload(action)
+    approval_state = str(contract.get("institutional_approval_state", "") or "").strip().lower()
+    requires_approval = (
+        bool(contract.get("requires_institutional_approval", False))
+        or approval_state in {"pending", "unknown"}
+        or bool(action.get("approval_pending_semantic_only", False))
+        or bool(action.get("dependency_gate", False))
+    )
+    if requires_approval:
+        return _lt("Kurum onayina bagli.", "Depends on institution approval.")
+    if bool(contract.get("requires_acceptance", False)):
+        return _lt("Musteri kabulune bagli.", "Depends on customer acceptance.")
+    if _has_visible_offer(action):
+        return _lt("Teklif aktif durumda.", "Offer is currently active.")
+    return None
+
+
 def _format_pct(value: float) -> str:
     return f"%{int(round(float(value) * 100))}"
 
@@ -952,9 +997,17 @@ def _offer_terms_summary(offer_terms: Mapping[str, Any]) -> LocalizedText | None
 
 
 def build_offer_narrative(action: Mapping[str, Any]) -> OfferNarrative | None:
-    offer_type = str(action.get("offer_type", "") or "")
-    requires_approval = bool(action.get("requires_institutional_approval", False))
-    requires_acceptance = bool(action.get("requires_acceptance", False))
+    contract = _offer_contract_payload(action)
+    offer_type = str(contract.get("offer_type", "") or "")
+    requires_approval = (
+        bool(contract.get("requires_institutional_approval", False))
+        or str(contract.get("institutional_approval_state", "") or "").strip().lower() in {"pending", "unknown"}
+        or bool(action.get("approval_pending_semantic_only", False))
+        or bool(action.get("dependency_gate", False))
+    )
+    requires_acceptance = bool(contract.get("requires_acceptance", False))
+    if not _has_visible_offer(action) and (requires_approval or requires_acceptance):
+        return None
     if not offer_type and not requires_approval and not requires_acceptance:
         return None
     template = _OFFER_NARRATIVE_TEMPLATES.get(
@@ -978,12 +1031,13 @@ def build_offer_narrative(action: Mapping[str, Any]) -> OfferNarrative | None:
             ),
         },
     )
+    state_note = _offer_state_note(action)
     return OfferNarrative(
-        offer_explanation=_localized_pair(template["offer_explanation"]),
+        offer_explanation=_append_localized_sentence(template["offer_explanation"], state_note),
         why_offered=_localized_pair(template["why_offered"]),
         if_accepted=_localized_pair(template["if_accepted"]),
         if_not_accepted=_localized_pair(template["if_not_accepted"]),
-        offer_terms_summary=_offer_terms_summary(action.get("offer_terms", {}) or {}),
+        offer_terms_summary=_offer_terms_summary(contract.get("offer_terms", {}) or {}),
     )
 
 
@@ -1173,7 +1227,7 @@ def _risk_card(base_pd: float, tau: float) -> NarrativeCard:
 
 
 def _offer_status_card(actions: Sequence[Mapping[str, Any]]) -> NarrativeCard:
-    offer_actions = [a for a in actions if str(a.get("offer_type", "") or "").strip()]
+    offer_actions = [a for a in actions if _has_visible_offer(a)]
     if not offer_actions:
         return _card(
             "Kurum teklifi yok",
@@ -1181,21 +1235,26 @@ def _offer_status_card(actions: Sequence[Mapping[str, Any]]) -> NarrativeCard:
             "Bu yol, agirlikli olarak musteri aksiyonlariyla ilerliyor.",
             "This path relies primarily on customer action rather than an institution-side offer.",
         )
-    if any(bool(a.get("requires_institutional_approval", False)) for a in offer_actions):
+    if any(
+        bool(_offer_contract_payload(a).get("requires_institutional_approval", False))
+        or str(_offer_contract_payload(a).get("institutional_approval_state", "") or "").strip().lower() in {"pending", "unknown"}
+        or bool(a.get("approval_pending_semantic_only", False))
+        for a in offer_actions
+    ):
         return _card(
             "Teklif kurum onayina bagli",
             "Offer depends on institution approval",
             "Teklif var ancak devreye girmesi icin kurum onayi gerekiyor.",
             "An offer exists, but it still depends on institution approval.",
         )
-    if any(bool(a.get("requires_acceptance", False)) for a in offer_actions):
+    if any(bool(_offer_contract_payload(a).get("requires_acceptance", False)) for a in offer_actions):
         return _card(
             "Musteri kabulune bagli teklif",
             "Offer requires customer acceptance",
             "Teklif acik ancak etkinin gorulmesi musteri kabulune bagli.",
             "The offer is available, but its impact depends on customer acceptance.",
         )
-    offer_type = str(offer_actions[0].get("offer_type", "") or "")
+    offer_type = str(_offer_contract_payload(offer_actions[0]).get("offer_type", "") or "")
     if offer_type == "installment_terms":
         return _card(
             "Taksitlendirme destegi var",
@@ -1475,18 +1534,28 @@ def build_customer_roadmap_narrative(
                 }
             )
             if (
-                (bool(step.get("requires_institutional_approval", False)) or bool(step.get("requires_acceptance", False)))
+                (
+                    bool(_offer_contract_payload(step).get("requires_institutional_approval", False))
+                    or bool(_offer_contract_payload(step).get("requires_acceptance", False))
+                    or _has_visible_offer(step)
+                )
                 and step_id not in seen_approval_steps
             ):
+                contract = _offer_contract_payload(step)
                 approval_dependencies.append(
                     {
                         "step_id": step_id,
                         "action_key": str(business_view.get("action_key", step.get("action_key", "")) or ""),
                         "action_title": str(business_view.get("action_title", step.get("action_title", "")) or ""),
-                        "institutional_approval_state": str(step.get("institutional_approval_state", "") or ""),
-                        "requires_institutional_approval": bool(step.get("requires_institutional_approval", False)),
-                        "requires_acceptance": bool(step.get("requires_acceptance", False)),
-                        "offer_type": str(step.get("offer_type", "") or ""),
+                        "institutional_approval_state": str(contract.get("institutional_approval_state", "") or ""),
+                        "requires_institutional_approval": bool(contract.get("requires_institutional_approval", False)),
+                        "requires_acceptance": bool(contract.get("requires_acceptance", False)),
+                        "offer_type": str(contract.get("offer_type", "") or ""),
+                        "offer_contract": contract if _has_visible_offer(step) else None,
+                        "offer_policy_arm": contract.get("offer_policy_arm"),
+                        "offer_scoring_profile": contract.get("offer_scoring_profile"),
+                        "term_generation_rule": contract.get("term_generation_rule"),
+                        "approval_dependent_probability": step.get("approval_dependent_probability"),
                     }
                 )
                 seen_approval_steps.add(step_id)

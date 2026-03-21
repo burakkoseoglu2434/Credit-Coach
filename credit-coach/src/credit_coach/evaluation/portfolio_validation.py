@@ -176,14 +176,33 @@ def _is_engine_native_action(steps: Sequence[Mapping[str, Any]], row: Mapping[st
     return True
 
 
+def _step_offer_contract(step: Mapping[str, Any]) -> dict[str, Any]:
+    contract = step.get("offer_contract")
+    if isinstance(contract, Mapping):
+        return dict(contract)
+    offer_terms = step.get("offer_terms", {})
+    return {
+        "offer_type": _safe_str(step.get("offer_type")) or None,
+        "offer_family": _safe_str(step.get("offer_family")) or None,
+        "offer_terms": dict(offer_terms or {}) if isinstance(offer_terms, Mapping) else {},
+        "offer_terms_complete": bool(step.get("offer_terms_complete", False)),
+        "requires_acceptance": bool(step.get("requires_acceptance", False)),
+        "requires_institutional_approval": bool(step.get("requires_institutional_approval", False)),
+        "institutional_approval_state": _safe_str(step.get("institutional_approval_state")) or "not_required",
+        "offer_policy_arm": _safe_str(step.get("offer_policy_arm")) or None,
+        "offer_scoring_profile": _safe_str(step.get("offer_scoring_profile")) or None,
+        "term_generation_rule": _safe_str(step.get("term_generation_rule")) or None,
+    }
+
+
 def _offer_state(row: Mapping[str, Any], steps: Sequence[Mapping[str, Any]]) -> tuple[str, bool]:
     offer_steps = [
         step
         for step in steps
-        if _safe_str(step.get("offer_type"))
+        if _safe_str(_step_offer_contract(step).get("offer_type"))
         or _safe_str(step.get("action_class")) == "institutional"
-        or bool(step.get("requires_institutional_approval"))
-        or bool(step.get("requires_acceptance"))
+        or bool(_step_offer_contract(step).get("requires_institutional_approval"))
+        or bool(_step_offer_contract(step).get("requires_acceptance"))
     ]
     if not offer_steps and _safe_int(row.get("best_offer_plan"), 0) == 0:
         return "no_offer", False
@@ -195,14 +214,14 @@ def _offer_state(row: Mapping[str, Any], steps: Sequence[Mapping[str, Any]]) -> 
         return "unknown", True
 
     requires_approval = any(
-        bool(step.get("requires_institutional_approval"))
-        or _safe_str(step.get("institutional_approval_state")) in {"pending", "unknown"}
+        bool(_step_offer_contract(step).get("requires_institutional_approval"))
+        or _safe_str(_step_offer_contract(step).get("institutional_approval_state")) in {"pending", "unknown"}
         or bool(step.get("approval_pending_semantic_only"))
         for step in offer_steps
     )
-    requires_acceptance = any(bool(step.get("requires_acceptance")) for step in offer_steps)
-    has_offer_type = any(_safe_str(step.get("offer_type")) for step in offer_steps) or bool(_safe_str(row.get("best_offer_type")))
-    terms_complete = any(bool(step.get("offer_terms_complete")) for step in offer_steps) or _safe_int(
+    requires_acceptance = any(bool(_step_offer_contract(step).get("requires_acceptance")) for step in offer_steps)
+    has_offer_type = any(_safe_str(_step_offer_contract(step).get("offer_type")) for step in offer_steps) or bool(_safe_str(row.get("best_offer_type")))
+    terms_complete = any(bool(_step_offer_contract(step).get("offer_terms_complete")) for step in offer_steps) or _safe_int(
         row.get("best_rankable_offer"), 0
     ) == 1
 

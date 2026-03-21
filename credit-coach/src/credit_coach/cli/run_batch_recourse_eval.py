@@ -47,6 +47,7 @@ from credit_coach.recourse.execution_probability import (
 )
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.generator import PlanGenConfig, generate_nine_plans, generate_plan_record
+from credit_coach.recourse.offer_optimization import build_offer_contract
 from credit_coach.recourse.trajectory import (
     apply_plan_until_month,
     phase_id_for_month,
@@ -3631,6 +3632,13 @@ def _dice_plan_record(
         action_month = max(1, int(spec.time_months))
         week_start = int(((action_month - 1) * 4) + 1)
         week_end = int(action_month * 4)
+        offer_contract = build_offer_contract(
+            action_meta,
+            current_value=current,
+            target_value=target,
+            action_month=action_month,
+            action_context={str(k): row.get(k) for k in row.index},
+        )
         plan_actions.append(
             PlanAction(
                 feature_name=feature,
@@ -3652,6 +3660,7 @@ def _dice_plan_record(
                 composite_action=bool(action_meta.get("composite_action", False)),
                 requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
                 approval_pending_semantic_only=bool(action_meta.get("approval_pending_semantic_only", False)),
+                offer_contract=offer_contract,
                 prerequisite_tags=list(action_meta.get("prerequisite_tags", [])),
                 conflict_tags=list(action_meta.get("conflict_tags", [])),
                 action_status=str(detail["status"]),
