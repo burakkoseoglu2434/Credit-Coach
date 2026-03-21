@@ -160,8 +160,10 @@ def test_apply_target_feasibility_financial_capacity_ratio():
         action_context={"annual_inc": 48_000.0},
     )
     assert target["target_value"] == 11_000.0
-    assert target["status"] == "rejected"
+    assert target["status"] == "invalid"
+    assert target["constraint_family"] == "semantic"
     assert "financial_capacity_ratio" in target["reason_codes"]
+    assert target["semantic_preserved"] is False
 
 
 def test_apply_target_feasibility_rejects_structural_semantic_loss():
@@ -183,5 +185,31 @@ def test_apply_target_feasibility_rejects_structural_semantic_loss():
         action_class="structural",
     )
     assert detail["target_value"] == 19.0
-    assert detail["status"] == "rejected"
+    assert detail["status"] == "invalid"
+    assert detail["constraint_family"] == "semantic"
     assert "semantic_loss_after_clip" in detail["reason_codes"]
+    assert detail["semantic_preserved"] is False
+
+
+def test_apply_target_feasibility_invalidates_when_mandatory_dependency_input_missing():
+    profile = {
+        "enabled": True,
+        "features": {
+            "revol_bal": {
+                "financial_capacity_ratio": 0.25,
+            }
+        },
+    }
+    detail = apply_target_feasibility_with_details(
+        feature_name="revol_bal",
+        current_value=12_000.0,
+        target_value=4_000.0,
+        horizon_months=1,
+        profile=profile,
+        action_class="structural",
+        action_context={},
+    )
+    assert detail["status"] == "invalid"
+    assert detail["constraint_family"] == "documentation"
+    assert "missing_mandatory_dependency_input:annual_inc" in detail["reason_codes"]
+    assert detail["semantic_preserved"] is False

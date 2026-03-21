@@ -291,6 +291,8 @@ class TestTypedActionCatalog:
         assert result.actions[0].action_key == "debt_consolidation"
         assert any(entry["event_type"] == "repair_dropped" for entry in result.trace)
         assert any(str(entry["reason_code"]).startswith("conflict_with:") for entry in result.trace)
+        assert any(entry["constraint_family"] == "interaction" for entry in result.trace)
+        assert all(entry["constraint_status"] == "invalid" for entry in result.trace)
 
     def test_enforce_action_constraints_supports_prerequisite_provider_and_provisional_status(self) -> None:
         actions = [
@@ -341,7 +343,45 @@ class TestTypedActionCatalog:
         assert any(action.action_key == "refinance" for action in result.actions)
         provisional = next(action for action in result.actions if action.action_key == "credit_limit_adjustment")
         assert provisional.action_status == "provisional"
+        assert provisional.constraint_family == "dependency"
+        assert provisional.dependency_gate is True
         assert "requires_institutional_approval" in provisional.diagnostic_flags
+
+    def test_enforce_action_constraints_invalidates_composite_group_without_primary_anchor(self) -> None:
+        actions = [
+            PlanAction(
+                feature_name="tot_cur_bal",
+                current_value=12_500.0,
+                target_value=10_000.0,
+                delta=-2_500.0,
+                time_months=3,
+                estimated_cost_usd=40.0,
+                action_key="debt_consolidation",
+                action_class="structural",
+                action_title="Consolidate revolving debt",
+                action_group_id="debt_consolidation:phase_2_build",
+                composite_action=True,
+            ),
+            PlanAction(
+                feature_name="total_bal_ex_mort",
+                current_value=18_000.0,
+                target_value=15_000.0,
+                delta=-3_000.0,
+                time_months=3,
+                estimated_cost_usd=45.0,
+                action_key="debt_consolidation",
+                action_class="structural",
+                action_title="Consolidate revolving debt",
+                action_group_id="debt_consolidation:phase_2_build",
+                composite_action=True,
+            ),
+        ]
+
+        result = enforce_action_constraints(actions, action_context={"annual_inc": 55_000.0, "dti": 22.0})
+
+        assert result.status == "invalid"
+        assert result.actions == []
+        assert any(entry["reason_code"] == "primary_action_missing_after_feasibility" for entry in result.trace)
 
 
 class TestHelperFunctions:

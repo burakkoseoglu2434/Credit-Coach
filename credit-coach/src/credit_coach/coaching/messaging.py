@@ -559,6 +559,127 @@ def _timing_hint(time_months: int) -> LocalizedText:
     return _lt("Bu adimi orta vadeli pencere icinde tamamla.", "Complete this move within the mid-term window.")
 
 
+def _feasibility_status_for_action(action: Mapping[str, Any]) -> str:
+    action_status = str(action.get("action_status", "") or "").strip().lower()
+    if action_status == "invalid":
+        return "invalid"
+    if action_status == "provisional" or bool(action.get("dependency_gate", False)):
+        return "provisional"
+    if action_status == "repaired":
+        return "repaired"
+    plan_constraint_status = str(action.get("plan_constraint_status", "") or "").strip().lower()
+    if plan_constraint_status == "provisional" and (
+        bool(action.get("requires_institutional_approval", False)) or bool(action.get("requires_acceptance", False))
+    ):
+        return "provisional"
+    if plan_constraint_status == "repaired":
+        return "repaired"
+    return action_status or "valid"
+
+
+def _feasibility_outcome_label(action: Mapping[str, Any]) -> LocalizedText | None:
+    status = _feasibility_status_for_action(action)
+    if status == "invalid":
+        return None
+    if status == "provisional":
+        return _lt(
+            "Dis bagimlilik nedeniyle kosullu",
+            "Conditional because of an external dependency",
+        )
+    if status == "repaired":
+        return _lt(
+            "Yumusatilarak uygulanabilir",
+            "Softened but usable",
+        )
+    return _lt(
+        "Kontrollu bicimde uygulanabilir",
+        "Usable as a controlled target",
+    )
+
+
+def _normalized_constraints_applied(
+    *,
+    actions: Sequence[Mapping[str, Any]],
+    constraint_trace: Sequence[Mapping[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str, str]] = set()
+
+    def _append(entry: dict[str, Any]) -> None:
+        key = (
+            str(entry.get("event_type", "") or ""),
+            str(entry.get("action_group_id", "") or ""),
+            str(entry.get("constraint_status", "") or ""),
+            str(entry.get("constraint_family", "") or ""),
+            str(entry.get("reason_code", "") or ""),
+        )
+        if key in seen:
+            return
+        seen.add(key)
+        out.append(entry)
+
+    for action in actions:
+        action_status = str(action.get("action_status", "") or "").strip().lower()
+        if action_status in {"", "valid", "invalid"} and not bool(action.get("was_clipped", False)):
+            continue
+        reason_codes = action.get("constraint_reason_codes", [])
+        if not isinstance(reason_codes, list):
+            reason_codes = []
+        if not reason_codes:
+            raw_reason = str(action.get("action_status_reason", "") or "")
+            reason_codes = [code for code in raw_reason.split("|") if code]
+        if not reason_codes:
+            reason_codes = [""]
+        for reason_code in reason_codes:
+            _append(
+                {
+                    "event_type": "action_feasibility",
+                    "step_id": str(action.get("step_id", "") or ""),
+                    "action_key": str(action.get("action_key", "") or ""),
+                    "action_group_id": str(action.get("action_group_id", "") or ""),
+                    "feature_name": str(action.get("feature_name", action.get("technical_view", {}).get("feature_name", "")) or ""),
+                    "time_months": _safe_int(action.get("time_months", 1), 1),
+                    "constraint_status": action_status or "valid",
+                    "constraint_family": str(action.get("constraint_family", "") or ""),
+                    "reason_code": str(reason_code or ""),
+                    "was_clipped": bool(action.get("was_clipped", False)),
+                    "repair_applied": bool(action.get("repair_applied", False)),
+                    "dependency_gate": bool(action.get("dependency_gate", False)),
+                    "semantic_preserved": (
+                        bool(action.get("semantic_preserved"))
+                        if action.get("semantic_preserved", None) is not None
+                        else action_status != "invalid"
+                    ),
+                }
+            )
+
+    for item in list(constraint_trace or []):
+        if not isinstance(item, Mapping):
+            continue
+        _append(
+            {
+                "event_type": str(item.get("event_type", "") or ""),
+                "step_id": str(item.get("step_id", "") or ""),
+                "action_key": str(item.get("action_key", "") or ""),
+                "action_group_id": str(item.get("action_group_id", "") or ""),
+                "feature_name": str(item.get("feature_name", "") or ""),
+                "time_months": _safe_int(item.get("time_months", 1), 1),
+                "constraint_status": str(item.get("constraint_status", "") or ""),
+                "constraint_family": str(item.get("constraint_family", "") or ""),
+                "reason_code": str(item.get("reason_code", "") or ""),
+                "was_clipped": bool(item.get("was_clipped", False)),
+                "repair_applied": bool(item.get("repair_applied", False)),
+                "dependency_gate": bool(item.get("dependency_gate", False)),
+                "semantic_preserved": (
+                    bool(item.get("semantic_preserved"))
+                    if item.get("semantic_preserved", None) is not None
+                    else None
+                ),
+            }
+        )
+    return out
+
+
 def _severity_from_contribution(abs_contribution: float) -> str:
     value = abs(float(abs_contribution))
     if value >= 0.25:
@@ -700,6 +821,7 @@ def build_step_narrative(action: Mapping[str, Any], *, step_id: str, phase_id: s
         expected_outcome=_append_localized_sentence(expected, primary_target_sentence),
         what_happens_if_done=_localized_pair(done),
         what_happens_if_not_done=_localized_pair(not_done),
+        feasibility_outcome_label=_feasibility_outcome_label(action),
         action_timing_hint=_timing_hint(
             _safe_int(_primary_numeric_target(action).get("due_month", action.get("time_months", 1)), 1)
         ),
@@ -1319,7 +1441,7 @@ def build_customer_roadmap_narrative(
         technical_reveal=RoadmapTechnicalReveal(
             feature_changes=feature_changes,
             explainability_reasons=explainability_reasons,
-            constraints_applied=[dict(item) for item in list(constraint_trace or [])],
+            constraints_applied=_normalized_constraints_applied(actions=raw_actions, constraint_trace=constraint_trace),
             approval_dependencies=approval_dependencies,
             diagnostic_flags=diagnostic_flags,
             confidence_inputs={

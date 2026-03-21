@@ -28,6 +28,12 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from credit_coach.utils.time import utc_now
 
 
+ActionClass = Literal["behavioral", "structural", "institutional"]
+ConstraintFamily = Literal["capacity", "policy", "dependency", "interaction", "semantic", "documentation"]
+ActionConstraintStatus = Literal["valid", "clipped", "repaired", "provisional", "invalid"]
+PlanConstraintStatus = Literal["valid", "repaired", "provisional", "invalid"]
+
+
 # ------------------------------------------------------------------ #
 # CustomerSnapshot — x_t
 # ------------------------------------------------------------------ #
@@ -107,7 +113,7 @@ class ActionBusinessView(BaseModel):
 
     action_key: str | None = Field(default=None, description="Semantic action key")
     action_family: str | None = Field(default=None, description="Canonical action family")
-    action_class: Literal["behavioral", "structural", "institutional"] | None = Field(
+    action_class: ActionClass | None = Field(
         default=None,
         description="Top-level action class",
     )
@@ -196,7 +202,7 @@ class PlanAction(BaseModel):
         default=None,
         description="Kullaniciya gorunen gercek dunya aksiyon anahtari (orn: reduce_spending)",
     )
-    action_class: Literal["behavioral", "structural", "institutional"] | None = Field(
+    action_class: ActionClass | None = Field(
         default=None,
         description="Aksiyon sinifi: behavioral | structural | institutional",
     )
@@ -281,13 +287,37 @@ class PlanAction(BaseModel):
         default_factory=list,
         description="Bu aksiyonun ayni planda conflict yaratabilecegi etiketler",
     )
-    action_status: Literal["valid", "clipped", "provisional", "invalid", "repair_dropped"] | None = Field(
+    action_status: ActionConstraintStatus | None = Field(
         default="valid",
         description="Action realism veya constraint islemlerinden sonraki durum",
     )
     action_status_reason: str | None = Field(
         default=None,
         description="Aksiyon statusu icin reason code veya aciklama",
+    )
+    constraint_family: ConstraintFamily | None = Field(
+        default=None,
+        description="Dominant canonical feasibility or constraint family",
+    )
+    constraint_reason_codes: list[str] = Field(
+        default_factory=list,
+        description="Granular canonical reason codes carried with the action-level constraint truth",
+    )
+    was_clipped: bool = Field(
+        default=False,
+        description="Numeric target feasibility aksiyonu clip etti mi",
+    )
+    repair_applied: bool = Field(
+        default=False,
+        description="Aksiyon semantigi korunarak repair uygulanmis mi",
+    )
+    dependency_gate: bool = Field(
+        default=False,
+        description="Aksiyon dis bagimlilik nedeniyle kosullu mu",
+    )
+    semantic_preserved: bool | None = Field(
+        default=None,
+        description="Constraint sonrasi aksiyonun business semantics'i korundu mu",
     )
     diagnostic_flags: list[str] = Field(
         default_factory=list,
@@ -530,6 +560,10 @@ class RoadmapStepNarrative(BaseModel):
     expected_outcome: LocalizedText = Field(..., description="Beklenen sonucu ozetler")
     what_happens_if_done: LocalizedText = Field(..., description="Adim yapilirsa beklenen durum")
     what_happens_if_not_done: LocalizedText = Field(..., description="Adim yapilmazsa beklenen durum")
+    feasibility_outcome_label: LocalizedText | None = Field(
+        default=None,
+        description="Business-safe feasibility outcome etiketi",
+    )
     action_timing_hint: LocalizedText | None = Field(
         default=None,
         description="Opsiyonel zamanlama ipucu",
@@ -694,7 +728,7 @@ class PlanRecord(BaseModel):
     robust_worst_risk_margin: float | None = Field(None, description="Stres senaryolarinda en dusuk margin")
     causal_penalty: float | None = Field(None, ge=0.0, description="Nedensel ceza puanı")
     score: float | None = Field(None, description="Nihai plan skoru")
-    constraint_status: Literal["valid", "repaired", "provisional", "invalid"] = Field(
+    constraint_status: PlanConstraintStatus = Field(
         default="valid",
         description="Action dependency/conflict katmanindan gelen plan-level durum",
     )

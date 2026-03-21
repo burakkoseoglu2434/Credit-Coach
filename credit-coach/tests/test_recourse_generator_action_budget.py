@@ -135,7 +135,7 @@ def test_generate_plan_record_tracks_clipped_action_realism_diagnostics() -> Non
     assert events[0]["status"] == "clipped"
 
 
-def test_generate_plan_record_marks_infeasible_when_only_action_is_rejected() -> None:
+def test_generate_plan_record_marks_infeasible_when_only_action_is_invalid() -> None:
     row = pd.Series(
         {
             "annual_inc": 24_000.0,
@@ -176,5 +176,6 @@ def test_generate_plan_record_marks_infeasible_when_only_action_is_rejected() ->
     events = runtime_diag["action_realism_events"]
     assert isinstance(events, list)
     assert len(events) == 1
-    assert events[0]["status"] == "rejected"
+    assert events[0]["status"] == "invalid"
+    assert events[0]["constraint_family"] == "semantic"
     assert "financial_capacity_ratio" in events[0]["reason_codes"]

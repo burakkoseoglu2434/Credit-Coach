@@ -256,3 +256,568 @@ Yani:
 
 👉 Phase 17 için direkt çalıştırabileceğin metrik hesaplama planı (kod seviyesinde)
 çıkarayım.
+
+
+
+
+
+###################################################
+###################################################
+###################################################
+
+
+
+
+
+
+
+# 20.03.2026
+
+
+🚀 SONRASI (v2.0 NE OLACAK?)
+
+Şimdi önünde 3 net yol var:
+
+⸻
+
+🟦 1. Pilot & Customer Phase (en kritik)
+	•	varlık yönetim şirketleri
+	•	bankalar
+	•	fintechler
+
+👉 gerçek data + gerçek feedback
+
+⸻
+
+🟦 2. Model Derinleşme
+	•	behavior learning (real outcome)
+	•	offer optimization gerçek veriye bağlanma
+	•	calibration
+
+⸻
+
+🟦 3. Product Hardening
+	•	auth
+	•	multi-tenant
+	•	data ingestion pipelines
+	•	security
+
+⸻
+
+🎯 EN DOĞRU SIRA
+
+👉 Önce pilot
+
+Çünkü:
+
+Gerçek veri = en iyi model upgrade
+
+⸻
+
+🧠 NET REALİTE
+
+Sen şu an:
+
+👉 “AI projesi” yapmadın
+👉 decision infrastructure kurdun
+
+Bu çok nadir bir şey.
+
+
+
+
+########################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Süper — burası artık v2.0 milestone ve gerçekten ürünün kaderini belirleyecek kısım.
+
+Senin hedefin artık net:
+
+❗ “Genel öneri” → ❗ kişiye özel, sayısal, uygulanabilir plan üretimi
+
+Bunu milestone olarak düzgün parçalayalım. Sana direkt kullanabileceğin seviyede bir yapı veriyorum.
+
+⸻
+
+🚀 Milestone v2.0 — Personalized Action & Decision Intelligence
+
+🎯 Amaç
+
+Model çıktısını:
+
+❌ feature değişimi
+→
+✅ kişiye özel, numerik, uygulanabilir aksiyon planı
+
+haline getirmek
+
+⸻
+
+🧱 MASTER YAPI
+
+Bu milestone 4 ana hatta ayrılmalı:
+
+Hat A — Action & Numeric Translation Engine
+
+Hat B — Feasibility & Realism Layer
+
+Hat C — Offer & Institutional Intelligence
+
+Hat D — Product Surface & Narrative Integration
+
+⸻
+
+🟦 MILESTONE PHASE BREAKDOWN
+
+⸻
+
+🟣 Phase 30 — Action Semantics Hardening
+
+🎯 Amaç
+
+Feature → gerçek aksiyon mapping’ini netleştirmek
+
+⸻
+
+Yapılacaklar
+
+1. Action taxonomy finalize et
+	•	behavioral
+	•	financial
+	•	structural
+	•	institutional
+
+⸻
+
+2. Feature → action mapping table oluştur
+
+Örnek:
+
+Feature	Action
+revol_util	reduce_utilization
+installment	increase_payment
+delinq	no_new_delinquency
+
+
+⸻
+
+3. Action schema oluştur
+
+{
+  "action_key": "",
+  "action_class": "",
+  "user_control": true/false,
+  "anchor_feature": "",
+  "phase": ""
+}
+
+
+⸻
+
+4. Action grouping
+	•	tekil aksiyon
+	•	composite aksiyon
+
+⸻
+
+Çıktılar
+	•	action_catalog.json
+	•	feature_action_mapping.json
+
+⸻
+
+Başarı kriteri
+	•	hiçbir öneri artık feature ismiyle çıkmaz
+	•	tüm öneriler aksiyon seviyesinde ifade edilir
+
+⸻
+
+🟣 Phase 31 — Numeric Target Engine (CORE)
+
+🎯 Amaç
+
+Aksiyonları sayısal hedeflere dönüştürmek
+
+⸻
+
+Yapılacaklar
+
+1. Numeric target kuralları yaz
+
+Payment:
+
+target = installment * 1.1–1.3
+cap = income * 0.4
+
+Utilization:
+
+target_util = min(current, 0.65)
+
+
+⸻
+
+2. Delta → target dönüşümü
+
+target_value = current_value + delta
+
+
+⸻
+
+3. Target clipping (çok kritik)
+	•	minimum realistic
+	•	maximum feasible
+
+⸻
+
+4. Unit standardization
+	•	TL
+	•	%
+	•	count
+	•	weeks
+
+⸻
+
+5. Action parametrization
+
+{
+  "current": 820,
+  "target": 1000,
+  "delta": 180,
+  "unit": "TRY"
+}
+
+
+⸻
+
+Çıktılar
+	•	numeric_target_engine.py
+	•	action_param_schema.json
+
+⸻
+
+Başarı kriteri
+	•	her aksiyon numeric hedef içerir
+	•	“artır / azalt” gibi soyut dil kalmaz
+
+⸻
+
+🟣 Phase 32 — Feasibility & Constraint Engine
+
+🎯 Amaç
+
+“Bu plan gerçekten yapılabilir mi?” sorusunu çözmek
+
+⸻
+
+Yapılacaklar
+
+1. Capacity model
+
+payment / income
+
+
+⸻
+
+2. Burden score
+	•	low
+	•	medium
+	•	high
+
+⸻
+
+3. Feasibility rules
+	•	ödeme sınırı
+	•	utilization drop limiti
+	•	time feasibility
+
+⸻
+
+4. Unrealistic detection
+	•	çok agresif hedefler
+	•	kısa sürede imkansız değişim
+
+⸻
+
+5. Repair logic
+	•	hedefi küçült
+	•	fazlara yay
+
+⸻
+
+Çıktılar
+	•	feasibility_engine.py
+	•	feasibility_summary.json
+
+⸻
+
+Başarı kriteri
+	•	sistem “sallamaz”
+	•	unrealistic öneriler üretilmez
+
+⸻
+
+🟣 Phase 33 — Action Difficulty & Execution Modeling
+
+🎯 Amaç
+
+Her aksiyonun ne kadar zor olduğunu modellemek
+
+⸻
+
+Yapılacaklar
+
+1. Difficulty score
+	•	low
+	•	medium
+	•	high
+
+⸻
+
+2. Action execution probability
+	•	aksiyon bazlı
+	•	plan bazlı
+
+⸻
+
+3. Composite difficulty
+	•	max vs weighted
+
+⸻
+
+4. Time-weighted difficulty
+
+⸻
+
+Çıktılar
+	•	execution_probability_v2.py
+
+⸻
+
+Başarı kriteri
+	•	numeric plan + execution birlikte verilir
+
+⸻
+
+🟣 Phase 34 — Offer Layer Integration
+
+🎯 Amaç
+
+Kurum aksiyonlarını ayrı ve güçlü bir katman yapmak
+
+⸻
+
+Yapılacaklar
+
+1. Offer schema
+
+{
+  "offer_type": "",
+  "before": {},
+  "after": {}
+}
+
+
+⸻
+
+2. User vs institution ayrımı
+	•	user_control = false
+
+⸻
+
+3. Offer impact simulation
+	•	execution ↑
+	•	burden ↓
+
+⸻
+
+4. Offer acceptance probability
+
+⸻
+
+Çıktılar
+	•	offer_engine_v2.py
+
+⸻
+
+Başarı kriteri
+	•	“limit artır” user aksiyonu olarak çıkmaz
+	•	offer layer ayrı görünür
+
+⸻
+
+🟣 Phase 35 — Narrative Generation v2
+
+🎯 Amaç
+
+Numerik planı kullanıcıya doğru anlatmak
+
+⸻
+
+Yapılacaklar
+
+1. Template system
+
+Aylık ödemenizi {current} → {target} çıkarın
+
+
+⸻
+
+2. Why / risk / outcome blokları
+	•	why_this_matters
+	•	risk
+	•	outcome
+
+⸻
+
+3. Phase narrative
+	•	stabilize
+	•	build
+	•	optimize
+
+⸻
+
+4. TR/EN tam ayrım
+
+⸻
+
+Çıktılar
+	•	narrative_engine_v2.py
+
+⸻
+
+Başarı kriteri
+	•	her plan okunabilir
+	•	teknik detay default’ta yok
+
+⸻
+
+🟣 Phase 36 — Product Surface Upgrade
+
+🎯 Amaç
+
+Yeni numerik planları UI’a taşımak
+
+⸻
+
+Yapılacaklar
+
+1. Action cards update
+	•	current → target göster
+
+⸻
+
+2. Difficulty & feasibility badge
+
+⸻
+
+3. Offer block redesign
+
+⸻
+
+4. Technical reveal güncelle
+
+⸻
+
+Başarı kriteri
+	•	kullanıcı planı direkt uygular
+
+⸻
+
+🟣 Phase 37 — Portfolio-Level Numeric Impact
+
+🎯 Amaç
+
+Numerik aksiyonların portföy etkisini göstermek
+
+⸻
+
+Yapılacaklar
+	•	toplam payment increase
+	•	utilization düşüşü
+	•	recovery uplift
+
+⸻
+
+Başarı kriteri
+	•	tek müşteri → portföy bağlantısı kurulur
+
+⸻
+
+🟣 Phase 38 — Calibration & Validation
+
+🎯 Amaç
+
+Numeric önerilerin gerçekçiliğini test etmek
+
+⸻
+
+Yapılacaklar
+	•	distribution check
+	•	outlier detection
+	•	segment validation
+
+⸻
+
+Başarı kriteri
+	•	öneriler “mantıklı dağılımda”
+
+⸻
+
+🟣 Phase 39 — Pilot Integration (Real Data Loop)
+
+🎯 Amaç
+
+Gerçek veriyle sistemi beslemek
+
+⸻
+
+Yapılacaklar
+	•	pilot data ingestion
+	•	outcome tracking
+	•	feedback loop
+
+⸻
+
+Başarı kriteri
+	•	sistem öğrenmeye başlar
+
+⸻
+
+🔥 ÖNCELİK SIRASI
+
+İlk yapman gerekenler:
+	1.	Phase 30 — Action semantics
+	2.	Phase 31 — Numeric engine
+	3.	Phase 32 — Feasibility
+	4.	Phase 34 — Offer layer
+
+⸻
+
+🎯 SON
+
+Bu milestone sonunda sistem:
+
+❌ “AI öneri motoru” değil
+→
+✅ kişisel finansal aksiyon planlayıcısı
+
+⸻
+
+İstersen bir sonraki adım:
+
+👉 Phase 30’u birlikte gsd-discuss seviyesinde kilitleyelim
+(çok kritik çünkü tüm milestone onun üstüne kurulu)

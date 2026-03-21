@@ -25,6 +25,30 @@ _SEMANTIC_RATIO_DEFAULTS = {
     "structural": 0.35,
     "institutional": 0.50,
 }
+_CONSTRAINT_FAMILY_PRIORITY = {
+    "semantic": 0,
+    "documentation": 1,
+    "dependency": 2,
+    "interaction": 3,
+    "capacity": 4,
+    "policy": 5,
+}
+_CAPACITY_REASON_CODES = {
+    "max_relative_change",
+    "max_abs_increase",
+    "max_abs_decrease",
+    "income_growth_cap",
+    "max_utilization_drop_ratio",
+    "max_credit_limit_adjustment_ratio",
+    "financial_capacity_ratio",
+}
+_POLICY_REASON_CODES = {
+    "freeze_if_current_below",
+    "freeze_if_current_above",
+    "min_target_bound",
+    "max_target_bound",
+    "round_to_int",
+}
 
 
 def _as_float(value: Any) -> float | None:
@@ -104,6 +128,31 @@ def _semantic_ratio_threshold(rule: dict[str, Any], action_class: str | None) ->
     return float(_SEMANTIC_RATIO_DEFAULTS.get(cls or "behavioral", 0.35))
 
 
+def classify_constraint_family(reason_code: str | None) -> str | None:
+    code = str(reason_code or "").strip()
+    if not code:
+        return None
+    if code in {"semantic_noop_after_clip", "direction_inversion_after_clip", "semantic_loss_after_clip"}:
+        return "semantic"
+    if code.startswith("missing_mandatory_dependency_input"):
+        return "documentation"
+    if code in _CAPACITY_REASON_CODES or code.startswith("max_abs_increase_per_month") or code.startswith(
+        "max_abs_decrease_per_month"
+    ) or code == "max_monthly_change":
+        return "capacity"
+    if code in _POLICY_REASON_CODES:
+        return "policy"
+    return "policy"
+
+
+def dominant_constraint_family(reason_codes: list[str]) -> str | None:
+    families = [classify_constraint_family(code) for code in reason_codes]
+    normalized = [family for family in families if family]
+    if not normalized:
+        return None
+    return min(normalized, key=lambda family: (_CONSTRAINT_FAMILY_PRIORITY.get(family, 99), family))
+
+
 def apply_target_feasibility_with_details(
     *,
     feature_name: str,
@@ -131,8 +180,10 @@ def apply_target_feasibility_with_details(
             "status": "valid",
             "was_clipped": False,
             "reason_codes": [],
+            "constraint_family": None,
             "status_reason": None,
             "semantic_ratio": 1.0,
+            "semantic_preserved": True,
         }
     if not _as_bool(profile.get("enabled", True), default=True):
         resolved_delta = float(out - current)
@@ -143,8 +194,10 @@ def apply_target_feasibility_with_details(
             "status": "valid",
             "was_clipped": False,
             "reason_codes": [],
+            "constraint_family": None,
             "status_reason": None,
             "semantic_ratio": 1.0,
+            "semantic_preserved": True,
         }
 
     defaults = profile.get("defaults", {}) if isinstance(profile.get("defaults", {}), dict) else {}
@@ -248,6 +301,14 @@ def apply_target_feasibility_with_details(
         if (
             financial_capacity_ratio is not None
             and financial_capacity_ratio >= 0
+            and annual_inc is None
+            and out < current
+        ):
+            if "missing_mandatory_dependency_input:annual_inc" not in reason_codes:
+                reason_codes.append("missing_mandatory_dependency_input:annual_inc")
+        if (
+            financial_capacity_ratio is not None
+            and financial_capacity_ratio >= 0
             and annual_inc is not None
             and annual_inc > 0
             and out < current
@@ -271,22 +332,28 @@ def apply_target_feasibility_with_details(
         semantic_ratio = float(abs(resolved_delta) / abs(requested_delta))
 
     status = "clipped" if was_clipped else "valid"
-    status_reason = "|".join(reason_codes) if reason_codes else None
     semantic_ratio_threshold = _semantic_ratio_threshold(rule, action_class)
+    semantic_preserved = True
 
     if abs(requested_delta) > float(min_abs_effect):
         if abs(resolved_delta) <= float(min_abs_effect):
-            status = "rejected"
+            status = "invalid"
+            semantic_preserved = False
             if "semantic_noop_after_clip" not in reason_codes:
                 reason_codes.append("semantic_noop_after_clip")
         elif requested_delta * resolved_delta < 0:
-            status = "rejected"
+            status = "invalid"
+            semantic_preserved = False
             if "direction_inversion_after_clip" not in reason_codes:
                 reason_codes.append("direction_inversion_after_clip")
         elif was_clipped and semantic_ratio < semantic_ratio_threshold:
-            status = "rejected"
+            status = "invalid"
+            semantic_preserved = False
             if "semantic_loss_after_clip" not in reason_codes:
                 reason_codes.append("semantic_loss_after_clip")
+    if any(code.startswith("missing_mandatory_dependency_input") for code in reason_codes):
+        status = "invalid"
+        semantic_preserved = False
 
     status_reason = "|".join(reason_codes) if reason_codes else None
     return {
@@ -296,8 +363,10 @@ def apply_target_feasibility_with_details(
         "status": status,
         "was_clipped": bool(was_clipped),
         "reason_codes": reason_codes,
+        "constraint_family": dominant_constraint_family(reason_codes),
         "status_reason": status_reason,
         "semantic_ratio": float(semantic_ratio),
+        "semantic_preserved": bool(semantic_preserved),
     }
 
 

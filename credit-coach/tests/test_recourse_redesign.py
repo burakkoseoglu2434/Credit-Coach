@@ -162,6 +162,7 @@ def test_generate_plan_record_repairs_conflicting_action_bundle():
     assert plan.actions
     assert all(action.action_key != "settlement_discount" for action in plan.actions)
     assert any(str(entry.get("reason_code", "")).startswith("conflict_with:") for entry in plan.constraint_trace)
+    assert any(str(entry.get("constraint_family", "")) == "interaction" for entry in plan.constraint_trace)
 
 
 def test_generate_plan_record_marks_approval_required_action_provisional():
@@ -191,6 +192,8 @@ def test_generate_plan_record_marks_approval_required_action_provisional():
     assert plan.constraint_status == "provisional"
     assert len(plan.actions) == 1
     assert plan.actions[0].action_status == "provisional"
+    assert plan.actions[0].constraint_family == "dependency"
+    assert plan.actions[0].dependency_gate is True
     assert "offer_terms_incomplete" in plan.actions[0].diagnostic_flags
     assert plan.actions[0].action_execution_probability is None
     assert float(plan.actions[0].approval_dependent_probability or 0.0) > 0.0

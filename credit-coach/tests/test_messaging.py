@@ -88,6 +88,12 @@ def test_build_customer_roadmap_narrative_is_deterministic():
                         "raw_generation_basis": {"source_feature_name": "dti"},
                     },
                     "diagnostic_flags": ["light_burden"],
+                    "action_status": "repaired",
+                    "plan_constraint_status": "repaired",
+                    "constraint_family": "capacity",
+                    "constraint_reason_codes": ["income_growth_cap"],
+                    "repair_applied": True,
+                    "semantic_preserved": True,
                 }
             ],
         }
@@ -146,10 +152,15 @@ def test_build_customer_roadmap_narrative_is_deterministic():
     assert "debt-to-income ratio" in left.steps[0].expected_outcome.en
     assert "%24" in left.steps[0].expected_outcome.en
     assert "-4 pts" in left.steps[0].expected_outcome.en
+    assert left.steps[0].feasibility_outcome_label is not None
+    assert left.steps[0].feasibility_outcome_label.en == "Softened but usable"
     assert left.steps[0].action_timing_hint.en == "Complete within the next 3 months."
     assert left.checkpoints[0].success_condition.en
     assert left.reasons[0].reason_title.en == "Debt-to-income ratio is high"
     assert left.technical_reveal.narrative_confidence_label == "high"
+    assert left.technical_reveal.constraints_applied[0]["constraint_status"] == "repaired"
+    assert left.technical_reveal.constraints_applied[0]["constraint_family"] == "capacity"
+    assert left.technical_reveal.constraints_applied[0]["repair_applied"] is True
 
 
 def test_build_customer_roadmap_narrative_separates_offer_and_checkpoint_layers():
@@ -218,6 +229,56 @@ def test_build_customer_roadmap_narrative_separates_offer_and_checkpoint_layers(
     assert checkpoint.review_action is not None
     assert narrative.technical_reveal.approval_dependencies[0]["requires_acceptance"] is True
     assert narrative.technical_reveal.confidence_inputs["offer_acceptance_probability"] == 0.49
+
+
+def test_build_customer_roadmap_narrative_keeps_dependency_gated_feasibility_business_safe():
+    narrative = build_customer_roadmap_narrative(
+        base_pd=0.51,
+        tau=0.35,
+        phases=[
+            {
+                "phase_id": "phase_2_build",
+                "steps": [
+                    {
+                        "step_id": "credit_limit_adjustment:phase_2_build",
+                        "action_key": "credit_limit_adjustment",
+                        "action_class": "institutional",
+                        "action_title": "Request credit limit adjustment",
+                        "action_group_id": "credit_limit_adjustment:phase_2_build",
+                        "action_status": "provisional",
+                        "constraint_family": "dependency",
+                        "constraint_reason_codes": ["requires_institutional_approval"],
+                        "dependency_gate": True,
+                        "semantic_preserved": True,
+                        "requires_institutional_approval": True,
+                        "business_view": {
+                            "action_key": "credit_limit_adjustment",
+                            "action_family": "limit_management",
+                            "action_class": "institutional",
+                            "action_title": "Request credit limit adjustment",
+                            "action_description": "Ask for a controlled credit limit adjustment.",
+                            "action_group_id": "credit_limit_adjustment:phase_2_build",
+                        },
+                        "technical_view": {
+                            "feature_name": "total_rev_hi_lim",
+                            "current_value": 6000.0,
+                            "target_value": 7500.0,
+                            "delta": 1500.0,
+                            "time_months": 3,
+                            "phase_id": "phase_2_build",
+                        },
+                    }
+                ],
+            }
+        ],
+        checkpoints=[{"checkpoint_id": "checkpoint_week_12", "week": 12, "predicted_pd": 0.34, "gate_pass_estimate": 1}],
+        status="NEEDS_REVIEW",
+        local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.6}},
+    )
+    assert narrative.steps[0].feasibility_outcome_label is not None
+    assert narrative.steps[0].feasibility_outcome_label.tr == "Dis bagimlilik nedeniyle kosullu"
+    assert narrative.technical_reveal.constraints_applied[0]["dependency_gate"] is True
+    assert narrative.technical_reveal.constraints_applied[0]["reason_code"] == "requires_institutional_approval"
 
 
 def test_build_customer_roadmap_narrative_groups_same_action_step_in_default_view():

@@ -474,8 +474,15 @@ def _build_customer_roadmap(
                     "offer_scoring_profile": str(getattr(action, "offer_scoring_profile", "") or ""),
                     "term_generation_rule": str(getattr(action, "term_generation_rule", "") or ""),
                     "offer_policy_arm": str(getattr(action, "offer_policy_arm", "") or ""),
+                    "plan_constraint_status": str(getattr(best, "constraint_status", "valid") or "valid"),
                     "action_status": str(getattr(action, "action_status", "") or ""),
                     "action_status_reason": str(getattr(action, "action_status_reason", "") or ""),
+                    "constraint_family": str(getattr(action, "constraint_family", "") or ""),
+                    "constraint_reason_codes": list(getattr(action, "constraint_reason_codes", [])),
+                    "was_clipped": int(bool(getattr(action, "was_clipped", False))),
+                    "repair_applied": int(bool(getattr(action, "repair_applied", False))),
+                    "dependency_gate": int(bool(getattr(action, "dependency_gate", False))),
+                    "semantic_preserved": getattr(action, "semantic_preserved", None),
                     "diagnostic_flags": list(getattr(action, "diagnostic_flags", [])),
                     "action_execution_probability": (
                         _safe_float(getattr(action, "action_execution_probability", 0.0), 0.0)
@@ -617,8 +624,15 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                 "offer_scoring_profile": str(getattr(action, "offer_scoring_profile", "") or ""),
                 "term_generation_rule": str(getattr(action, "term_generation_rule", "") or ""),
                 "offer_policy_arm": str(getattr(action, "offer_policy_arm", "") or ""),
+                "plan_constraint_status": str(getattr(plan, "constraint_status", "valid") or "valid"),
                 "action_status": str(getattr(action, "action_status", "") or ""),
                 "action_status_reason": str(getattr(action, "action_status_reason", "") or ""),
+                "constraint_family": str(getattr(action, "constraint_family", "") or ""),
+                "constraint_reason_codes": list(getattr(action, "constraint_reason_codes", [])),
+                "was_clipped": int(bool(getattr(action, "was_clipped", False))),
+                "repair_applied": int(bool(getattr(action, "repair_applied", False))),
+                "dependency_gate": int(bool(getattr(action, "dependency_gate", False))),
+                "semantic_preserved": getattr(action, "semantic_preserved", None),
                 "diagnostic_flags": list(getattr(action, "diagnostic_flags", [])),
             }
         )
@@ -761,7 +775,7 @@ def _dice_plan_record(
         )
         target = float(detail["target_value"])
         delta = float(target - current)
-        if str(detail["status"]) == "rejected":
+        if str(detail["status"]) == "invalid":
             continue
         week_start = int(((action_month - 1) * 4) + 1)
         week_end = int(action_month * 4)
@@ -806,6 +820,10 @@ def _dice_plan_record(
                 conflict_tags=list(action_meta.get("conflict_tags", [])),
                 action_status=str(detail["status"]),
                 action_status_reason=detail.get("status_reason"),
+                constraint_family=detail.get("constraint_family"),
+                constraint_reason_codes=list(detail.get("reason_codes", [])),
+                was_clipped=bool(detail.get("was_clipped", False)),
+                semantic_preserved=detail.get("semantic_preserved"),
                 diagnostic_flags=list(detail.get("reason_codes", [])),
             )
         )
@@ -1287,6 +1305,20 @@ def main() -> None:
                 "estimated_cost_usd": _safe_float(step.get("estimated_cost_usd", 0.0), 0.0),
                 "requires_institutional_approval": _safe_int(step.get("requires_institutional_approval", 0), 0),
                 "approval_pending_semantic_only": _safe_int(step.get("approval_pending_semantic_only", 0), 0),
+                "action_status": str(step.get("action_status", "") or ""),
+                "constraint_family": str(step.get("constraint_family", "") or ""),
+                "constraint_reason_codes_json": json.dumps(
+                    list(step.get("constraint_reason_codes", [])),
+                    ensure_ascii=False,
+                ),
+                "was_clipped": _safe_int(step.get("was_clipped", 0), 0),
+                "repair_applied": _safe_int(step.get("repair_applied", 0), 0),
+                "dependency_gate": _safe_int(step.get("dependency_gate", 0), 0),
+                "semantic_preserved": (
+                    bool(step.get("semantic_preserved"))
+                    if step.get("semantic_preserved", None) is not None
+                    else None
+                ),
             }
             roadmap_steps_rows.append(row_out)
     roadmap_steps_df = pd.DataFrame(roadmap_steps_rows)

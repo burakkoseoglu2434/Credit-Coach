@@ -506,6 +506,39 @@ def test_choose_best_plan_prefers_non_provisional_constraint_status_when_scores_
     assert best.plan_id == "p_valid"
 
 
+def test_choose_best_plan_prefers_valid_over_repaired_when_scores_match():
+    repaired = _mk_plan(
+        "p_repaired",
+        ci_high=0.34,
+        reliability=0.78,
+        worst_margin=-0.02,
+        predicted_pd=0.30,
+        robust_score=50.0,
+        status="NEEDS_REVIEW",
+        constraint_status="repaired",
+    )
+    valid = _mk_plan(
+        "p_valid",
+        ci_high=0.34,
+        reliability=0.78,
+        worst_margin=-0.02,
+        predicted_pd=0.30,
+        robust_score=50.0,
+        status="NEEDS_REVIEW",
+        constraint_status="valid",
+    )
+
+    best = choose_best_plan(
+        [repaired, valid],
+        tau=0.35,
+        min_reliability=0.70,
+        min_worst_risk_margin=-0.05,
+        denied_mode=True,
+        denied_objective_cfg={"enabled": True},
+    )
+    assert best.plan_id == "p_valid"
+
+
 def test_choose_best_plan_uses_expected_pd_improvement_after_gate_filters():
     lower_expected = _mk_plan(
         "p_lower_expected",

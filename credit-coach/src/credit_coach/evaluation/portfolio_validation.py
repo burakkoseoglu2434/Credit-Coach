@@ -1165,7 +1165,10 @@ def build_portfolio_validation_artifacts(
             lambda row: (
                 "rejected"
                 if _safe_str(row.get("best_status"), "ERROR").upper() in {"REJECTED", "ERROR"}
-                or _safe_str(row.get("best_constraint_status"), "").lower() == "provisional"
+                else "provisional"
+                if _safe_str(row.get("best_constraint_status"), "").lower() == "provisional"
+                else "invalid"
+                if _safe_str(row.get("best_constraint_status"), "").lower() == "invalid"
                 else "infeasible"
                 if _safe_str(row.get("best_constraint_status"), "").lower() not in {"valid", "repaired"}
                 else "degenerate"

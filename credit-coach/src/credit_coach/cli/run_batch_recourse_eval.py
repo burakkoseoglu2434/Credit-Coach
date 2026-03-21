@@ -2388,7 +2388,7 @@ def _root_cause_from_status_reasons(reasons: list[str] | str) -> str:
 def _top_action_realism_rejection_reason(events: list[dict[str, Any]]) -> str:
     counts: dict[str, int] = {}
     for event in events:
-        if str(event.get("status", "")) != "rejected":
+        if str(event.get("status", "")) != "invalid":
             continue
         codes = event.get("reason_codes", [])
         if not isinstance(codes, list) or not codes:
@@ -3599,7 +3599,7 @@ def _dice_plan_record(
         )
         target = float(detail["target_value"])
         delta = float(target - current)
-        if str(detail["status"]) == "rejected":
+        if str(detail["status"]) == "invalid":
             continue
         action_month = max(1, int(spec.time_months))
         week_start = int(((action_month - 1) * 4) + 1)
@@ -3618,7 +3618,9 @@ def _dice_plan_record(
                 checkpoint_metric=f"{feature} -> {float(target):.6f}",
                 action_key=str(action_meta.get("action_key") or ""),
                 action_class=action_meta.get("action_class"),
+                action_family=str(action_meta.get("action_family") or "") or None,
                 action_title=str(action_meta.get("action_title") or ""),
+                action_description=str(action_meta.get("action_description") or ""),
                 action_group_id=str(action_meta.get("action_group_id") or ""),
                 composite_action=bool(action_meta.get("composite_action", False)),
                 requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
@@ -3627,6 +3629,10 @@ def _dice_plan_record(
                 conflict_tags=list(action_meta.get("conflict_tags", [])),
                 action_status=str(detail["status"]),
                 action_status_reason=detail.get("status_reason"),
+                constraint_family=detail.get("constraint_family"),
+                constraint_reason_codes=list(detail.get("reason_codes", [])),
+                was_clipped=bool(detail.get("was_clipped", False)),
+                semantic_preserved=detail.get("semantic_preserved"),
                 diagnostic_flags=list(detail.get("reason_codes", [])),
             )
         )
@@ -5109,7 +5115,7 @@ def main() -> None:
     if action_realism_event_rows:
         action_realism_events_df = pd.DataFrame(action_realism_event_rows)
         feasibility_rejection_breakdown = (
-            action_realism_events_df[action_realism_events_df["status"].isin(["clipped", "rejected"])]
+            action_realism_events_df[action_realism_events_df["status"].isin(["clipped", "invalid"])]
             .groupby(["status", "reason_code", "action_class", "action_key"], dropna=False)
             .size()
             .reset_index(name="count")

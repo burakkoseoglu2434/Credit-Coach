@@ -245,6 +245,22 @@ def test_portfolio_validation_demo_fit_can_mark_demo_narrow() -> None:
     assert "recoverability_segment=recoverable" in demo_fit["demo_case_segment"]
 
 
+def test_build_portfolio_validation_artifacts_tracks_provisional_drop_reason() -> None:
+    row = _base_row("provisional")
+    row["best_constraint_status"] = "provisional"
+    row["best_status"] = "NEEDS_REVIEW"
+
+    artifacts = build_portfolio_validation_artifacts(
+        pd.DataFrame([row]),
+        tau=0.35,
+        reliability_threshold_by_risk_band={"default": 0.7, "near": 0.7},
+    )
+
+    drop_breakdown = artifacts["coverage_drop_breakdown"]
+    raw_to_valid = drop_breakdown[drop_breakdown["transition"] == "raw_to_valid"]
+    assert "provisional" in set(raw_to_valid["reason"])
+
+
 def test_render_portfolio_validation_review_is_business_first() -> None:
     summary = {
         "canonical_metrics": {

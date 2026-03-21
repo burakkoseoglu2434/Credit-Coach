@@ -96,6 +96,12 @@ def _make_plan_action(
     action_context: dict[str, Any] | None = None,
     action_status: str = "valid",
     action_status_reason: str | None = None,
+    constraint_family: str | None = None,
+    constraint_reason_codes: list[str] | None = None,
+    was_clipped: bool = False,
+    repair_applied: bool = False,
+    dependency_gate: bool = False,
+    semantic_preserved: bool | None = None,
     diagnostic_flags: list[str] | None = None,
 ) -> PlanAction:
     spec = get_action_spec(feature_name)
@@ -149,6 +155,12 @@ def _make_plan_action(
         conflict_tags=list(action_meta.get("conflict_tags", [])),
         action_status=str(action_status),
         action_status_reason=action_status_reason,
+        constraint_family=str(constraint_family or "") or None,
+        constraint_reason_codes=list(constraint_reason_codes or []),
+        was_clipped=bool(was_clipped),
+        repair_applied=bool(repair_applied),
+        dependency_gate=bool(dependency_gate),
+        semantic_preserved=semantic_preserved,
         diagnostic_flags=list(diagnostic_flags or []),
     )
 
@@ -238,11 +250,14 @@ def _record_action_realism_event(
             "approval_pending_semantic_only": bool(action_meta.get("approval_pending_semantic_only", False)),
             "time_months": int(action_month),
             "status": str(status),
+            "constraint_family": str(detail.get("constraint_family", "") or ""),
             "requested_delta": float(detail.get("requested_delta", 0.0)),
             "resolved_delta": float(detail.get("resolved_delta", 0.0)),
             "semantic_ratio": float(detail.get("semantic_ratio", 1.0)),
             "reason_codes": list(detail.get("reason_codes", [])),
             "status_reason": detail.get("status_reason"),
+            "was_clipped": bool(detail.get("was_clipped", False)),
+            "semantic_preserved": detail.get("semantic_preserved"),
         }
     )
 
@@ -525,7 +540,7 @@ def _build_actions(
             status=str(detail["status"]),
             detail=detail,
         )
-        if str(detail["status"]) == "rejected":
+        if str(detail["status"]) == "invalid":
             continue
         if abs(float(delta)) <= float(min_abs_delta):
             continue
@@ -539,6 +554,10 @@ def _build_actions(
                 action_context=action_context,
                 action_status=str(detail["status"]),
                 action_status_reason=detail.get("status_reason"),
+                constraint_family=detail.get("constraint_family"),
+                constraint_reason_codes=list(detail.get("reason_codes", [])),
+                was_clipped=bool(detail.get("was_clipped", False)),
+                semantic_preserved=detail.get("semantic_preserved"),
                 diagnostic_flags=list(detail.get("reason_codes", [])),
             )
         )
@@ -1071,7 +1090,7 @@ def _build_actions_weekly(
             )
             target = float(detail["target_value"])
             target = _clip_target(spec, float(target))
-            if str(detail["status"]) == "rejected":
+            if str(detail["status"]) == "invalid":
                 continue
             if abs(float(target) - current) <= float(min_abs_delta):
                 continue
@@ -1142,21 +1161,25 @@ def _build_actions_weekly(
             status=str(detail["status"]),
             detail=detail,
         )
-        if str(detail["status"]) == "rejected":
+        if str(detail["status"]) == "invalid":
             continue
-            if abs(final_target - current) <= float(min_abs_delta):
-                continue
-            actions.append(
-                _make_plan_action(
-                    feature_name=feat,
-                    current_value=current,
-                    target_value=float(final_target),
-                    requested_target_value=float(requested_target),
-                    action_month=action_month,
-                    action_context=action_context,
-                    action_status=str(detail["status"]),
-                    action_status_reason=detail.get("status_reason"),
-                    diagnostic_flags=list(detail.get("reason_codes", [])),
+        if abs(final_target - current) <= float(min_abs_delta):
+            continue
+        actions.append(
+            _make_plan_action(
+                feature_name=feat,
+                current_value=current,
+                target_value=float(final_target),
+                requested_target_value=float(target),
+                action_month=action_month,
+                action_context=action_context,
+                action_status=str(detail["status"]),
+                action_status_reason=detail.get("status_reason"),
+                constraint_family=detail.get("constraint_family"),
+                constraint_reason_codes=list(detail.get("reason_codes", [])),
+                was_clipped=bool(detail.get("was_clipped", False)),
+                semantic_preserved=detail.get("semantic_preserved"),
+                diagnostic_flags=list(detail.get("reason_codes", [])),
             )
         )
 
@@ -1290,9 +1313,9 @@ def generate_plan_record(
         )
         runtime_diag["action_realism_rejected_action_count"] = int(
             runtime_diag.get("action_realism_rejected_action_count", 0)
-            + sum(1 for event in action_realism_events if str(event.get("status")) == "rejected")
+            + sum(1 for event in action_realism_events if str(event.get("status")) == "invalid")
         )
-        if any(str(event.get("status")) == "rejected" for event in action_realism_events) and not actions:
+        if any(str(event.get("status")) == "invalid" for event in action_realism_events) and not actions:
             runtime_diag["action_realism_infeasible_plan_count"] = int(
                 runtime_diag.get("action_realism_infeasible_plan_count", 0) + 1
             )

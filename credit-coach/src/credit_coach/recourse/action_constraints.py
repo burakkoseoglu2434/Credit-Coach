@@ -8,6 +8,14 @@ from credit_coach.recourse.offer_optimization import approval_state_for_action, 
 from credit_coach.recourse.action_space import get_action_metadata
 
 ConstraintStatus = Literal["valid", "repaired", "provisional", "invalid"]
+_CONSTRAINT_FAMILY_PRIORITY = {
+    "semantic": 0,
+    "documentation": 1,
+    "dependency": 2,
+    "interaction": 3,
+    "capacity": 4,
+    "policy": 5,
+}
 
 
 @dataclass
@@ -40,6 +48,34 @@ def _merge_flags(flags: list[str], extra: str) -> list[str]:
     if extra not in out:
         out.append(extra)
     return out
+
+
+def _constraint_family_for_reason(reason_code: str | None) -> str | None:
+    code = str(reason_code or "").strip()
+    if not code:
+        return None
+    if code == "primary_action_missing_after_feasibility":
+        return "semantic"
+    if code.startswith("missing_mandatory_dependency_input"):
+        return "documentation"
+    if code.startswith("missing_prerequisite:") or code.startswith("conflict_with:") or code == "multiple_offer_branches":
+        return "interaction"
+    if code in {
+        "approval_pending_semantic_only",
+        "offer_terms_incomplete",
+        "institutional_approval_pending",
+        "requires_institutional_approval",
+    }:
+        return "dependency"
+    return None
+
+
+def _dominant_constraint_family(reason_codes: list[str]) -> str | None:
+    families = [_constraint_family_for_reason(code) for code in reason_codes]
+    normalized = [family for family in families if family]
+    if not normalized:
+        return None
+    return min(normalized, key=lambda family: (_CONSTRAINT_FAMILY_PRIORITY.get(family, 99), family))
 
 
 def _group_id_for_action(action: PlanAction, index: int) -> str:
@@ -107,6 +143,22 @@ def _group_action_keys(group_actions: list[PlanAction]) -> set[str]:
     return keys
 
 
+def _is_primary_group_anchor(action: PlanAction) -> bool:
+    if getattr(action, "primary_numeric_target", None) is not None:
+        return True
+    meta = _action_metadata_for_instance(action)
+    numeric_meta = meta.get("primary_numeric_target", {})
+    if isinstance(numeric_meta, dict) and bool(numeric_meta.get("is_primary_target", False)):
+        return True
+    return not bool(getattr(action, "composite_action", False))
+
+
+def _group_semantic_preserved(group_actions: list[PlanAction]) -> bool:
+    if not any(bool(getattr(action, "composite_action", False)) for action in group_actions):
+        return True
+    return any(_is_primary_group_anchor(action) for action in group_actions)
+
+
 def _provisional_reason(action: PlanAction) -> str | None:
     if bool(getattr(action, "approval_pending_semantic_only", False)):
         return "approval_pending_semantic_only"
@@ -131,7 +183,14 @@ def _append_trace(
     reason_code: str,
     related_action_key: str | None = None,
     related_group_id: str | None = None,
+    constraint_status: str | None = None,
+    repair_applied: bool | None = None,
+    dependency_gate: bool | None = None,
+    semantic_preserved: bool | None = None,
 ) -> None:
+    family = _constraint_family_for_reason(reason_code)
+    if constraint_status is None:
+        constraint_status = "provisional" if event_type == "approval_pending" else "invalid"
     trace.append(
         {
             "event_type": event_type,
@@ -140,10 +199,24 @@ def _append_trace(
             "action_group_id": action_group_id,
             "feature_name": str(getattr(action, "feature_name", "") or ""),
             "time_months": int(getattr(action, "time_months", 1) or 1),
+            "constraint_status": str(constraint_status or ""),
+            "constraint_family": str(family or getattr(action, "constraint_family", "") or ""),
             "reason_code": reason_code,
             "related_action_key": str(related_action_key or ""),
             "related_group_id": str(related_group_id or ""),
             "original_action_status": str(getattr(action, "action_status", "") or ""),
+            "was_clipped": bool(getattr(action, "was_clipped", False)),
+            "repair_applied": bool(repair_applied if repair_applied is not None else event_type == "repair_dropped"),
+            "dependency_gate": bool(
+                dependency_gate
+                if dependency_gate is not None
+                else event_type == "approval_pending" or family == "dependency"
+            ),
+            "semantic_preserved": bool(
+                semantic_preserved
+                if semantic_preserved is not None
+                else event_type == "approval_pending"
+            ),
         }
     )
 
@@ -181,6 +254,28 @@ def enforce_action_constraints(
 
     for group_id in group_order:
         group_actions = grouped[group_id]
+        if _group_semantic_preserved(group_actions):
+            continue
+        invalid_combination_seen = True
+        reason_code = "primary_action_missing_after_feasibility"
+        dropped_groups[group_id] = reason_code
+        for action in group_actions:
+            _append_trace(
+                trace,
+                event_type="repair_dropped",
+                action=action,
+                action_group_id=group_id,
+                reason_code=reason_code,
+                constraint_status="invalid",
+                repair_applied=True,
+                dependency_gate=False,
+                semantic_preserved=False,
+            )
+
+    for group_id in group_order:
+        group_actions = grouped[group_id]
+        if group_id in dropped_groups:
+            continue
         required_tags = {
             str(tag).strip()
             for action in group_actions
@@ -200,6 +295,10 @@ def enforce_action_constraints(
                 action=action,
                 action_group_id=group_id,
                 reason_code=reason_code,
+                constraint_status="invalid",
+                repair_applied=True,
+                dependency_gate=False,
+                semantic_preserved=False,
             )
 
     kept_group_ids = [group_id for group_id in group_order if group_id not in dropped_groups]
@@ -238,6 +337,10 @@ def enforce_action_constraints(
                         reason_code=reason_code,
                         related_action_key=related_key,
                         related_group_id=keep_group_id,
+                        constraint_status="invalid",
+                        repair_applied=True,
+                        dependency_gate=False,
+                        semantic_preserved=False,
                     )
                 changed = True
                 break
@@ -266,6 +369,10 @@ def enforce_action_constraints(
                     reason_code="multiple_offer_branches",
                     related_action_key=related_key,
                     related_group_id=keep_group_id,
+                    constraint_status="invalid",
+                    repair_applied=True,
+                    dependency_gate=False,
+                    semantic_preserved=False,
                 )
 
     repaired_actions: list[PlanAction] = []
@@ -277,6 +384,8 @@ def enforce_action_constraints(
         updated = action
         reason_code = _provisional_reason(action)
         if reason_code:
+            existing_codes = list(getattr(updated, "constraint_reason_codes", []))
+            merged_codes = existing_codes if reason_code in existing_codes else [*existing_codes, reason_code]
             updated = updated.model_copy(
                 update={
                     "action_status": "provisional",
@@ -284,6 +393,10 @@ def enforce_action_constraints(
                         getattr(updated, "action_status_reason", None),
                         reason_code,
                     ),
+                    "constraint_family": _constraint_family_for_reason(reason_code) or getattr(updated, "constraint_family", None),
+                    "constraint_reason_codes": merged_codes,
+                    "dependency_gate": True,
+                    "semantic_preserved": True if getattr(updated, "semantic_preserved", None) is None else getattr(updated, "semantic_preserved"),
                     "diagnostic_flags": _merge_flags(list(getattr(updated, "diagnostic_flags", [])), reason_code),
                 }
             )
@@ -294,6 +407,10 @@ def enforce_action_constraints(
                 action=updated,
                 action_group_id=group_id,
                 reason_code=reason_code,
+                constraint_status="provisional",
+                repair_applied=bool(getattr(updated, "repair_applied", False)),
+                dependency_gate=True,
+                semantic_preserved=True,
             )
         repaired_actions.append(updated)
 
