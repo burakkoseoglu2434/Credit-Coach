@@ -324,6 +324,26 @@ _ACTION_NARRATIVE_TEMPLATES: dict[str, dict[str, tuple[str, str]]] = {
     },
 }
 
+_PRIMARY_TARGET_METRIC_LABELS: dict[str, tuple[str, str]] = {
+    "requested_loan_amount": ("talep edilen kredi tutari", "requested loan amount"),
+    "monthly_payment_amount": ("aylik odeme tutari", "monthly payment amount"),
+    "documented_income_amount": ("belgelenmis gelir", "documented income"),
+    "income_verification_state": ("gelir dogrulama durumu", "income verification state"),
+    "debt_to_income_pct": ("borc/gelir orani", "debt-to-income ratio"),
+    "credit_utilization_pct": ("kredi kullanim orani", "credit utilization"),
+    "credit_score_points": ("kredi skoru", "credit score"),
+    "credit_limit_amount": ("kredi limiti", "credit limit"),
+    "bankcard_limit_amount": ("banka karti limiti", "bankcard limit"),
+    "total_high_credit_limit_amount": ("toplam yuksek kredi limiti", "total high credit limit"),
+    "revolving_balance_amount": ("donen borc bakiyesi", "revolving balance"),
+    "total_current_balance_amount": ("toplam aktif borc bakiyesi", "total current balance"),
+    "non_mortgage_balance_amount": ("ipotek disi borc bakiyesi", "non-mortgage balance"),
+    "interest_rate_pct": ("faiz orani", "interest rate"),
+    "delinquent_balance_amount": ("gecikmeli borc bakiyesi", "delinquent balance"),
+    "delinquent_accounts_count": ("gecikmeli hesap sayisi", "delinquent account count"),
+    "recent_collections_count": ("yakin donem tahsilat kaydi", "recent collections count"),
+}
+
 _OFFER_NARRATIVE_TEMPLATES: dict[str, dict[str, tuple[str, str]]] = {
     "installment_terms": {
         "offer_explanation": (
@@ -411,6 +431,123 @@ def _safe_int(value: Any, default: int = 0) -> int:
 
 def _format_pct(value: float) -> str:
     return f"%{int(round(float(value) * 100))}"
+
+
+def _format_scalar(value: float) -> str:
+    numeric = float(value)
+    if abs(numeric - round(numeric)) < 1e-9:
+        return f"{int(round(numeric)):,}"
+    return f"{numeric:,.1f}".rstrip("0").rstrip(".")
+
+
+def _format_primary_target_value(value: float, unit: str, *, locale: str) -> str:
+    display = _format_scalar(value)
+    if unit == "currency":
+        suffix = " birim" if locale == "tr" else " units"
+        return f"{display}{suffix}"
+    if unit == "percentage_points":
+        return f"%{display}"
+    if unit == "score_points":
+        suffix = " puan" if locale == "tr" else " points"
+        return f"{display}{suffix}"
+    if unit == "months":
+        suffix = " ay" if locale == "tr" else " months"
+        return f"{display}{suffix}"
+    if unit == "count":
+        suffix = " adet" if locale == "tr" else " items"
+        return f"{display}{suffix}"
+    if unit == "boolean_state":
+        return "dogrulanmis" if locale == "tr" and value >= 0.5 else (
+            "verified" if locale == "en" and value >= 0.5 else (
+                "dogrulanmamis" if locale == "tr" else "unverified"
+            )
+        )
+    return display
+
+
+def _format_primary_target_delta(value: float, unit: str, *, locale: str) -> str:
+    display = _format_scalar(abs(value))
+    sign = "+" if float(value) >= 0.0 else "-"
+    if unit == "currency":
+        suffix = " birim" if locale == "tr" else " units"
+        return f"{sign}{display}{suffix}"
+    if unit == "percentage_points":
+        suffix = " puan" if locale == "tr" else " pts"
+        return f"{sign}{display}{suffix}"
+    if unit == "score_points":
+        suffix = " puan" if locale == "tr" else " points"
+        return f"{sign}{display}{suffix}"
+    if unit == "months":
+        suffix = " ay" if locale == "tr" else " months"
+        return f"{sign}{display}{suffix}"
+    if unit == "count":
+        suffix = " adet" if locale == "tr" else " items"
+        return f"{sign}{display}{suffix}"
+    if unit == "boolean_state":
+        suffix = " durum" if locale == "tr" else " state"
+        return f"{sign}{display}{suffix}"
+    return f"{sign}{display}"
+
+
+def _primary_target_direction_verb(direction: str) -> tuple[str, str]:
+    normalized = str(direction or "").strip().lower()
+    if normalized == "increase":
+        return ("yukselt", "increase")
+    if normalized == "maintain":
+        return ("koru", "maintain")
+    return ("indir", "reduce")
+
+
+def _primary_numeric_target(action: Mapping[str, Any]) -> Mapping[str, Any]:
+    target = action.get("primary_numeric_target", {})
+    if isinstance(target, Mapping):
+        return target
+    return {}
+
+
+def _has_primary_numeric_target(action: Mapping[str, Any]) -> bool:
+    target = _primary_numeric_target(action)
+    return bool(str(target.get("metric_key", "") or ""))
+
+
+def _prefer_primary_target_step(existing: Mapping[str, Any], candidate: Mapping[str, Any]) -> bool:
+    return _has_primary_numeric_target(candidate) and not _has_primary_numeric_target(existing)
+
+
+def _append_localized_sentence(base: tuple[str, str], addition: LocalizedText | None) -> LocalizedText:
+    if addition is None:
+        return _localized_pair(base)
+    tr, en = base
+    return _lt(f"{tr} {addition.tr}".strip(), f"{en} {addition.en}".strip())
+
+
+def _primary_target_sentence(action: Mapping[str, Any]) -> LocalizedText | None:
+    target = _primary_numeric_target(action)
+    metric_key = str(target.get("metric_key", "") or "")
+    if not metric_key:
+        return None
+    unit = str(target.get("unit", "") or "")
+    target_value = _safe_float(target.get("target_value", 0.0), 0.0)
+    delta_value = _safe_float(target.get("delta_value", 0.0), 0.0)
+    direction = str(target.get("direction", "") or "decrease")
+    label_tr, label_en = _PRIMARY_TARGET_METRIC_LABELS.get(
+        metric_key,
+        (metric_key.replace("_", " "), metric_key.replace("_", " ")),
+    )
+    verb_tr, verb_en = _primary_target_direction_verb(direction)
+    target_tr = _format_primary_target_value(target_value, unit, locale="tr")
+    target_en = _format_primary_target_value(target_value, unit, locale="en")
+    delta_tr = _format_primary_target_delta(delta_value, unit, locale="tr")
+    delta_en = _format_primary_target_delta(delta_value, unit, locale="en")
+    if unit == "boolean_state":
+        return _lt(
+            f"Hedef: {label_tr} durumunu {target_tr} seviyesine getir ({delta_tr}).",
+            f"Target: move {label_en} to {target_en} ({delta_en}).",
+        )
+    return _lt(
+        f"Hedef: {label_tr} icin {target_tr} seviyesine {verb_tr} ({delta_tr}).",
+        f"Target: {verb_en} {label_en} to {target_en} ({delta_en}).",
+    )
 
 
 def _timing_hint(time_months: int) -> LocalizedText:
@@ -551,6 +688,7 @@ def build_step_narrative(action: Mapping[str, Any], *, step_id: str, phase_id: s
         expected = template["expected_outcome"]
         done = template["what_happens_if_done"]
         not_done = template["what_happens_if_not_done"]
+    primary_target_sentence = _primary_target_sentence(action)
     offer_narrative = build_offer_narrative(action)
     return RoadmapStepNarrative(
         step_id=step_id,
@@ -559,10 +697,12 @@ def build_step_narrative(action: Mapping[str, Any], *, step_id: str, phase_id: s
         action_group_id=action_group_id or None,
         action_summary=_localized_pair(summary),
         why_this_matters=_localized_pair(why),
-        expected_outcome=_localized_pair(expected),
+        expected_outcome=_append_localized_sentence(expected, primary_target_sentence),
         what_happens_if_done=_localized_pair(done),
         what_happens_if_not_done=_localized_pair(not_done),
-        action_timing_hint=_timing_hint(_safe_int(action.get("time_months", 1), 1)),
+        action_timing_hint=_timing_hint(
+            _safe_int(_primary_numeric_target(action).get("due_month", action.get("time_months", 1)), 1)
+        ),
         offer_narrative=offer_narrative if action_class == "institutional" or offer_narrative else None,
     )
 
@@ -1066,8 +1206,9 @@ def build_customer_roadmap_narrative(
     feature_changes: list[dict[str, Any]] = []
     approval_dependencies: list[dict[str, Any]] = []
     diagnostic_flags: list[str] = []
-    seen_step_ids: set[str] = set()
     seen_approval_steps: set[str] = set()
+    representative_steps: dict[str, tuple[str, Mapping[str, Any]]] = {}
+    step_order: list[str] = []
 
     for phase in phases:
         phase_id = str(phase.get("phase_id", "") or "")
@@ -1082,9 +1223,11 @@ def build_customer_roadmap_narrative(
                 technical_view = {}
             raw_actions.append(step)
             step_id = str(step.get("step_id", "") or "")
-            if step_id not in seen_step_ids:
-                step_narratives.append(build_step_narrative(step, step_id=step_id, phase_id=phase_id))
-                seen_step_ids.add(step_id)
+            if step_id not in representative_steps:
+                representative_steps[step_id] = (phase_id, step)
+                step_order.append(step_id)
+            elif _prefer_primary_target_step(representative_steps[step_id][1], step):
+                representative_steps[step_id] = (phase_id, step)
             feature_changes.append(
                 {
                     "step_id": step_id,
@@ -1118,6 +1261,10 @@ def build_customer_roadmap_narrative(
                 flag_str = str(flag)
                 if flag_str and flag_str not in diagnostic_flags:
                     diagnostic_flags.append(flag_str)
+
+    for step_id in step_order:
+        phase_id, representative_step = representative_steps[step_id]
+        step_narratives.append(build_step_narrative(representative_step, step_id=step_id, phase_id=phase_id))
 
     checkpoint_narratives = [
         build_checkpoint_narrative(checkpoint, tau)

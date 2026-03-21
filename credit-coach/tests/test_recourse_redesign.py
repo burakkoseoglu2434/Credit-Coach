@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pandas as pd
 
-from credit_coach.cli.run_recourse import _build_customer_roadmap, _effective_recourse_search
+from credit_coach.cli.run_recourse import _build_customer_roadmap, _effective_recourse_search, _plan_to_row
 from credit_coach.data.schema import PlanAction, PlanRecord, TrajectoryCheckpoint, TrajectoryPhase
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.recourse.generator import PlanGenConfig, generate_plan_record
@@ -552,7 +554,47 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
     assert roadmap["narrative"]["executive_summary"]["decision_view"]["label"]["en"] == "Approval-ready view"
     assert roadmap["narrative"]["steps"][0]["step_id"] == "limit_credit_usage:phase_1_stabilize"
     assert roadmap["narrative"]["steps"][0]["action_summary"]["tr"]
+    assert "credit utilization" in roadmap["narrative"]["steps"][0]["expected_outcome"]["en"]
     assert roadmap["narrative"]["checkpoints"][1]["review_action"]["en"]
+    assert roadmap["phases"][0]["steps"][0]["primary_numeric_target"]["metric_key"] == "credit_utilization_pct"
+    assert roadmap["phases"][0]["steps"][0]["primary_numeric_target"]["generation_notes"] == ["auto_populated_fallback"]
     assert roadmap["narrative"]["technical_reveal"]["feature_changes"][0]["feature_name"] == "revol_util"
     assert action.business_view.action_family == "utilization"
     assert action.technical_view.feature_name == "revol_util"
+
+
+def test_plan_to_row_serializes_primary_numeric_target_in_timeline():
+    action = PlanAction(
+        feature_name="installment",
+        current_value=510.0,
+        target_value=450.0,
+        delta=-60.0,
+        time_months=3,
+        estimated_cost_usd=12.0,
+        action_key="refinance",
+        action_class="structural",
+        action_title="Refinance or restructure debt",
+        action_group_id="refinance:phase_2_build",
+    )
+    plan = PlanRecord(
+        plan_id="timeline-plan",
+        customer_id="cust-31",
+        run_id="run-31",
+        horizon_months=6,
+        strategy="balanced",
+        actions=[action],
+        predicted_pd=0.33,
+        score=0.19,
+        robust_score=0.19,
+        status="APPROVED",
+        constraint_status="valid",
+        trajectory_status="on_track",
+    )
+
+    row = _plan_to_row(plan)
+    timeline_steps = json.loads(row["timeline_steps_json"])
+
+    assert len(timeline_steps) == 1
+    assert timeline_steps[0]["primary_numeric_target"]["metric_key"] == "monthly_payment_amount"
+    assert timeline_steps[0]["primary_numeric_target"]["unit"] == "currency"
+    assert timeline_steps[0]["primary_numeric_target"]["generation_notes"] == ["auto_populated_fallback"]

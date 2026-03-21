@@ -439,6 +439,7 @@ def _build_customer_roadmap(
             )
             business_view = getattr(action, "business_view").model_dump(mode="json")
             technical_view = getattr(action, "technical_view").model_dump(mode="json")
+            primary_numeric_target = getattr(action, "primary_numeric_target", None)
             steps.append(
                 {
                     "step_id": step_id,
@@ -450,6 +451,11 @@ def _build_customer_roadmap(
                     "action_group_id": str(business_view.get("action_group_id", "") or ""),
                     "business_view": business_view,
                     "technical_view": technical_view,
+                    "primary_numeric_target": (
+                        primary_numeric_target.model_dump(mode="json")
+                        if primary_numeric_target is not None
+                        else None
+                    ),
                     "composite_action": int(bool(getattr(action, "composite_action", False))),
                     "time_months": int(max(1, _safe_int(getattr(action, "time_months", 1), 1))),
                     "estimated_cost_usd": _safe_float(getattr(action, "estimated_cost_usd", 0.0), 0.0),
@@ -582,6 +588,7 @@ def _plan_to_row(plan: PlanRecord) -> dict:
             phase_2_count += 1
         else:
             phase_3_count += 1
+        primary_numeric_target = getattr(action, "primary_numeric_target", None)
         timeline_steps.append(
             {
                 "phase_id": phase_id,
@@ -589,6 +596,11 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                 "time_months": int(m),
                 "business_view": dict(getattr(action, "business_view").model_dump(mode="json")),
                 "technical_view": dict(getattr(action, "technical_view").model_dump(mode="json")),
+                "primary_numeric_target": (
+                    primary_numeric_target.model_dump(mode="json")
+                    if primary_numeric_target is not None
+                    else None
+                ),
                 "estimated_cost_usd": _safe_float(getattr(action, "estimated_cost_usd", 0.0), 0.0),
                 "requires_institutional_approval": int(
                     bool(getattr(action, "requires_institutional_approval", False))
@@ -1233,6 +1245,12 @@ def main() -> None:
         phase_id = str(phase.get("phase_id", ""))
         phase_title = str(phase.get("phase_title", ""))
         for step in phase.get("steps", []):
+            technical_view = step.get("technical_view", {})
+            if not isinstance(technical_view, dict):
+                technical_view = {}
+            primary_numeric_target = step.get("primary_numeric_target", {})
+            if not isinstance(primary_numeric_target, dict):
+                primary_numeric_target = {}
             row_out = {
                 "customer_id": str(args.customer_id),
                 "best_plan_id": str(best.plan_id),
@@ -1244,11 +1262,28 @@ def main() -> None:
                 "action_title": str(step.get("action_title", "")),
                 "action_group_id": str(step.get("action_group_id", "")),
                 "composite_action": _safe_int(step.get("composite_action", 0), 0),
-                "feature_name": str(step.get("feature_name", "")),
-                "current_value": _safe_float(step.get("current_value", 0.0), 0.0),
-                "target_value": _safe_float(step.get("target_value", 0.0), 0.0),
-                "delta": _safe_float(step.get("delta", 0.0), 0.0),
+                "feature_name": str(technical_view.get("feature_name", step.get("feature_name", "")) or ""),
+                "metric_key": str(primary_numeric_target.get("metric_key", "") or ""),
+                "unit": str(primary_numeric_target.get("unit", "") or ""),
+                "current_value": _safe_float(
+                    primary_numeric_target.get("current_value", technical_view.get("current_value", step.get("current_value", 0.0))),
+                    0.0,
+                ),
+                "target_value": _safe_float(
+                    primary_numeric_target.get("target_value", technical_view.get("target_value", step.get("target_value", 0.0))),
+                    0.0,
+                ),
+                "delta": _safe_float(
+                    primary_numeric_target.get("delta_value", technical_view.get("delta", step.get("delta", 0.0))),
+                    0.0,
+                ),
                 "time_months": _safe_int(step.get("time_months", 0), 0),
+                "due_month": _safe_int(primary_numeric_target.get("due_month", step.get("time_months", 0)), 0),
+                "direction": str(primary_numeric_target.get("direction", "") or ""),
+                "generation_notes_json": json.dumps(
+                    list(primary_numeric_target.get("generation_notes", [])),
+                    ensure_ascii=False,
+                ),
                 "estimated_cost_usd": _safe_float(step.get("estimated_cost_usd", 0.0), 0.0),
                 "requires_institutional_approval": _safe_int(step.get("requires_institutional_approval", 0), 0),
                 "approval_pending_semantic_only": _safe_int(step.get("approval_pending_semantic_only", 0), 0),

@@ -76,6 +76,17 @@ def test_build_customer_roadmap_narrative_is_deterministic():
                         "time_months": 1,
                         "phase_id": "phase_1_stabilize",
                     },
+                    "primary_numeric_target": {
+                        "metric_key": "debt_to_income_pct",
+                        "unit": "percentage_points",
+                        "current_value": 28.0,
+                        "target_value": 24.0,
+                        "delta_value": -4.0,
+                        "due_month": 2,
+                        "direction": "decrease",
+                        "generation_notes": ["semantic_sanity_only"],
+                        "raw_generation_basis": {"source_feature_name": "dti"},
+                    },
                     "diagnostic_flags": ["light_burden"],
                 }
             ],
@@ -132,6 +143,10 @@ def test_build_customer_roadmap_narrative_is_deterministic():
     assert left.executive_summary.decision_view.label.en == "Needs reassessment"
     assert left.executive_summary.time_to_readiness.label.en == "4 weeks"
     assert left.steps[0].action_summary.en.startswith("Reduce non-essential spending")
+    assert "debt-to-income ratio" in left.steps[0].expected_outcome.en
+    assert "%24" in left.steps[0].expected_outcome.en
+    assert "-4 pts" in left.steps[0].expected_outcome.en
+    assert left.steps[0].action_timing_hint.en == "Complete within the next 3 months."
     assert left.checkpoints[0].success_condition.en
     assert left.reasons[0].reason_title.en == "Debt-to-income ratio is high"
     assert left.technical_reveal.narrative_confidence_label == "high"
@@ -258,6 +273,17 @@ def test_build_customer_roadmap_narrative_groups_same_action_step_in_default_vie
                             "time_months": 3,
                             "phase_id": "phase_2_build",
                         },
+                        "primary_numeric_target": {
+                            "metric_key": "monthly_payment_amount",
+                            "unit": "currency",
+                            "current_value": 510.0,
+                            "target_value": 450.0,
+                            "delta_value": -60.0,
+                            "due_month": 3,
+                            "direction": "decrease",
+                            "generation_notes": ["semantic_sanity_only"],
+                            "raw_generation_basis": {"source_feature_name": "installment"},
+                        },
                     },
                 ],
             }
@@ -276,6 +302,8 @@ def test_build_customer_roadmap_narrative_groups_same_action_step_in_default_vie
 
     assert len(narrative.steps) == 1
     assert narrative.steps[0].step_id == "refinance:phase_2_build"
+    assert "monthly payment amount" in narrative.steps[0].expected_outcome.en
+    assert "450 units" in narrative.steps[0].expected_outcome.en
     assert len(narrative.technical_reveal.feature_changes) == 2
 
 
