@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 Phase: 33
 Plan: no active plan
-Status: Ready for discussion
-Last activity: 2026-03-21 - Executed Phase 32 and closed feasibility verdicts, repair posture, and business-safe feasibility visibility
+Status: Ready for planning
+Last activity: 2026-03-21 - Discussed Phase 33 and locked difficulty contract, execution aggregation, feasibility boundary, and business-safe execution visibility
 
-Progress: `v2.0` is underway; Phases 30-32 are complete and the next active design seam is Phase 33 action difficulty and execution modeling
+Progress: `v2.0` is underway; Phases 30-32 are complete, Phase 33 context is locked, and the next step is planning action difficulty and execution modeling
 
 ## Performance Metrics
 
@@ -103,6 +103,13 @@ Recent decisions affecting current work:
   - verdict and constraint-family normalization
   - repair-vs-reject and ranking-safe rollups
   - business-vs-technical visibility and consumer alignment
+- Phase 33 context now locks:
+  - canonical action difficulty as `difficulty_score + difficulty_label`
+  - difficulty means follow-through burden for a valid target, not feasibility truth
+  - plan aggregation remains weakest-link aware with explicit group-first and load-penalty behavior
+  - executable and approval-dependent plan truth remain separate
+  - invalid or semantic-break actions receive no difficulty truth
+  - business output shows labels and follow-through wording while raw execution probabilities stay technical-first
 
 ### Pending Todos
 
@@ -117,5 +124,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Phase 32 complete; next step is `$gsd-discuss-phase 33`
+Stopped at: Phase 33 context captured; next step is `$gsd-plan-phase 33 --research`
 Resume file: None
