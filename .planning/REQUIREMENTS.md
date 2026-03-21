@@ -28,7 +28,7 @@
 
 ### Narrative Generation
 
-- [ ] **NARV-01**: Engine-owned narratives can explain personalized numeric and institution-aware plans in product language without losing numeric and technical traceability
+- [x] **NARV-01**: Engine-owned narratives can explain personalized numeric and institution-aware plans in product language without losing numeric and technical traceability
 
 ### Product Surface
 
@@ -82,7 +82,7 @@
 | FEAS-01 | Phase 32 | Satisfied |
 | EXEC-01 | Phase 33 | Satisfied |
 | OFFR-01 | Phase 34 | Satisfied |
-| NARV-01 | Phase 35 | Pending |
+| NARV-01 | Phase 35 | Satisfied |
 | SURF-01 | Phase 36 | Pending |
 | PVAL-01 | Phase 37 | Pending |
 | CAL-01 | Phase 38 | Pending |
@@ -95,4 +95,4 @@
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-22 after Phase 34 execution*
+*Last updated: 2026-03-22 after Phase 35 execution*

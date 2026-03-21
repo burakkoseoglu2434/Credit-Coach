@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 ## Current Position
 
-Phase: 35
-Plan: 35-01, 35-02, 35-03 ready
-Status: Ready for execution
-Last activity: 2026-03-22 - Planned Phase 35 across contract/order hardening, personalization/tone, and business-vs-technical narrative closure
+Phase: 36
+Plan: None yet
+Status: Ready for discussion
+Last activity: 2026-03-22 - Executed Phase 35 across narrative ordering, personalization/tone, and business-vs-technical narrative closure
 
-Progress: `v2.0` is underway; Phases 30-34 are complete and the next active seam is `Phase 35: Narrative Generation v2`
+Progress: `v2.0` is underway; Phases 30-35 are complete and the next active seam is `Phase 36: Product Surface Upgrade`
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 90 (historical import + phases 8-25 plus phases 30-34)
+- Total plans completed: 93 (historical import + phases 8-25 plus phases 30-35)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -31,12 +31,12 @@ Progress: `v2.0` is underway; Phases 30-34 are complete and the next active seam
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
 | v1.2 completed milestone | 15 | phases 12-16 complete | n/a |
 | v1.3 completed milestone | 28 | phases 17-25 complete | n/a |
-| v2.0 active milestone | 15 | phases 30-34 complete, phases 35-39 remaining | n/a |
+| v2.0 active milestone | 18 | phases 30-35 complete, phases 36-39 remaining | n/a |
 
 **Recent Trend:**
 - The engine now has audited full-portfolio proof plus buyer-safe demo, proof, investor, analyst, and pilot-baseline surfaces.
 - The new milestone is focused on making outputs more customer-specific, numeric, decision-intelligent, and easier to validate at portfolio scale.
-- The roadmap now continues from Phase 34 with the next sequence covering richer narratives, surface upgrades, portfolio impact, calibration, and pilot integration.
+- The roadmap now continues from Phase 35 with the next sequence covering surface upgrades, portfolio impact, calibration, and pilot integration.
 
 ## Accumulated Context
 
@@ -149,6 +149,13 @@ Recent decisions affecting current work:
   - narrative contract and ordering hardening
   - personalization and tone hardening
   - business-vs-technical split and runtime closure
+- Phase 35 execution is complete and establishes:
+  - stricter ordered narrative flow `executive_summary -> steps -> checkpoints -> reasons`
+  - primary numeric statements that express current state, target, and timing inside `expected_outcome`
+  - top-3 default reason curation with fuller technical reason trace retained under reveal
+  - calmer, more directive, non-judgmental business wording with no raw follow-through probabilities in default summary cards
+  - explicit `primary_numeric_targets` inside technical reveal to keep narrative-generation truth inspectable
+- `NARV-01` is now satisfied
 
 ### Pending Todos
 
@@ -163,5 +170,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Phase 35 planned; next step is `$gsd-execute-phase 35`
+Stopped at: Phase 35 completed; next step is `$gsd-discuss-phase 36`
 Resume file: None
