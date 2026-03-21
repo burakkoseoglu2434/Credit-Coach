@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 32
-Plan: no active plan
-Status: Ready for discussion
-Last activity: 2026-03-21 - Completed Phase 31 numeric target contract, generator handoff, and consumer alignment
+Plan: discussion complete
+Status: Ready for planning
+Last activity: 2026-03-21 - Captured Phase 32 feasibility and constraint context
 
 Progress: `v2.0` is underway; Phases 30-31 are complete and the next active design seam is Phase 32 feasibility and constraint hardening
 
@@ -86,6 +86,12 @@ Recent decisions affecting current work:
   - grouped-step narrative selection that prefers the step carrying the primary numeric target
 - `NUM-01` is now satisfied
 - The next active design seam is `Phase 32: Feasibility & Constraint Engine`
+- Phase 32 context now locks:
+  - canonical action-level verdicts `valid | clipped | repaired | provisional | invalid`
+  - worst-dominant plan-level verdict precedence `invalid > provisional > repaired > valid`
+  - canonical `constraint_family` layer
+  - `repair-if-safe, reject-if-semantic-break`
+  - business default shows only feasibility outcome labels while raw trace stays technical-only
 
 ### Pending Todos
 
@@ -100,5 +106,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Phase 31 complete; next step is `$gsd-discuss-phase 32`
+Stopped at: Phase 32 discussion complete; next step is `$gsd-plan-phase 32 --research`
 Resume file: None
