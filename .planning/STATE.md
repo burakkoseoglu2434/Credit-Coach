@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 ## Current Position
 
-Phase: 34
-Plan: 34-01, 34-02, 34-03 ready
-Status: Ready for execution
-Last activity: 2026-03-22 - Planned Phase 34 across offer contract hardening, rankability semantics, and business-safe offer visibility
+Phase: 35
+Plan: None yet
+Status: Ready for discussion
+Last activity: 2026-03-22 - Executed Phase 34 across nested offer contracts, rankability semantics, and business-safe offer visibility
 
-Progress: `v2.0` is underway; Phases 30-33 are complete and the next active seam is `Phase 34: Offer Layer Integration`
+Progress: `v2.0` is underway; Phases 30-34 are complete and the next active seam is `Phase 35: Narrative Generation v2`
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 87 (historical import + phases 8-25 plus phases 30-33)
+- Total plans completed: 90 (historical import + phases 8-25 plus phases 30-34)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -31,12 +31,12 @@ Progress: `v2.0` is underway; Phases 30-33 are complete and the next active seam
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
 | v1.2 completed milestone | 15 | phases 12-16 complete | n/a |
 | v1.3 completed milestone | 28 | phases 17-25 complete | n/a |
-| v2.0 active milestone | 12 | phases 30-33 complete, phases 34-39 remaining | n/a |
+| v2.0 active milestone | 15 | phases 30-34 complete, phases 35-39 remaining | n/a |
 
 **Recent Trend:**
 - The engine now has audited full-portfolio proof plus buyer-safe demo, proof, investor, analyst, and pilot-baseline surfaces.
 - The new milestone is focused on making outputs more customer-specific, numeric, decision-intelligent, and easier to validate at portfolio scale.
-- The roadmap now continues from Phase 33 with the next sequence covering offers, narratives, surfaces, portfolio impact, calibration, and pilot integration.
+- The roadmap now continues from Phase 34 with the next sequence covering richer narratives, surface upgrades, portfolio impact, calibration, and pilot integration.
 
 ## Accumulated Context
 
@@ -120,6 +120,22 @@ Recent decisions affecting current work:
   - stronger planner demotion for high-difficulty, low-readiness, high-load contenders
   - business-safe roadmap wording plus technical reveal execution details
   - difficulty-aware behavior summaries across batch, suite, portfolio proof, and KPI review consumers
+- Phase 34 context now locks:
+  - canonical nested `offer_contract` under institutional actions
+  - action-level offer truth as source-of-truth, with plan-level offer summaries derived
+  - approval pending as institution-side readiness gate and acceptance pending as customer-side realization gate
+  - product-safe offer wording by default with full offer trace in technical reveal
+- Phase 34 planning is now split into:
+  - nested offer contract and runtime bridge
+  - approval, acceptance, rankability, and provisional semantics
+  - business-safe offer visibility and proof/runtime alignment
+- Phase 34 execution is complete and establishes:
+  - canonical nested `offer_contract` with semi-typed `offer_terms`
+  - deterministic rankable vs provisional offer semantics without conflating approval and customer acceptance
+  - action-level offer truth as the authored source for runtime, portfolio, and proof consumers
+  - business-safe offer narratives that keep customer action primary and offer state explicit
+  - technical reveal offer trace with full contract, policy metadata, and approval-dependent execution detail
+- `OFFR-01` is now satisfied
 
 ### Pending Todos
 
@@ -133,6 +149,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21
-Stopped at: Phase 33 completed; next step is `$gsd-discuss-phase 34`
+Last session: 2026-03-22
+Stopped at: Phase 34 completed; next step is `$gsd-discuss-phase 35`
 Resume file: None

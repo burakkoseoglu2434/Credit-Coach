@@ -24,7 +24,7 @@
 
 ### Offer Integration
 
-- [ ] **OFFR-01**: Institution actions are represented through an explicit offer layer with terms, approval state, and dependencies that stay separate from customer actions
+- [x] **OFFR-01**: Institution actions are represented through an explicit offer layer with terms, approval state, and dependencies that stay separate from customer actions
 
 ### Narrative Generation
 
@@ -81,7 +81,7 @@
 | NUM-01 | Phase 31 | Satisfied |
 | FEAS-01 | Phase 32 | Satisfied |
 | EXEC-01 | Phase 33 | Satisfied |
-| OFFR-01 | Phase 34 | Pending |
+| OFFR-01 | Phase 34 | Satisfied |
 | NARV-01 | Phase 35 | Pending |
 | SURF-01 | Phase 36 | Pending |
 | PVAL-01 | Phase 37 | Pending |
@@ -95,4 +95,4 @@
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-21 after Phase 33 execution*
+*Last updated: 2026-03-22 after Phase 34 execution*
