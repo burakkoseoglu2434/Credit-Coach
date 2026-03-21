@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 31
-Plan: context captured
-Status: Ready for planning
-Last activity: 2026-03-21 - Captured Phase 31 numeric-target decisions around minimum-credible targets, unit families, numeric contract shape, and the feasibility handoff boundary
+Plan: research complete, plans written
+Status: Ready for execution
+Last activity: 2026-03-21 - Planned Phase 31 around numeric target contract hardening, generator integration, and feasibility-neutral downstream alignment
 
-Progress: `v2.0` is underway; Phase 30 is complete and Phase 31 now has locked context for numeric target generation
+Progress: `v2.0` is underway; Phase 30 is complete and Phase 31 is now researched and split into three execution waves for numeric target generation
 
 ## Performance Metrics
 
@@ -74,6 +74,10 @@ Recent decisions affecting current work:
   - `action_family`-first unit selection with controlled overrides
   - one primary numeric target for mixed-unit actions
   - semantic-sanity-only generation guardrails before Phase 32 feasibility
+- Phase 31 planning is now split into:
+  - numeric target contract and unit catalog
+  - generator integration and feasibility handoff
+  - runtime consumer alignment and regression closure
 
 ### Pending Todos
 
@@ -88,5 +92,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Phase 31 context captured; next step is `$gsd-plan-phase 31 --research`
+Stopped at: Phase 31 planning complete; next step is `$gsd-execute-phase 31`
 Resume file: None
