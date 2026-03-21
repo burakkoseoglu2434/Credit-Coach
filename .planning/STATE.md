@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 32
-Plan: discussion complete
-Status: Ready for planning
-Last activity: 2026-03-21 - Captured Phase 32 feasibility and constraint context
+Plan: research complete, plans written
+Status: Ready for execution
+Last activity: 2026-03-21 - Planned Phase 32 around verdict normalization, repair-vs-reject hardening, and feasibility visibility alignment
 
 Progress: `v2.0` is underway; Phases 30-31 are complete and the next active design seam is Phase 32 feasibility and constraint hardening
 
@@ -92,6 +92,10 @@ Recent decisions affecting current work:
   - canonical `constraint_family` layer
   - `repair-if-safe, reject-if-semantic-break`
   - business default shows only feasibility outcome labels while raw trace stays technical-only
+- Phase 32 planning is now split into:
+  - verdict and constraint-family normalization
+  - repair-vs-reject and ranking-safe rollups
+  - business-vs-technical visibility and consumer alignment
 
 ### Pending Todos
 
@@ -106,5 +110,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-21
-Stopped at: Phase 32 discussion complete; next step is `$gsd-plan-phase 32 --research`
+Stopped at: Phase 32 planning complete; next step is `$gsd-execute-phase 32`
 Resume file: None
