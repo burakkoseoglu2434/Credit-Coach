@@ -94,6 +94,17 @@ def test_build_customer_roadmap_narrative_is_deterministic():
                     "constraint_reason_codes": ["income_growth_cap"],
                     "repair_applied": True,
                     "semantic_preserved": True,
+                    "difficulty_score": 0.42,
+                    "difficulty_label": "moderate",
+                    "difficulty_drivers": {
+                        "burden": 0.35,
+                        "horizon": 0.20,
+                        "action_class": 0.35,
+                        "coordination_load": 0.0,
+                    },
+                    "action_execution_probability": 0.72,
+                    "action_group_execution_probability": 0.72,
+                    "approval_friction": 0.0,
                 }
             ],
         }
@@ -133,6 +144,10 @@ def test_build_customer_roadmap_narrative_is_deterministic():
         local_reason_bundle=local_reason_bundle,
         constraint_trace=[{"reason_code": "clip:income_cap"}],
         plan_execution_probability=0.72,
+        approval_dependent_plan_probability=0.61,
+        mean_group_difficulty_score=0.42,
+        peak_group_difficulty_score=0.42,
+        follow_through_readiness_label="moderate",
     )
     right = build_customer_roadmap_narrative(
         base_pd=0.42,
@@ -143,6 +158,10 @@ def test_build_customer_roadmap_narrative_is_deterministic():
         local_reason_bundle=local_reason_bundle,
         constraint_trace=[{"reason_code": "clip:income_cap"}],
         plan_execution_probability=0.72,
+        approval_dependent_plan_probability=0.61,
+        mean_group_difficulty_score=0.42,
+        peak_group_difficulty_score=0.42,
+        follow_through_readiness_label="moderate",
     )
 
     assert left.model_dump(mode="json") == right.model_dump(mode="json")
@@ -154,13 +173,20 @@ def test_build_customer_roadmap_narrative_is_deterministic():
     assert "-4 pts" in left.steps[0].expected_outcome.en
     assert left.steps[0].feasibility_outcome_label is not None
     assert left.steps[0].feasibility_outcome_label.en == "Softened but usable"
+    assert left.steps[0].difficulty_label is not None
+    assert left.steps[0].difficulty_label.en == "Moderate difficulty"
+    assert left.steps[0].follow_through_note is not None
     assert left.steps[0].action_timing_hint.en == "Complete within the next 3 months."
     assert left.checkpoints[0].success_condition.en
+    assert left.executive_summary.follow_through_readiness is not None
+    assert left.executive_summary.follow_through_readiness.label.en == "Moderate follow-through readiness"
     assert left.reasons[0].reason_title.en == "Debt-to-income ratio is high"
     assert left.technical_reveal.narrative_confidence_label == "high"
     assert left.technical_reveal.constraints_applied[0]["constraint_status"] == "repaired"
     assert left.technical_reveal.constraints_applied[0]["constraint_family"] == "capacity"
     assert left.technical_reveal.constraints_applied[0]["repair_applied"] is True
+    assert left.technical_reveal.execution_details["follow_through_readiness_label"] == "moderate"
+    assert left.technical_reveal.execution_details["step_execution_details"][0]["difficulty_label"] == "moderate"
 
 
 def test_build_customer_roadmap_narrative_separates_offer_and_checkpoint_layers():

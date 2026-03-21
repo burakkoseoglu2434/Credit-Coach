@@ -227,12 +227,19 @@ def test_generate_plan_record_emits_execution_probability_contract():
     )
     assert float(plan.plan_execution_probability or 0.0) > 0.0
     assert float(plan.mean_action_execution_probability or 0.0) > 0.0
+    assert float(plan.mean_group_difficulty_score or 0.0) > 0.0
+    assert float(plan.peak_group_difficulty_score or 0.0) > 0.0
+    assert str(plan.dominant_difficulty_label or "") in {"low", "moderate", "high"}
+    assert str(plan.follow_through_readiness_label or "") in {"low", "moderate", "high"}
     assert float(plan.nominal_pd_improvement or 0.0) >= 0.0
     assert float(plan.expected_pd_improvement or 0.0) >= 0.0
     assert int(plan.executable_action_count) >= 1
     assert int(plan.executable_action_group_count) >= 1
     assert all(action.action_group_execution_probability is not None for action in plan.actions)
     assert all(action.action_execution_probability is not None for action in plan.actions)
+    assert all(action.difficulty_score is not None for action in plan.actions)
+    assert all(str(action.difficulty_label or "") in {"low", "moderate", "high"} for action in plan.actions)
+    assert all({"burden", "horizon", "action_class", "coordination_load"} <= set(action.difficulty_drivers.keys()) for action in plan.actions)
     assert all(action.business_view is not None for action in plan.actions)
     assert all(action.technical_view is not None for action in plan.actions)
     assert all(action.business_view.action_key == action.action_key for action in plan.actions)
@@ -288,6 +295,42 @@ def test_execution_probability_defaults_lower_for_long_high_burden_actions():
 
     assert float(short_prob or 0.0) > float(long_prob or 0.0)
     assert float(long_prob or 0.0) < 0.5
+    assert float(short_action.difficulty_score or 0.0) < float(long_action.difficulty_score or 0.0)
+    assert str(long_action.difficulty_label or "") in {"moderate", "high"}
+
+
+def test_invalid_or_semantic_break_actions_do_not_emit_difficulty_truth():
+    invalid_action = PlanAction(
+        feature_name="dti",
+        current_value=30.0,
+        target_value=20.0,
+        delta=-10.0,
+        time_months=3,
+        estimated_cost_usd=40.0,
+        action_status="invalid",
+    )
+    semantic_break_action = PlanAction(
+        feature_name="revol_util",
+        current_value=70.0,
+        target_value=55.0,
+        delta=-15.0,
+        time_months=2,
+        estimated_cost_usd=20.0,
+        action_status="repaired",
+        semantic_preserved=False,
+    )
+
+    invalid_prob, invalid_approval = estimate_action_execution_probability(invalid_action, plan_action_count=1)
+    broken_prob, broken_approval = estimate_action_execution_probability(semantic_break_action, plan_action_count=1)
+
+    assert invalid_prob is None and invalid_approval is None
+    assert invalid_action.difficulty_score is None
+    assert invalid_action.difficulty_label is None
+    assert invalid_action.difficulty_drivers == {}
+    assert invalid_action.approval_friction is None
+    assert broken_prob is None and broken_approval is None
+    assert semantic_break_action.difficulty_score is None
+    assert semantic_break_action.difficulty_label is None
 
 
 def test_execution_probability_uses_weighted_min_average_for_composite_groups():
@@ -364,6 +407,9 @@ def test_execution_probability_keeps_approval_dependent_realization_separate():
     assert float(bundle["plan_execution_probability"]) > 0.0
     assert float(bundle["approval_dependent_plan_probability"] or 0.0) > 0.0
     assert float(bundle["mean_approval_dependent_probability"] or 0.0) > 0.0
+    assert actions[1].difficulty_score is not None
+    assert float(actions[1].approval_friction or 0.0) > 0.0
+    assert bundle["follow_through_readiness_label"] in {"low", "moderate", "high"}
     assert int(bundle["approval_pending_action_count"]) == 1
 
 
@@ -442,6 +488,15 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
         action_title="Limit credit usage",
         action_group_id="limit_credit_usage:phase_1_stabilize",
         action_execution_probability=0.68,
+        difficulty_score=0.41,
+        difficulty_label="moderate",
+        difficulty_drivers={
+            "burden": 0.2,
+            "horizon": 0.1,
+            "action_class": 0.35,
+            "coordination_load": 0.0,
+        },
+        approval_friction=0.0,
         diagnostic_flags=["utilization_relief"],
     )
     plan = PlanRecord(
@@ -529,6 +584,10 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
         trajectory_status="on_track",
         next_review_week=4,
         plan_execution_probability=0.68,
+        mean_group_difficulty_score=0.41,
+        peak_group_difficulty_score=0.41,
+        dominant_difficulty_label="moderate",
+        follow_through_readiness_label="moderate",
     )
 
     roadmap = _build_customer_roadmap(
@@ -558,6 +617,9 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
     assert roadmap["narrative"]["steps"][0]["step_id"] == "limit_credit_usage:phase_1_stabilize"
     assert roadmap["narrative"]["steps"][0]["action_summary"]["tr"]
     assert "credit utilization" in roadmap["narrative"]["steps"][0]["expected_outcome"]["en"]
+    assert roadmap["phases"][0]["steps"][0]["difficulty_label"] == "moderate"
+    assert roadmap["summary"]["follow_through_readiness_label"] == "moderate"
+    assert roadmap["summary"]["dominant_difficulty_label"] == "moderate"
     assert roadmap["narrative"]["checkpoints"][1]["review_action"]["en"]
     assert roadmap["phases"][0]["steps"][0]["primary_numeric_target"]["metric_key"] == "credit_utilization_pct"
     assert roadmap["phases"][0]["steps"][0]["primary_numeric_target"]["generation_notes"] == ["auto_populated_fallback"]

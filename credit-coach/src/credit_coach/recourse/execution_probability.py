@@ -63,25 +63,37 @@ def _action_class_anchor(action: PlanAction) -> float:
     return 0.48
 
 
-def _burden_and_horizon_pressure(action: PlanAction, *, plan_action_count: int) -> tuple[float, float, float]:
+def _action_class_difficulty_pressure(action: PlanAction) -> float:
+    action_class = str(getattr(action, "action_class", "") or "").strip().lower()
+    if action_class == "behavioral":
+        return 0.35
+    if action_class == "structural":
+        return 0.58
+    if action_class == "institutional":
+        return 0.74
+    return 0.50
+
+
+def _coordination_load(plan_action_count: int) -> float:
+    return _bounded_linear(float(max(0, int(plan_action_count) - 1)), lower=0.0, upper=4.0)
+
+
+def _burden_and_horizon_pressure(action: PlanAction, *, plan_action_count: int) -> tuple[float, float, float, float, float]:
     time_months = max(1, _safe_int(getattr(action, "time_months", 1), 1))
     cost = max(0.0, _safe_float(getattr(action, "estimated_cost_usd", 0.0), 0.0))
-    action_class = str(getattr(action, "action_class", "") or "").strip().lower()
-
     horizon_pressure = _bounded_linear(float(time_months), lower=1.0, upper=6.0)
-    burden_terms = [
-        _bounded_linear(cost, lower=0.0, upper=250.0),
-        _bounded_linear(float(max(0, int(plan_action_count) - 1)), lower=0.0, upper=4.0),
-    ]
-    if action_class == "structural":
-        burden_terms.append(0.55)
-    elif action_class == "institutional":
-        burden_terms.append(0.75)
-    else:
-        burden_terms.append(0.35)
-    burden_pressure = float(sum(burden_terms) / max(1, len(burden_terms)))
-    interaction_penalty = float(horizon_pressure * burden_pressure)
-    return float(horizon_pressure), float(burden_pressure), float(interaction_penalty)
+    coordination_load = _coordination_load(plan_action_count)
+    action_class_pressure = _action_class_difficulty_pressure(action)
+    cost_pressure = _bounded_linear(cost, lower=0.0, upper=250.0)
+    burden_pressure = float((0.60 * cost_pressure) + (0.40 * action_class_pressure))
+    interaction_penalty = float(horizon_pressure * ((0.55 * burden_pressure) + (0.45 * coordination_load)))
+    return (
+        float(horizon_pressure),
+        float(burden_pressure),
+        float(coordination_load),
+        float(action_class_pressure),
+        float(interaction_penalty),
+    )
 
 
 def _semantic_ambiguity_penalty(action: PlanAction) -> float:
@@ -97,6 +109,94 @@ def _semantic_ambiguity_penalty(action: PlanAction) -> float:
     return float(penalty)
 
 
+def _supports_difficulty(action: PlanAction) -> bool:
+    action_status = str(getattr(action, "action_status", "valid") or "valid").strip().lower()
+    if action_status == "invalid":
+        return False
+    semantic_preserved = getattr(action, "semantic_preserved", None)
+    if semantic_preserved is False:
+        return False
+    return action_status in {"", "valid", "clipped", "repaired", "provisional"}
+
+
+def _difficulty_label(score: float | None) -> str | None:
+    if score is None:
+        return None
+    value = _clamp(_safe_float(score, 0.0), lo=0.0, hi=1.0)
+    if value >= 0.68:
+        return "high"
+    if value >= 0.36:
+        return "moderate"
+    return "low"
+
+
+def _follow_through_readiness_label(
+    *,
+    plan_execution_probability: float,
+    peak_group_difficulty_score: float,
+    approval_dependent_plan_probability: float | None,
+) -> str:
+    effective_probability = float(plan_execution_probability)
+    if approval_dependent_plan_probability is not None:
+        effective_probability = min(
+            effective_probability,
+            float(_safe_float(approval_dependent_plan_probability, plan_execution_probability)),
+        )
+    if effective_probability >= 0.70 and peak_group_difficulty_score <= 0.55:
+        return "high"
+    if effective_probability >= 0.45 and peak_group_difficulty_score <= 0.78:
+        return "moderate"
+    return "low"
+
+
+def _annotate_action_difficulty(
+    action: PlanAction,
+    *,
+    plan_action_count: int,
+    approval_friction: float = 0.0,
+) -> None:
+    if not _supports_difficulty(action):
+        action.difficulty_score = None
+        action.difficulty_label = None
+        action.difficulty_drivers = {}
+        action.approval_friction = None
+        return
+
+    (
+        horizon_pressure,
+        burden_pressure,
+        coordination_load,
+        action_class_pressure,
+        _interaction_penalty,
+    ) = _burden_and_horizon_pressure(
+        action,
+        plan_action_count=plan_action_count,
+    )
+    difficulty_score = (
+        (0.35 * burden_pressure)
+        + (0.22 * horizon_pressure)
+        + (0.18 * action_class_pressure)
+        + (0.15 * coordination_load)
+        + (0.10 * _clamp(approval_friction, lo=0.0, hi=1.0))
+    )
+    action_status = str(getattr(action, "action_status", "valid") or "valid").strip().lower()
+    if action_status == "clipped":
+        difficulty_score += 0.03
+    elif action_status == "repaired":
+        difficulty_score += 0.06
+    elif action_status == "provisional":
+        difficulty_score += 0.04
+    action.difficulty_score = float(_clamp(difficulty_score, lo=0.0, hi=1.0))
+    action.difficulty_label = _difficulty_label(action.difficulty_score)
+    action.difficulty_drivers = {
+        "burden": float(_clamp(burden_pressure, lo=0.0, hi=1.0)),
+        "horizon": float(_clamp(horizon_pressure, lo=0.0, hi=1.0)),
+        "action_class": float(_clamp(action_class_pressure, lo=0.0, hi=1.0)),
+        "coordination_load": float(_clamp(coordination_load, lo=0.0, hi=1.0)),
+    }
+    action.approval_friction = float(_clamp(approval_friction, lo=0.0, hi=1.0))
+
+
 def _approval_probability(
     action: PlanAction,
     *,
@@ -105,12 +205,13 @@ def _approval_probability(
     segment_context: Mapping[str, Any] | None = None,
 ) -> float:
     probability = _action_class_anchor(action) - 0.12
-    horizon_pressure, burden_pressure, interaction_penalty = _burden_and_horizon_pressure(
+    horizon_pressure, burden_pressure, coordination_load, _action_class_pressure, interaction_penalty = _burden_and_horizon_pressure(
         action,
         plan_action_count=plan_action_count,
     )
     probability -= 0.03 * horizon_pressure
     probability -= 0.05 * burden_pressure
+    probability -= 0.03 * coordination_load
     probability -= 0.10 * interaction_penalty
     probability -= 0.015 * max(0, int(plan_action_count) - 1)
     probability -= _semantic_ambiguity_penalty(action)
@@ -135,8 +236,18 @@ def estimate_action_execution_probability(
     customer_context: Mapping[str, Any] | None = None,
     segment_context: Mapping[str, Any] | None = None,
 ) -> tuple[float | None, float | None]:
+    if not _supports_difficulty(action):
+        action.difficulty_score = None
+        action.difficulty_label = None
+        action.difficulty_drivers = {}
+        action.approval_friction = None
+        action.action_execution_probability = None
+        action.approval_dependent_probability = None
+        return None, None
+
     if is_offer_action(action):
         if is_rankable_offer_action(action):
+            _annotate_action_difficulty(action, plan_action_count=plan_action_count, approval_friction=0.0)
             return None, None
         approval_prob = _approval_probability(
             action,
@@ -144,6 +255,13 @@ def estimate_action_execution_probability(
             customer_context=customer_context,
             segment_context=segment_context,
         )
+        _annotate_action_difficulty(
+            action,
+            plan_action_count=plan_action_count,
+            approval_friction=(1.0 - float(approval_prob)),
+        )
+        action.action_execution_probability = None
+        action.approval_dependent_probability = float(approval_prob)
         return None, float(approval_prob)
 
     if bool(getattr(action, "approval_pending_semantic_only", False)) or bool(
@@ -155,15 +273,23 @@ def estimate_action_execution_probability(
             customer_context=customer_context,
             segment_context=segment_context,
         )
+        _annotate_action_difficulty(
+            action,
+            plan_action_count=plan_action_count,
+            approval_friction=(1.0 - float(approval_prob)),
+        )
+        action.action_execution_probability = None
+        action.approval_dependent_probability = float(approval_prob)
         return None, float(approval_prob)
 
     probability = _action_class_anchor(action)
-    horizon_pressure, burden_pressure, interaction_penalty = _burden_and_horizon_pressure(
+    horizon_pressure, burden_pressure, coordination_load, _action_class_pressure, interaction_penalty = _burden_and_horizon_pressure(
         action,
         plan_action_count=plan_action_count,
     )
     probability -= 0.045 * horizon_pressure
     probability -= 0.09 * burden_pressure
+    probability -= 0.05 * coordination_load
     probability -= 0.23 * interaction_penalty
     probability -= 0.02 * max(0, int(plan_action_count) - 1)
     probability += _customer_context_adjustment(customer_context)
@@ -185,7 +311,11 @@ def estimate_action_execution_probability(
     if isinstance(segment_context, Mapping) and str(segment_context.get("risk_band", "")).strip().lower() == "high":
         probability -= 0.04
 
-    return float(_clamp(probability, lo=0.05, hi=0.95)), None
+    action_probability = float(_clamp(probability, lo=0.05, hi=0.95))
+    _annotate_action_difficulty(action, plan_action_count=plan_action_count, approval_friction=0.0)
+    action.action_execution_probability = action_probability
+    action.approval_dependent_probability = None
+    return action_probability, None
 
 
 def _group_key(action: PlanAction, index: int) -> str:
@@ -214,6 +344,8 @@ def estimate_plan_execution_probability(
     group_members: dict[str, list[float]] = defaultdict(list)
     executable_action_probabilities: list[float] = []
     approval_pending_probabilities: list[float] = []
+    group_difficulty_members: dict[str, list[float]] = defaultdict(list)
+    difficulty_scores: list[float] = []
     approval_pending_count = 0
     rankable_offer_count = 0
     offer_action_count = 0
@@ -231,6 +363,11 @@ def estimate_plan_execution_probability(
         )
         action.action_execution_probability = action_prob
         action.approval_dependent_probability = approval_prob
+        difficulty_score = getattr(action, "difficulty_score", None)
+        if difficulty_score is not None:
+            difficulty_value = float(_safe_float(difficulty_score, 0.0))
+            difficulty_scores.append(difficulty_value)
+            group_difficulty_members[_group_key(action, index)].append(difficulty_value)
         if action_prob is not None:
             executable_action_probabilities.append(float(action_prob))
             group_members[_group_key(action, index)].append(float(action_prob))
@@ -250,6 +387,26 @@ def estimate_plan_execution_probability(
             "mean_approval_dependent_probability": (
                 float(sum(approval_pending_probabilities) / max(1, len(approval_pending_probabilities)))
                 if approval_pending_probabilities
+                else None
+            ),
+            "mean_group_difficulty_score": (
+                float(sum(difficulty_scores) / max(1, len(difficulty_scores))) if difficulty_scores else None
+            ),
+            "peak_group_difficulty_score": (float(max(difficulty_scores)) if difficulty_scores else None),
+            "dominant_difficulty_label": (
+                _difficulty_label(max(difficulty_scores)) if difficulty_scores else None
+            ),
+            "follow_through_readiness_label": (
+                _follow_through_readiness_label(
+                    plan_execution_probability=1.0 if rankable_offer_count > 0 else 0.0,
+                    peak_group_difficulty_score=float(max(difficulty_scores)) if difficulty_scores else 0.0,
+                    approval_dependent_plan_probability=(
+                        float(_clamp((math.prod(approval_pending_probabilities) ** (1.0 / max(1, len(approval_pending_probabilities)))) * max(0.30, 1.0 - (0.10 * max(0, len(approval_pending_probabilities) - 1))), lo=0.02, hi=0.80))
+                        if approval_pending_probabilities
+                        else None
+                    ),
+                )
+                if (difficulty_scores or rankable_offer_count > 0 or approval_pending_probabilities)
                 else None
             ),
             "nominal_action_probability_mean": 0.0,
@@ -279,6 +436,7 @@ def estimate_plan_execution_probability(
         action.action_group_execution_probability = group_probabilities.get(key)
 
     group_values = list(group_probabilities.values())
+    group_difficulty_values = [max(scores) for scores in group_difficulty_members.values() if scores]
     geometric_mean = math.prod(group_values) ** (1.0 / max(1, len(group_values)))
     blended_group_truth = (0.70 * geometric_mean) + (0.30 * min(group_values))
     load_penalty = max(0.30, 1.0 - (0.09 * max(0, len(group_values) - 1)))
@@ -300,6 +458,30 @@ def estimate_plan_execution_probability(
         "mean_approval_dependent_probability": (
             float(sum(approval_pending_probabilities) / max(1, len(approval_pending_probabilities)))
             if approval_pending_probabilities
+            else None
+        ),
+        "mean_group_difficulty_score": (
+            float(sum(group_difficulty_values) / max(1, len(group_difficulty_values)))
+            if group_difficulty_values
+            else None
+        ),
+        "peak_group_difficulty_score": (
+            float(max(group_difficulty_values))
+            if group_difficulty_values
+            else None
+        ),
+        "dominant_difficulty_label": (
+            _difficulty_label(max(group_difficulty_values))
+            if group_difficulty_values
+            else None
+        ),
+        "follow_through_readiness_label": (
+            _follow_through_readiness_label(
+                plan_execution_probability=plan_probability,
+                peak_group_difficulty_score=float(max(group_difficulty_values)) if group_difficulty_values else 0.0,
+                approval_dependent_plan_probability=approval_plan_probability,
+            )
+            if (group_difficulty_values or approval_plan_probability is not None)
             else None
         ),
         "nominal_action_probability_mean": float(sum(group_values) / max(1, len(group_values))),
@@ -327,6 +509,10 @@ def annotate_plan_execution_probability(
     plan.approval_dependent_plan_probability = probability_bundle.get("approval_dependent_plan_probability", None)
     plan.mean_action_execution_probability = float(probability_bundle.get("mean_action_execution_probability", 0.0))
     plan.mean_approval_dependent_probability = probability_bundle.get("mean_approval_dependent_probability", None)
+    plan.mean_group_difficulty_score = probability_bundle.get("mean_group_difficulty_score", None)
+    plan.peak_group_difficulty_score = probability_bundle.get("peak_group_difficulty_score", None)
+    plan.dominant_difficulty_label = probability_bundle.get("dominant_difficulty_label", None)
+    plan.follow_through_readiness_label = probability_bundle.get("follow_through_readiness_label", None)
     plan.executable_action_count = int(probability_bundle.get("executable_action_count", 0))
     plan.executable_action_group_count = int(probability_bundle.get("executable_action_group_count", 0))
     plan.approval_pending_action_count = int(probability_bundle.get("approval_pending_action_count", 0))

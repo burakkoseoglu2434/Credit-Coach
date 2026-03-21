@@ -134,6 +134,8 @@ def test_render_milestone_acceptance_review_includes_learning_loop_summary() -> 
                 "primary_segment_lens": "risk_band",
                 "canonical_metrics": {
                     "mean_plan_execution_probability": 0.58,
+                    "mean_group_difficulty_score": 0.52,
+                    "low_follow_through_readiness_rate": 0.28,
                     "nominal_pd_improvement": 0.09,
                     "expected_pd_improvement": 0.05,
                     "execution_weighted_gap_vs_nominal": 0.04,
@@ -151,4 +153,6 @@ def test_render_milestone_acceptance_review_includes_learning_loop_summary() -> 
     assert "approval_rate OPE label: supports_treatment" in review
     assert "Primary segment lens: risk_band" in review
     assert "Nominal PD improvement: 0.090000" in review
+    assert "Mean group difficulty score: 0.520000" in review
+    assert "Low follow-through readiness rate: 0.280000" in review
     assert "High uplift low follow-through rate: 0.220000" in review

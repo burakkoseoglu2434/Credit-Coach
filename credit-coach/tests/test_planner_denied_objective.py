@@ -659,6 +659,53 @@ def test_choose_best_plan_prefers_execution_aware_truth_over_nominal_only_upside
     assert best.plan_id == "p_more_defensible"
 
 
+def test_choose_best_plan_penalizes_low_readiness_high_difficulty_contenders() -> None:
+    harder = _mk_plan(
+        "p_harder",
+        ci_high=0.34,
+        reliability=0.78,
+        worst_margin=-0.02,
+        predicted_pd=0.29,
+        robust_score=20.0,
+        status="NEEDS_REVIEW",
+    )
+    harder.plan_execution_probability = 0.62
+    harder.nominal_pd_improvement = 0.08
+    harder.expected_pd_improvement = 0.0496
+    harder.mean_group_difficulty_score = 0.72
+    harder.peak_group_difficulty_score = 0.82
+    harder.follow_through_readiness_label = "low"
+    harder.executable_action_group_count = 4
+
+    steadier = _mk_plan(
+        "p_steadier",
+        ci_high=0.34,
+        reliability=0.78,
+        worst_margin=-0.02,
+        predicted_pd=0.30,
+        robust_score=20.0,
+        status="NEEDS_REVIEW",
+    )
+    steadier.plan_execution_probability = 0.60
+    steadier.nominal_pd_improvement = 0.075
+    steadier.expected_pd_improvement = 0.045
+    steadier.mean_group_difficulty_score = 0.41
+    steadier.peak_group_difficulty_score = 0.46
+    steadier.follow_through_readiness_label = "moderate"
+    steadier.executable_action_group_count = 2
+
+    best = choose_best_plan(
+        [harder, steadier],
+        base_pd=0.40,
+        tau=0.35,
+        min_reliability=0.70,
+        min_worst_risk_margin=-0.05,
+        denied_mode=True,
+        denied_objective_cfg={"enabled": True},
+    )
+    assert best.plan_id == "p_steadier"
+
+
 def test_choose_best_plan_high_risk_penalizes_provisional_contenders_hard() -> None:
     provisional = _mk_plan(
         "p_provisional",

@@ -272,6 +272,8 @@ def test_render_portfolio_validation_review_is_business_first() -> None:
             "mean_nominal_pd_improvement": 0.09,
             "execution_weighted_expected_improvement": 0.05,
             "high_uplift_low_follow_through_rate": 0.22,
+            "mean_group_difficulty_score": 0.51,
+            "low_follow_through_readiness_rate": 0.26,
         },
         "reality_gap_summary": {
             "reality_gap_flag_rate": 0.3,
@@ -304,6 +306,7 @@ def test_render_portfolio_validation_review_is_business_first() -> None:
     assert "Coverage Funnel" in review
     assert "Reality Gap" in review
     assert "Behavior Reality" in review
+    assert "Mean group difficulty score" in review
     assert "Segment Story" in review
     assert "Demo Fit" in review
     assert "demo overstates portfolio reality" in review
@@ -325,6 +328,8 @@ def test_aggregate_portfolio_validation_summaries_can_report_more_honest_but_nar
                     "product_ready_plan_coverage": 0.28,
                     "no_plan_rate": 0.28,
                     "execution_weighted_expected_improvement": 0.05,
+                    "mean_group_difficulty_score": 0.47,
+                    "low_follow_through_readiness_rate": 0.22,
                     "weak_4w_health_rate": 0.31,
                     "delayed_trajectory_rate": 0.27,
                     "long_horizon_heavy_rate": 0.11,

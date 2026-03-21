@@ -379,6 +379,18 @@ def _decision_log_record(
             if getattr(plan, "plan_execution_probability", None) is not None
             else None
         ),
+        "mean_group_difficulty_score": (
+            _safe_float(getattr(plan, "mean_group_difficulty_score", 0.0), 0.0)
+            if getattr(plan, "mean_group_difficulty_score", None) is not None
+            else None
+        ),
+        "peak_group_difficulty_score": (
+            _safe_float(getattr(plan, "peak_group_difficulty_score", 0.0), 0.0)
+            if getattr(plan, "peak_group_difficulty_score", None) is not None
+            else None
+        ),
+        "dominant_difficulty_label": str(getattr(plan, "dominant_difficulty_label", "") or ""),
+        "follow_through_readiness_label": str(getattr(plan, "follow_through_readiness_label", "") or ""),
         "approval_dependent_plan_probability": (
             _safe_float(getattr(plan, "approval_dependent_plan_probability", 0.0), 0.0)
             if getattr(plan, "approval_dependent_plan_probability", None) is not None
@@ -499,6 +511,18 @@ def _build_customer_roadmap(
                         if getattr(action, "action_group_execution_probability", None) is not None
                         else None
                     ),
+                    "difficulty_score": (
+                        _safe_float(getattr(action, "difficulty_score", 0.0), 0.0)
+                        if getattr(action, "difficulty_score", None) is not None
+                        else None
+                    ),
+                    "difficulty_label": str(getattr(action, "difficulty_label", "") or ""),
+                    "difficulty_drivers": dict(getattr(action, "difficulty_drivers", {}) or {}),
+                    "approval_friction": (
+                        _safe_float(getattr(action, "approval_friction", 0.0), 0.0)
+                        if getattr(action, "approval_friction", None) is not None
+                        else None
+                    ),
                 }
             )
         phases.append(
@@ -560,6 +584,72 @@ def _build_customer_roadmap(
         "checkpoints": checkpoints,
         "next_review_week": int(_safe_int(getattr(best, "next_review_week", 4), 4)),
     }
+    checkpoint_map = {
+        int(_safe_int(checkpoint.get("week", 0), 0)): checkpoint
+        for checkpoint in checkpoints
+        if isinstance(checkpoint, dict)
+    }
+    checkpoint_4w = checkpoint_map.get(4, {})
+    checkpoint_12w = checkpoint_map.get(12, {})
+    checkpoint_24w = checkpoint_map.get(24, {})
+    approval_ready_4w = bool(_safe_int(checkpoint_4w.get("gate_pass_estimate", 0), 0))
+    approval_ready_12w = bool(_safe_int(checkpoint_12w.get("gate_pass_estimate", 0), 0))
+    approval_ready_24w = bool(_safe_int(checkpoint_24w.get("gate_pass_estimate", 0), 0))
+    credit_readiness_stage = "not_ready_yet"
+    if str(best.status) == "APPROVED":
+        if approval_ready_4w:
+            credit_readiness_stage = "week_4"
+        elif approval_ready_12w:
+            credit_readiness_stage = "week_12"
+        elif approval_ready_24w:
+            credit_readiness_stage = "week_24"
+        else:
+            credit_readiness_stage = "now"
+    roadmap["summary"] = {
+        "base_pd": float(base_pd),
+        "target_pd_4w": _safe_float(checkpoint_4w.get("predicted_pd", base_pd), base_pd),
+        "target_pd_12w": _safe_float(checkpoint_12w.get("predicted_pd", base_pd), base_pd),
+        "target_pd_24w": _safe_float(checkpoint_24w.get("predicted_pd", base_pd), base_pd),
+        "plan_execution_probability": (
+            _safe_float(getattr(best, "plan_execution_probability", 0.0), 0.0)
+            if getattr(best, "plan_execution_probability", None) is not None
+            else None
+        ),
+        "approval_dependent_plan_probability": (
+            _safe_float(getattr(best, "approval_dependent_plan_probability", 0.0), 0.0)
+            if getattr(best, "approval_dependent_plan_probability", None) is not None
+            else None
+        ),
+        "offer_acceptance_probability": (
+            _safe_float(getattr(best, "offer_acceptance_probability", 0.0), 0.0)
+            if getattr(best, "offer_acceptance_probability", None) is not None
+            else None
+        ),
+        "combined_plan_realization_probability": (
+            _safe_float(getattr(best, "combined_plan_realization_probability", 0.0), 0.0)
+            if getattr(best, "combined_plan_realization_probability", None) is not None
+            else None
+        ),
+        "trajectory_status": str(getattr(best, "trajectory_status", "on_track") or "on_track"),
+        "decision_status": str(best.status),
+        "approval_ready_now": bool(str(best.status) == "APPROVED" and approval_ready_4w),
+        "approval_ready_4w": approval_ready_4w,
+        "approval_ready_12w": approval_ready_12w,
+        "approval_ready_24w": approval_ready_24w,
+        "credit_readiness_stage": credit_readiness_stage,
+        "mean_group_difficulty_score": (
+            _safe_float(getattr(best, "mean_group_difficulty_score", 0.0), 0.0)
+            if getattr(best, "mean_group_difficulty_score", None) is not None
+            else None
+        ),
+        "peak_group_difficulty_score": (
+            _safe_float(getattr(best, "peak_group_difficulty_score", 0.0), 0.0)
+            if getattr(best, "peak_group_difficulty_score", None) is not None
+            else None
+        ),
+        "dominant_difficulty_label": str(getattr(best, "dominant_difficulty_label", "") or ""),
+        "follow_through_readiness_label": str(getattr(best, "follow_through_readiness_label", "") or ""),
+    }
     roadmap["narrative"] = build_customer_roadmap_narrative(
         base_pd=base_pd,
         tau=tau,
@@ -569,8 +659,12 @@ def _build_customer_roadmap(
         local_reason_bundle=local_reason_bundle or {},
         constraint_trace=list(getattr(best, "constraint_trace", [])),
         plan_execution_probability=getattr(best, "plan_execution_probability", None),
+        approval_dependent_plan_probability=getattr(best, "approval_dependent_plan_probability", None),
         offer_acceptance_probability=getattr(best, "offer_acceptance_probability", None),
         combined_plan_realization_probability=getattr(best, "combined_plan_realization_probability", None),
+        mean_group_difficulty_score=getattr(best, "mean_group_difficulty_score", None),
+        peak_group_difficulty_score=getattr(best, "peak_group_difficulty_score", None),
+        follow_through_readiness_label=getattr(best, "follow_through_readiness_label", None),
     ).model_dump(mode="json")
     return roadmap
 
@@ -634,6 +728,18 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                 "dependency_gate": int(bool(getattr(action, "dependency_gate", False))),
                 "semantic_preserved": getattr(action, "semantic_preserved", None),
                 "diagnostic_flags": list(getattr(action, "diagnostic_flags", [])),
+                "difficulty_score": (
+                    _safe_float(getattr(action, "difficulty_score", 0.0), 0.0)
+                    if getattr(action, "difficulty_score", None) is not None
+                    else None
+                ),
+                "difficulty_label": str(getattr(action, "difficulty_label", "") or ""),
+                "difficulty_drivers": dict(getattr(action, "difficulty_drivers", {}) or {}),
+                "approval_friction": (
+                    _safe_float(getattr(action, "approval_friction", 0.0), 0.0)
+                    if getattr(action, "approval_friction", None) is not None
+                    else None
+                ),
             }
         )
     canonical_phases = list(getattr(plan, "phases", [])) or build_canonical_phases(
@@ -696,6 +802,18 @@ def _plan_to_row(plan: PlanRecord) -> dict:
             if getattr(plan, "mean_approval_dependent_probability", None) is not None
             else None
         ),
+        "mean_group_difficulty_score": (
+            _safe_float(getattr(plan, "mean_group_difficulty_score", 0.0), 0.0)
+            if getattr(plan, "mean_group_difficulty_score", None) is not None
+            else None
+        ),
+        "peak_group_difficulty_score": (
+            _safe_float(getattr(plan, "peak_group_difficulty_score", 0.0), 0.0)
+            if getattr(plan, "peak_group_difficulty_score", None) is not None
+            else None
+        ),
+        "dominant_difficulty_label": str(getattr(plan, "dominant_difficulty_label", "") or ""),
+        "follow_through_readiness_label": str(getattr(plan, "follow_through_readiness_label", "") or ""),
         "nominal_pd_improvement": _safe_float(getattr(plan, "nominal_pd_improvement", 0.0), 0.0),
         "expected_pd_improvement": _safe_float(getattr(plan, "expected_pd_improvement", 0.0), 0.0),
         "executable_action_count": int(getattr(plan, "executable_action_count", 0) or 0),
@@ -1367,6 +1485,18 @@ def main() -> None:
         "trajectory_next_review_week": _safe_int(roadmap.get("next_review_week", 4), 4),
         "trajectory_phase_count": int(len(roadmap.get("phases", []))),
         "trajectory_step_count": int(sum(len(p.get("steps", [])) for p in roadmap.get("phases", []))),
+        "mean_group_difficulty_score": (
+            _safe_float(getattr(best, "mean_group_difficulty_score", 0.0), 0.0)
+            if getattr(best, "mean_group_difficulty_score", None) is not None
+            else None
+        ),
+        "peak_group_difficulty_score": (
+            _safe_float(getattr(best, "peak_group_difficulty_score", 0.0), 0.0)
+            if getattr(best, "peak_group_difficulty_score", None) is not None
+            else None
+        ),
+        "dominant_difficulty_label": str(getattr(best, "dominant_difficulty_label", "") or ""),
+        "follow_through_readiness_label": str(getattr(best, "follow_through_readiness_label", "") or ""),
         "macro_stress_index": msi,
         "alpha_used": alpha,
         "robust_objective": robust_objective,

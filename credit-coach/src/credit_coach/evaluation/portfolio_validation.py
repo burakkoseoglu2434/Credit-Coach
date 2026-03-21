@@ -346,6 +346,8 @@ def _build_product_proof(
     delayed_trajectory_rate = _safe_float(canonical_metrics.get("delayed_trajectory_rate"), 0.0)
     long_horizon_heavy_rate = _safe_float(canonical_metrics.get("long_horizon_heavy_rate"), 0.0)
     reality_gap_flag_rate = _safe_float(canonical_metrics.get("reality_gap_flag_rate"), 0.0)
+    mean_group_difficulty_score = _safe_float(canonical_metrics.get("mean_group_difficulty_score"), 0.0)
+    low_follow_through_readiness_rate = _safe_float(canonical_metrics.get("low_follow_through_readiness_rate"), 0.0)
 
     proof_verdict = "not_proven"
     if (
@@ -406,6 +408,14 @@ def _build_product_proof(
         },
         "supporting_metrics": {
             "weak_4w_health_rate": phase17_delta["metrics"]["weak_4w_health_rate"],
+            "mean_group_difficulty_score": {
+                "current": _round_metric(mean_group_difficulty_score),
+                "higher_is_better": False,
+            },
+            "low_follow_through_readiness_rate": {
+                "current": _round_metric(low_follow_through_readiness_rate),
+                "higher_is_better": False,
+            },
             "delayed_trajectory_rate": {
                 "current": _round_metric(delayed_trajectory_rate),
                 "higher_is_better": False,
@@ -685,6 +695,8 @@ def _segment_breakdown(work: pd.DataFrame) -> pd.DataFrame:
         "rankable_offer_rate",
         "governance_safe_offer_rate",
         "mean_plan_execution_probability",
+        "mean_group_difficulty_score",
+        "low_follow_through_readiness_rate",
         "mean_nominal_pd_improvement",
         "execution_weighted_expected_improvement",
         "early_healthy_rate",
@@ -697,9 +709,13 @@ def _segment_breakdown(work: pd.DataFrame) -> pd.DataFrame:
 
     rows: list[dict[str, Any]] = []
     total = max(1, len(work))
+    difficulty_series = pd.to_numeric(_column_or_default(work, "best_mean_group_difficulty_score", default=0.0), errors="coerce").fillna(0.0)
+    readiness_series = _column_or_default(work, "best_follow_through_readiness_label", default="").astype(str).str.lower()
     for axis_name, values in _segment_axes(work).items():
         for segment_value, frame in work.groupby(values, dropna=False):
             segment_value_str = _safe_str(segment_value, "unknown")
+            frame_difficulty = difficulty_series.loc[frame.index]
+            frame_readiness = readiness_series.loc[frame.index]
             rows.append(
                 {
                     "population": "full_evaluation_population",
@@ -718,6 +734,8 @@ def _segment_breakdown(work: pd.DataFrame) -> pd.DataFrame:
                     "mean_plan_execution_probability": _round_metric(
                         pd.to_numeric(frame["best_plan_execution_probability"], errors="coerce").fillna(0.0).mean()
                     ),
+                    "mean_group_difficulty_score": _round_metric(frame_difficulty.mean()),
+                    "low_follow_through_readiness_rate": _round_metric((frame_readiness == "low").astype(float).mean()),
                     "mean_nominal_pd_improvement": _round_metric(
                         pd.to_numeric(frame["best_nominal_pd_improvement"], errors="coerce").fillna(0.0).mean()
                     ),
@@ -957,6 +975,8 @@ def _render_portfolio_validation_review(summary: Mapping[str, Any]) -> str:
             f"{_safe_float(coverage.get('execution_weighted_expected_improvement')):.6f}"
         ),
         f"- High uplift low follow-through rate: {_safe_float(coverage.get('high_uplift_low_follow_through_rate')):.1%}",
+        f"- Mean group difficulty score: {_safe_float(coverage.get('mean_group_difficulty_score')):.6f}",
+        f"- Low follow-through readiness rate: {_safe_float(coverage.get('low_follow_through_readiness_rate')):.1%}",
         f"- Primary segment lens: {_safe_str(behavior_story.get('primary_segment_lens'), 'risk_band')}",
         "",
         "## Segment Story",
@@ -1418,6 +1438,14 @@ def build_portfolio_validation_artifacts(
         "mean_plan_execution_probability": _round_metric(
             pd.to_numeric(work["best_plan_execution_probability"], errors="coerce").fillna(0.0).mean()
         ),
+        "mean_group_difficulty_score": _round_metric(
+            pd.to_numeric(_column_or_default(work, "best_mean_group_difficulty_score", default=0.0), errors="coerce").fillna(0.0).mean()
+        ),
+        "low_follow_through_readiness_rate": _round_metric(
+            (_column_or_default(work, "best_follow_through_readiness_label", default="").astype(str).str.lower() == "low")
+            .astype(float)
+            .mean()
+        ),
         "mean_nominal_pd_improvement": _round_metric(
             pd.to_numeric(work["best_nominal_pd_improvement"], errors="coerce").fillna(0.0).mean()
         ),
@@ -1525,6 +1553,8 @@ def build_portfolio_validation_artifacts(
             "core_question": "how much of the plan is realistically executable",
             "risk_sentence": "high uplift but low follow-through",
             "highest_gap_risk_band": highest_gap_risk_band,
+            "mean_group_difficulty_score": canonical_metrics["mean_group_difficulty_score"],
+            "low_follow_through_readiness_rate": canonical_metrics["low_follow_through_readiness_rate"],
         },
         "demo_representativeness": demo_representativeness,
         "supporting_artifacts": supporting_artifacts,

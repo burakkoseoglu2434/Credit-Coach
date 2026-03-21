@@ -1234,6 +1234,8 @@ def _simulate_plan_execution_behavior(
 def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any], pd.DataFrame, pd.DataFrame]:
     metric_fields = (
         "mean_plan_execution_probability",
+        "mean_group_difficulty_score",
+        "low_follow_through_readiness_rate",
         "nominal_pd_improvement",
         "expected_pd_improvement",
         "execution_weighted_gap_vs_nominal",
@@ -1263,6 +1265,8 @@ def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, A
                     "best_source",
                     "count",
                     "mean_plan_execution_probability",
+                    "mean_group_difficulty_score",
+                    "low_follow_through_readiness_rate",
                     "nominal_pd_improvement",
                     "expected_pd_improvement",
                     "execution_weighted_gap_vs_nominal",
@@ -1296,11 +1300,26 @@ def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, A
         nominal = pd.to_numeric(out["best_nominal_pd_improvement"], errors="coerce").fillna(0.0)
         expected = pd.to_numeric(out["best_expected_pd_improvement"], errors="coerce").fillna(0.0)
         execution_probability = pd.to_numeric(out["best_plan_execution_probability"], errors="coerce").fillna(0.0)
+        difficulty_series = (
+            out["best_mean_group_difficulty_score"]
+            if "best_mean_group_difficulty_score" in out.columns
+            else pd.Series(0.0, index=out.index)
+        )
+        out["best_mean_group_difficulty_score"] = pd.to_numeric(
+            difficulty_series,
+            errors="coerce",
+        ).fillna(0.0)
+        readiness = (
+            out["best_follow_through_readiness_label"]
+            if "best_follow_through_readiness_label" in out.columns
+            else pd.Series("", index=out.index)
+        ).astype(str).str.lower()
         out["execution_weighted_gap_vs_nominal"] = (nominal - expected).clip(lower=0.0)
         out["high_uplift_low_follow_through"] = (
             (nominal >= 0.05)
             & ((execution_probability < 0.45) | (expected <= (0.50 * nominal)))
         ).astype(float)
+        out["low_follow_through_readiness"] = (readiness == "low").astype(float)
         return out
 
     denied_rows = _with_behavior_flags(denied_rows)
@@ -1311,6 +1330,10 @@ def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, A
             return {field: 0.0 for field in metric_fields}
         return {
             "mean_plan_execution_probability": _round_metric(frame["best_plan_execution_probability"].astype(float).mean()),
+            "mean_group_difficulty_score": _round_metric(frame["best_mean_group_difficulty_score"].astype(float).mean()),
+            "low_follow_through_readiness_rate": _round_metric(
+                frame["low_follow_through_readiness"].astype(float).mean()
+            ),
             "nominal_pd_improvement": _round_metric(frame["best_nominal_pd_improvement"].astype(float).mean()),
             "expected_pd_improvement": _round_metric(frame["best_expected_pd_improvement"].astype(float).mean()),
             "execution_weighted_gap_vs_nominal": _round_metric(
@@ -1335,6 +1358,8 @@ def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, A
             .agg(
                 count=("customer_id", "size"),
                 mean_plan_execution_probability=("best_plan_execution_probability", "mean"),
+                mean_group_difficulty_score=("best_mean_group_difficulty_score", "mean"),
+                low_follow_through_readiness_rate=("low_follow_through_readiness", "mean"),
                 nominal_pd_improvement=("best_nominal_pd_improvement", "mean"),
                 expected_pd_improvement=("best_expected_pd_improvement", "mean"),
                 execution_weighted_gap_vs_nominal=("execution_weighted_gap_vs_nominal", "mean"),
@@ -1367,13 +1392,15 @@ def _build_behavior_aware_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, A
         else pd.DataFrame(
             columns=[
                 "population",
-                "risk_band",
-                "best_source",
-                "count",
-                "mean_plan_execution_probability",
-                "nominal_pd_improvement",
-                "expected_pd_improvement",
-                "execution_weighted_gap_vs_nominal",
+                    "risk_band",
+                    "best_source",
+                    "count",
+                    "mean_plan_execution_probability",
+                    "mean_group_difficulty_score",
+                    "low_follow_through_readiness_rate",
+                    "nominal_pd_improvement",
+                    "expected_pd_improvement",
+                    "execution_weighted_gap_vs_nominal",
                 "high_uplift_low_follow_through_rate",
             ]
         )
@@ -4065,6 +4092,10 @@ def main() -> None:
             "best_robust_score": 0.0,
             "best_plan_execution_probability": 0.0,
             "best_mean_action_execution_probability": 0.0,
+            "best_mean_group_difficulty_score": 0.0,
+            "best_peak_group_difficulty_score": 0.0,
+            "best_dominant_difficulty_label": "",
+            "best_follow_through_readiness_label": "",
             "best_nominal_pd_improvement": 0.0,
             "best_expected_pd_improvement": 0.0,
             "best_offer_plan": 0,
@@ -4737,6 +4768,20 @@ def main() -> None:
             out["best_mean_action_execution_probability"] = _safe_float(
                 getattr(best, "mean_action_execution_probability", 0.0),
                 0.0,
+            )
+            out["best_mean_group_difficulty_score"] = _safe_float(
+                getattr(best, "mean_group_difficulty_score", 0.0),
+                0.0,
+            )
+            out["best_peak_group_difficulty_score"] = _safe_float(
+                getattr(best, "peak_group_difficulty_score", 0.0),
+                0.0,
+            )
+            out["best_dominant_difficulty_label"] = _safe_str(
+                getattr(best, "dominant_difficulty_label", ""),
+            )
+            out["best_follow_through_readiness_label"] = _safe_str(
+                getattr(best, "follow_through_readiness_label", ""),
             )
             out["best_nominal_pd_improvement"] = _safe_float(
                 getattr(best, "nominal_pd_improvement", 0.0),

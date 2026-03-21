@@ -597,6 +597,101 @@ def _feasibility_outcome_label(action: Mapping[str, Any]) -> LocalizedText | Non
     )
 
 
+def _difficulty_label_text(action: Mapping[str, Any]) -> LocalizedText | None:
+    label = str(action.get("difficulty_label", "") or "").strip().lower()
+    if label == "high":
+        return _lt("Yuksek zorluk", "High difficulty")
+    if label == "moderate":
+        return _lt("Orta zorluk", "Moderate difficulty")
+    if label == "low":
+        return _lt("Dusuk zorluk", "Low difficulty")
+    return None
+
+
+def _follow_through_note(action: Mapping[str, Any]) -> LocalizedText | None:
+    difficulty_label = str(action.get("difficulty_label", "") or "").strip().lower()
+    approval_friction = _safe_float(action.get("approval_friction", 0.0), 0.0)
+    approval_probability = action.get("approval_dependent_probability", None)
+    if approval_probability is not None and approval_friction >= 0.35:
+        return _lt(
+            "Dis onay akisindaki surtunme, bu adimin ne kadar hizli gerceklesecegini belirleyebilir.",
+            "External approval friction can determine how quickly this step lands.",
+        )
+    if difficulty_label == "high":
+        return _lt(
+            "Bu adim beklenen etkiyi vermek icin duzenli takip ve davranis disiplini gerektirir.",
+            "This step needs disciplined follow-through to deliver the expected effect.",
+        )
+    if difficulty_label == "moderate":
+        return _lt(
+            "Bu adim istikrarli takip gerektirir; duzen bozulursa etki zayiflayabilir.",
+            "This step needs steady follow-through; impact can soften if momentum slips.",
+        )
+    if difficulty_label == "low":
+        return _lt(
+            "Bu adim gorece daha yonetilebilir gorunuyor, ancak temiz takip yine de onemli.",
+            "This step looks relatively manageable, but clean follow-through still matters.",
+        )
+    return None
+
+
+def _follow_through_readiness_card(
+    readiness_label: str | None,
+    *,
+    plan_execution_probability: float | None,
+    approval_dependent_plan_probability: float | None,
+    peak_group_difficulty_score: float | None,
+) -> NarrativeCard | None:
+    label = str(readiness_label or "").strip().lower()
+    if label not in {"low", "moderate", "high"}:
+        return None
+    effective_probability = _safe_float(plan_execution_probability, 0.0)
+    if approval_dependent_plan_probability is not None:
+        effective_probability = min(
+            effective_probability,
+            _safe_float(approval_dependent_plan_probability, effective_probability),
+        )
+    peak_difficulty = _safe_float(peak_group_difficulty_score, 0.0)
+    if label == "high":
+        return _card(
+            "Takip hazirligi yuksek",
+            "High follow-through readiness",
+            (
+                "Planin mevcut siralamasi uygulanabilir gorunuyor;"
+                f" zorluk seviyesi {_format_pct(peak_difficulty)} civarinda kalsa da erken takip savunulabilir."
+            ),
+            (
+                "The plan sequencing looks realistic to carry through;"
+                f" even with about {_format_pct(peak_difficulty)} difficulty pressure, the early follow-through story stays defensible."
+            ),
+        )
+    if label == "moderate":
+        return _card(
+            "Takip hazirligi orta",
+            "Moderate follow-through readiness",
+            (
+                "Beklenen etkiyi almak icin istikrarli takip gerekir;"
+                f" etkinin korunmasi yaklasik {_format_pct(effective_probability)} gerceklesme disiplini ister."
+            ),
+            (
+                "Steady follow-through is needed to realize the expected impact;"
+                f" preserving the uplift asks for roughly {_format_pct(effective_probability)} execution discipline."
+            ),
+        )
+    return _card(
+        "Takip hazirligi dusuk",
+        "Low follow-through readiness",
+        (
+            "Plan hala anlamli olabilir, ancak takip zayiflarsa beklenen etki hizla dusur;"
+            " bu nedenle daha kontrollu izleme gerekir."
+        ),
+        (
+            "The plan may still matter, but expected impact falls quickly if follow-through weakens;"
+            " it needs more controlled monitoring."
+        ),
+    )
+
+
 def _normalized_constraints_applied(
     *,
     actions: Sequence[Mapping[str, Any]],
@@ -822,6 +917,8 @@ def build_step_narrative(action: Mapping[str, Any], *, step_id: str, phase_id: s
         what_happens_if_done=_localized_pair(done),
         what_happens_if_not_done=_localized_pair(not_done),
         feasibility_outcome_label=_feasibility_outcome_label(action),
+        difficulty_label=_difficulty_label_text(action),
+        follow_through_note=_follow_through_note(action),
         action_timing_hint=_timing_hint(
             _safe_int(_primary_numeric_target(action).get("due_month", action.get("time_months", 1)), 1)
         ),
@@ -1273,6 +1370,10 @@ def build_executive_summary(
     actions: Sequence[Mapping[str, Any]],
     status: str,
     confidence_label: str,
+    plan_execution_probability: float | None = None,
+    approval_dependent_plan_probability: float | None = None,
+    follow_through_readiness_label: str | None = None,
+    peak_group_difficulty_score: float | None = None,
 ) -> RoadmapExecutiveSummary:
     readiness_stage, readiness_week = _readiness_stage(base_pd, checkpoints, tau)
     offer_status = _offer_status_card(actions)
@@ -1293,6 +1394,12 @@ def build_executive_summary(
         offer_status=offer_status,
         checkpoint_4w_summary=_checkpoint_4w_card(checkpoints, tau),
         expected_result=expected_result,
+        follow_through_readiness=_follow_through_readiness_card(
+            follow_through_readiness_label,
+            plan_execution_probability=plan_execution_probability,
+            approval_dependent_plan_probability=approval_dependent_plan_probability,
+            peak_group_difficulty_score=peak_group_difficulty_score,
+        ),
         decision_view=decision_view,
         time_to_readiness=time_to_readiness,
         narrative_confidence=_card(
@@ -1314,8 +1421,12 @@ def build_customer_roadmap_narrative(
     local_reason_bundle: Mapping[str, Any] | None = None,
     constraint_trace: Sequence[Mapping[str, Any]] | None = None,
     plan_execution_probability: float | None = None,
+    approval_dependent_plan_probability: float | None = None,
     offer_acceptance_probability: float | None = None,
     combined_plan_realization_probability: float | None = None,
+    mean_group_difficulty_score: float | None = None,
+    peak_group_difficulty_score: float | None = None,
+    follow_through_readiness_label: str | None = None,
 ) -> CustomerRoadmapNarrative:
     local_reason_bundle = local_reason_bundle or {}
     reason_rows = list(local_reason_bundle.get("reasons", [])) if isinstance(local_reason_bundle.get("reasons", []), list) else []
@@ -1422,7 +1533,26 @@ def build_customer_roadmap_narrative(
         actions=raw_actions,
         status=status,
         confidence_label=confidence_label,
+        plan_execution_probability=plan_execution_probability,
+        approval_dependent_plan_probability=approval_dependent_plan_probability,
+        follow_through_readiness_label=follow_through_readiness_label,
+        peak_group_difficulty_score=peak_group_difficulty_score,
     )
+    execution_step_details = []
+    for step_id in step_order:
+        _, representative_step = representative_steps[step_id]
+        execution_step_details.append(
+            {
+                "step_id": step_id,
+                "difficulty_score": representative_step.get("difficulty_score"),
+                "difficulty_label": representative_step.get("difficulty_label"),
+                "action_execution_probability": representative_step.get("action_execution_probability"),
+                "action_group_execution_probability": representative_step.get("action_group_execution_probability"),
+                "approval_dependent_probability": representative_step.get("approval_dependent_probability"),
+                "difficulty_drivers": dict(representative_step.get("difficulty_drivers", {}) or {}),
+                "approval_friction": representative_step.get("approval_friction"),
+            }
+        )
     for checkpoint in checkpoints:
         if not isinstance(checkpoint, Mapping):
             continue
@@ -1444,11 +1574,22 @@ def build_customer_roadmap_narrative(
             constraints_applied=_normalized_constraints_applied(actions=raw_actions, constraint_trace=constraint_trace),
             approval_dependencies=approval_dependencies,
             diagnostic_flags=diagnostic_flags,
+            execution_details={
+                "plan_execution_probability": plan_execution_probability,
+                "approval_dependent_plan_probability": approval_dependent_plan_probability,
+                "offer_acceptance_probability": offer_acceptance_probability,
+                "combined_plan_realization_probability": combined_plan_realization_probability,
+                "mean_group_difficulty_score": mean_group_difficulty_score,
+                "peak_group_difficulty_score": peak_group_difficulty_score,
+                "follow_through_readiness_label": follow_through_readiness_label,
+                "step_execution_details": execution_step_details,
+            },
             confidence_inputs={
                 "local_explainability_confidence": confidence_score,
                 "local_shap_stability_score": _safe_float(meta.get("stability_score", 0.0), 0.0),
                 "local_shap_baseline_drift_l1": _safe_float(meta.get("baseline_drift_l1", 0.0), 0.0),
                 "plan_execution_probability": plan_execution_probability,
+                "approval_dependent_plan_probability": approval_dependent_plan_probability,
                 "offer_acceptance_probability": offer_acceptance_probability,
                 "combined_plan_realization_probability": combined_plan_realization_probability,
             },

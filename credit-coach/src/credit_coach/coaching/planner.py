@@ -86,6 +86,24 @@ def _approval_dependent_plan_probability(plan: PlanRecord) -> float:
     return max(0.0, min(1.0, _safe_float(probability, 0.0)))
 
 
+def _mean_group_difficulty_score(plan: PlanRecord) -> float:
+    difficulty = getattr(plan, "mean_group_difficulty_score", None)
+    if difficulty is None:
+        return 0.0
+    return max(0.0, min(1.0, _safe_float(difficulty, 0.0)))
+
+
+def _peak_group_difficulty_score(plan: PlanRecord) -> float:
+    difficulty = getattr(plan, "peak_group_difficulty_score", None)
+    if difficulty is None:
+        return _mean_group_difficulty_score(plan)
+    return max(0.0, min(1.0, _safe_float(difficulty, 0.0)))
+
+
+def _follow_through_readiness_label(plan: PlanRecord) -> str:
+    return str(getattr(plan, "follow_through_readiness_label", "") or "").strip().lower()
+
+
 def _execution_gap(plan: PlanRecord, *, base_pd: float | None, tau: float | None) -> float:
     nominal = _nominal_pd_improvement(plan, base_pd=base_pd, tau=tau)
     expected = _expected_pd_improvement(plan, base_pd=base_pd, tau=tau)
@@ -107,15 +125,29 @@ def _execution_rank_penalty(
     gap = max(0.0, nominal - expected)
     risk_band = str((segment_context or {}).get("risk_band", "")).strip().lower()
     consistency = _trajectory_consistency(plan)
+    mean_group_difficulty = _mean_group_difficulty_score(plan)
+    peak_group_difficulty = _peak_group_difficulty_score(plan)
+    follow_through_readiness = _follow_through_readiness_label(plan)
+    action_group_count = max(
+        _safe_int(getattr(plan, "executable_action_group_count", 0), 0),
+        len(list(getattr(plan, "actions", []))),
+    )
 
     penalty = 0.0
     penalty += max(0.0, 0.65 - execution_probability) * 120.0
     penalty += gap * 140.0
+    penalty += max(0.0, peak_group_difficulty - 0.55) * 28.0
+    penalty += max(0.0, mean_group_difficulty - 0.45) * 14.0
+    penalty += max(0.0, float(action_group_count - 2)) * 4.5
 
     if nominal >= 0.05 and execution_probability < 0.45:
         penalty += 10.0
     if nominal >= 0.08 and expected <= (0.50 * nominal):
         penalty += 12.0
+    if follow_through_readiness == "low":
+        penalty += 12.0
+    elif follow_through_readiness == "moderate":
+        penalty += 3.0
     if bool(consistency["weak_early_health"]):
         penalty += 16.0
     if str(consistency["primary_checkpoint_status"]) == "missed":

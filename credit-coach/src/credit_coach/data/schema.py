@@ -32,6 +32,8 @@ ActionClass = Literal["behavioral", "structural", "institutional"]
 ConstraintFamily = Literal["capacity", "policy", "dependency", "interaction", "semantic", "documentation"]
 ActionConstraintStatus = Literal["valid", "clipped", "repaired", "provisional", "invalid"]
 PlanConstraintStatus = Literal["valid", "repaired", "provisional", "invalid"]
+DifficultyLabel = Literal["low", "moderate", "high"]
+ReadinessLabel = Literal["low", "moderate", "high"]
 
 
 # ------------------------------------------------------------------ #
@@ -341,6 +343,26 @@ class PlanAction(BaseModel):
         le=1.0,
         description="Composite aksiyon grubu seviyesinde toplanmis uygulanma olasiligi",
     )
+    difficulty_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Aksiyonun gercekte uygulanma zorlugu",
+    )
+    difficulty_label: DifficultyLabel | None = Field(
+        default=None,
+        description="Business-safe aksiyon zorluk etiketi",
+    )
+    difficulty_drivers: dict[str, float] = Field(
+        default_factory=dict,
+        description="Aksiyon zorlugunu suren canonical driver seti",
+    )
+    approval_friction: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Onay bagimli aksiyonlar icin ayri approval-friction sinyali",
+    )
 
     @model_validator(mode="after")
     def populate_action_views(self) -> "PlanAction":
@@ -564,6 +586,14 @@ class RoadmapStepNarrative(BaseModel):
         default=None,
         description="Business-safe feasibility outcome etiketi",
     )
+    difficulty_label: LocalizedText | None = Field(
+        default=None,
+        description="Business-safe aksiyon zorluk etiketi",
+    )
+    follow_through_note: LocalizedText | None = Field(
+        default=None,
+        description="Kisa ve non-jargon takip notu",
+    )
     action_timing_hint: LocalizedText | None = Field(
         default=None,
         description="Opsiyonel zamanlama ipucu",
@@ -615,6 +645,10 @@ class RoadmapTechnicalReveal(BaseModel):
     constraints_applied: list[dict[str, Any]] = Field(default_factory=list, description="Constraint ve repair trace kayitlari")
     approval_dependencies: list[dict[str, Any]] = Field(default_factory=list, description="Onay veya kabul bagimliliklari")
     diagnostic_flags: list[str] = Field(default_factory=list, description="Plan veya aksiyon diagnostic flag'leri")
+    execution_details: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Difficulty ve execution truth'unun technical-density ozet katmani",
+    )
     confidence_inputs: dict[str, Any] = Field(
         default_factory=dict,
         description="Narrative confidence etiketine giren ham sinyaller",
@@ -643,6 +677,10 @@ class RoadmapExecutiveSummary(BaseModel):
     offer_status: NarrativeCard = Field(..., description="Teklif durumunun business-facing yorumu")
     checkpoint_4w_summary: NarrativeCard = Field(..., description="4 haftalik checkpoint ozeti")
     expected_result: NarrativeCard = Field(..., description="Beklenen sonuc")
+    follow_through_readiness: NarrativeCard | None = Field(
+        default=None,
+        description="Planin business-safe follow-through readiness karti",
+    )
     decision_view: NarrativeCard = Field(..., description="Karar gorunumunun business-facing etiketi")
     time_to_readiness: NarrativeCard = Field(..., description="Hazirlik zaman cizgisi")
     narrative_confidence: NarrativeCard = Field(..., description="Narrative confidence ozet karti")
@@ -763,6 +801,26 @@ class PlanRecord(BaseModel):
         ge=0.0,
         le=1.0,
         description="Approval-dependent aksiyonlar icin ortalama onay/gerceklesme olasiligi",
+    )
+    mean_group_difficulty_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Grouped action truth sonrasi ortalama plan zorluk skoru",
+    )
+    peak_group_difficulty_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Plan icindeki en zor grouped action skorunun ozeti",
+    )
+    dominant_difficulty_label: DifficultyLabel | None = Field(
+        default=None,
+        description="Plan icindeki baskin zorluk etiketi",
+    )
+    follow_through_readiness_label: ReadinessLabel | None = Field(
+        default=None,
+        description="Planin default business gorunumu icin follow-through readiness etiketi",
     )
     nominal_pd_improvement: float | None = Field(
         default=None,

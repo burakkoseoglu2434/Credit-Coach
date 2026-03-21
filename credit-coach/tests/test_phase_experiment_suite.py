@@ -460,6 +460,8 @@ def test_build_phase_behavior_aware_summary_uses_locked_population_contract() ->
         [
             {
                 "mean_plan_execution_probability": 0.60,
+                "mean_group_difficulty_score": 0.44,
+                "low_follow_through_readiness_rate": 0.25,
                 "nominal_pd_improvement": 0.08,
                 "expected_pd_improvement": 0.05,
                 "execution_weighted_gap_vs_nominal": 0.03,
@@ -469,6 +471,8 @@ def test_build_phase_behavior_aware_summary_uses_locked_population_contract() ->
                 "mixed_execution_rate": 0.30,
                 "expected_partial_progress_rate": 0.50,
                 "high_risk_denied_mean_plan_execution_probability": 0.55,
+                "high_risk_denied_mean_group_difficulty_score": 0.49,
+                "high_risk_denied_low_follow_through_readiness_rate": 0.30,
                 "high_risk_denied_nominal_pd_improvement": 0.07,
                 "high_risk_denied_expected_pd_improvement": 0.04,
                 "high_risk_denied_execution_weighted_gap_vs_nominal": 0.03,
@@ -480,6 +484,8 @@ def test_build_phase_behavior_aware_summary_uses_locked_population_contract() ->
             },
             {
                 "mean_plan_execution_probability": 0.40,
+                "mean_group_difficulty_score": 0.64,
+                "low_follow_through_readiness_rate": 0.45,
                 "nominal_pd_improvement": 0.06,
                 "expected_pd_improvement": 0.03,
                 "execution_weighted_gap_vs_nominal": 0.03,
@@ -489,6 +495,8 @@ def test_build_phase_behavior_aware_summary_uses_locked_population_contract() ->
                 "mixed_execution_rate": 0.40,
                 "expected_partial_progress_rate": 0.30,
                 "high_risk_denied_mean_plan_execution_probability": 0.35,
+                "high_risk_denied_mean_group_difficulty_score": 0.71,
+                "high_risk_denied_low_follow_through_readiness_rate": 0.55,
                 "high_risk_denied_nominal_pd_improvement": 0.05,
                 "high_risk_denied_expected_pd_improvement": 0.02,
                 "high_risk_denied_execution_weighted_gap_vs_nominal": 0.03,
@@ -506,11 +514,15 @@ def test_build_phase_behavior_aware_summary_uses_locked_population_contract() ->
     assert summary["canonical_population"] == "denied"
     assert summary["secondary_population"] == "high_risk_denied"
     assert summary["canonical_metrics"]["mean_plan_execution_probability"] == 0.5
+    assert summary["canonical_metrics"]["mean_group_difficulty_score"] == 0.54
+    assert summary["canonical_metrics"]["low_follow_through_readiness_rate"] == 0.35
     assert summary["canonical_metrics"]["nominal_pd_improvement"] == 0.07
     assert summary["canonical_metrics"]["execution_weighted_gap_vs_nominal"] == 0.03
     assert summary["canonical_metrics"]["mixed_execution_rate"] == 0.35
     assert summary["secondary_metrics"]["mean_plan_execution_probability"] == 0.45
+    assert summary["secondary_metrics"]["mean_group_difficulty_score"] == 0.6
     assert summary["primary_segment_lens"] == "risk_band"
+    assert summary["primary_comparison"]["difficulty_metric"] == "mean_group_difficulty_score"
     assert "partial_execution_breakdown_csv" in summary["supporting_artifacts"]
 
 

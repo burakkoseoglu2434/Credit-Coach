@@ -968,6 +968,8 @@ def render_milestone_acceptance_review(summary: Mapping[str, Any]) -> str:
         "",
         f"- Primary segment lens: {behavior_aware.get('primary_segment_lens', 'risk_band')}",
         f"- Mean plan execution probability: {_safe_float(behavior_metrics.get('mean_plan_execution_probability', 0.0)):.6f}",
+        f"- Mean group difficulty score: {_safe_float(behavior_metrics.get('mean_group_difficulty_score', 0.0)):.6f}",
+        f"- Low follow-through readiness rate: {_safe_float(behavior_metrics.get('low_follow_through_readiness_rate', 0.0)):.6f}",
         f"- Nominal PD improvement: {_safe_float(behavior_metrics.get('nominal_pd_improvement', 0.0)):.6f}",
         f"- Expected PD improvement: {_safe_float(behavior_metrics.get('expected_pd_improvement', 0.0)):.6f}",
         f"- Execution-weighted gap vs nominal: {_safe_float(behavior_metrics.get('execution_weighted_gap_vs_nominal', 0.0)):.6f}",
