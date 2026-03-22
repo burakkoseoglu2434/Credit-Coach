@@ -505,6 +505,515 @@ Bu bolumu kisa bir referans gibi kullanabilirsin.
 
 ---
 
+## 6.1 Teknik ifadeleri biraz daha derin ama sade anlatalim
+
+Bu bolumde ayni kelimeleri bir adim daha aciyorum.
+Amacim "tanimini bilmek" degil, "neden var?" sorusunu da netlestirmek.
+
+### Model
+
+Model, gecmis veriye bakip gelecekle ilgili tahmin yapan yapidir.
+
+Bu projede modelin ana gorevi:
+
+"Bu kisinin geri odeyememe riski ne?"
+
+Model, kendi basina tavsiye motoru degildir.
+Sadece baslangic noktasi verir.
+
+Yani:
+
+- model = risk tahmini
+- proje = risk tahmini + ne yapilabilir + ne kadar gercekci + nasil anlatilir
+
+### XGBoost
+
+XGBoost, tablo verisinde cok guclu calisan bir tahmin yontemidir.
+
+Sade bir benzetme:
+
+Tek bir uzmana sormak yerine,
+ayni soruya bakan bir suru kucuk uzmani birlestirip
+daha iyi bir karar almak gibi dusunebilirsin.
+
+Bu projede neden kullaniliyor?
+
+- gelisiguzel kurallardan daha guclu tahmin verdigi icin
+- tablo verisinde iyi performans gosterdigi icin
+- kredi riskinde yaygin kullanilan bir yaklasim oldugu icin
+
+### Logistic Regression
+
+Bu, daha klasik ve daha sade bir modeldir.
+
+Sade benzetme:
+
+Her bilginin risk uzerindeki etkisine bir agirlik verir ve bunlari toplar.
+
+Bu projede neden hala var?
+
+- yedek olarak
+- XGBoost devreye giremezse sistemi ayakta tutmak icin
+- bazen daha basit ve aciklanabilir bir taban almak icin
+
+### Prediction
+
+Prediction, modelin tahmin uretmesi demek.
+
+Bu projede prediction ciktisi genelde bir risk olasiligi.
+Yani kesin "olur/olmaz" degil, bir ihtimal sayisi.
+
+### PD
+
+PD, "Probability of Default" kisaltmasi.
+
+Pratik anlami:
+
+"Bu kisinin geri odeyememe riski"
+
+PD yuksekse risk daha yuksek kabul edilir.
+PD dusukse profil daha rahat kabul edilir.
+
+### Threshold / Tau
+
+Threshold, karar verirken kullanilan esiktir.
+
+Basit dusunce:
+
+- PD bu cizginin altinda -> daha rahat
+- PD bu cizginin ustunde -> daha riskli
+
+Bu projede bu cizgi sabit bir is karari gibidir.
+Yani model tek basina son karari vermez; karar bir esige gore yorumlanir.
+
+### Calibration
+
+Kalibrasyon, modelin verdigi olasiliklari gercege daha yakin hale getirme isidir.
+
+Ornek:
+
+Eger model 100 kisiye "%70 risk" diyorsa,
+gercekte de buna yakin bir bozulma davranisi gormek isteriz.
+
+Kalibrasyonun amaci:
+
+"Modelin yuzdeleri sadece siralama olarak degil, anlam olarak da daha dogru olsun."
+
+### Isotonic calibration
+
+Kalibrasyonun bir turu.
+
+Bunu soyle dusun:
+
+Modelin ciktisini tamamen bastan kurmuyor,
+ama egriyi biraz duzeltiyor.
+Boylece "%20", "%40", "%60" gibi degerler daha mantikli hale geliyor.
+
+### Sigmoid / Platt scaling
+
+Kalibrasyonun baska bir turu.
+
+Isotonic'ten biraz daha sade ve daha kisitli bir duzeltme gibi dusunebilirsin.
+
+Genelde:
+
+- isotonic = daha esnek
+- sigmoid = daha sade
+
+### Confidence interval / guven araligi
+
+Sistem bazen tek bir sayi vermek yerine bir belirsizlik bandi da tasir.
+
+Bu neden onemli?
+
+Cunku gercek dunyada "tam olarak 0.3127" gibi bir kesinlik hissi cogu zaman sahte olabilir.
+
+Guven araligi sunu der:
+
+"Bu tahmini ciddiye al, ama milimetre hassasiyetinde mutlak gercek gibi okuma."
+
+### Conformal calibration
+
+Bu, belirsizlik ve guven bandi tarafinda kullanilan ek bir yapi.
+
+Basit anlami:
+
+"Sadece tahmin vermeyelim; ne kadar sasabilecegimizi de olculu sekilde anlatalim."
+
+Bu proje icin neden degerli?
+
+Cunku kredi gibi alanlarda sadece nokta tahmin yeterli degil.
+Bir miktar "eminlik seviyesi" de lazim.
+
+### Feature
+
+Feature, modele giren bilgi alani.
+
+Ornek:
+
+- gelir
+- borc orani
+- kredi karti kullanimi
+- gecikme bilgisi
+
+Bu projede 48 feature kilidi olmasi ne demek?
+
+Sistem "bugun su kolonlari kullandim, yarin baska kolonlari" gibi kaygan davranmiyor.
+Bu, tekrar edilebilirlik ve denetim icin onemli.
+
+### Feature engineering
+
+Ham veriyi modelin kullanabilecegi hale getirme isidir.
+
+Ornek:
+
+- eksik deger doldurma
+- kategorik alanlari sayisal hale getirme
+- train/test dosyasi hazirlama
+
+Bu proje bu isi de kontrollu yapiyor.
+
+### Recourse
+
+Bu projenin merkez kelimelerinden biri.
+
+Recourse demek:
+
+"Bir kisinin sonucunu iyilestirmek icin ne yapabilecegini hesaplayan plan"
+
+Yani:
+
+- sadece risk tahmini degil
+- riski nasil dusurebilecegine dair yol haritasi
+
+### Action semantics
+
+Bu ifade biraz teknik ama cok onemli.
+
+Anlami:
+
+Ham veri degisimini, gercek hayatta anlasilabilir aksiyona cevirmek.
+
+Ornek:
+
+- ham veri dili: `revol_util 68 -> 45`
+- action semantics dili: "kredi karti kullanimini dusur"
+
+Bu neden kritik?
+
+Cunku kullaniciya ham feature adi gostermek urun dili acisindan zayif kalir.
+
+### Numeric target
+
+Sadece "kullanimi dusur" demek yetmez.
+Ne kadar dusurmesi gerektigini de soylemek gerekir.
+
+Iste numeric target bunun icin var.
+
+Ornek:
+
+- mevcut: `%68`
+- hedef: `%45`
+- delta: `-23 puan`
+
+### Feasibility
+
+Bir hedefin gercekten uygulanabilir olup olmadigini kontrol eden katman.
+
+Ornek:
+
+- gelir bir ayda 3 kat artsin -> muhtemelen gercekci degil
+- kart kullanimini makul seviyede azalt -> olabilir
+
+Yani feasibility, "iyi gorunuyor" ile "yapilabilir" arasindaki farki korur.
+
+### Constraint
+
+Constraint, sinir veya kisit demek.
+
+Bu projede constraint su tip sorulari temsil eder:
+
+- sistem buna izin veriyor mu?
+- is kurali buna izin veriyor mu?
+- gercek hayat buna izin veriyor mu?
+- baska bir aksiyonla cakisiyor mu?
+
+### Clipped / repaired / invalid
+
+Bu kelimeler feasibility tarafinda sik gorulur.
+
+- **clipped**: Hedef biraz fazla agresifti, makul seviyeye kirpildi
+- **repaired**: Plan tamamen cope atilmadi, duzeltilerek tutuldu
+- **invalid**: Bu plan artik anlamli degil, elenmeli
+
+Bu ayrim neden degerli?
+
+Cunku sistem her problemi tek tepkiyle cozmuyor.
+Bazen duzeltmek yeterli, bazen tamamen vazgecmek gerekir.
+
+### Execution probability
+
+Bu, planin gercekte uygulanma ihtimali.
+
+Burada odak su:
+
+"Bu plan kagit ustunde iyi, ama insan gercekte bunu yapar mi?"
+
+Bu proje icin cok kritik.
+Cunku sadece nominal iyilesme yetmiyor.
+Gerceklesme sansi da gerekiyor.
+
+### Difficulty
+
+Difficulty, planin zorluk seviyesi.
+
+Burada sistem su faktorleri dusunuyor:
+
+- maliyet
+- sure
+- cok adim var mi
+- koordinasyon gerekiyor mu
+- kurum onayi gerekiyor mu
+
+Yani:
+
+- feasibility = mumkun mu?
+- difficulty = yapmak ne kadar zor?
+
+### Heuristic
+
+Heuristic, tamamen makine ogrenmesiyle egitilmis olmayan, uzman mantigiyla yazilan pratik kural demek.
+
+Bu proje sadece ogrenilmis model kullanmiyor.
+Bazi katmanlarda heuristic kullanmak daha dogru.
+
+Neden?
+
+Cunku her seyi kara kutu yapmak istemiyoruz.
+Bazi yerlerde denetlenebilir is kurali lazim.
+
+### SHAP
+
+SHAP, modelin neden o sonucu verdigini anlamaya yardim eden aciklama teknigi.
+
+Basit anlatim:
+
+"Bu kiside riski en cok yukari ceken seyler neler?"
+
+Bu neden onemli?
+
+Cunku kredi tarafinda sadece skor yetmez.
+Bir miktar neden bilgisi de lazim.
+
+### DiCE
+
+DiCE, alternatif counterfactual planlar ureten bir arac.
+
+Counterfactual'i sade anlatimla soyle dusun:
+
+"Bu kisi icin hangi farkli degisiklik kombinasyonlari sonucu iyilestirebilir?"
+
+Yani DiCE, sisteme sadece tek bir yol degil, alternatif yollar da dusunme imkani verir.
+
+### Counterfactual
+
+Gercekte yasanmamis ama "eger boyle olsaydi" diye kurulan alternatif senaryo.
+
+Ornek:
+
+"Geliri biraz daha yuksek, kart kullanimi biraz daha dusuk olsaydi ne olurdu?"
+
+### Trajectory
+
+Trajectory, planin zaman icindeki yolculugu demek.
+
+Bu proje "bir gunluk tavsiye" vermek yerine su soruyu soruyor:
+
+- 4 haftada ne olur?
+- 12 haftada ne olur?
+- 24 haftada ne olur?
+
+Yani planin zamana yayilan etkisini izliyor.
+
+### Checkpoint
+
+Checkpoint, kontrol noktasi.
+
+Bu projede sabit kontrol noktalar var:
+
+- 4 hafta
+- 12 hafta
+- 24 hafta
+
+Bu noktalar, planin gidisatini izlemek icin kullaniliyor.
+
+### Offer
+
+Offer, kurum tarafindan saglanabilecek destek veya teklif.
+
+Bu neden ayri katman?
+
+Cunku musteri aksiyonu ile kurum destegi ayni sey degil.
+
+Ornek:
+
+- musteri harcamayi azaltir
+- kurum taksitlendirme sunar
+
+Ikisi birlikte bir plan olabilir, ama ayni kavram degil.
+
+### Approval ve acceptance
+
+Bu ikisi karisir, ama farki onemli:
+
+- **approval**: kurum bu teklifi veriyor mu?
+- **acceptance**: musteri verilen teklifi kabul ediyor mu?
+
+Yani:
+
+- supply-side gate = kurum tarafi
+- customer-side realization = musteri tarafi
+
+### Narrative
+
+Narrative, teknik ciktinin urun diline cevrilmis hali.
+
+Bu projede narrative neden engine tarafinda?
+
+Cunku website kendi basina yorum uretmesin isteniyor.
+Anlatim da hesap mantigi kadar kontrollu olsun isteniyor.
+
+### Typed contract / schema
+
+Bu ifade su anlama gelir:
+
+"Veri su sekilde gelmeli; alanlari, tipi ve anlami belli olmali."
+
+Bu neden onemli?
+
+Cunku:
+
+- backend baska
+- frontend baska
+- artifact dosyalari baska
+
+olsa da herkes ayni dili konussun isteriz.
+
+### Artifact
+
+Artifact, run sonunda disari yazilan cikti dosyasi.
+
+Bu proje artifact-first yaklasim kullanir.
+
+Anlami:
+
+"Asil dogruyu kodun icinde gizlemek yerine, izlenebilir dosyalar halinde ciktiya yaz."
+
+Bu denetim acisindan cok gucludur.
+
+### Registry
+
+Registry, egitilen modelin kaydedildigi yer.
+
+Yani:
+
+- hangi model kullanildi
+- hangi versiyon
+- hangi kalibrasyon dosyasi
+
+gibi bilgilerin tutuldugu klasor mantigi.
+
+### Batch run
+
+Batch, tek musteri degil bir topluluk uzerinde calisma demek.
+
+Ornek:
+
+- 100 musteri icin ayni pipeline'i calistirmak
+
+Bu proje icin batch cok onemli.
+Cunku tek ornek guzel olabilir ama portfoy gercegi farkli olabilir.
+
+### Portfolio validation
+
+Portfoy seviyesinde sistemin ne kadar iyi, ne kadar gercekci ve ne kadar durust davrandigini kontrol eden katman.
+
+Yani:
+
+"Bu proje genel olarak ise yariyor mu?"
+
+### Calibration review
+
+Bu, sistemin fazla iyimser olup olmadigini kontrol eden inceleme katmani.
+
+Basit anlatim:
+
+"Sistem guzel konusuyor ama gercekte biraz fazla mi umut satiyor?"
+
+Bu projenin one cikan guclerinden biri, bu soruyu ciddi almasi.
+
+### Fairness
+
+Fairness, sistemin farkli gruplara adil davranip davranmadigini inceleyen alan.
+
+Basit anlatim:
+
+"Bu sistem bir gruba gereksiz sert, baska bir gruba gereksiz yumusak mi?"
+
+### Benchmark
+
+Benchmark, farkli model veya surumleri karsilastirma duzeni.
+
+Yani:
+
+"Yeni yapi eskisinden daha iyi mi?"
+
+### Challenger model
+
+Challenger, mevcut modele meydan okuyan alternatif model veya ayar seti.
+
+Bu neden onemli?
+
+Cunku mevcut sistemin daha iyi oldugunu varsaymak yerine, test etmek gerekir.
+
+### Telemetry
+
+Telemetry, sistem calisirken olusan teknik ve operasyonel sinyalleri toplama isi.
+
+Basit anlatim:
+
+"Sistem sahada nasil davraniyor, nerede sorun cikiyor?"
+
+### Smoke test
+
+Smoke test, buyuk sisteme girmeden once yapilan hizli saglik kontrolu.
+
+Sade anlatim:
+
+"En temel seyler ayakta mi?"
+
+### Guardrail
+
+Guardrail, sistemi raydan cikarmamasi icin konulan koruyucu sinir.
+
+Ornek:
+
+- fairness bozulduysa cikma
+- KPI dusukse rollout yapma
+- riskli artefact varsa pilot'a izin verme
+
+### Pilot integration
+
+Pilot integration, gercek kuruma yakin veri paketleriyle kontrollu calisma yapabilmek demek.
+
+Bu, tam canli entegrasyonla ayni sey degil.
+
+Ama su demek:
+
+"Bu sistemi kurumsal ortama yaklastiracak format ve guardrail mantigi artik var."
+
+---
+
 ## 7. Bu projede hangi kisimlar ogrenilmis model, hangi kisimlar kural tabanli?
 
 Bu ayrimi bilmek cok onemli.
