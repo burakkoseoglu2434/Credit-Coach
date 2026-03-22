@@ -14,6 +14,7 @@ from credit_coach.ops.kpi_contract import (
     build_kpi_contract_snapshot,
     build_kpi_snapshot,
     build_release_evidence_pack,
+    derive_acceptance_status,
     extract_kpi_thresholds,
     load_kpi_thresholds,
 )
@@ -619,6 +620,11 @@ def build_smoke_release_summary(
             summary["pilot_eligible"] = False
             summary["broad_rollout_allowed"] = False
             summary["evidence_status"] = "degraded"
+        summary["acceptance_status"] = derive_acceptance_status(
+            summary["release_decision"],
+            acceptance_eligible=bool(summary["acceptance_eligible"]),
+            broad_rollout_allowed=bool(summary["broad_rollout_allowed"]),
+        )
         summary.update(telemetry_gate)
         return summary
 
@@ -650,6 +656,11 @@ def build_smoke_release_summary(
             summary["pilot_eligible"] = False
             summary["broad_rollout_allowed"] = False
             summary["evidence_status"] = "degraded"
+        summary["acceptance_status"] = derive_acceptance_status(
+            summary["release_decision"],
+            acceptance_eligible=bool(summary["acceptance_eligible"]),
+            broad_rollout_allowed=bool(summary["broad_rollout_allowed"]),
+        )
         summary.update(telemetry_gate)
         return summary
     else:
@@ -675,6 +686,11 @@ def build_smoke_release_summary(
             summary["smoke_pass"] = False
             summary["pilot_eligible"] = False
             summary["broad_rollout_allowed"] = False
+        summary["acceptance_status"] = derive_acceptance_status(
+            summary["release_decision"],
+            acceptance_eligible=bool(summary["acceptance_eligible"]),
+            broad_rollout_allowed=bool(summary["broad_rollout_allowed"]),
+        )
         summary.update(telemetry_gate)
         return summary
 

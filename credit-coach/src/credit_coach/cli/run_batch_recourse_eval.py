@@ -7,7 +7,7 @@ import math
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -75,7 +75,7 @@ _CANDIDATE_SOURCE_CATALOG: tuple[str, ...] = ("internal", "dice", "rule", "fallb
 _HIGH_RISK_ACTIVATION_FLOOR = 0.05
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Batch recourse evaluation for large customer cohorts")
     p.add_argument("--base_config", type=str, default="configs/default.yaml")
     p.add_argument("--model_config", type=str, default="configs/model.yaml")
@@ -90,7 +90,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--n_workers", type=int, default=1)
     p.add_argument("--model_version", type=str, default="")
     p.add_argument("--model_manifest", type=str, default="")
-    return p.parse_args()
+    p.add_argument("--input_data_path", type=str, default="")
+    p.add_argument("--input_data_format", type=str, default="parquet")
+    return p.parse_args(argv)
 
 
 def _merge_dict(base: dict, override: dict) -> dict:
@@ -153,6 +155,16 @@ def _safe_str(v: Any, default: str = "") -> str:
     if isinstance(v, float) and np.isnan(v):
         return default
     return str(v)
+
+
+def _resolve_repo_path(raw_path: str | Path, *, project_root: Path) -> Path:
+    path = Path(raw_path)
+    if path.exists():
+        return path
+    candidate = project_root / path
+    if candidate.exists():
+        return candidate
+    return path
 
 
 def _split_reason_codes(value: Any) -> list[str]:
@@ -3714,14 +3726,30 @@ def _dice_plan_record(
     )
 
 
-def main() -> None:
-    args = parse_args()
-    base_cfg = load_config(args.base_config)
-    model_cfg = load_config(args.model_config)
-    rec_cfg = load_config(args.recourse_config)
-    c_cfg = load_config(args.causality_config)
-    s_cfg = load_config(args.safety_config)
-    m_cfg = load_config(args.macro_config)
+def _load_batch_input_frame(path: Path, *, data_format: str) -> pd.DataFrame:
+    normalized_format = str(data_format or path.suffix.lstrip(".") or "parquet").strip().lower()
+    if normalized_format == "parquet":
+        return pd.read_parquet(path)
+    if normalized_format == "csv":
+        return pd.read_csv(path)
+    raise ValueError(f"Unsupported input_data_format={data_format!r}")
+
+
+def main(argv: Sequence[str] | None = None):
+    args = parse_args(argv)
+    project_root = Path(__file__).resolve().parents[3]
+    base_config_path = _resolve_repo_path(args.base_config, project_root=project_root)
+    model_config_path = _resolve_repo_path(args.model_config, project_root=project_root)
+    recourse_config_path = _resolve_repo_path(args.recourse_config, project_root=project_root)
+    causality_config_path = _resolve_repo_path(args.causality_config, project_root=project_root)
+    safety_config_path = _resolve_repo_path(args.safety_config, project_root=project_root)
+    macro_config_path = _resolve_repo_path(args.macro_config, project_root=project_root)
+    base_cfg = load_config(base_config_path)
+    model_cfg = load_config(model_config_path)
+    rec_cfg = load_config(recourse_config_path)
+    c_cfg = load_config(causality_config_path)
+    s_cfg = load_config(safety_config_path)
+    m_cfg = load_config(macro_config_path)
 
     cfg = _merge_dict(
         _merge_dict(_merge_dict(_merge_dict(base_cfg, model_cfg), rec_cfg), _merge_dict(c_cfg, s_cfg)),
@@ -3729,14 +3757,20 @@ def main() -> None:
     )
     run_ctx = create_run_context(cfg, base_artifact_dir="artifacts/runs")
 
-    contract = load_feature_contract(base_cfg.get("features_config", "configs/features_48.yaml"))
+    features_config_path = _resolve_repo_path(
+        base_cfg.get("features_config", "configs/features_48.yaml"),
+        project_root=project_root,
+    )
+    contract = load_feature_contract(features_config_path)
     feature_cols = contract["features"]
     target_col = contract["target"]
 
     processed_root = Path(base_cfg.get("paths", {}).get("processed_data", "data/processed"))
-    test_path = processed_root / "test.parquet"
+    if not processed_root.is_absolute():
+        processed_root = (base_config_path.parent.parent / processed_root).resolve()
+    test_path = Path(str(args.input_data_path).strip()) if str(args.input_data_path).strip() else processed_root / "test.parquet"
     train_path = processed_root / "train.parquet"
-    test_df = pd.read_parquet(test_path)
+    test_df = _load_batch_input_frame(test_path, data_format=str(args.input_data_format).strip() or "parquet")
     train_df = pd.read_parquet(train_path)
     train_file_hash = hash_file(train_path)
     test_file_hash = hash_file(test_path)
@@ -4067,7 +4101,7 @@ def main() -> None:
         out = {
             "batch_index": int(i),
             "source_row_index": int(row["source_row_index"]),
-            "customer_id": f"batch_{int(i)}",
+            "customer_id": _safe_str(row.get("customer_id", "")) or f"batch_{int(i)}",
             "base_pd": base_pd_i,
             "denied_base": int(base_pd_i > tau),
             "denied_target_mode": 0,
@@ -6461,6 +6495,7 @@ def main() -> None:
     run_manifest_out.write_text(json.dumps(manifest_payload, indent=2, ensure_ascii=False), encoding="utf-8")
     logger.info("Batch recourse evaluation completed. n=%s elapsed=%.2fs", n, elapsed_s)
     logger.info("Outputs: %s", run_ctx.tables_dir)
+    return run_ctx
 
 
 if __name__ == "__main__":

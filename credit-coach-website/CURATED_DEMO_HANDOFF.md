@@ -10,6 +10,11 @@ Amac:
 
 Bu dokuman yeni urun capability tanimlamaz. Mevcut urun yuzeylerini curate eder.
 
+Engine-side pilot package referanslari:
+
+- [PILOT_EXECUTION_GUIDE.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/PILOT_EXECUTION_GUIDE.md)
+- [PILOT_PACKAGE_SCHEMA.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/PILOT_PACKAGE_SCHEMA.md)
+
 ## 1. Intake'ten Demo'ya Gecis Kurali
 
 Her ciddi inbound demo talebi icin operator su alanlari okur:
@@ -26,6 +31,8 @@ Sonra walkthrough'u su sirayla kurar:
 2. `/demo` icindeki bolum sirasi belirlenir
 3. `/proof` ile trust ve watchlist kapanisi eklenir
 4. net bir next step tanimlanir
+
+Eger buyer conversation pilot scoping'e ilerliyorsa, next step website checklist'i degil engine-owned `pilot package` olur.
 
 ## 2. Demo Track Haritasi
 
@@ -140,12 +147,17 @@ Gerektiginde destekleyici artifact referanslari:
 - `behavior-aware`
 - `trajectory`
 - `off-policy-evaluation`
+- `pilot_package_manifest`
+- `pilot_guardrails`
+- `portfolio_validation_summary`
+- `product_confidence_snapshot`
 
 Kural:
 
 - yeni artifact uydurma
 - mevcut snapshot sinirinin disina cikma
 - buyer-facing story'yi artifact reality'sinden koparma
+- pilot scoping asamasinda engine-owned pilot package'i kaynak almadan yeni integration hikayesi kurma
 
 ## 7. Operator Checklist
 
@@ -180,6 +192,7 @@ Curated walkthrough sonunda operator yalnizca bir sonraki adimi onerir:
   - buyer once guven ve benchmark okumasini derinlestirmek istiyor
 - `Pilot scoping call`
   - buyer ciddi timeline ve ops sorularina gecmeye hazir
+  - engine-side `run_pilot_integration` ve `pilot package` akisi anlatilmaya hazir
 
 Next step secimi su sinyallerle uyumlu olmali:
 
@@ -200,3 +213,4 @@ Bu handoff pack su anlama gelmez:
 - live institution data baglandi
 - self-serve pilot workspace acildi
 - auth veya CRM tamamlandi
+- engine package disinda ayri bir website pilot evaluation stack var

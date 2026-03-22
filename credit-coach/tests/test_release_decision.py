@@ -12,6 +12,7 @@ from credit_coach.ops.release_decision import (
     LIMITED_GO,
     NO_GO,
     aggregate_release_metrics,
+    build_pilot_package_release_payload,
     evaluate_fairness_seed_pass,
     evaluate_release_decision,
 )
@@ -155,6 +156,24 @@ def test_evaluate_release_decision_returns_no_go_when_lift_fails() -> None:
     )
     assert decision["decision"] == NO_GO
     assert decision["decision_reason"] == "lift_fail"
+
+
+def test_build_pilot_package_release_payload_keeps_green_run_pilot_only() -> None:
+    payload = build_pilot_package_release_payload(
+        {
+            "lift_pass": True,
+            "reliability_pass": True,
+            "fairness_seed_pass_count": 1,
+            "fairness_seed_total": 1,
+            "worst_fairness_gap": 0.0,
+            "dominant_fail_segment_share": 0.0,
+        },
+        _thresholds(),
+    )
+    assert payload["decision"] == GO
+    assert payload["pilot_eligible"] is True
+    assert payload["broad_rollout_allowed"] is False
+    assert payload["max_traffic_pct"] == 5
 
 
 def test_milestone_acceptance_summary_maps_go_to_accepted() -> None:

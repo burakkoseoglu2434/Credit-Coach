@@ -239,6 +239,7 @@ def test_build_smoke_release_summary_uses_fallback_single_seed_contract():
     assert payload["evidence_level"] == "single_run_fallback"
     assert payload["broad_rollout_allowed"] is False
     assert payload["degraded_reason"] == "missing_repeated_seeded_evidence"
+    assert payload["acceptance_status"] == "PILOT_ONLY"
     assert payload["telemetry_gate_status"] == "degraded"
     assert payload["telemetry_failure_reason"] == "missing_artifact"
 

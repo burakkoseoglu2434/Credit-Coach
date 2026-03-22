@@ -290,6 +290,31 @@ def build_pilot_guardrails(metrics: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_pilot_package_release_payload(
+    metrics: dict[str, Any],
+    thresholds: dict[str, float | bool],
+) -> dict[str, Any]:
+    payload = dict(evaluate_release_decision(metrics, thresholds))
+    if str(payload.get("decision", NO_GO)) == NO_GO:
+        payload.update(
+            {
+                "pilot_eligible": False,
+                "broad_rollout_allowed": False,
+                "max_traffic_pct": 0,
+                "fairness_monitoring_required": False,
+                "rollback_guard_required": False,
+                "targeted_alerting_required": False,
+                "manual_approval_required": False,
+                "remediation_artifacts_required": True,
+            }
+        )
+        return payload
+    payload.update(build_pilot_guardrails(metrics))
+    payload["pilot_eligible"] = True
+    payload["broad_rollout_allowed"] = False
+    return payload
+
+
 def build_rollback_conditions(
     metrics: dict[str, Any],
     thresholds: dict[str, float | bool],

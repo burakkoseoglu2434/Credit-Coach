@@ -578,6 +578,21 @@ def map_release_decision_to_acceptance_status(release_decision: str) -> str:
     return REJECTED
 
 
+def derive_acceptance_status(
+    release_decision: str,
+    *,
+    acceptance_eligible: bool,
+    broad_rollout_allowed: bool | None = None,
+) -> str:
+    decision = str(release_decision or "").strip().upper()
+    if decision == "NO_GO":
+        return REJECTED
+    rollout_allowed = bool(decision == "GO") if broad_rollout_allowed is None else bool(broad_rollout_allowed)
+    if decision == "GO" and acceptance_eligible and rollout_allowed:
+        return ACCEPTED
+    return PILOT_ONLY
+
+
 def _normalize_supporting_artifacts(supporting_artifacts: Mapping[str, Any] | None) -> dict[str, Any]:
     if not isinstance(supporting_artifacts, Mapping):
         return {}
@@ -660,6 +675,11 @@ def build_kpi_contract_snapshot(
         "evidence_status": status,
         "acceptance_eligible": bool(acceptance_eligible),
         "release_decision": decision,
+        "acceptance_status": derive_acceptance_status(
+            decision,
+            acceptance_eligible=bool(acceptance_eligible),
+            broad_rollout_allowed=broad_rollout_allowed,
+        ),
         "decision_reason": str(release_payload.get("decision_reason", "")),
         "smoke_pass": smoke_pass,
         "pilot_eligible": pilot_eligible,
@@ -726,7 +746,11 @@ def build_milestone_acceptance_summary(
         "evidence_level": str(evidence_level),
         "evidence_status": status,
         "acceptance_eligible": bool(acceptance_eligible),
-        "acceptance_status": map_release_decision_to_acceptance_status(decision),
+        "acceptance_status": derive_acceptance_status(
+            decision,
+            acceptance_eligible=bool(acceptance_eligible),
+            broad_rollout_allowed=broad_rollout_allowed,
+        ),
         "release_decision": decision,
         "smoke_pass": bool(release_payload.get("smoke_pass", decision == "GO")),
         "pilot_eligible": bool(release_payload.get("pilot_eligible", decision == "LIMITED_GO")),
@@ -788,7 +812,13 @@ def build_release_evidence_pack(
         "phase": str(phase),
         "milestone": str(milestone),
         "release_decision": str(release_decision or "NO_GO"),
-        "acceptance_status": str(acceptance_status or map_release_decision_to_acceptance_status(release_decision)),
+        "acceptance_status": str(
+            acceptance_status
+            or derive_acceptance_status(
+                str(release_decision or "NO_GO"),
+                acceptance_eligible=bool(acceptance_eligible),
+            )
+        ),
         "evidence_level": str(evidence_level),
         "evidence_status": str(evidence_status or ("complete" if acceptance_eligible else "degraded")),
         "pack_status": pack_status,

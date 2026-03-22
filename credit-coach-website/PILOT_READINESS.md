@@ -10,6 +10,11 @@ Amac:
 
 Bu dokuman tam production maturity iddiasi degildir.
 
+Engine-side pilot package referanslari:
+
+- [PILOT_EXECUTION_GUIDE.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/PILOT_EXECUTION_GUIDE.md)
+- [PILOT_PACKAGE_SCHEMA.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/PILOT_PACKAGE_SCHEMA.md)
+
 ## 1. Hazir Olan Baseline
 
 Bugun repo seviyesinde hazir olanlar:
@@ -26,6 +31,7 @@ Bugun repo seviyesinde hazir olanlar:
 - `DATABASE_URL` verilirse PostgreSQL + Drizzle persistence seami
 
 Bu baseline, ciddi bir buyer conversation ve operator-mediated demo handoff icin yeterli cekirdegi saglar.
+Gercek pilot execution ise artik engine tarafinda `run_pilot_integration` ve emitted `pilot package` ile okunur.
 
 ## 2. Pilot Oncesi Zorunlu Minimumlar
 
@@ -46,6 +52,7 @@ Asagidakiler tamamlanmadan akisi ciddi pilot-ready olarak sunma:
    - recovery baseline
    - portfolio proof
    - offer and learning
+8. Institution export'u engine-side pilot package'e gidecekse canonical pilot bundle hazir olmali
 
 ## 3. Ortam ve Runtime Kontrati
 
@@ -112,6 +119,11 @@ Kural:
 - `memory` modu demo-acceptable
 - `database` modu pilot-required
 
+Website persistence posture ile engine pilot package farklidir:
+
+- website -> buyer handoff ve curated walkthrough
+- engine pilot package -> validated institution export, portfolio validation, pilot_guardrails, product_confidence_snapshot
+
 ## 5. Auth Posture
 
 Bugunku website siniri icinde:
@@ -129,6 +141,8 @@ Bu nedenle mevcut pilot posture su sekilde tanimlanmali:
 
 Bu repo bugun auth-ready degil; controlled pilot conversation-ready seviyesindedir.
 
+Canli kurum entegrasyonu, auth, CRM ve self-serve workspace hala deferred alanlardir.
+
 ## 6. Operator Checklist
 
 Pilot benzeri bir buyer handoff oncesi operator su listeyi gecmeli:
@@ -142,6 +156,7 @@ Pilot benzeri bir buyer handoff oncesi operator su listeyi gecmeli:
   - walkthrough
   - proof review
   - pilot scoping call
+- engine-side pilot package gerekiyorsa `run_pilot_integration` icin bundle hazir mi
 
 ## 7. Ready Now / Required / Deferred
 
@@ -160,6 +175,8 @@ Pilot benzeri bir buyer handoff oncesi operator su listeyi gecmeli:
 - named operator ownership
 - curated demo track secimi
 - controlled access posture
+- engine-owned pilot package calistirilabilir olmali
+- `pilot_guardrails`, `portfolio_validation_summary`, `product_confidence_snapshot` okunabilir olmali
 
 ### Deferred beyond this milestone
 
@@ -183,3 +200,4 @@ Dogru okuma su:
 
 - ciddi buyer handoff icin minimum operasyonel cizgi artik acik
 - bundan sonraki genisleme auth, CRM, admin ve daha derin pilot tooling katmanlaridir
+- controlled pilot execution artik website icinde uydurulmaz; engine-owned pilot package ile desteklenir
