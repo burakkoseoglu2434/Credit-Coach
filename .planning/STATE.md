@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 ## Current Position
 
-Phase: 38
-Plan: `38-01`, `38-02`, `38-03` drafted
-Status: Ready for execution
-Last activity: 2026-03-22 - Planned Phase 38 across calibration contract, drift validation, and business-safe review packaging
+Phase: 39
+Plan: None yet
+Status: Ready for discussion
+Last activity: 2026-03-22 - Executed Phase 38 across calibration contract, drift validation, and business-safe review packaging
 
-Progress: `v2.0` is underway; Phases 30-37 are complete, Phase 38 is planned, and the next active seam is executing `Phase 38: Calibration & Validation`
+Progress: `v2.0` is underway; Phases 30-38 are complete and the next active seam is `Phase 39: Pilot Integration`
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 99 (historical import + phases 8-25 plus phases 30-37)
+- Total plans completed: 102 (historical import + phases 8-25 plus phases 30-38)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -31,12 +31,12 @@ Progress: `v2.0` is underway; Phases 30-37 are complete, Phase 38 is planned, an
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
 | v1.2 completed milestone | 15 | phases 12-16 complete | n/a |
 | v1.3 completed milestone | 28 | phases 17-25 complete | n/a |
-| v2.0 active milestone | 24 | phases 30-37 complete, phases 38-39 remaining | n/a |
+| v2.0 active milestone | 27 | phases 30-38 complete, Phase 39 remaining | n/a |
 
 **Recent Trend:**
 - The engine now has audited full-portfolio proof plus buyer-safe demo, proof, investor, analyst, and pilot-baseline surfaces.
 - The new milestone is focused on making outputs more customer-specific, numeric, decision-intelligent, and easier to validate at portfolio scale.
-- The roadmap now continues from Phase 37 with the next sequence covering calibration and pilot integration.
+- The roadmap now continues from Phase 38 with the final v2.0 seam covering pilot integration.
 
 ## Accumulated Context
 
@@ -194,7 +194,13 @@ Recent decisions affecting current work:
   - canonical calibration contract and row-level validation ingredients
   - segment, distribution, and drift validation rollups
   - business-safe review packaging and suite alignment
-- The next active step is executing `Phase 38: Calibration & Validation`
+- Phase 38 execution is complete and establishes:
+  - a canonical `calibration_validation` summary family on top of portfolio validation
+  - row-level batch validation flags for realism-clean, false optimism, and unstable target exposure
+  - segment and unit-family validation rollups plus suite-level drift packaging
+  - a dedicated `Calibration & Validation` review section that keeps the business layer honest without losing technical transparency
+- `CAL-01` is now satisfied
+- The next active design seam is `Phase 39: Pilot Integration`
 - Phase 36 context now locks:
   - action-first surface hierarchy with `executive_summary -> action cards -> checkpoint strip -> offer panel -> reasons -> technical reveal`
   - checkpoint strip directly above actions with `4w` visually dominant
@@ -220,5 +226,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Phase 37 execution completed; next step is `$gsd-discuss-phase 38`
+Stopped at: Phase 38 execution completed; next step is `$gsd-discuss-phase 39`
 Resume file: None

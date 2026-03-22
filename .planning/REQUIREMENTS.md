@@ -40,7 +40,7 @@
 
 ### Calibration And Validation
 
-- [ ] **CAL-01**: The system can validate whether suggested numeric targets and resulting impact distributions are realistic, calibrated, and not falsely optimistic
+- [x] **CAL-01**: The system can validate whether suggested numeric targets and resulting impact distributions are realistic, calibrated, and not falsely optimistic
 
 ### Pilot Integration
 
@@ -85,7 +85,7 @@
 | NARV-01 | Phase 35 | Satisfied |
 | SURF-01 | Phase 36 | Satisfied |
 | PVAL-01 | Phase 37 | Satisfied |
-| CAL-01 | Phase 38 | Pending |
+| CAL-01 | Phase 38 | Satisfied |
 | PILT-01 | Phase 39 | Pending |
 
 **Coverage:**
@@ -95,4 +95,4 @@
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-22 after Phase 37 execution*
+*Last updated: 2026-03-22 after Phase 38 execution*
