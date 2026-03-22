@@ -23,6 +23,7 @@ key-decisions:
   - "Suite consumers mirror the same validation contract rather than inventing alternate rollups."
 patterns-established:
   - "Business review remains concise while technical transparency stays available through the same artifact family."
+requirements-completed: [CAL-01]
 duration: manual-execution
 completed: 2026-03-22
 ---

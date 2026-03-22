@@ -23,6 +23,7 @@ key-decisions:
   - "Live-demo normalization now shapes nested objects into the same contract used by static artifacts."
 patterns-established:
   - "Business-first flow stays clean while analyst detail remains accessible from the same engine-owned artifact."
+requirements-completed: [SURF-01]
 duration: manual-execution
 completed: 2026-03-22
 ---

@@ -20,6 +20,7 @@ key-decisions:
   - "Offer support appears as a short companion signal in cards and a dedicated secondary panel only when present."
 patterns-established:
   - "The 4-week checkpoint is visually dominant while 12-week and 24-week checkpoints remain supporting context."
+requirements-completed: [SURF-01]
 duration: manual-execution
 completed: 2026-03-22
 ---

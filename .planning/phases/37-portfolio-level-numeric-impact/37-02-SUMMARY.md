@@ -19,6 +19,7 @@ key-decisions:
   - "Offer dependency remains explicit rather than hidden inside aggregate payoff."
 patterns-established:
   - "Segment reporting stays executive and strategy-oriented while technical tables still carry the full breakdown."
+requirements-completed: [PVAL-01]
 duration: manual-execution
 completed: 2026-03-22
 ---

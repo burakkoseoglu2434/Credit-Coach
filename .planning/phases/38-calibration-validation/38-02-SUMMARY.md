@@ -21,6 +21,7 @@ key-decisions:
   - "Seed drift is a valid honesty signal, not a reason to suppress evidence."
 patterns-established:
   - "Validation rollups now stay portfolio-first while still exposing where realism weakens or optimism concentrates."
+requirements-completed: [CAL-01]
 duration: manual-execution
 completed: 2026-03-22
 ---

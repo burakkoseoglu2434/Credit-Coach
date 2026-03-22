@@ -20,6 +20,7 @@ key-decisions:
   - "Offer-bearing plans use realized offer-supported payoff rather than nominal optimism."
 patterns-established:
   - "Batch rows now expose numeric burden and realized-payoff ingredients before higher-level rollups consume them."
+requirements-completed: [PVAL-01]
 duration: manual-execution
 completed: 2026-03-22
 ---

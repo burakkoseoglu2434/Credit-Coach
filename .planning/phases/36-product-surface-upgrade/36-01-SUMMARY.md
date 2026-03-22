@@ -21,6 +21,7 @@ key-decisions:
   - "Roadmap cards no longer synthesize fallback outcomes or timing narratives."
 patterns-established:
   - "UI consumers fail soft when engine fields are missing instead of inventing substitute meaning."
+requirements-completed: [SURF-01]
 duration: manual-execution
 completed: 2026-03-22
 ---

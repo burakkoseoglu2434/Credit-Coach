@@ -21,6 +21,7 @@ key-decisions:
   - "Batch rows remain the ingredient source for higher-level validation rollups."
 patterns-established:
   - "Validation is added as a new portfolio contract rather than by reopening target generation or feasibility logic."
+requirements-completed: [CAL-01]
 duration: manual-execution
 completed: 2026-03-22
 ---

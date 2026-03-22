@@ -20,6 +20,7 @@ key-decisions:
   - "Suite consumers mirror the same portfolio summary contract rather than inventing alternate rollups."
 patterns-established:
   - "Executive review stays concise while technical transparency remains available through the same artifact family."
+requirements-completed: [PVAL-01]
 duration: manual-execution
 completed: 2026-03-22
 ---
