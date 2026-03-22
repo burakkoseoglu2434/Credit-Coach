@@ -32,7 +32,7 @@
 
 ### Product Surface
 
-- [ ] **SURF-01**: Demo and product surfaces can render the new numeric personalized plans and decision intelligence directly from typed engine artifacts
+- [x] **SURF-01**: Demo and product surfaces can render the new numeric personalized plans and decision intelligence directly from typed engine artifacts
 
 ### Portfolio Impact
 
@@ -83,7 +83,7 @@
 | EXEC-01 | Phase 33 | Satisfied |
 | OFFR-01 | Phase 34 | Satisfied |
 | NARV-01 | Phase 35 | Satisfied |
-| SURF-01 | Phase 36 | Pending |
+| SURF-01 | Phase 36 | Satisfied |
 | PVAL-01 | Phase 37 | Pending |
 | CAL-01 | Phase 38 | Pending |
 | PILT-01 | Phase 39 | Pending |
@@ -95,4 +95,4 @@
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-22 after Phase 35 execution*
+*Last updated: 2026-03-22 after Phase 36 execution*

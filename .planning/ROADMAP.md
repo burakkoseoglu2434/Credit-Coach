@@ -70,7 +70,7 @@ Historical archive: `.planning/milestones/v1.3-ROADMAP.md`
 
 **Goal**: Turn model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans with clear product-ready narratives and portfolio-level validation.
 **Phases**: 30-39 currently defined
-**Status**: Active; Phases 30-35 complete and Phase 36 is planned
+**Status**: Active; Phases 30-36 complete and Phase 37 is next
 
 ### Phase 30: Action Semantics Hardening
 
@@ -222,7 +222,7 @@ Historical archive: `.planning/milestones/v1.3-ROADMAP.md`
 | 33. Action Difficulty & Execution Modeling | v2.0 | 3/3 | Complete | 2026-03-21 |
 | 34. Offer Layer Integration | v2.0 | 3/3 | Complete | 2026-03-22 |
 | 35. Narrative Generation v2 | v2.0 | 3/3 | Complete | 2026-03-22 |
-| 36. Product Surface Upgrade | v2.0 | roadmap defined | Planned | - |
+| 36. Product Surface Upgrade | v2.0 | 3/3 | Complete | 2026-03-22 |
 | 37. Portfolio-Level Numeric Impact | v2.0 | roadmap defined | Planned | - |
 | 38. Calibration & Validation | v2.0 | roadmap defined | Planned | - |
 | 39. Pilot Integration | v2.0 | roadmap defined | Planned | - |

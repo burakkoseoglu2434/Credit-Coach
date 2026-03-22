@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 ## Current Position
 
-Phase: 36
+Phase: 37
 Plan: None yet
-Status: Ready for execution
-Last activity: 2026-03-22 - Planned Phase 36 across typed surface contract hardening, action-first customer flow, and strict business-vs-technical UI closure
+Status: Ready for discussion
+Last activity: 2026-03-22 - Completed Phase 36 with strict typed surface consumption, action-first customer flow, and one end-of-page analyst reveal
 
-Progress: `v2.0` is underway; Phases 30-35 are complete and the next active seam is `Phase 36: Product Surface Upgrade`
+Progress: `v2.0` is underway; Phases 30-36 are complete and the next active seam is `Phase 37: Portfolio-Level Numeric Impact`
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 93 (historical import + phases 8-25 plus phases 30-35)
+- Total plans completed: 96 (historical import + phases 8-25 plus phases 30-36)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -31,7 +31,7 @@ Progress: `v2.0` is underway; Phases 30-35 are complete and the next active seam
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
 | v1.2 completed milestone | 15 | phases 12-16 complete | n/a |
 | v1.3 completed milestone | 28 | phases 17-25 complete | n/a |
-| v2.0 active milestone | 18 | phases 30-35 complete, phases 36-39 remaining | n/a |
+| v2.0 active milestone | 21 | phases 30-36 complete, phases 37-39 remaining | n/a |
 
 **Recent Trend:**
 - The engine now has audited full-portfolio proof plus buyer-safe demo, proof, investor, analyst, and pilot-baseline surfaces.
@@ -156,7 +156,14 @@ Recent decisions affecting current work:
   - calmer, more directive, non-judgmental business wording with no raw follow-through probabilities in default summary cards
   - explicit `primary_numeric_targets` inside technical reveal to keep narrative-generation truth inspectable
 - `NARV-01` is now satisfied
-- The next active design seam is `Phase 36: Product Surface Upgrade`
+- Phase 36 execution is complete and establishes:
+  - a richer typed website mirror for action-group, numeric target, offer, feasibility, difficulty, and technical reveal truth
+  - aligned live and static single-customer payload consumption under one schema-safe contract
+  - action-first customer flow with executive cards, 4-week-dominant checkpoint strip, supporting offer panel, and post-action reasons
+  - one end-of-page analyst reveal instead of section-local technical panels
+  - strict no-fallback UI behavior where missing engine fields fail soft rather than invent new meaning
+- `SURF-01` is now satisfied
+- The next active design seam is `Phase 37: Portfolio-Level Numeric Impact`
 - Phase 36 context now locks:
   - action-first surface hierarchy with `executive_summary -> action cards -> checkpoint strip -> offer panel -> reasons -> technical reveal`
   - checkpoint strip directly above actions with `4w` visually dominant
@@ -182,5 +189,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Phase 36 planning completed; next step is `$gsd-execute-phase 36`
+Stopped at: Phase 36 execution completed; next step is `$gsd-discuss-phase 37`
 Resume file: None
