@@ -4,7 +4,9 @@ import argparse
 import json
 import logging
 import time
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Sequence
 
 import pandas as pd
 
@@ -52,8 +54,64 @@ from credit_coach.xai.shap_local import compute_local_reason_bundle
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("run_recourse")
 
+_ROADMAP_STEP_COLUMNS = [
+    "customer_id",
+    "best_plan_id",
+    "phase_id",
+    "phase_title",
+    "target_window_weeks",
+    "action_key",
+    "action_class",
+    "action_title",
+    "action_group_id",
+    "composite_action",
+    "feature_name",
+    "metric_key",
+    "unit",
+    "current_value",
+    "target_value",
+    "delta",
+    "time_months",
+    "due_month",
+    "direction",
+    "generation_notes_json",
+    "estimated_cost_usd",
+    "requires_institutional_approval",
+    "approval_pending_semantic_only",
+    "action_status",
+    "constraint_family",
+    "constraint_reason_codes_json",
+    "was_clipped",
+    "repair_applied",
+    "dependency_gate",
+    "semantic_preserved",
+]
 
-def parse_args() -> argparse.Namespace:
+
+@dataclass
+class CustomerArtifactBundle:
+    customer_id: str
+    plans_df: pd.DataFrame
+    roadmap: dict[str, Any]
+    roadmap_steps_df: pd.DataFrame
+    metrics_summary: dict[str, Any]
+
+
+@dataclass
+class CustomerRecourseRunResult:
+    bundle: CustomerArtifactBundle
+    local_reason_bundle: dict[str, Any]
+    adverse_action_reasons: list[Any]
+    dice_df: pd.DataFrame
+    dice_records: list[PlanRecord]
+    dice_backend: str
+    dice_telemetry: dict[str, Any]
+    candidate_pool_df: pd.DataFrame
+    decision_log_record: dict[str, Any]
+    decision_log_summary: dict[str, Any]
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Generate recourse plans")
     p.add_argument("--customer_id", type=str, default="demo")
     p.add_argument("--row_index", type=int, default=0)
@@ -66,7 +124,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--macro_config", type=str, default="configs/macro.yaml")
     p.add_argument("--model_version", type=str, default="")
     p.add_argument("--model_manifest", type=str, default="")
-    return p.parse_args()
+    return p.parse_args(argv)
 
 
 def _merge_dict(base: dict, override: dict) -> dict:
@@ -1030,7 +1088,154 @@ def _prune_candidate_pool(plans: list[PlanRecord], max_size: int) -> list[PlanRe
     return sorted(plans, key=_candidate_rank_tuple)[:max_size]
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None):
+    args = parse_args(argv)
+    base_cfg = load_config(args.base_config)
+    model_cfg = load_config(args.model_config)
+    rec_cfg = load_config(args.recourse_config)
+    c_cfg = load_config(args.causality_config)
+    s_cfg = load_config(args.safety_config)
+    m_cfg = load_config(args.macro_config)
+    cfg = _merge_dict(
+        _merge_dict(_merge_dict(_merge_dict(base_cfg, model_cfg), rec_cfg), _merge_dict(c_cfg, s_cfg)),
+        {"macro": m_cfg},
+    )
+    run_ctx = create_run_context(cfg, base_artifact_dir="artifacts/runs")
+
+    contract = load_feature_contract(base_cfg.get("features_config", "configs/features_48.yaml"))
+    feature_cols = contract["features"]
+    target_col = contract["target"]
+
+    processed_root = Path(base_cfg.get("paths", {}).get("processed_data", "data/processed"))
+    test_path = processed_root / "test.parquet"
+    train_path = processed_root / "train.parquet"
+    if not test_path.exists() or not train_path.exists():
+        raise FileNotFoundError("Processed data missing. Run run_prepare_data first.")
+
+    test_df = pd.read_parquet(test_path)
+    train_df = pd.read_parquet(train_path)
+    row_idx = max(0, min(args.row_index, len(test_df) - 1))
+    row = test_df.iloc[row_idx]
+
+    model, calibrator, manifest, _ = load_model_bundle(
+        base_path=model_cfg.get("registry", {}).get("path", "artifacts/models"),
+        model_version=str(args.model_version).strip() or None,
+        manifest_path=str(args.model_manifest).strip() or None,
+    )
+
+    graph_out = Path(c_cfg.get("graph", {}).get("output_path", "artifacts/models/causal_graph.json"))
+    if graph_out.exists():
+        graph = load_graph(graph_out)
+    else:
+        graph = run_rex_adapter(
+            train_df,
+            feature_cols=feature_cols,
+            min_edge_weight=float(c_cfg.get("graph", {}).get("min_edge_weight", 0.1)),
+            algorithm=c_cfg.get("algorithm", "pc"),
+            output_path=graph_out,
+        )
+
+    if args.explain_only:
+        local_reason_bundle = compute_local_reason_bundle(
+            model,
+            row[feature_cols],
+            top_k=int(rec_cfg.get("shap", {}).get("topk_features", 10)),
+            perturbations=int(rec_cfg.get("shap", {}).get("stability_perturbations", 6)),
+            noise_std=float(rec_cfg.get("shap", {}).get("stability_noise_std", 0.01)),
+            random_state=int(rec_cfg.get("shap", {}).get("stability_seed", 42)),
+            background_df=train_df[feature_cols].sample(
+                n=min(len(train_df), int(rec_cfg.get("shap", {}).get("background_samples", 256))),
+                random_state=int(rec_cfg.get("shap", {}).get("stability_seed", 42)),
+            ),
+        )
+        reasons_path = run_ctx.tables_dir / "local_reasons.json"
+        reasons_path.write_text(json.dumps(local_reason_bundle, indent=2, ensure_ascii=False), encoding="utf-8")
+        adverse_action_reasons = build_adverse_action_reasons(local_reason_bundle.get("reasons", []), max_items=4)
+        adverse_out = run_ctx.tables_dir / "adverse_action_reasons.json"
+        adverse_out.write_text(json.dumps({"reasons": adverse_action_reasons}, indent=2, ensure_ascii=False), encoding="utf-8")
+        conf = local_reason_bundle.get("meta", {}).get("explainability_confidence")
+        logger.info("Explain-only mode complete. Reasons saved: %s confidence=%s", reasons_path, conf)
+        return run_ctx
+
+    result = generate_customer_recourse_artifacts(
+        customer_id=args.customer_id,
+        run_id=run_ctx.run_id,
+        row=row,
+        test_df=test_df,
+        train_df=train_df,
+        model=model,
+        calibrator=calibrator,
+        manifest=manifest,
+        feature_cols=feature_cols,
+        target_col=target_col,
+        model_cfg=model_cfg,
+        rec_cfg=rec_cfg,
+        c_cfg=c_cfg,
+        s_cfg=s_cfg,
+        m_cfg=m_cfg,
+        graph=graph,
+        persist_repository_records=True,
+    )
+
+    reasons_path = run_ctx.tables_dir / "local_reasons.json"
+    reasons_path.write_text(json.dumps(result.local_reason_bundle, indent=2, ensure_ascii=False), encoding="utf-8")
+    adverse_out = run_ctx.tables_dir / "adverse_action_reasons.json"
+    adverse_out.write_text(
+        json.dumps({"reasons": result.adverse_action_reasons}, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    plans_df = result.bundle.plans_df
+    plans_csv = run_ctx.tables_dir / "plans.csv"
+    plans_json = run_ctx.tables_dir / "plans.json"
+    plans_df.to_csv(plans_csv, index=False)
+    plans_json.write_text(plans_df.to_json(orient="records", indent=2), encoding="utf-8")
+
+    dice_df = result.dice_df
+    dice_csv = run_ctx.tables_dir / "dice_plans.csv"
+    dice_json = run_ctx.tables_dir / "dice_plans.json"
+    dice_df.to_csv(dice_csv, index=False)
+    dice_json.write_text(dice_df.to_json(orient="records", indent=2), encoding="utf-8")
+    dice_tel_json = run_ctx.tables_dir / "dice_telemetry.json"
+    dice_tel_json.write_text(json.dumps(result.dice_telemetry, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    pool_df = result.candidate_pool_df
+    pool_csv = run_ctx.tables_dir / "candidate_pool.csv"
+    pool_json = run_ctx.tables_dir / "candidate_pool.json"
+    pool_df.to_csv(pool_csv, index=False)
+    pool_json.write_text(pool_df.to_json(orient="records", indent=2), encoding="utf-8")
+
+    roadmap_json = run_ctx.tables_dir / "customer_roadmap.json"
+    roadmap_json.write_text(json.dumps(result.bundle.roadmap, indent=2, ensure_ascii=False), encoding="utf-8")
+    roadmap_steps_csv = run_ctx.tables_dir / "customer_roadmap_steps.csv"
+    result.bundle.roadmap_steps_df.to_csv(roadmap_steps_csv, index=False)
+
+    decision_log_out = run_ctx.tables_dir / "decision_log_record.json"
+    decision_log_summary_out = run_ctx.tables_dir / "decision_logging_summary.json"
+    decision_log_out.write_text(json.dumps(result.decision_log_record, indent=2, ensure_ascii=False), encoding="utf-8")
+    decision_log_summary_out.write_text(
+        json.dumps(result.decision_log_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    summary = result.bundle.metrics_summary
+    run_ctx.save_metrics(summary)
+
+    logger.info(
+        "Recourse run complete. plans=%s approved=%s denied_target=%s best_source=%s",
+        summary["plan_count"],
+        summary["approved_count"],
+        summary["denied_target_mode"],
+        summary["best_plan_source"],
+    )
+    logger.info("Plan outputs: %s %s", plans_csv, plans_json)
+    logger.info("DiCE outputs: %s %s %s backend=%s", dice_csv, dice_json, dice_tel_json, result.dice_backend)
+    logger.info("Candidate pool outputs: %s %s", pool_csv, pool_json)
+    logger.info("Roadmap outputs: %s %s", roadmap_json, roadmap_steps_csv)
+    logger.info("Decision logging outputs: %s %s", decision_log_out, decision_log_summary_out)
+    logger.info("Adverse action reasons: %s", adverse_out)
+    return run_ctx
+
     args = parse_args()
     base_cfg = load_config(args.base_config)
     model_cfg = load_config(args.model_config)
@@ -1449,31 +1654,140 @@ def main() -> None:
                     bool(step.get("semantic_preserved"))
                     if step.get("semantic_preserved", None) is not None
                     else None
+        ),
+    }
+
+
+def _build_customer_roadmap_steps_df(
+    *,
+    customer_id: str,
+    best_plan_id: str,
+    roadmap: dict[str, Any],
+) -> pd.DataFrame:
+    roadmap_steps_rows: list[dict[str, Any]] = []
+    for phase in roadmap.get("phases", []):
+        phase_id = str(phase.get("phase_id", ""))
+        phase_title = str(phase.get("phase_title", ""))
+        for step in phase.get("steps", []):
+            technical_view = step.get("technical_view", {})
+            if not isinstance(technical_view, dict):
+                technical_view = {}
+            primary_numeric_target = step.get("primary_numeric_target", {})
+            if not isinstance(primary_numeric_target, dict):
+                primary_numeric_target = {}
+            row_out = {
+                "customer_id": str(customer_id),
+                "best_plan_id": str(best_plan_id),
+                "phase_id": phase_id,
+                "phase_title": phase_title,
+                "target_window_weeks": str(phase.get("target_window_weeks", "")),
+                "action_key": str(step.get("action_key", "")),
+                "action_class": str(step.get("action_class", "")),
+                "action_title": str(step.get("action_title", "")),
+                "action_group_id": str(step.get("action_group_id", "")),
+                "composite_action": _safe_int(step.get("composite_action", 0), 0),
+                "feature_name": str(technical_view.get("feature_name", step.get("feature_name", "")) or ""),
+                "metric_key": str(primary_numeric_target.get("metric_key", "") or ""),
+                "unit": str(primary_numeric_target.get("unit", "") or ""),
+                "current_value": _safe_float(
+                    primary_numeric_target.get(
+                        "current_value",
+                        technical_view.get("current_value", step.get("current_value", 0.0)),
+                    ),
+                    0.0,
+                ),
+                "target_value": _safe_float(
+                    primary_numeric_target.get(
+                        "target_value",
+                        technical_view.get("target_value", step.get("target_value", 0.0)),
+                    ),
+                    0.0,
+                ),
+                "delta": _safe_float(
+                    primary_numeric_target.get(
+                        "delta_value",
+                        technical_view.get("delta", step.get("delta", 0.0)),
+                    ),
+                    0.0,
+                ),
+                "time_months": _safe_int(step.get("time_months", 0), 0),
+                "due_month": _safe_int(primary_numeric_target.get("due_month", step.get("time_months", 0)), 0),
+                "direction": str(primary_numeric_target.get("direction", "") or ""),
+                "generation_notes_json": json.dumps(
+                    list(primary_numeric_target.get("generation_notes", [])),
+                    ensure_ascii=False,
+                ),
+                "estimated_cost_usd": _safe_float(step.get("estimated_cost_usd", 0.0), 0.0),
+                "requires_institutional_approval": _safe_int(step.get("requires_institutional_approval", 0), 0),
+                "approval_pending_semantic_only": _safe_int(step.get("approval_pending_semantic_only", 0), 0),
+                "action_status": str(step.get("action_status", "") or ""),
+                "constraint_family": str(step.get("constraint_family", "") or ""),
+                "constraint_reason_codes_json": json.dumps(
+                    list(step.get("constraint_reason_codes", [])),
+                    ensure_ascii=False,
+                ),
+                "was_clipped": _safe_int(step.get("was_clipped", 0), 0),
+                "repair_applied": _safe_int(step.get("repair_applied", 0), 0),
+                "dependency_gate": _safe_int(step.get("dependency_gate", 0), 0),
+                "semantic_preserved": (
+                    bool(step.get("semantic_preserved"))
+                    if step.get("semantic_preserved", None) is not None
+                    else None
                 ),
             }
             roadmap_steps_rows.append(row_out)
-    roadmap_steps_df = pd.DataFrame(roadmap_steps_rows)
-    roadmap_steps_csv = run_ctx.tables_dir / "customer_roadmap_steps.csv"
-    roadmap_steps_df.to_csv(roadmap_steps_csv, index=False)
-    decision_log_record = _decision_log_record(
-        run_id=run_ctx.run_id,
-        customer_id=str(args.customer_id),
-        plan=best,
-    )
-    decision_log_summary = build_decision_logging_summary([decision_log_record])
-    decision_log_out = run_ctx.tables_dir / "decision_log_record.json"
-    decision_log_summary_out = run_ctx.tables_dir / "decision_logging_summary.json"
-    decision_log_out.write_text(json.dumps(decision_log_record, indent=2, ensure_ascii=False), encoding="utf-8")
-    decision_log_summary_out.write_text(
-        json.dumps(decision_log_summary, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    if not roadmap_steps_rows:
+        return pd.DataFrame(columns=_ROADMAP_STEP_COLUMNS)
+    return pd.DataFrame(roadmap_steps_rows, columns=_ROADMAP_STEP_COLUMNS)
+
+
+def _build_customer_metrics_summary(
+    *,
+    model_version: str,
+    customer_id: str,
+    base_pd: float,
+    search_profile: dict[str, Any],
+    segment_context: dict[str, Any],
+    validated: list[PlanRecord],
+    candidate_pool: list[PlanRecord],
+    best: PlanRecord,
+    best_source: str,
+    roadmap: dict[str, Any],
+    msi: float,
+    alpha: float,
+    robust_objective: str,
+    robust_cvar_quantile: float,
+    local_reason_bundle: dict[str, Any],
+    adverse_action_reasons: list[Any],
+    dice_backend: str,
+    dice_records: list[PlanRecord],
+    dice_telemetry: dict[str, Any],
+    search_elapsed_ms: float,
+    fairness_penalty: float,
+    decision_log_record: dict[str, Any],
+    decision_log_summary: dict[str, Any],
+) -> dict[str, Any]:
     cp_week4 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 4), {})
     cp_week12 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 12), {})
     cp_week24 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 24), {})
-    summary = {
-        "model_version": manifest["model_version"],
-        "customer_id": args.customer_id,
+    avg_reliability = (
+        float(sum(float(p.reliability or 0.0) for p in validated) / max(1, len(validated)))
+        if validated
+        else 0.0
+    )
+    avg_robust_score = (
+        float(sum(float(p.robust_score or 0.0) for p in validated) / max(1, len(validated)))
+        if validated
+        else 0.0
+    )
+    min_robust_margin = (
+        float(min(float(p.robust_margin or 0.0) for p in validated))
+        if validated
+        else 0.0
+    )
+    return {
+        "model_version": model_version,
+        "customer_id": customer_id,
         "base_pd": base_pd,
         "denied_target_mode": bool(search_profile.get("is_denied_target", False)),
         "income_band": str(segment_context.get("income_band", "")),
@@ -1514,9 +1828,9 @@ def main() -> None:
         "alpha_used": alpha,
         "robust_objective": robust_objective,
         "robust_cvar_quantile": robust_cvar_quantile,
-        "avg_reliability": float(sum(float(p.reliability or 0.0) for p in validated) / max(1, len(validated))),
-        "avg_robust_score": float(sum(float(p.robust_score or 0.0) for p in validated) / max(1, len(validated))),
-        "min_robust_margin": float(min(float(p.robust_margin or 0.0) for p in validated)),
+        "avg_reliability": avg_reliability,
+        "avg_robust_score": avg_robust_score,
+        "min_robust_margin": min_robust_margin,
         "local_explainability_confidence": float(local_reason_bundle.get("meta", {}).get("explainability_confidence", 0.0)),
         "local_shap_stability_score": float(local_reason_bundle.get("meta", {}).get("stability_score", 0.0)),
         "local_shap_baseline_drift_l1": float(local_reason_bundle.get("meta", {}).get("baseline_drift_l1", 0.0)),
@@ -1529,29 +1843,473 @@ def main() -> None:
         "dice_changed_features": int(dice_telemetry.get("changed_feature_union_count", 0)),
         "dice_attempted_method_count": int(dice_telemetry.get("attempted_method_count", 0)),
         "dice_skipped_reason": str(dice_telemetry.get("fallback_reason") or ""),
-        "search_time_budget_ms": int(time_budget_ms),
-        "search_elapsed_ms": float((time.perf_counter() - recourse_start_ts) * 1000.0),
+        "search_time_budget_ms": int(
+            (
+                search_profile.get("search_cfg", {})
+                if isinstance(search_profile.get("search_cfg", {}), dict)
+                else {}
+            ).get("time_budget_ms", 0)
+        ),
+        "search_elapsed_ms": float(search_elapsed_ms),
         "fairness_penalty": float(fairness_penalty),
         "decision_id": str(decision_log_record["decision_id"]),
         "selection_propensity": float(decision_log_record["selection_propensity"]),
         "decision_log_completeness": float(decision_log_summary.get("decision_log_completeness", 0.0)),
     }
-    run_ctx.save_metrics(summary)
 
-    logger.info(
-        "Recourse run complete. plans=%s approved=%s denied_target=%s best_source=%s",
-        summary["plan_count"],
-        summary["approved_count"],
-        summary["denied_target_mode"],
-        summary["best_plan_source"],
+
+def build_customer_artifact_bundle(
+    *,
+    customer_id: str,
+    model_version: str,
+    base_pd: float,
+    search_profile: dict[str, Any],
+    segment_context: dict[str, Any],
+    validated: list[PlanRecord],
+    candidate_pool: list[PlanRecord],
+    best: PlanRecord,
+    best_source: str,
+    roadmap: dict[str, Any],
+    msi: float,
+    alpha: float,
+    robust_objective: str,
+    robust_cvar_quantile: float,
+    local_reason_bundle: dict[str, Any],
+    adverse_action_reasons: list[Any],
+    dice_backend: str,
+    dice_records: list[PlanRecord],
+    dice_telemetry: dict[str, Any],
+    search_elapsed_ms: float,
+    fairness_penalty: float,
+    decision_log_record: dict[str, Any],
+    decision_log_summary: dict[str, Any],
+) -> CustomerArtifactBundle:
+    plans_df = pd.DataFrame([_plan_to_row(p) for p in validated])
+    roadmap_steps_df = _build_customer_roadmap_steps_df(
+        customer_id=customer_id,
+        best_plan_id=str(best.plan_id),
+        roadmap=roadmap,
     )
-    logger.info("Plan outputs: %s %s", plans_csv, plans_json)
-    logger.info("DiCE outputs: %s %s %s backend=%s", dice_csv, dice_json, dice_tel_json, dice_backend)
-    logger.info("Candidate pool outputs: %s %s", pool_csv, pool_json)
-    logger.info("Roadmap outputs: %s %s", roadmap_json, roadmap_steps_csv)
-    logger.info("Decision logging outputs: %s %s", decision_log_out, decision_log_summary_out)
-    logger.info("Adverse action reasons: %s", adverse_out)
+    metrics_summary = _build_customer_metrics_summary(
+        model_version=model_version,
+        customer_id=customer_id,
+        base_pd=base_pd,
+        search_profile=search_profile,
+        segment_context=segment_context,
+        validated=validated,
+        candidate_pool=candidate_pool,
+        best=best,
+        best_source=best_source,
+        roadmap=roadmap,
+        msi=msi,
+        alpha=alpha,
+        robust_objective=robust_objective,
+        robust_cvar_quantile=robust_cvar_quantile,
+        local_reason_bundle=local_reason_bundle,
+        adverse_action_reasons=adverse_action_reasons,
+        dice_backend=dice_backend,
+        dice_records=dice_records,
+        dice_telemetry=dice_telemetry,
+        search_elapsed_ms=search_elapsed_ms,
+        fairness_penalty=fairness_penalty,
+        decision_log_record=decision_log_record,
+        decision_log_summary=decision_log_summary,
+    )
+    return CustomerArtifactBundle(
+        customer_id=str(customer_id),
+        plans_df=plans_df,
+        roadmap=roadmap,
+        roadmap_steps_df=roadmap_steps_df,
+        metrics_summary=metrics_summary,
+    )
 
 
+def write_customer_artifact_bundle(bundle: CustomerArtifactBundle, output_dir: Path) -> dict[str, Path]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    plans_json = output_dir / "plans.json"
+    roadmap_json = output_dir / "customer_roadmap.json"
+    metrics_json = output_dir / "metrics.json"
+    roadmap_steps_csv = output_dir / "customer_roadmap_steps.csv"
+    plans_json.write_text(bundle.plans_df.to_json(orient="records", indent=2), encoding="utf-8")
+    roadmap_json.write_text(json.dumps(bundle.roadmap, indent=2, ensure_ascii=False), encoding="utf-8")
+    metrics_json.write_text(json.dumps(bundle.metrics_summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    bundle.roadmap_steps_df.to_csv(roadmap_steps_csv, index=False)
+    return {
+        "plans_json": plans_json,
+        "roadmap_json": roadmap_json,
+        "metrics_json": metrics_json,
+        "roadmap_steps_csv": roadmap_steps_csv,
+    }
+
+
+def generate_customer_recourse_artifacts(
+    *,
+    customer_id: str,
+    run_id: str,
+    row: pd.Series,
+    test_df: pd.DataFrame,
+    train_df: pd.DataFrame,
+    model,
+    calibrator,
+    manifest: dict[str, Any],
+    feature_cols: list[str],
+    target_col: str,
+    model_cfg: dict[str, Any],
+    rec_cfg: dict[str, Any],
+    c_cfg: dict[str, Any],
+    s_cfg: dict[str, Any],
+    m_cfg: dict[str, Any],
+    graph,
+    persist_repository_records: bool = True,
+) -> CustomerRecourseRunResult:
+    local_reason_bundle = compute_local_reason_bundle(
+        model,
+        row[feature_cols],
+        top_k=int(rec_cfg.get("shap", {}).get("topk_features", 10)),
+        perturbations=int(rec_cfg.get("shap", {}).get("stability_perturbations", 6)),
+        noise_std=float(rec_cfg.get("shap", {}).get("stability_noise_std", 0.01)),
+        random_state=int(rec_cfg.get("shap", {}).get("stability_seed", 42)),
+        background_df=train_df[feature_cols].sample(
+            n=min(len(train_df), int(rec_cfg.get("shap", {}).get("background_samples", 256))),
+            random_state=int(rec_cfg.get("shap", {}).get("stability_seed", 42)),
+        ),
+    )
+    adverse_action_reasons = build_adverse_action_reasons(local_reason_bundle.get("reasons", []), max_items=4)
+
+    tau = float(model_cfg.get("decision", {}).get("tau_0", 0.35))
+    horizons = [int(v) for v in rec_cfg.get("horizons", [3, 6, 12])]
+    strategies = [str(v) for v in rec_cfg.get("strategies", ["conservative", "balanced", "aggressive"])]
+    robust_cfg_base = rec_cfg.get("robust", {}) if isinstance(rec_cfg.get("robust", {}), dict) else {}
+    dice_cfg_base = rec_cfg.get("dice", {}) if isinstance(rec_cfg.get("dice", {}), dict) else {}
+    scenarios = m_cfg.get("shock_scenarios", []) if isinstance(m_cfg.get("shock_scenarios", []), list) else []
+    threshold_shift = float(m_cfg.get("event_impact", {}).get("threshold_shift_per_msi_unit", 0.0))
+    uncertainty_cfg = s_cfg.get("uncertainty", {}) if isinstance(s_cfg.get("uncertainty", {}), dict) else {}
+    conformal_artifact_path = manifest.get("conformal_calibration_path")
+    if conformal_artifact_path:
+        uncertainty_cfg = dict(uncertainty_cfg)
+        conformal_cfg = (
+            uncertainty_cfg.get("conformal", {})
+            if isinstance(uncertainty_cfg.get("conformal", {}), dict)
+            else {}
+        )
+        conformal_cfg = dict(conformal_cfg)
+        if not str(conformal_cfg.get("calibration_artifact_path", "")).strip():
+            conformal_cfg["calibration_artifact_path"] = str(conformal_artifact_path)
+        uncertainty_cfg["conformal"] = conformal_cfg
+
+        robust_cfg_base = dict(robust_cfg_base)
+        gate_obj = (
+            robust_cfg_base.get("gate_objective", {})
+            if isinstance(robust_cfg_base.get("gate_objective", {}), dict)
+            else {}
+        )
+        gate_obj = dict(gate_obj)
+        unc_cfg = gate_obj.get("uncertainty", {}) if isinstance(gate_obj.get("uncertainty", {}), dict) else {}
+        unc_cfg = dict(unc_cfg)
+        if not str(unc_cfg.get("calibration_artifact_path", "")).strip():
+            unc_cfg["calibration_artifact_path"] = str(conformal_artifact_path)
+        gate_obj["uncertainty"] = unc_cfg
+        robust_cfg_base["gate_objective"] = gate_obj
+
+    actionable = set(get_actionable_features())
+    local_reasons = local_reason_bundle.get("reasons", [])
+    candidate_features = [r for r in local_reasons if str(r.get("feature", "")) in actionable]
+
+    base_pd = float(
+        predict_proba_pd(
+            model,
+            calibrator,
+            pd.DataFrame([row[feature_cols].values], columns=feature_cols),
+        )[0]
+    )
+    topk_default = int(rec_cfg.get("shap", {}).get("topk_features", 10))
+    segment_caps_cfg = rec_cfg.get("segment_caps", {}) if isinstance(rec_cfg.get("segment_caps", {}), dict) else {}
+    q_cfg = segment_caps_cfg.get("income_quantiles", [0.25, 0.50, 0.75])
+    q_list = list(q_cfg) if isinstance(q_cfg, list) else [0.25, 0.50, 0.75]
+    income_edges = _compute_income_edges(test_df.get("annual_inc", pd.Series(dtype=float)), q_list)
+    feasibility_cfg = rec_cfg.get("feasibility", {}) if isinstance(rec_cfg.get("feasibility", {}), dict) else {}
+    feasibility_profile: dict[str, Any] | None = None
+    if bool(feasibility_cfg.get("enabled", False)):
+        profile_path = str(feasibility_cfg.get("profile_path", "")).strip()
+        if profile_path:
+            feasibility_profile = load_config(profile_path)
+    feasibility_internal_profile = feasibility_profile if bool(feasibility_cfg.get("enforce_on_internal", True)) else None
+    feasibility_dice_profile = feasibility_profile if bool(feasibility_cfg.get("enforce_on_dice", True)) else None
+    search_profile, robust_cfg, dice_cfg = _effective_recourse_search(
+        base_pd=base_pd,
+        tau=tau,
+        topk=topk_default,
+        horizons=horizons,
+        strategies=strategies,
+        robust_cfg=robust_cfg_base,
+        dice_cfg=dice_cfg_base,
+        rec_cfg=rec_cfg,
+    )
+    segment_context = _build_segment_context(
+        row=row,
+        base_pd=base_pd,
+        tau=tau,
+        denied_mode=bool(search_profile.get("is_denied_target", False)),
+        segment_caps_cfg=segment_caps_cfg,
+        income_edges=income_edges,
+    )
+    search_cfg_patch = (
+        search_profile.get("search_cfg", {})
+        if isinstance(search_profile.get("search_cfg", {}), dict)
+        else {}
+    )
+    search_cfg_patch = dict(search_cfg_patch)
+    search_cfg_patch["segment_context"] = segment_context
+    search_profile["search_cfg"] = search_cfg_patch
+    robust_objective = str(robust_cfg.get("objective", "cvar"))
+    robust_cvar_quantile = float(robust_cfg.get("cvar_quantile", 0.9))
+    min_reliability = robust_cfg.get("min_reliability")
+    min_worst_margin = robust_cfg.get("min_worst_risk_margin")
+    min_reliability_f = float(min_reliability) if min_reliability is not None else None
+    min_worst_margin_f = float(min_worst_margin) if min_worst_margin is not None else None
+
+    fairness_cfg = rec_cfg.get("fairness", {}) if isinstance(rec_cfg.get("fairness", {}), dict) else {}
+    fairness_group_col = str(fairness_cfg.get("group_feature", "home_ownership"))
+    fairness_penalty = 0.0
+    if fairness_group_col in test_df.columns and fairness_group_col in row.index:
+        sample_n = min(len(test_df), int(fairness_cfg.get("penalty_sample_n", 3000)))
+        fairness_sample = test_df.sample(n=sample_n, random_state=int(fairness_cfg.get("penalty_seed", 42)))
+        fairness_proba = pd.Series(
+            predict_proba_pd(model, calibrator, fairness_sample[feature_cols]),
+            index=fairness_sample.index,
+            dtype=float,
+        )
+        fairness_scored = pd.DataFrame(
+            {
+                fairness_group_col: fairness_sample[fairness_group_col].astype(str).fillna("unknown"),
+                "approve": (fairness_proba <= tau).astype(int),
+            }
+        )
+        group_penalties = build_group_advantage_penalties(
+            fairness_scored,
+            group_col=fairness_group_col,
+            approval_col="approve",
+            tolerance=float(fairness_cfg.get("advantage_tolerance", 0.01)),
+        )
+        fairness_penalty = lookup_group_penalty(row[fairness_group_col], group_penalties)
+
+    recourse_start_ts = time.perf_counter()
+    plans = generate_nine_plans(
+        customer_id=customer_id,
+        run_id=run_id,
+        row=row,
+        model=model,
+        calibrator=calibrator,
+        feature_cols=feature_cols,
+        graph=graph,
+        tau=tau,
+        horizons=search_profile["horizons"],
+        strategies=search_profile["strategies"],
+        candidate_features=candidate_features,
+        topk=int(search_profile["topk"]),
+        scenarios=scenarios,
+        threshold_shift_per_msi_unit=threshold_shift,
+        robust_cfg=robust_cfg,
+        search_cfg=search_profile.get("search_cfg", {}),
+        fairness_penalty=fairness_penalty,
+        feasibility_profile=feasibility_internal_profile,
+        segment_context=segment_context,
+    )
+
+    macro_snapshot = load_macro_snapshot_mock()
+    msi = compute_macro_stress_index(macro_snapshot, m_cfg.get("stress_index_weights", {}))
+    base_alpha = float(s_cfg.get("confidence", {}).get("base_alpha", 0.05))
+    high_stress_alpha = float(s_cfg.get("confidence", {}).get("high_stress_alpha", 0.01))
+    stress_threshold = float(m_cfg.get("stress_threshold", 0.7))
+    alpha = dynamic_alpha(msi, base_alpha=base_alpha, high_stress_alpha=high_stress_alpha, threshold=stress_threshold)
+
+    bootstrap_b = int(s_cfg.get("bootstrap", {}).get("B", 500))
+    validated = [
+        validate_plan(
+            plan,
+            tau=tau,
+            alpha=alpha,
+            bootstrap_b=bootstrap_b,
+            scenarios=scenarios,
+            threshold_shift_per_msi_unit=threshold_shift,
+            robust_objective=robust_objective,
+            robust_cvar_quantile=robust_cvar_quantile,
+            min_reliability=min_reliability_f,
+            min_worst_risk_margin=min_worst_margin_f,
+            uncertainty_cfg=uncertainty_cfg,
+            segment_context=segment_context,
+        )
+        for plan in plans
+    ]
+
+    if persist_repository_records:
+        for plan in validated:
+            save_plan(plan)
+
+    search_cfg = (
+        search_profile.get("search_cfg", {})
+        if isinstance(search_profile.get("search_cfg", {}), dict)
+        else {}
+    )
+    internal_approved_count = int(sum(1 for plan in validated if plan.status == "APPROVED"))
+    deny_mode = bool(search_profile.get("is_denied_target", False))
+    time_budget_ms = int(search_cfg.get("time_budget_ms", 0))
+    skip_dice_when_internal_approved = bool(search_cfg.get("skip_dice_when_internal_approved", False))
+    skip_dice_for_non_denied = bool(search_cfg.get("skip_dice_for_non_denied", False))
+    elapsed_so_far_ms = float((time.perf_counter() - recourse_start_ts) * 1000.0)
+    remaining_budget_ms = int(max(0.0, float(time_budget_ms) - elapsed_so_far_ms)) if time_budget_ms > 0 else 0
+
+    skip_dice_reason = ""
+    if skip_dice_when_internal_approved and internal_approved_count > 0:
+        skip_dice_reason = "internal_already_approved"
+    if not skip_dice_reason and skip_dice_for_non_denied and not deny_mode:
+        skip_dice_reason = "non_denied_profile"
+    if not skip_dice_reason and time_budget_ms > 0 and elapsed_so_far_ms >= float(time_budget_ms):
+        skip_dice_reason = "time_budget_exceeded"
+
+    dice_records: list[PlanRecord] = []
+    dice_backend = "skipped"
+    dice_telemetry: dict[str, Any] = {
+        "method_requested": str(dice_cfg.get("method", "random")),
+        "method_used": "skipped",
+        "fallback_reason": skip_dice_reason or "skipped_by_policy",
+        "attempted_method_count": 0,
+    }
+    if not skip_dice_reason:
+        configured_timeout_ms = int(dice_cfg.get("timeout_ms", 0))
+        dice_timeout_ms = configured_timeout_ms
+        if dice_timeout_ms > 0 and remaining_budget_ms > 0:
+            dice_timeout_ms = min(dice_timeout_ms, remaining_budget_ms)
+        dice_action_sets, dice_backend, dice_telemetry = generate_dice_counterfactual_actions(
+            row=row,
+            feature_cols=feature_cols,
+            actionable_features=sorted(actionable),
+            model=model,
+            calibrator=calibrator,
+            train_df=train_df,
+            target_col=target_col,
+            total_cfs=int(dice_cfg.get("total_cfs", 3)),
+            random_seed=int(dice_cfg.get("seed", 42)),
+            dice_method=str(dice_cfg.get("method", "random")),
+            max_actions=int(dice_cfg.get("max_actions", 4)),
+            enable_method_fallback=bool(dice_cfg.get("enable_method_fallback", True)),
+            timeout_ms=int(max(0, dice_timeout_ms)),
+            stopping_threshold=float(tau),
+        )
+        for idx, actions in enumerate(dice_action_sets, start=1):
+            plan = _dice_plan_record(
+                idx=idx,
+                customer_id=customer_id,
+                run_id=run_id,
+                row=row,
+                feature_cols=feature_cols,
+                actions=actions,
+                model=model,
+                calibrator=calibrator,
+                tau=tau,
+                graph=graph,
+                causal_weight=float(c_cfg.get("penalty_weight", 0.3)),
+                feasibility_profile=feasibility_dice_profile,
+                segment_context=segment_context,
+            )
+            plan = validate_plan(
+                plan,
+                tau=tau,
+                alpha=alpha,
+                bootstrap_b=bootstrap_b,
+                scenarios=scenarios,
+                threshold_shift_per_msi_unit=threshold_shift,
+                robust_objective=robust_objective,
+                robust_cvar_quantile=robust_cvar_quantile,
+                min_reliability=min_reliability_f,
+                min_worst_risk_margin=min_worst_margin_f,
+                uncertainty_cfg=uncertainty_cfg,
+                segment_context=segment_context,
+            )
+            dice_records.append(plan)
+            if persist_repository_records:
+                save_plan(plan)
+
+    dice_df = pd.DataFrame([_plan_to_row(plan) for plan in dice_records])
+    candidate_pool = validated + dice_records
+    candidate_pool_max_size = int(search_cfg.get("candidate_pool_max_size", 0))
+    candidate_pool = _prune_candidate_pool(candidate_pool, candidate_pool_max_size)
+    candidate_pool_df = pd.DataFrame(
+        [
+            {
+                **_plan_to_row(plan),
+                "plan_source": ("dice" if "_dice_" in str(plan.plan_id) else "internal"),
+            }
+            for plan in candidate_pool
+        ]
+    )
+
+    best = choose_best_plan(
+        candidate_pool,
+        base_pd=base_pd,
+        tau=tau,
+        min_reliability=min_reliability_f,
+        min_worst_risk_margin=min_worst_margin_f,
+        fairness_penalty=fairness_penalty,
+        denied_mode=bool(search_profile.get("is_denied_target", False)),
+        segment_context=segment_context,
+        denied_objective_cfg=robust_cfg.get("denied_objective", {}),
+    )
+    best_source = "dice" if "_dice_" in str(best.plan_id) else "internal"
+    roadmap = _build_customer_roadmap(
+        customer_id=customer_id,
+        base_pd=base_pd,
+        tau=tau,
+        best=best,
+        best_source=best_source,
+        row=row,
+        model=model,
+        calibrator=calibrator,
+        feature_cols=feature_cols,
+        local_reason_bundle=local_reason_bundle,
+    )
+    decision_log_record = _decision_log_record(
+        run_id=run_id,
+        customer_id=str(customer_id),
+        plan=best,
+    )
+    decision_log_summary = build_decision_logging_summary([decision_log_record])
+    artifact_bundle = build_customer_artifact_bundle(
+        customer_id=customer_id,
+        model_version=str(manifest["model_version"]),
+        base_pd=base_pd,
+        search_profile=search_profile,
+        segment_context=segment_context,
+        validated=validated,
+        candidate_pool=candidate_pool,
+        best=best,
+        best_source=best_source,
+        roadmap=roadmap,
+        msi=msi,
+        alpha=alpha,
+        robust_objective=robust_objective,
+        robust_cvar_quantile=robust_cvar_quantile,
+        local_reason_bundle=local_reason_bundle,
+        adverse_action_reasons=adverse_action_reasons,
+        dice_backend=dice_backend,
+        dice_records=dice_records,
+        dice_telemetry=dice_telemetry,
+        search_elapsed_ms=float((time.perf_counter() - recourse_start_ts) * 1000.0),
+        fairness_penalty=fairness_penalty,
+        decision_log_record=decision_log_record,
+        decision_log_summary=decision_log_summary,
+    )
+    return CustomerRecourseRunResult(
+        bundle=artifact_bundle,
+        local_reason_bundle=local_reason_bundle,
+        adverse_action_reasons=adverse_action_reasons,
+        dice_df=dice_df,
+        dice_records=dice_records,
+        dice_backend=dice_backend,
+        dice_telemetry=dice_telemetry,
+        candidate_pool_df=candidate_pool_df,
+        decision_log_record=decision_log_record,
+        decision_log_summary=decision_log_summary,
+    )
 if __name__ == "__main__":
     main()

@@ -821,3 +821,13 @@ Bu milestone sonunda sistem:
 
 👉 Phase 30’u birlikte gsd-discuss seviyesinde kilitleyelim
 (çok kritik çünkü tüm milestone onun üstüne kurulu)
+
+
+
+
+
+
+
+
+** aksiyonların maliyet hesabı
+
