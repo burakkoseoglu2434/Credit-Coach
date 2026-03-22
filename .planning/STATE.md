@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 39
-Plan: None yet
-Status: Ready for discussion
-Last activity: 2026-03-22 - Executed Phase 38 across calibration contract, drift validation, and business-safe review packaging
+Plan: `39-01`, `39-02`, `39-03` drafted
+Status: Ready for execution
+Last activity: 2026-03-22 - Planned Phase 39 across pilot data contract, pilot package runner, and onboarding alignment
 
-Progress: `v2.0` is underway; Phases 30-38 are complete and the next active seam is `Phase 39: Pilot Integration`
+Progress: `v2.0` is underway; Phases 30-38 are complete, Phase 39 is planned, and the next active seam is executing `Phase 39: Pilot Integration`
 
 ## Performance Metrics
 
@@ -201,6 +201,12 @@ Recent decisions affecting current work:
   - a dedicated `Calibration & Validation` review section that keeps the business layer honest without losing technical transparency
 - `CAL-01` is now satisfied
 - The next active design seam is `Phase 39: Pilot Integration`
+- Phase 39 has no locked discuss context yet; this planning pass intentionally proceeds with roadmap, requirements, prior pilot-readiness docs, and current code seams only
+- Phase 39 planning is now split into:
+  - canonical pilot data contract and validated ingestion seam
+  - pilot package runner plus guardrail and acceptance packaging
+  - engine-side onboarding docs and website-side pilot handoff alignment
+- The next active step is executing `Phase 39: Pilot Integration`
 - Phase 36 context now locks:
   - action-first surface hierarchy with `executive_summary -> action cards -> checkpoint strip -> offer panel -> reasons -> technical reveal`
   - checkpoint strip directly above actions with `4w` visually dominant
@@ -226,5 +232,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Phase 38 execution completed; next step is `$gsd-discuss-phase 39`
+Stopped at: Phase 39 planning completed; next step is `$gsd-execute-phase 39`
 Resume file: None
