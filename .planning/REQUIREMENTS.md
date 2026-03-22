@@ -36,7 +36,7 @@
 
 ### Portfolio Impact
 
-- [ ] **PVAL-01**: Portfolio evaluation can quantify the distribution and impact of personalized numeric plans rather than only generic recourse outputs
+- [x] **PVAL-01**: Portfolio evaluation can quantify the distribution and impact of personalized numeric plans rather than only generic recourse outputs
 
 ### Calibration And Validation
 
@@ -84,7 +84,7 @@
 | OFFR-01 | Phase 34 | Satisfied |
 | NARV-01 | Phase 35 | Satisfied |
 | SURF-01 | Phase 36 | Satisfied |
-| PVAL-01 | Phase 37 | Pending |
+| PVAL-01 | Phase 37 | Satisfied |
 | CAL-01 | Phase 38 | Pending |
 | PILT-01 | Phase 39 | Pending |
 
@@ -95,4 +95,4 @@
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-22 after Phase 36 execution*
+*Last updated: 2026-03-22 after Phase 37 execution*
