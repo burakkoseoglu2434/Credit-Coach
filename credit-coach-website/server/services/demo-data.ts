@@ -2,7 +2,11 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { demoIndexSchema, productConfidenceSnapshotSchema } from "../../shared/demo-schema.js";
+import {
+  demoIndexSchema,
+  productConfidenceSnapshotSchema,
+  singleCustomerDemoSchema,
+} from "../../shared/demo-schema.js";
 import { getLiveSingleCustomerDemo } from "./live-demo.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -172,6 +176,8 @@ export async function getDemoPayload(slug: string) {
     content:
       slug === "product-confidence-snapshot"
         ? productConfidenceSnapshotSchema.parse(parsed)
-        : parsed,
+        : slug === "single-customer-roadmap"
+          ? singleCustomerDemoSchema.parse(parsed)
+          : parsed,
   };
 }

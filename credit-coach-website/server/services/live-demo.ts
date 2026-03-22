@@ -165,10 +165,17 @@ type RawRoadmapStep = {
   action_class?: unknown;
   action_title?: unknown;
   action_group_id?: unknown;
+  business_view?: unknown;
+  technical_view?: unknown;
+  primary_numeric_target?: unknown;
+  offer_contract?: unknown;
   time_months?: unknown;
   estimated_cost_usd?: unknown;
   action_execution_probability?: unknown;
   action_group_execution_probability?: unknown;
+  approval_dependent_probability?: unknown;
+  difficulty_score?: unknown;
+  difficulty_label?: unknown;
   offer_type?: unknown;
   narrative?: unknown;
 };
@@ -218,6 +225,13 @@ type CachedDemo = {
   data: SingleCustomerDemo;
   expiresAt: number;
 };
+
+type NormalizedRoadmapStep = SingleCustomerDemo["phases"][number]["steps"][number];
+type NormalizedBusinessView = NonNullable<NormalizedRoadmapStep["business_view"]>;
+type NormalizedTechnicalView = NonNullable<NormalizedRoadmapStep["technical_view"]>;
+type NormalizedPrimaryNumericTarget = NonNullable<NormalizedRoadmapStep["primary_numeric_target"]>;
+type NormalizedOfferContract = NonNullable<NormalizedRoadmapStep["offer_contract"]>;
+type NormalizedOfferTerms = NonNullable<NormalizedOfferContract["offer_terms"]>;
 
 let cachedDemo: CachedDemo | null = null;
 let inFlightDemo: Promise<SingleCustomerDemo> | null = null;
@@ -277,6 +291,141 @@ function toBoolean(value: unknown) {
     return value === "1" || value.toLowerCase() === "true";
   }
   return false;
+}
+
+function toRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function toNullableNumber(value: unknown) {
+  if (value === null) {
+    return null;
+  }
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+function toBusinessView(value: unknown): NormalizedBusinessView | undefined {
+  const record = toRecord(value);
+  if (!record) {
+    return undefined;
+  }
+  return {
+    action_key: toStringValue(record.action_key) || undefined,
+    action_family: toStringValue(record.action_family) || undefined,
+    action_class: toStringValue(record.action_class) || undefined,
+    action_title: toStringValue(record.action_title) || undefined,
+    action_description: toStringValue(record.action_description) || undefined,
+    action_group_id: toStringValue(record.action_group_id) || undefined,
+  };
+}
+
+function toTechnicalView(value: unknown): NormalizedTechnicalView | undefined {
+  const record = toRecord(value);
+  const featureName = toStringValue(record?.feature_name);
+  if (!record || !featureName) {
+    return undefined;
+  }
+  return {
+    feature_name: featureName,
+    current_value: toNullableNumber(record.current_value),
+    target_value: toNullableNumber(record.target_value),
+    delta: toNullableNumber(record.delta),
+    time_months: toNullableNumber(record.time_months),
+    phase_id: toStringValue(record.phase_id) || undefined,
+    week_start: toNullableNumber(record.week_start),
+    week_end: toNullableNumber(record.week_end),
+    checkpoint_metric: toStringValue(record.checkpoint_metric) || undefined,
+  };
+}
+
+function toPrimaryNumericTarget(value: unknown): NormalizedPrimaryNumericTarget | undefined {
+  const record = toRecord(value);
+  const metricKey = toStringValue(record?.metric_key);
+  const unit = toStringValue(record?.unit);
+  const targetValue =
+    typeof record?.target_value === "number" && Number.isFinite(record.target_value)
+      ? record.target_value
+      : undefined;
+  const deltaValue =
+    typeof record?.delta_value === "number" && Number.isFinite(record.delta_value)
+      ? record.delta_value
+      : undefined;
+  const dueMonth =
+    typeof record?.due_month === "number" && Number.isFinite(record.due_month)
+      ? record.due_month
+      : undefined;
+  const direction = toStringValue(record?.direction);
+  if (
+    !record ||
+    !metricKey ||
+    !["currency", "percentage_points", "ratio", "score_points", "months", "boolean_state", "count"].includes(unit) ||
+    targetValue === undefined ||
+    deltaValue === undefined ||
+    dueMonth === undefined ||
+    !["decrease", "increase"].includes(direction)
+  ) {
+    return undefined;
+  }
+  return {
+    metric_key: metricKey,
+    unit: unit as NormalizedPrimaryNumericTarget["unit"],
+    current_value: toNullableNumber(record.current_value),
+    target_value: targetValue,
+    delta_value: deltaValue,
+    due_month: dueMonth,
+    direction: direction as NormalizedPrimaryNumericTarget["direction"],
+    generation_notes: Array.isArray(record.generation_notes)
+      ? record.generation_notes.filter((note): note is string => typeof note === "string")
+      : undefined,
+    raw_generation_basis: toRecord(record.raw_generation_basis),
+  };
+}
+
+function toOfferTerms(value: unknown): NormalizedOfferTerms | undefined {
+  const record = toRecord(value);
+  if (!record) {
+    return undefined;
+  }
+  return {
+    payment_delta_monthly: toNullableNumber(record.payment_delta_monthly),
+    discount_amount: toNullableNumber(record.discount_amount),
+    discount_pct: toNullableNumber(record.discount_pct),
+    term_extension_months: toNullableNumber(record.term_extension_months),
+    interest_rate_delta: toNullableNumber(record.interest_rate_delta),
+    grace_period_weeks: toNullableNumber(record.grace_period_weeks),
+    extensions: toRecord(record.extensions),
+  };
+}
+
+function toOfferContract(value: unknown): NormalizedOfferContract | undefined {
+  const record = toRecord(value);
+  if (!record) {
+    return undefined;
+  }
+  const approvalState = toStringValue(record.institutional_approval_state);
+  return {
+    offer_type: toStringValue(record.offer_type) || undefined,
+    offer_family: toStringValue(record.offer_family) || undefined,
+    offer_terms: toOfferTerms(record.offer_terms),
+    offer_terms_complete:
+      typeof record.offer_terms_complete === "boolean" ? record.offer_terms_complete : undefined,
+    requires_acceptance:
+      typeof record.requires_acceptance === "boolean" ? record.requires_acceptance : undefined,
+    requires_institutional_approval:
+      typeof record.requires_institutional_approval === "boolean"
+        ? record.requires_institutional_approval
+        : undefined,
+    institutional_approval_state: ["not_required", "approved", "pending", "unknown"].includes(approvalState)
+      ? (approvalState as NormalizedOfferContract["institutional_approval_state"])
+      : undefined,
+    offer_policy_arm: toStringValue(record.offer_policy_arm) || undefined,
+    offer_scoring_profile: toStringValue(record.offer_scoring_profile) || undefined,
+    term_generation_rule: toStringValue(record.term_generation_rule) || undefined,
+  };
 }
 
 async function readJsonFile<T>(filePath: string): Promise<T> {
@@ -557,6 +706,10 @@ function normalizeSingleCustomerDemo(
       const timeMonths = toNumber(step.time_months, 1);
       const estimatedCostUsd = toNumber(step.estimated_cost_usd);
       const offerType = toStringValue(step.offer_type);
+      const difficultyScore =
+        typeof step.difficulty_score === "number" && Number.isFinite(step.difficulty_score)
+          ? step.difficulty_score
+          : undefined;
       const fallbackProbability = fallbackStepExecutionProbability(
         actionMeta.actionClass,
         timeMonths,
@@ -568,6 +721,7 @@ function normalizeSingleCustomerDemo(
         action_key: actionMeta.actionKey,
         action_class: actionMeta.actionClass,
         action_title: actionMeta.actionTitle,
+        action_group_id: toStringValue(step.action_group_id),
         detail: stepDetailFor(actionMeta.actionKey),
         time_months: timeMonths,
         estimated_cost_usd: estimatedCostUsd,
@@ -575,6 +729,18 @@ function normalizeSingleCustomerDemo(
           step.action_execution_probability ?? step.action_group_execution_probability,
           fallbackProbability,
         ),
+        action_execution_probability: toNumber(step.action_execution_probability, fallbackProbability),
+        action_group_execution_probability: toNumber(
+          step.action_group_execution_probability,
+          fallbackProbability,
+        ),
+        approval_dependent_probability: toNumber(step.approval_dependent_probability, 0),
+        difficulty_score: difficultyScore,
+        difficulty_label: toStringValue(step.difficulty_label),
+        business_view: toBusinessView(step.business_view),
+        technical_view: toTechnicalView(step.technical_view),
+        primary_numeric_target: toPrimaryNumericTarget(step.primary_numeric_target),
+        offer_contract: toOfferContract(step.offer_contract),
         offer_type: offerType,
         narrative: stepNarrativeMap.get(stepId),
       };

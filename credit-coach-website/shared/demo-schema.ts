@@ -10,6 +10,73 @@ export const narrativeCardSchema = z.object({
   description: localizedTextSchema,
 });
 
+export const actionBusinessViewSchema = z.object({
+  action_key: z.string().nullable().optional(),
+  action_family: z.string().nullable().optional(),
+  action_class: z.string().nullable().optional(),
+  action_title: z.string().nullable().optional(),
+  action_description: z.string().nullable().optional(),
+  action_group_id: z.string().nullable().optional(),
+});
+
+export const actionTechnicalViewSchema = z.object({
+  feature_name: z.string(),
+  current_value: z.number().nullable().optional(),
+  target_value: z.number().nullable().optional(),
+  delta: z.number().nullable().optional(),
+  time_months: z.number().nullable().optional(),
+  phase_id: z.string().nullable().optional(),
+  week_start: z.number().nullable().optional(),
+  week_end: z.number().nullable().optional(),
+  checkpoint_metric: z.string().nullable().optional(),
+});
+
+export const primaryNumericTargetSchema = z.object({
+  metric_key: z.string(),
+  unit: z.enum([
+    "currency",
+    "percentage_points",
+    "ratio",
+    "score_points",
+    "months",
+    "boolean_state",
+    "count",
+  ]),
+  current_value: z.number().nullable().optional(),
+  target_value: z.number(),
+  delta_value: z.number(),
+  due_month: z.number(),
+  direction: z.enum(["decrease", "increase"]),
+  generation_notes: z.array(z.string()).optional(),
+  raw_generation_basis: z.record(z.unknown()).optional(),
+});
+
+export const offerTermsSchema = z.object({
+  payment_delta_monthly: z.number().nullable().optional(),
+  discount_amount: z.number().nullable().optional(),
+  discount_pct: z.number().nullable().optional(),
+  term_extension_months: z.number().nullable().optional(),
+  interest_rate_delta: z.number().nullable().optional(),
+  grace_period_weeks: z.number().nullable().optional(),
+  extensions: z.record(z.unknown()).optional(),
+});
+
+export const offerContractSchema = z.object({
+  offer_type: z.string().nullable().optional(),
+  offer_family: z.string().nullable().optional(),
+  offer_terms: offerTermsSchema.optional(),
+  offer_terms_complete: z.boolean().optional(),
+  requires_acceptance: z.boolean().optional(),
+  requires_institutional_approval: z.boolean().optional(),
+  institutional_approval_state: z
+    .enum(["not_required", "approved", "pending", "unknown"])
+    .nullable()
+    .optional(),
+  offer_policy_arm: z.string().nullable().optional(),
+  offer_scoring_profile: z.string().nullable().optional(),
+  term_generation_rule: z.string().nullable().optional(),
+});
+
 export const metricRecordSchema = z.object({
   label: z.string(),
   value: z.union([z.string(), z.number()]),
@@ -114,10 +181,20 @@ export const roadmapStepSchema = z.object({
   action_key: z.string(),
   action_class: z.string(),
   action_title: z.string(),
+  action_group_id: z.string().optional(),
   detail: z.string(),
   time_months: z.number(),
   estimated_cost_usd: z.number(),
   plan_execution_probability: z.number().optional(),
+  action_execution_probability: z.number().optional(),
+  action_group_execution_probability: z.number().optional(),
+  approval_dependent_probability: z.number().optional(),
+  difficulty_score: z.number().optional(),
+  difficulty_label: z.string().optional(),
+  business_view: actionBusinessViewSchema.optional(),
+  technical_view: actionTechnicalViewSchema.optional(),
+  primary_numeric_target: primaryNumericTargetSchema.optional(),
+  offer_contract: offerContractSchema.optional(),
   offer_type: z.string().optional(),
   narrative: z
     .object({
@@ -130,6 +207,9 @@ export const roadmapStepSchema = z.object({
       expected_outcome: localizedTextSchema,
       what_happens_if_done: localizedTextSchema,
       what_happens_if_not_done: localizedTextSchema,
+      feasibility_outcome_label: localizedTextSchema.optional(),
+      difficulty_label: localizedTextSchema.optional(),
+      follow_through_note: localizedTextSchema.optional(),
       action_timing_hint: localizedTextSchema.optional(),
       offer_narrative: z
         .object({
@@ -211,6 +291,7 @@ export const singleCustomerDemoSchema = z.object({
         offer_status: narrativeCardSchema,
         checkpoint_4w_summary: narrativeCardSchema,
         expected_result: narrativeCardSchema,
+        follow_through_readiness: narrativeCardSchema.optional(),
         decision_view: narrativeCardSchema,
         time_to_readiness: narrativeCardSchema,
         narrative_confidence: narrativeCardSchema,
@@ -226,6 +307,9 @@ export const singleCustomerDemoSchema = z.object({
           expected_outcome: localizedTextSchema,
           what_happens_if_done: localizedTextSchema,
           what_happens_if_not_done: localizedTextSchema,
+          feasibility_outcome_label: localizedTextSchema.optional(),
+          difficulty_label: localizedTextSchema.optional(),
+          follow_through_note: localizedTextSchema.optional(),
           action_timing_hint: localizedTextSchema.optional(),
           offer_narrative: z
             .object({
@@ -260,10 +344,12 @@ export const singleCustomerDemoSchema = z.object({
       ),
       technical_reveal: z.object({
         feature_changes: z.array(z.record(z.unknown())),
+        primary_numeric_targets: z.array(z.record(z.unknown())).optional(),
         explainability_reasons: z.array(z.record(z.unknown())),
         constraints_applied: z.array(z.record(z.unknown())),
         approval_dependencies: z.array(z.record(z.unknown())),
         diagnostic_flags: z.array(z.string()),
+        execution_details: z.record(z.unknown()).optional(),
         confidence_inputs: z.record(z.unknown()),
         narrative_confidence_label: z.enum(["high", "moderate", "low"]).optional().nullable(),
         narrative_confidence_score: z.number().optional().nullable(),

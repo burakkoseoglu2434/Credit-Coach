@@ -18,6 +18,7 @@ import {
   formatOfferType,
   formatPdPercent,
   formatTrajectoryStatus,
+  formatWindowLabel,
   pickLocalizedText,
 } from "@/lib/demo-formatters";
 import type { SingleCustomerDemo } from "@shared/demo-schema";
@@ -35,6 +36,28 @@ type BusinessSectionIntroProps = {
 type DetailRowProps = {
   label: string;
   value: ReactNode;
+};
+
+type LocalizedText = { tr: string; en: string };
+
+type ExecutiveNarrativeCardProps = {
+  eyebrow: string;
+  value?: { label: LocalizedText; description: LocalizedText } | null;
+};
+
+type CheckpointStripCardProps = {
+  label: string;
+  week: number;
+  summary: string;
+  supporting: string;
+  emphasis?: boolean;
+};
+
+type ReasonNarrativeCardProps = {
+  title: string;
+  description: string;
+  hint: string;
+  severity?: string | null;
 };
 
 function readNumber(value: unknown) {
@@ -75,6 +98,78 @@ function DetailRow({ label, value }: DetailRowProps) {
   );
 }
 
+function ExecutiveNarrativeCard({ eyebrow, value }: ExecutiveNarrativeCardProps) {
+  const { lang, text } = useLanguage();
+  const label = value ? pickLocalizedText(value.label, lang) : text({ tr: "Hazir degil", en: "Unavailable" });
+  const description = value
+    ? pickLocalizedText(value.description, lang)
+    : text({
+        tr: "Bu kart icin aciklama bu gorunumde hazir degil.",
+        en: "The supporting explanation for this card is not available in this view.",
+      });
+
+  return (
+    <div className="rounded-[24px] border border-white/10 bg-slate-950/45 p-5">
+      <div className="surface-label">{eyebrow}</div>
+      <div className="mt-3 font-medium text-white">{label}</div>
+      <p className="mt-2 text-sm leading-7 text-slate-300">{description}</p>
+    </div>
+  );
+}
+
+function CheckpointStripCard({
+  label,
+  week,
+  summary,
+  supporting,
+  emphasis = false,
+}: CheckpointStripCardProps) {
+  const { text } = useLanguage();
+
+  return (
+    <div
+      className={[
+        "rounded-[24px] border p-5",
+        emphasis
+          ? "border-arctic/30 bg-arctic/10 shadow-[0_0_0_1px_rgba(112,236,255,0.12)]"
+          : "border-white/10 bg-slate-950/45",
+      ].join(" ")}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="surface-label">{label}</div>
+        <div className="surface-label">
+          {text({ tr: "Hafta", en: "Week" })} {week}
+        </div>
+      </div>
+      <div className="mt-3 font-medium text-white">{summary}</div>
+      <p className="mt-2 text-sm leading-7 text-slate-300">{supporting}</p>
+    </div>
+  );
+}
+
+function ReasonNarrativeCard({
+  title,
+  description,
+  hint,
+  severity,
+}: ReasonNarrativeCardProps) {
+  const { text } = useLanguage();
+
+  return (
+    <div className="rounded-[24px] border border-white/10 bg-slate-950/45 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="surface-label">{text({ tr: "Plan nedeni", en: "Plan reason" })}</div>
+        {severity ? <div className="surface-label">{severity}</div> : null}
+      </div>
+      <div className="mt-3 font-medium text-white">{title}</div>
+      <p className="mt-2 text-sm leading-7 text-slate-300">{description}</p>
+      <div className="mt-4 rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-300">
+        {hint}
+      </div>
+    </div>
+  );
+}
+
 export function DemoCenterPage() {
   const { lang, text } = useLanguage();
   const locale = lang === "tr" ? "tr-TR" : "en-US";
@@ -107,13 +202,22 @@ export function DemoCenterPage() {
   const executiveSummary = narrative?.executive_summary;
   const technicalReveal = narrative?.technical_reveal;
   const firstCheckpoint = roadmapContent?.checkpoints[0];
+  const activePhases = roadmapContent?.phases.filter((phase) => phase.steps.length > 0) ?? [];
+  const visibleSteps = activePhases.flatMap((phase) =>
+    phase.steps.map((step) => ({
+      phase,
+      step,
+    })),
+  );
+  const visibleReasons = narrative?.reasons ?? [];
+  const offerBearingSteps = visibleSteps.filter(({ step }) =>
+    Boolean(step.narrative?.offer_narrative || step.offer_type),
+  );
   const isLiveDemo = Boolean(roadmapContent?.meta?.live);
   const hasOffer = Boolean(
-    roadmapContent?.phases.some((phase) => phase.steps.some((step) => step.offer_type)),
+    offerBearingSteps.length > 0,
   );
-  const firstOfferType = roadmapContent?.phases
-    .flatMap((phase) => phase.steps)
-    .find((step) => step.offer_type)?.offer_type;
+  const firstOfferType = offerBearingSteps.find(({ step }) => step.offer_type)?.step.offer_type;
   const improvement = summary ? summary.base_pd - summary.target_pd_24w : 0;
   const preferredPolicy = (opeContent.preferred_policy_signal as GenericContent | undefined) ?? {};
   const readiness =
@@ -283,8 +387,52 @@ export function DemoCenterPage() {
     ? pickLocalizedText(executiveSummary.summary_line, lang)
     : text({
         tr: "Varsayilan okumada once kurumun verecegi is karari gorulur; sayisal motor izleri ise yalnizca acildiginda gelir.",
-        en: "The default read shows the business decision first; the underlying engine traces appear only when opened.",
+      en: "The default read shows the business decision first; the underlying engine traces appear only when opened.",
       });
+  const executiveCards = executiveSummary
+    ? [
+        {
+          key: "risk_start",
+          eyebrow: text({ tr: "Baslangic riski", en: "Starting risk" }),
+          value: executiveSummary.risk_start,
+        },
+        {
+          key: "recommended_path",
+          eyebrow: text({ tr: "Onerilen yol", en: "Recommended path" }),
+          value: executiveSummary.recommended_path,
+        },
+        {
+          key: "checkpoint_4w_summary",
+          eyebrow: text({ tr: "4 haftalik oncelik", en: "4-week priority" }),
+          value: executiveSummary.checkpoint_4w_summary,
+        },
+        {
+          key: "time_to_readiness",
+          eyebrow: text({ tr: "Hazirlik takvimi", en: "Readiness timeline" }),
+          value: executiveSummary.time_to_readiness,
+        },
+        {
+          key: "decision_view",
+          eyebrow: text({ tr: "Karar gorunumu", en: "Decision view" }),
+          value: executiveSummary.decision_view,
+        },
+        {
+          key: "follow_through_readiness",
+          eyebrow: text({ tr: "Takip gercekligi", en: "Follow-through readiness" }),
+          value: executiveSummary.follow_through_readiness ?? null,
+        },
+        {
+          key: "offer_status",
+          eyebrow: text({ tr: "Kurum destegi", en: "Institution support" }),
+          value: executiveSummary.offer_status,
+        },
+        {
+          key: "narrative_confidence",
+          eyebrow: text({ tr: "Anlatim guveni", en: "Narrative confidence" }),
+          value: executiveSummary.narrative_confidence,
+        },
+      ]
+    : [];
 
   const portfolioStory =
     String(batchContent.batch_summary_story ?? "") ||
@@ -589,192 +737,153 @@ export function DemoCenterPage() {
                 </div>
 
                 <div className="panel-product p-6">
-                  <div className="surface-label">{text({ tr: "Checkpoint anlatimi", en: "Checkpoint story" })}</div>
-                  <div className="mt-4 space-y-4">
-                    {roadmapContent.checkpoints.map((checkpoint) => (
-                      <div
-                        key={checkpoint.week}
-                        className="rounded-[24px] border border-white/10 bg-slate-950/45 p-5"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="font-medium text-white">
-                            {formatCheckpointLabel(checkpoint.checkpoint_label, lang)}
-                          </div>
-                          <div className="surface-label">
-                            {text({ tr: "Hafta", en: "Week" })} {checkpoint.week}
-                          </div>
-                        </div>
-                        <p className="mt-3 text-sm leading-7 text-slate-300">
-                          {checkpoint.narrative
-                            ? pickLocalizedText(checkpoint.narrative.expected_state, lang)
-                            : checkpoint.note}
-                        </p>
-                        <div className="mt-3 text-sm leading-6 text-slate-400">
-                          {checkpoint.narrative
-                            ? pickLocalizedText(checkpoint.narrative.success_condition, lang)
-                            : formatCheckpointNote(
-                                checkpoint.week,
-                                checkpoint.approval_ready,
-                                checkpoint.gate_pass_estimate,
-                                lang,
-                              )}
-                        </div>
-                      </div>
+                  <div className="surface-label">{text({ tr: "Yonetici kartlari", en: "Executive cards" })}</div>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    {executiveCards.map((card) => (
+                      <ExecutiveNarrativeCard
+                        key={card.key}
+                        eyebrow={card.eyebrow}
+                        value={card.value}
+                      />
                     ))}
                   </div>
                 </div>
               </div>
 
+              <div className="mt-8">
+                <p className="section-bridge">
+                  {text({
+                    tr: "Bu yolun erken sagligi once checkpoint'lerde okunur, sonra aksiyon kartlariyla uygulanir:",
+                    en: "The early health of this path is read through checkpoints first, then carried through action cards:",
+                  })}
+                </p>
+                <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_1fr_1fr]">
+                  {roadmapContent.checkpoints.map((checkpoint) => (
+                    <CheckpointStripCard
+                      key={checkpoint.week}
+                      label={formatCheckpointLabel(checkpoint.checkpoint_label, lang)}
+                      week={checkpoint.week}
+                      summary={
+                        checkpoint.narrative
+                          ? pickLocalizedText(checkpoint.narrative.expected_state, lang)
+                          : checkpoint.note
+                      }
+                      supporting={
+                        checkpoint.narrative
+                          ? pickLocalizedText(checkpoint.narrative.success_condition, lang)
+                          : formatCheckpointNote(
+                              checkpoint.week,
+                              checkpoint.approval_ready,
+                              checkpoint.gate_pass_estimate,
+                              lang,
+                            )
+                      }
+                      emphasis={checkpoint.week === 4}
+                    />
+                  ))}
+                </div>
+              </div>
+
               <div className="mt-8 grid gap-5">
-                {roadmapContent.phases.map((phase) => (
+                {activePhases.map((phase) => (
                   <RoadmapPhaseCard key={phase.phase_id} phase={phase} />
                 ))}
               </div>
 
-              <details className="detail-panel mt-8 px-6 py-5 text-sm text-slate-300">
-                <summary className="cursor-pointer list-none font-semibold text-white">
-                  {text({ tr: "Teknik detaylari goster", en: "Show technical details" })}
-                </summary>
-                <div className="mt-5 grid gap-5 lg:grid-cols-2">
-                  <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
-                    <div className="surface-label">{text({ tr: "Musteri ozeti", en: "Customer summary" })}</div>
-                    <div className="mt-4 grid gap-2">
-                      <DetailRow
-                        label={text({ tr: "Yol durumu", en: "Trajectory status" })}
-                        value={formatTrajectoryStatus(summary.trajectory_status, lang)}
-                      />
-                      <DetailRow
-                        label={text({ tr: "Karar gorunumu", en: "Decision outlook" })}
-                        value={formatDecisionStatus(summary.decision_status, lang)}
-                      />
-                      <DetailRow
-                        label={text({ tr: "Krediye hazirlik", en: "Credit readiness" })}
-                        value={formatCreditReadinessStage(summary.credit_readiness_stage, lang)}
-                      />
-                      <DetailRow
-                        label={text({ tr: "Plan gerceklesme olasiligi", en: "Plan execution probability" })}
-                        value={formatPercent(summary.plan_execution_probability)}
-                      />
-                      <DetailRow
-                        label={text({ tr: "Teklif kabul olasiligi", en: "Offer acceptance probability" })}
-                        value={formatPercent(summary.offer_acceptance_probability)}
-                      />
-                      <DetailRow
-                        label={text({ tr: "Birlesik gerceklesme", en: "Combined realization probability" })}
-                        value={formatPercent(summary.combined_plan_realization_probability)}
-                      />
-                      <DetailRow
-                        label={text({ tr: "Baslangic PD", en: "Base PD" })}
-                        value={formatPdPercent(summary.base_pd, lang)}
-                      />
-                      <DetailRow
-                        label={text({ tr: "24 haftalik hedef PD", en: "24-week target PD" })}
-                        value={formatPdPercent(summary.target_pd_24w, lang)}
-                      />
-                    </div>
+              {offerBearingSteps.length > 0 ? (
+                <div className="mt-8 panel-product p-6">
+                  <div className="surface-label">{text({ tr: "Kurum destegi", en: "Institution support" })}</div>
+                  <div className="mt-3 font-display text-2xl font-semibold text-white">
+                    {executiveSummary?.offer_status
+                      ? pickLocalizedText(executiveSummary.offer_status.label, lang)
+                      : text({
+                          tr: "Bu planda kurum destegi ayni yolun destek katmani olarak konumlanir.",
+                          en: "In this plan, institution support appears as a supporting layer inside the same path.",
+                        })}
                   </div>
-
-                  <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
-                    <div className="surface-label">{text({ tr: "Checkpoint detayi", en: "Checkpoint detail" })}</div>
-                    <div className="mt-4 space-y-4">
-                      {roadmapContent.checkpoints.map((checkpoint) => (
-                        <div key={`${checkpoint.week}-technical`} className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4">
-                          <div className="font-medium text-white">
-                            {formatCheckpointLabel(checkpoint.checkpoint_label, lang)}
-                          </div>
-                          <div className="mt-2 grid gap-2 text-sm text-slate-400">
-                            <DetailRow
-                              label={text({ tr: "Tahmini PD", en: "Predicted PD" })}
-                              value={formatPdPercent(checkpoint.predicted_pd, lang)}
-                            />
-                            <DetailRow
-                              label={text({ tr: "Krediye uygunluk", en: "Approval ready" })}
-                              value={formatApprovalReady(checkpoint.approval_ready, lang)}
-                            />
-                            <DetailRow
-                              label={text({ tr: "Gecis tahmini", en: "Gate pass estimate" })}
-                              value={
-                                checkpoint.gate_pass_estimate
-                                  ? text({ tr: "Olumlu", en: "Positive" })
-                                  : text({ tr: "Riskli", en: "At risk" })
-                              }
-                            />
-                            <DetailRow
-                              label={text({ tr: "Not", en: "Note" })}
-                              value={checkpoint.note}
-                            />
-                          </div>
+                  <p className="mt-4 text-sm leading-7 text-slate-300">
+                    {executiveSummary?.offer_status
+                      ? pickLocalizedText(executiveSummary.offer_status.description, lang)
+                      : offerStory}
+                  </p>
+                  <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                    {offerBearingSteps.map(({ phase, step }) => (
+                      <div
+                        key={`${phase.phase_id}-${step.step_id ?? step.action_key}-offer`}
+                        className="rounded-[24px] border border-signal/20 bg-signal/5 p-5"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="surface-label border-signal/20 bg-signal/10 text-signal">
+                            {formatWindowLabel(phase.target_window_weeks, lang)}
+                          </span>
+                          {step.offer_type ? (
+                            <span className="surface-label border-signal/20 bg-signal/10 text-signal">
+                              {formatOfferType(step.offer_type, lang)}
+                            </span>
+                          ) : null}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {(technicalReveal?.diagnostic_flags?.length ||
-                    roadmapContent.meta?.run_id ||
-                    technicalReveal?.narrative_confidence_label ||
-                    technicalReveal?.narrative_confidence_score != null) ? (
-                    <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5 lg:col-span-2">
-                      <div className="surface-label">{text({ tr: "Ek izlenebilirlik", en: "Additional traceability" })}</div>
-                      <div className="mt-4 grid gap-2 text-sm text-slate-400">
-                        {technicalReveal?.narrative_confidence_label ? (
-                          <DetailRow
-                            label={text({ tr: "Narrative confidence", en: "Narrative confidence" })}
-                            value={technicalReveal.narrative_confidence_label}
-                          />
-                        ) : null}
-                        {technicalReveal?.narrative_confidence_score != null ? (
-                          <DetailRow
-                            label={text({ tr: "Confidence score", en: "Confidence score" })}
-                            value={formatNumber(technicalReveal.narrative_confidence_score, 2)}
-                          />
-                        ) : null}
-                        {technicalReveal?.diagnostic_flags?.length ? (
-                          <DetailRow
-                            label={text({ tr: "Diagnostic flags", en: "Diagnostic flags" })}
-                            value={technicalReveal.diagnostic_flags.join(", ")}
-                          />
-                        ) : null}
-                        {roadmapContent.meta?.source ? (
-                          <DetailRow
-                            label={text({ tr: "Kaynak", en: "Source" })}
-                            value={roadmapContent.meta.source}
-                          />
-                        ) : null}
-                        {roadmapContent.meta?.generated_at ? (
-                          <DetailRow
-                            label={text({ tr: "Uretim zamani", en: "Generated at" })}
-                            value={roadmapContent.meta.generated_at}
-                          />
-                        ) : null}
-                        {roadmapContent.meta?.run_id ? (
-                          <DetailRow
-                            label={text({ tr: "Calisma kimligi", en: "Run id" })}
-                            value={roadmapContent.meta.run_id}
-                          />
-                        ) : null}
-                        {isLiveDemo ? (
-                          <DetailRow
-                            label={text({ tr: "Calisma tipi", en: "Run type" })}
-                            value={text({ tr: "Canli model sonucu", en: "Live model result" })}
-                          />
+                        <div className="mt-3 font-medium text-white">
+                          {step.narrative?.offer_narrative
+                            ? pickLocalizedText(step.narrative.offer_narrative.offer_explanation, lang)
+                            : text({
+                                tr: "Bu adimla birlikte kurum tarafli destek degerlendirilebilir.",
+                                en: "Institution-side support can be evaluated alongside this step.",
+                              })}
+                        </div>
+                        <p className="mt-2 text-sm leading-7 text-slate-300">
+                          {step.narrative?.offer_narrative
+                            ? pickLocalizedText(step.narrative.offer_narrative.why_offered, lang)
+                            : text({
+                                tr: "Teklif destegi bu planin gerceklesmesini desteklemek icin eklenir.",
+                                en: "Offer support is added to strengthen the realization of this plan.",
+                              })}
+                        </p>
+                        {step.narrative?.offer_narrative?.offer_terms_summary ? (
+                          <div className="mt-4 rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-300">
+                            {pickLocalizedText(step.narrative.offer_narrative.offer_terms_summary, lang)}
+                          </div>
                         ) : null}
                       </div>
-                    </div>
-                  ) : null}
+                    ))}
+                  </div>
                 </div>
-              </details>
+              ) : null}
 
-              <DemoSectionCta
-                title={text({
-                  tr: "Bu sistemi kendi portfoyunuzde gormek ister misiniz?",
-                  en: "Would you like to see this system on your portfolio?",
-                })}
-                description={text({
-                  tr: "Kendi segmentleriniz, teklif kurallariniz ve karar akisiniza gore ayni toparlanma yuzeyini birlikte kuralim.",
-                  en: "We can map the same recovery surface to your own segments, offer rules, and decision workflow.",
-                })}
-                ctaLabel={text({ tr: "Demo Talep Et", en: "Request Demo" })}
-              />
+              {visibleReasons.length > 0 ? (
+                <div className="mt-8">
+                  <p className="section-bridge">
+                    {text({
+                      tr: "Bu plan, rastgele degil dosyanin baskin nedenlerine gore kuruluyor:",
+                      en: "This plan is built around the dominant reasons in the file rather than at random:",
+                    })}
+                  </p>
+                  <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                    {visibleReasons.map((reason) => (
+                      <ReasonNarrativeCard
+                        key={reason.reason_code}
+                        title={pickLocalizedText(reason.reason_title, lang)}
+                        description={pickLocalizedText(reason.reason_description, lang)}
+                        hint={pickLocalizedText(reason.remediation_hint, lang)}
+                        severity={reason.reason_severity ?? undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-8">
+                <DemoSectionCta
+                  title={text({
+                    tr: "Bu sistemi kendi portfoyunuzde gormek ister misiniz?",
+                    en: "Would you like to see this system on your portfolio?",
+                  })}
+                  description={text({
+                    tr: "Kendi segmentleriniz, teklif kurallariniz ve karar akisiniza gore ayni toparlanma yuzeyini birlikte kuralim.",
+                    en: "We can map the same recovery surface to your own segments, offer rules, and decision workflow.",
+                  })}
+                  ctaLabel={text({ tr: "Demo Talep Et", en: "Request Demo" })}
+                />
+              </div>
             </>
           ) : null}
         </div>
@@ -856,65 +965,6 @@ export function DemoCenterPage() {
             </p>
           </div>
         </div>
-
-        <details className="detail-panel mt-8 px-6 py-5 text-sm text-slate-300">
-          <summary className="cursor-pointer list-none font-semibold text-white">
-            {text({ tr: "Teknik detaylari goster", en: "Show technical details" })}
-          </summary>
-          <div className="mt-5 grid gap-5 lg:grid-cols-2">
-            <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
-              <div className="surface-label">{text({ tr: "Portfoy metrikleri", en: "Portfolio metrics" })}</div>
-              <div className="mt-4 grid gap-2 text-sm text-slate-400">
-                <DetailRow
-                  label={text({ tr: "Oncesi onay orani", en: "Before approval rate" })}
-                  value={formatPercent(readNumber(batchContent.before_approval_rate))}
-                />
-                <DetailRow
-                  label={text({ tr: "Sonrasi onay orani", en: "After approval rate" })}
-                  value={formatPercent(readNumber(batchContent.after_approval_rate))}
-                />
-                <DetailRow
-                  label={text({ tr: "12 haftalik checkpoint sagligi", en: "12-week checkpoint health" })}
-                  value={formatPercent(readNumber(batchContent.trajectory_gate_pass_rate_12w))}
-                />
-                <DetailRow
-                  label={text({ tr: "24 haftalik checkpoint sagligi", en: "24-week checkpoint health" })}
-                  value={formatPercent(readNumber(batchContent.trajectory_gate_pass_rate_24w))}
-                />
-                <DetailRow
-                  label={text({ tr: "Kismi ilerleme orani", en: "Partial progress rate" })}
-                  value={formatPercent(readNumber(batchContent.trajectory_partial_progress_rate))}
-                />
-                <DetailRow
-                  label={text({ tr: "Yuksek risk erisimi", en: "High-risk reachability" })}
-                  value={formatPercent(readNumber(batchContent.high_risk_reachability_rate))}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
-              <div className="surface-label">{text({ tr: "Destekleyici sinyaller", en: "Supporting signals" })}</div>
-              <div className="mt-4 grid gap-2 text-sm text-slate-400">
-                <DetailRow
-                  label={text({ tr: "Davranissal adim orani", en: "Behavioral action rate" })}
-                  value={formatPercent(readNumber(actionMetrics.action_type_behavioral_rate))}
-                />
-                <DetailRow
-                  label={text({ tr: "Kismi uygulama olasiligi", en: "Partial execution likelihood" })}
-                  value={formatPercent(readNumber(behaviorMetrics.partial_execution_rate))}
-                />
-                <DetailRow
-                  label={text({ tr: "Yolunda kalan planlar", en: "Plans that stay on track" })}
-                  value={formatPercent(readNumber(trajectoryMetrics.trajectory_on_track_rate))}
-                />
-                <DetailRow
-                  label={text({ tr: "Uygulanamaz plan orani", en: "Infeasible plan rate" })}
-                  value={formatPercent(readNumber(actionMetrics.infeasible_plan_rate))}
-                />
-              </div>
-            </div>
-          </div>
-        </details>
 
         <DemoSectionCta
           title={text({
@@ -1006,60 +1056,6 @@ export function DemoCenterPage() {
             </div>
           </div>
 
-          <details className="detail-panel mt-8 px-6 py-5 text-sm text-slate-300">
-            <summary className="cursor-pointer list-none font-semibold text-white">
-              {text({ tr: "Teknik detaylari goster", en: "Show technical details" })}
-            </summary>
-            <div className="mt-5 grid gap-5 lg:grid-cols-2">
-              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
-                <div className="surface-label">{text({ tr: "Teklif metrikleri", en: "Offer metrics" })}</div>
-                <div className="mt-4 grid gap-2 text-sm text-slate-400">
-                  <DetailRow
-                    label={text({ tr: "Teklif iceren planlar", en: "Plans with offers" })}
-                    value={formatPercent(readNumber(offerMetrics.offer_plan_rate))}
-                  />
-                  <DetailRow
-                    label={text({ tr: "Siralanabilir teklifler", en: "Rankable offers" })}
-                    value={formatPercent(readNumber(offerMetrics.rankable_offer_rate))}
-                  />
-                  <DetailRow
-                    label={text({ tr: "Guvenli teklif orani", en: "Governance-safe offer rate" })}
-                    value={formatPercent(readNumber(offerMetrics.governance_safe_offer_rate))}
-                  />
-                  <DetailRow
-                    label={text({ tr: "Baskin teklif tipi", en: "Dominant offer type" })}
-                    value={formatOfferType(String(offerMetrics.dominant_offer_type ?? ""), lang)}
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
-                <div className="surface-label">{text({ tr: "Impact proxy'leri", en: "Impact proxies" })}</div>
-                <div className="mt-4 grid gap-2 text-sm text-slate-400">
-                  <DetailRow
-                    label={text({ tr: "Recovery proxy", en: "Recovery proxy" })}
-                    value={formatNumber(readNumber(offerMetrics.expected_recovery_proxy), 1)}
-                  />
-                  <DetailRow
-                    label={text({ tr: "Onay proxy delta", en: "Approval proxy delta" })}
-                    value={formatPointChange(readNumber(offerMetrics.approval_rate_proxy_delta), 1)}
-                  />
-                  <DetailRow
-                    label={text({ tr: "Default proxy delta", en: "Default proxy delta" })}
-                    value={formatPointChange(
-                      readNumber(offerMetrics.default_rate_90d_proxy_delta),
-                      1,
-                    )}
-                  />
-                  <DetailRow
-                    label={text({ tr: "Margin proxy delta", en: "Margin proxy delta" })}
-                    value={formatNumber(readNumber(offerMetrics.avg_margin_90d_proxy_delta), 1)}
-                  />
-                </div>
-              </div>
-            </div>
-          </details>
-
           <DemoSectionCta
             title={text({
               tr: "Bu sistemi kendi portfoyunuzde gormek ister misiniz?",
@@ -1150,61 +1146,6 @@ export function DemoCenterPage() {
           </div>
         </div>
 
-        <details className="detail-panel mt-8 px-6 py-5 text-sm text-slate-300">
-          <summary className="cursor-pointer list-none font-semibold text-white">
-            {text({ tr: "Teknik detaylari goster", en: "Show technical details" })}
-          </summary>
-          <div className="mt-5 grid gap-5 lg:grid-cols-2">
-            <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
-              <div className="surface-label">{text({ tr: "Ogrenme kapsami", en: "Learning coverage" })}</div>
-              <div className="mt-4 grid gap-2 text-sm text-slate-400">
-                <DetailRow
-                  label={text({ tr: "Odeme davranisi kapsami", en: "Payment behavior coverage" })}
-                  value={formatPercent(readNumber(learningContent.has_payment_behavior_rate))}
-                />
-                <DetailRow
-                  label={text({ tr: "Recovery sonucu kapsami", en: "Recovery outcome coverage" })}
-                  value={formatPercent(readNumber(learningContent.has_recovery_outcome_rate))}
-                />
-                <DetailRow
-                  label={text({ tr: "Teklif kabul kapsami", en: "Offer acceptance coverage" })}
-                  value={formatPercent(readNumber(learningContent.has_offer_acceptance_rate))}
-                />
-                <DetailRow
-                  label={text({ tr: "Aksiyon tamamlama kapsami", en: "Action completion coverage" })}
-                  value={formatPercent(readNumber(learningContent.has_action_completion_rate))}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
-              <div className="surface-label">{text({ tr: "Politika karsilastirmasi", en: "Policy comparison" })}</div>
-              <div className="mt-4 grid gap-2 text-sm text-slate-400">
-                <DetailRow
-                  label={text({ tr: "Karsilastirma durumu", en: "Comparison status" })}
-                  value={String(opeContent.comparison_status ?? text({ tr: "yok", en: "n/a" }))}
-                />
-                <DetailRow
-                  label={text({ tr: "OPE guveni", en: "OPE confidence" })}
-                  value={String(opeContent.ope_confidence ?? text({ tr: "Belirsiz", en: "Unclear" }))}
-                />
-                <DetailRow
-                  label={text({ tr: "Baskin politika kolu", en: "Preferred policy arm" })}
-                  value={String(preferredPolicy?.policy_arm ?? text({ tr: "yok", en: "n/a" }))}
-                />
-                <DetailRow
-                  label={text({ tr: "Betimsel kayitlar", en: "Descriptive-only records" })}
-                  value={formatPercent(descriptiveOnlyShare)}
-                />
-                <DetailRow
-                  label={text({ tr: "Kismi ogrenme hazirligi", en: "Partial learning ready" })}
-                  value={formatPercent(partialLearningReadyShare)}
-                />
-              </div>
-            </div>
-          </div>
-        </details>
-
         <DemoSectionCta
           title={text({
             tr: "Bu sistemi kendi portfoyunuzde gormek ister misiniz?",
@@ -1216,6 +1157,317 @@ export function DemoCenterPage() {
           })}
           ctaLabel={text({ tr: "Demo Talep Et", en: "Request Demo" })}
         />
+      </section>
+
+      <section className="border-t border-white/10 bg-slate-950/65">
+        <div className="shell py-16">
+          <details className="detail-panel px-6 py-5 text-sm text-slate-300">
+            <summary className="cursor-pointer list-none font-semibold text-white">
+              {text({ tr: "Analist gorunumu: teknik izi ac", en: "Analyst view: open the technical trace" })}
+            </summary>
+
+            <div className="mt-5 grid gap-5 xl:grid-cols-2">
+              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+                <div className="surface-label">{text({ tr: "Musteri plan ozeti", en: "Customer plan summary" })}</div>
+                <div className="mt-4 grid gap-2 text-sm text-slate-400">
+                  <DetailRow
+                    label={text({ tr: "Karar durumu", en: "Decision status" })}
+                    value={formatDecisionStatus(summary?.decision_status ?? "", lang)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Trajectory status", en: "Trajectory status" })}
+                    value={formatTrajectoryStatus(summary?.trajectory_status ?? "", lang)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Credit readiness", en: "Credit readiness" })}
+                    value={formatCreditReadinessStage(summary?.credit_readiness_stage, lang)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Baz PD", en: "Base PD" })}
+                    value={formatPdPercent(summary?.base_pd ?? 0, lang)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "12 haftalik hedef PD", en: "12-week target PD" })}
+                    value={formatPdPercent(summary?.target_pd_12w ?? 0, lang)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Plan execution", en: "Plan execution" })}
+                    value={formatPercent(summary?.plan_execution_probability ?? 0)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Birlesik gerceklesme", en: "Combined realization" })}
+                    value={formatPercent(summary?.combined_plan_realization_probability ?? 0)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "4 haftada hazirlik", en: "4-week approval readiness" })}
+                    value={formatApprovalReady(Boolean(summary?.approval_ready_4w), lang)}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+                <div className="surface-label">{text({ tr: "Checkpoint izi", en: "Checkpoint trace" })}</div>
+                <div className="mt-4 grid gap-3">
+                  {roadmapContent?.checkpoints.map((checkpoint) => (
+                    <div
+                      key={`technical-checkpoint-${checkpoint.week}`}
+                      className="rounded-[18px] border border-white/10 bg-white/[0.03] p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="font-medium text-white">
+                          {formatCheckpointLabel(checkpoint.checkpoint_label, lang)}
+                        </div>
+                        <div className="surface-label">
+                          {text({ tr: "Hafta", en: "Week" })} {checkpoint.week}
+                        </div>
+                      </div>
+                      <div className="mt-3 grid gap-2 text-sm text-slate-400">
+                        <DetailRow
+                          label={text({ tr: "Tahmini PD", en: "Predicted PD" })}
+                          value={formatPdPercent(checkpoint.predicted_pd, lang)}
+                        />
+                        <DetailRow
+                          label={text({ tr: "Gate gecis tahmini", en: "Gate pass estimate" })}
+                          value={formatApprovalReady(checkpoint.gate_pass_estimate, lang)}
+                        />
+                        <DetailRow
+                          label={text({ tr: "Approval ready", en: "Approval ready" })}
+                          value={formatApprovalReady(Boolean(checkpoint.approval_ready), lang)}
+                        />
+                      </div>
+                    </div>
+                  )) ?? null}
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5 xl:col-span-2">
+                <div className="surface-label">{text({ tr: "Aksiyon izi", en: "Action trace" })}</div>
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  {visibleSteps.length > 0 ? (
+                    visibleSteps.map(({ phase, step }) => (
+                      <div
+                        key={`technical-step-${phase.phase_id}-${step.step_id ?? step.action_key}`}
+                        className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="surface-label">{formatWindowLabel(phase.target_window_weeks, lang)}</span>
+                          <span className="surface-label">{step.action_key}</span>
+                          {step.action_group_id ? (
+                            <span className="surface-label">{step.action_group_id}</span>
+                          ) : null}
+                        </div>
+                        <div className="mt-3 font-medium text-white">{step.action_title}</div>
+                        <div className="mt-3 grid gap-2 text-sm text-slate-400">
+                          <DetailRow
+                            label={text({ tr: "Metric key", en: "Metric key" })}
+                            value={String(step.primary_numeric_target?.metric_key ?? text({ tr: "yok", en: "n/a" }))}
+                          />
+                          <DetailRow
+                            label={text({ tr: "Target", en: "Target" })}
+                            value={
+                              step.primary_numeric_target
+                                ? `${formatNumber(step.primary_numeric_target.target_value, 1)} (${step.primary_numeric_target.unit})`
+                                : text({ tr: "yok", en: "n/a" })
+                            }
+                          />
+                          <DetailRow
+                            label={text({ tr: "Due month", en: "Due month" })}
+                            value={
+                              step.primary_numeric_target
+                                ? String(step.primary_numeric_target.due_month)
+                                : text({ tr: "yok", en: "n/a" })
+                            }
+                          />
+                          <DetailRow
+                            label={text({ tr: "Difficulty", en: "Difficulty" })}
+                            value={String(step.difficulty_label ?? text({ tr: "yok", en: "n/a" }))}
+                          />
+                          <DetailRow
+                            label={text({ tr: "Action execution", en: "Action execution" })}
+                            value={formatPercent(step.action_execution_probability ?? 0)}
+                          />
+                          <DetailRow
+                            label={text({ tr: "Group execution", en: "Group execution" })}
+                            value={formatPercent(step.action_group_execution_probability ?? 0)}
+                          />
+                          <DetailRow
+                            label={text({ tr: "Approval-dependent", en: "Approval-dependent" })}
+                            value={formatPercent(step.approval_dependent_probability ?? 0)}
+                          />
+                          <DetailRow
+                            label={text({ tr: "Feature anchor", en: "Feature anchor" })}
+                            value={String(step.technical_view?.feature_name ?? text({ tr: "yok", en: "n/a" }))}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-[20px] border border-dashed border-white/10 bg-white/[0.02] p-4 text-slate-400">
+                      {text({
+                        tr: "Bu snapshot icinde action trace alanlari henuz mevcut degil.",
+                        en: "Action trace fields are not present in this snapshot yet.",
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+                <div className="surface-label">{text({ tr: "Narrative technical reveal", en: "Narrative technical reveal" })}</div>
+                <div className="mt-4 grid gap-2 text-sm text-slate-400">
+                  <DetailRow
+                    label={text({ tr: "Feature changes", en: "Feature changes" })}
+                    value={String(technicalReveal?.feature_changes.length ?? 0)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Primary numeric targets", en: "Primary numeric targets" })}
+                    value={String(technicalReveal?.primary_numeric_targets?.length ?? 0)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Constraints applied", en: "Constraints applied" })}
+                    value={String(technicalReveal?.constraints_applied.length ?? 0)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Approval dependencies", en: "Approval dependencies" })}
+                    value={String(technicalReveal?.approval_dependencies.length ?? 0)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Diagnostic flags", en: "Diagnostic flags" })}
+                    value={String(technicalReveal?.diagnostic_flags.length ?? 0)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Narrative confidence", en: "Narrative confidence" })}
+                    value={String(technicalReveal?.narrative_confidence_label ?? text({ tr: "yok", en: "n/a" }))}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+                <div className="surface-label">{text({ tr: "Portfoy metrikleri", en: "Portfolio metrics" })}</div>
+                <div className="mt-4 grid gap-2 text-sm text-slate-400">
+                  <DetailRow
+                    label={text({ tr: "Oncesi onay orani", en: "Before approval rate" })}
+                    value={formatPercent(readNumber(batchContent.before_approval_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Sonrasi onay orani", en: "After approval rate" })}
+                    value={formatPercent(readNumber(batchContent.after_approval_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "12 haftalik checkpoint sagligi", en: "12-week checkpoint health" })}
+                    value={formatPercent(readNumber(batchContent.trajectory_gate_pass_rate_12w))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "24 haftalik checkpoint sagligi", en: "24-week checkpoint health" })}
+                    value={formatPercent(readNumber(batchContent.trajectory_gate_pass_rate_24w))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Kismi ilerleme orani", en: "Partial progress rate" })}
+                    value={formatPercent(readNumber(batchContent.trajectory_partial_progress_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Yuksek risk erisimi", en: "High-risk reachability" })}
+                    value={formatPercent(readNumber(batchContent.high_risk_reachability_rate))}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+                <div className="surface-label">{text({ tr: "Destekleyici sinyaller", en: "Supporting signals" })}</div>
+                <div className="mt-4 grid gap-2 text-sm text-slate-400">
+                  <DetailRow
+                    label={text({ tr: "Davranissal adim orani", en: "Behavioral action rate" })}
+                    value={formatPercent(readNumber(actionMetrics.action_type_behavioral_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Kismi uygulama olasiligi", en: "Partial execution likelihood" })}
+                    value={formatPercent(readNumber(behaviorMetrics.partial_execution_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Yolunda kalan planlar", en: "Plans that stay on track" })}
+                    value={formatPercent(readNumber(trajectoryMetrics.trajectory_on_track_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Uygulanamaz plan orani", en: "Infeasible plan rate" })}
+                    value={formatPercent(readNumber(actionMetrics.infeasible_plan_rate))}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+                <div className="surface-label">{text({ tr: "Teklif metrikleri", en: "Offer metrics" })}</div>
+                <div className="mt-4 grid gap-2 text-sm text-slate-400">
+                  <DetailRow
+                    label={text({ tr: "Teklif iceren planlar", en: "Plans with offers" })}
+                    value={formatPercent(readNumber(offerMetrics.offer_plan_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Siralanabilir teklifler", en: "Rankable offers" })}
+                    value={formatPercent(readNumber(offerMetrics.rankable_offer_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Guvenli teklif orani", en: "Governance-safe offer rate" })}
+                    value={formatPercent(readNumber(offerMetrics.governance_safe_offer_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Baskin teklif tipi", en: "Dominant offer type" })}
+                    value={formatOfferType(String(offerMetrics.dominant_offer_type ?? ""), lang)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Recovery proxy", en: "Recovery proxy" })}
+                    value={formatNumber(readNumber(offerMetrics.expected_recovery_proxy), 1)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Onay proxy delta", en: "Approval proxy delta" })}
+                    value={formatPointChange(readNumber(offerMetrics.approval_rate_proxy_delta), 1)}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+                <div className="surface-label">{text({ tr: "Ogrenme ve OPE", en: "Learning and OPE" })}</div>
+                <div className="mt-4 grid gap-2 text-sm text-slate-400">
+                  <DetailRow
+                    label={text({ tr: "Odeme davranisi kapsami", en: "Payment behavior coverage" })}
+                    value={formatPercent(readNumber(learningContent.has_payment_behavior_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Recovery sonucu kapsami", en: "Recovery outcome coverage" })}
+                    value={formatPercent(readNumber(learningContent.has_recovery_outcome_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Teklif kabul kapsami", en: "Offer acceptance coverage" })}
+                    value={formatPercent(readNumber(learningContent.has_offer_acceptance_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Aksiyon tamamlama kapsami", en: "Action completion coverage" })}
+                    value={formatPercent(readNumber(learningContent.has_action_completion_rate))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Karsilastirma durumu", en: "Comparison status" })}
+                    value={String(opeContent.comparison_status ?? text({ tr: "yok", en: "n/a" }))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "OPE guveni", en: "OPE confidence" })}
+                    value={String(opeContent.ope_confidence ?? text({ tr: "Belirsiz", en: "Unclear" }))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Baskin politika kolu", en: "Preferred policy arm" })}
+                    value={String(preferredPolicy?.policy_arm ?? text({ tr: "yok", en: "n/a" }))}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Betimsel kayitlar", en: "Descriptive-only records" })}
+                    value={formatPercent(descriptiveOnlyShare)}
+                  />
+                  <DetailRow
+                    label={text({ tr: "Kismi ogrenme hazirligi", en: "Partial learning ready" })}
+                    value={formatPercent(partialLearningReadyShare)}
+                  />
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
       </section>
     </div>
   );
