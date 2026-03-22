@@ -9,17 +9,17 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 ## Current Position
 
-Phase: 39
-Plan: `39-01`, `39-02`, `39-03` drafted
-Status: Ready for execution
-Last activity: 2026-03-22 - Planned Phase 39 across pilot data contract, pilot package runner, and onboarding alignment
+Phase: none active
+Plan: Phase 39 complete
+Status: Ready for milestone audit
+Last activity: 2026-03-22 - Completed Phase 39 across pilot data contract, pilot package runner, and onboarding alignment
 
-Progress: `v2.0` is underway; Phases 30-38 are complete, Phase 39 is planned, and the next active seam is executing `Phase 39: Pilot Integration`
+Progress: `v2.0` is underway; Phases 30-39 are complete, and the next active seam is milestone audit and completion
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 102 (historical import + phases 8-25 plus phases 30-38)
+- Total plans completed: 105 (historical import + phases 8-25 plus phases 30-39)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -31,12 +31,12 @@ Progress: `v2.0` is underway; Phases 30-38 are complete, Phase 39 is planned, an
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
 | v1.2 completed milestone | 15 | phases 12-16 complete | n/a |
 | v1.3 completed milestone | 28 | phases 17-25 complete | n/a |
-| v2.0 active milestone | 27 | phases 30-38 complete, Phase 39 remaining | n/a |
+| v2.0 active milestone | 30 | phases 30-39 complete | n/a |
 
 **Recent Trend:**
 - The engine now has audited full-portfolio proof plus buyer-safe demo, proof, investor, analyst, and pilot-baseline surfaces.
 - The new milestone is focused on making outputs more customer-specific, numeric, decision-intelligent, and easier to validate at portfolio scale.
-- The roadmap now continues from Phase 38 with the final v2.0 seam covering pilot integration.
+- The roadmap now has all v2.0 phases complete and ready for milestone audit.
 
 ## Accumulated Context
 
@@ -200,13 +200,14 @@ Recent decisions affecting current work:
   - segment and unit-family validation rollups plus suite-level drift packaging
   - a dedicated `Calibration & Validation` review section that keeps the business layer honest without losing technical transparency
 - `CAL-01` is now satisfied
-- The next active design seam is `Phase 39: Pilot Integration`
-- Phase 39 has no locked discuss context yet; this planning pass intentionally proceeds with roadmap, requirements, prior pilot-readiness docs, and current code seams only
-- Phase 39 planning is now split into:
-  - canonical pilot data contract and validated ingestion seam
-  - pilot package runner plus guardrail and acceptance packaging
-  - engine-side onboarding docs and website-side pilot handoff alignment
-- The next active step is executing `Phase 39: Pilot Integration`
+- Phase 39 execution is complete and establishes:
+  - a canonical typed pilot bundle and normalized export seam
+  - reuse of the batch planning core for pilot package execution
+  - explicit `pilot_guardrails`, `product_confidence_snapshot`, `kpi_contract_snapshot`, and `milestone_acceptance_summary` in one pilot package
+  - pilot-only acceptance semantics for green-but-limited single-run evidence
+  - website handoff docs aligned to the engine-owned pilot package and controlled pilot boundary
+- `PILT-01` is now satisfied
+- The next active step is milestone audit for `v2.0`
 - Phase 36 context now locks:
   - action-first surface hierarchy with `executive_summary -> action cards -> checkpoint strip -> offer panel -> reasons -> technical reveal`
   - checkpoint strip directly above actions with `4w` visually dominant
@@ -232,5 +233,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Phase 39 planning completed; next step is `$gsd-execute-phase 39`
+Stopped at: Phase 39 execution completed; next step is `$gsd-audit-milestone`
 Resume file: None

@@ -44,7 +44,7 @@
 
 ### Pilot Integration
 
-- [ ] **PILT-01**: The personalized planning loop can be exercised against real institution-style data and pilot integration seams without breaking engine-owned truth
+- [x] **PILT-01**: The personalized planning loop can be exercised against real institution-style data and pilot integration seams without breaking engine-owned truth
 
 ## Future Requirements Carried Forward
 
@@ -86,7 +86,7 @@
 | SURF-01 | Phase 36 | Satisfied |
 | PVAL-01 | Phase 37 | Satisfied |
 | CAL-01 | Phase 38 | Satisfied |
-| PILT-01 | Phase 39 | Pending |
+| PILT-01 | Phase 39 | Satisfied |
 
 **Coverage:**
 - v2.0 requirements: 10 total
@@ -95,4 +95,4 @@
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-22 after Phase 38 execution*
+*Last updated: 2026-03-22 after Phase 39 execution*
