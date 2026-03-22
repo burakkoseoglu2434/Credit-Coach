@@ -1,6 +1,6 @@
 # Project Milestones: Credit Coach
 
-**Current active milestone:** `v2.0 Personalized Action & Decision Intelligence`
+**Current active milestone:** none
 
 ## v1.0 Brownfield Baseline (Shipped: 2026-03-10)
 
@@ -118,42 +118,32 @@
 
 ---
 
-## v2.0 Personalized Action & Decision Intelligence (Active)
+## v2.0 Personalized Action & Decision Intelligence (Shipped: 2026-03-22)
 
-**Goal:** Turn model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans with clear product-ready narratives and portfolio-level validation.
+**Delivered:** A personalized action-intelligence milestone that turned recourse outputs into deterministic semantic actions, customer-specific numeric targets, feasibility- and execution-aware plans, institution-side offer contracts, product-ready narratives, typed product surfaces, portfolio impact proof, calibration review, and pilot-facing package delivery.
 
-**Phases planned:** 30-39
+**Phases completed:** 30-39 (30 plans total)
 
-**Why this milestone exists:**
-- `v1.3` proved the engine and product surfaces can be trusted, but many outputs still need to become more customer-specific and numerically concrete.
-- The next product leap is sharper action intelligence: what exactly this customer should do, by how much, by when, how feasible that is, and how that changes institution-side decision posture.
-- This requires a fuller sequence than the initial short draft: semantics, numeric targeting, constraints, execution realism, offers, narratives, surfaces, portfolio proof, calibration, and pilot integration.
+**Key accomplishments:**
+- Replaced raw feature-delta recommendation identity with deterministic semantic actions, grouped business-vs-technical contracts, and canonical action families
+- Added customer-specific numeric targets with feasibility, difficulty, execution realism, and institution-offer truth in one plan contract
+- Shipped narrative and product-surface upgrades so the website renders engine-owned personalized plans without UI-side meaning invention
+- Added portfolio-level numeric impact and calibration review that measure burden, realization, false optimism, instability, and offer dependency across segments
+- Closed the milestone with a typed pilot bundle, guarded pilot package runner, and engine-to-website handoff docs for institution conversations
 
-**Planned phase sequence:**
-- Phase 30: Action Semantics Hardening
-- Phase 31: Numeric Target Engine
-- Phase 32: Feasibility & Constraint Engine
-- Phase 33: Action Difficulty & Execution Modeling
-- Phase 34: Offer Layer Integration
-- Phase 35: Narrative Generation v2
-- Phase 36: Product Surface Upgrade
-- Phase 37: Portfolio-Level Numeric Impact
-- Phase 38: Calibration & Validation
-- Phase 39: Pilot Integration
+**Stats:**
+- 10 GSD phases completed with 30 executed plans and 60 planned tasks
+- Milestone audit passed with 10/10 requirements satisfied
+- Nyquist compliance: 10/10 phases compliant
+- 150 files changed in the shipped milestone range with 19,337 insertions and 998 deletions
+- Timeline: 2026-03-20 through 2026-03-22
 
-**Current checkpoint:** Phases 30-39 are complete and `v2.0` is ready for milestone audit.
+**Known gaps carried forward:**
+- Pilot-grade external institution integrations remain future work beyond the shipped export-to-package seam
+- Regulatory explanation and adverse-action communication packs remain outside the shipped scope
+- Proof refresh, release review, and milestone health automation remain future work
+- Local `gsd-tools.cjs` milestone-op automation still requires manual fallback
 
-**Success bar:**
-- Feature deltas become real actions, then numeric targets, then validated personalized plans
-- Plans become numeric, feasible, and customer-specific
-- Decision readiness and institution dependencies are explicit in the same contract
-- Product surfaces consume engine-owned personalized narratives without UI-side reinterpretation
-- Portfolio proof can compare personalized action intelligence against the shipped `v1.3` baseline honestly
-- Calibration and pilot integration show the new layer is usable beyond synthetic milestone demos
-
-**Likely future follow-on themes:**
-- pilot-grade external institution integrations beyond artifact handoff
-- richer regulatory explanation and adverse-action communication packs
-- recurring automation for release review, proof refresh, and milestone health
+**What's next:** Define the next milestone with `$gsd-new-milestone`
 
 ---

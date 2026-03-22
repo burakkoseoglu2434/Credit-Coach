@@ -2,24 +2,24 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-20)
+See: .planning/PROJECT.md (updated 2026-03-22)
 
-**Core value:** Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints, then surface those plans in a form that enterprise buyers and analysts can trust.
-**Current focus:** `v2.0 Personalized Action & Decision Intelligence`
+**Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
+**Current focus:** no active milestone
 
 ## Current Position
 
 Phase: none active
-Plan: Phase 39 complete
-Status: Ready for milestone audit
-Last activity: 2026-03-22 - Completed Phase 39 across pilot data contract, pilot package runner, and onboarding alignment
+Plan: milestone boundary
+Status: Milestone archived
+Last activity: 2026-03-22 - Archived `v2.0 Personalized Action & Decision Intelligence` after passed milestone audit
 
-Progress: `v2.0` is underway; Phases 30-39 are complete, and the next active seam is milestone audit and completion
+Progress: `v2.0` is complete. The next active seam is defining a new milestone with `$gsd-new-milestone`.
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 105 (historical import + phases 8-25 plus phases 30-39)
+- Total plans completed: 105 (historical import + phases 8-25 + phases 30-39)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -31,194 +31,26 @@ Progress: `v2.0` is underway; Phases 30-39 are complete, and the next active sea
 | v1.1 completed milestone | 12 | phases 8-11 complete | n/a |
 | v1.2 completed milestone | 15 | phases 12-16 complete | n/a |
 | v1.3 completed milestone | 28 | phases 17-25 complete | n/a |
-| v2.0 active milestone | 30 | phases 30-39 complete | n/a |
+| v2.0 completed milestone | 30 | phases 30-39 complete | n/a |
 
 **Recent Trend:**
-- The engine now has audited full-portfolio proof plus buyer-safe demo, proof, investor, analyst, and pilot-baseline surfaces.
-- The new milestone is focused on making outputs more customer-specific, numeric, decision-intelligent, and easier to validate at portfolio scale.
-- The roadmap now has all v2.0 phases complete and ready for milestone audit.
+- Credit Coach now carries one continuous stack from semantic action planning to pilot-facing package delivery.
+- Buyer-safe and analyst-safe surfaces remain typed consumers of engine-owned truth rather than alternate logic layers.
+- Portfolio proof can now speak about personalized numeric burden, realization, calibration, and pilot readiness.
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
+Recent decisions affecting the shipped baseline:
 
 - `v1.2 Recommendation Quality Hardening` remains the shipped recommendation-quality baseline
-- `v1.3 Portfolio Intelligence & Productization` treated the website as milestone scope rather than side documentation
-- Phase 17 anchored product claims to full-portfolio evidence and demo representativeness
-- Phase 18 moved buyer and analyst narrative translation into the engine-owned contract
-- Phase 19 and Phase 20 re-hardened execution-aware ranking and deterministic trajectory behavior
-- Phase 21 shipped product-facing proof verdicts and the curated `product_confidence_snapshot.json`
-- Phase 22 and Phase 23 turned Demo, Proof, and Investor into business-first surfaces with technical detail on demand
-- Phase 24 closed analyst validation through one matrix, one walkthrough packet, and one milestone-local results artifact
-- Phase 25 closed pilot-readiness baseline through structured intake, explicit ops docs, and a curated demo handoff playbook
-- Milestone audit: `v1.3 Portfolio Intelligence & Productization` passed with 9/9 requirements satisfied, 7/7 integrations, and 6/6 end-to-end flows
-- Milestone archive: `v1.3` roadmap and requirements are now snapshotted under `.planning/milestones/`, and active planning files have been reset for the next milestone boundary
-- Milestone open: `v2.0 Personalized Action & Decision Intelligence` is now the active planning target
-- v2.0 initialization intentionally skipped separate research because the milestone goal was already explicit and grounded in fresh brownfield milestone history
-- The milestone was then replanned around a longer `Phase 30-39` sequence to reflect the user's desired build order
-- Phase 30 execution is complete and establishes:
-  - final top-level taxonomy `behavioral | structural | institutional`
-  - canonical `action_family`
-  - one primary action per actionable feature
-  - deterministic grouped-action semantics
-  - schema-level `business_view` vs `technical_view`
-- Phase 30 also aligns roadmap, messaging, and batch consumers to grouped semantic actions rather than raw feature-first defaults
-- The next active design seam is `Phase 31: Numeric Target Engine`
-- Phase 31 context now locks:
-  - minimum-credible-change posture
-  - one canonical point target per action
-  - absolute target plus signed delta
-  - `action_family`-first unit selection with controlled overrides
-  - one primary numeric target for mixed-unit actions
-  - semantic-sanity-only generation guardrails before Phase 32 feasibility
-- Phase 31 planning is now split into:
-  - numeric target contract and unit catalog
-  - generator integration and feasibility handoff
-  - runtime consumer alignment and regression closure
-- Phase 31 execution is complete and establishes:
-  - one canonical `PrimaryNumericTarget` per action
-  - deterministic `action_family`-driven metric and unit selection
-  - generator-emitted numeric targets with feasibility-neutral handoff notes
-  - runtime and messaging consumers that prefer primary numeric targets over raw feature deltas
-  - grouped-step narrative selection that prefers the step carrying the primary numeric target
-- `NUM-01` is now satisfied
-- Phase 32 execution is complete and establishes:
-  - canonical action-level feasibility verdicts `valid | clipped | repaired | provisional | invalid`
-  - normalized `constraint_family` truth across numeric feasibility and action constraint traces
-  - explicit `repair-if-safe, reject-if-semantic-break` handling, including invalidation when composite actions lose their primary semantic anchor
-  - business-safe feasibility outcome labels in narratives with a richer technical reveal contract
-  - portfolio and ranking consumers aligned to canonical feasibility truth instead of legacy ad hoc status interpretation
-- `FEAS-01` is now satisfied
-- The next active design seam is `Phase 33: Action Difficulty & Execution Modeling`
-- Phase 32 context now locks:
-  - canonical action-level verdicts `valid | clipped | repaired | provisional | invalid`
-  - worst-dominant plan-level verdict precedence `invalid > provisional > repaired > valid`
-  - canonical `constraint_family` layer
-  - `repair-if-safe, reject-if-semantic-break`
-  - business default shows only feasibility outcome labels while raw trace stays technical-only
-- Phase 32 planning is now split into:
-  - verdict and constraint-family normalization
-  - repair-vs-reject and ranking-safe rollups
-  - business-vs-technical visibility and consumer alignment
-- Phase 33 context now locks:
-  - canonical action difficulty as `difficulty_score + difficulty_label`
-  - difficulty means follow-through burden for a valid target, not feasibility truth
-  - plan aggregation remains weakest-link aware with explicit group-first and load-penalty behavior
-  - executable and approval-dependent plan truth remain separate
-  - invalid or semantic-break actions receive no difficulty truth
-  - business output shows labels and follow-through wording while raw execution probabilities stay technical-first
-- Phase 33 planning is now split into:
-  - difficulty contract and action-level truth
-  - group/plan aggregation and ranking leverage
-  - business-safe execution visibility and proof alignment
-- Phase 33 execution is complete and establishes:
-  - explicit action difficulty truth as `difficulty_score + difficulty_label + drivers + approval_friction`
-  - grouped-action and plan-level follow-through rollups with readiness labels
-  - stronger planner demotion for high-difficulty, low-readiness, high-load contenders
-  - business-safe roadmap wording plus technical reveal execution details
-  - difficulty-aware behavior summaries across batch, suite, portfolio proof, and KPI review consumers
-- Phase 34 context now locks:
-  - canonical nested `offer_contract` under institutional actions
-  - action-level offer truth as source-of-truth, with plan-level offer summaries derived
-  - approval pending as institution-side readiness gate and acceptance pending as customer-side realization gate
-  - product-safe offer wording by default with full offer trace in technical reveal
-- Phase 34 planning is now split into:
-  - nested offer contract and runtime bridge
-  - approval, acceptance, rankability, and provisional semantics
-  - business-safe offer visibility and proof/runtime alignment
-- Phase 34 execution is complete and establishes:
-  - canonical nested `offer_contract` with semi-typed `offer_terms`
-  - deterministic rankable vs provisional offer semantics without conflating approval and customer acceptance
-  - action-level offer truth as the authored source for runtime, portfolio, and proof consumers
-  - business-safe offer narratives that keep customer action primary and offer state explicit
-  - technical reveal offer trace with full contract, policy metadata, and approval-dependent execution detail
-- `OFFR-01` is now satisfied
-- The next active design seam is `Phase 35: Narrative Generation v2`
-- Phase 35 context now locks:
-  - default narrative order `executive_summary -> steps -> checkpoints -> reasons`
-  - one primary numeric statement per step inside `expected_outcome`
-  - short feasibility, difficulty, and follow-through cues on every visible step
-  - `4w` checkpoint emphasis with `12w/24w` as shorter supporting layers
-  - personalization anchored to current state, target, and timing
-  - calm, confident, gently directive, non-judgmental tone
-  - default business output with no raw probabilities and only top `2-3` principal reasons
-- Phase 35 planning is now split into:
-  - narrative contract and ordering hardening
-  - personalization and tone hardening
-  - business-vs-technical split and runtime closure
-- Phase 35 execution is complete and establishes:
-  - stricter ordered narrative flow `executive_summary -> steps -> checkpoints -> reasons`
-  - primary numeric statements that express current state, target, and timing inside `expected_outcome`
-  - top-3 default reason curation with fuller technical reason trace retained under reveal
-  - calmer, more directive, non-judgmental business wording with no raw follow-through probabilities in default summary cards
-  - explicit `primary_numeric_targets` inside technical reveal to keep narrative-generation truth inspectable
-- `NARV-01` is now satisfied
-- Phase 36 execution is complete and establishes:
-  - a richer typed website mirror for action-group, numeric target, offer, feasibility, difficulty, and technical reveal truth
-  - aligned live and static single-customer payload consumption under one schema-safe contract
-  - action-first customer flow with executive cards, 4-week-dominant checkpoint strip, supporting offer panel, and post-action reasons
-  - one end-of-page analyst reveal instead of section-local technical panels
-  - strict no-fallback UI behavior where missing engine fields fail soft rather than invent new meaning
-- `SURF-01` is now satisfied
-- The next active design seam is `Phase 37: Portfolio-Level Numeric Impact`
-- Phase 37 context now locks:
-  - four headline portfolio metrics:
-    - `numeric_plan_coverage`
-    - `requested_change_burden`
-    - `execution_aware_realization`
-    - `portfolio_payoff`
-  - normalized requested change burden for mixed-unit plans
-  - canonical payoff pair:
-    - `nominal_portfolio_payoff`
-    - `execution_aware_portfolio_payoff`
-  - first-class supporting metrics:
-    - `realization_gap`
-    - `offer_supported_realization_share`
-  - segment priority order:
-    - `risk_band`
-    - `recoverability_segment`
-    - `offer_needed_segment`
-  - business reading principle:
-    - more honest than impressive
-- Phase 37 execution is complete and establishes:
-  - a canonical portfolio numeric-impact metric family with normalized requested-change burden
-  - explicit nominal vs execution-aware payoff separation with realized offer-supported payoff truth
-  - risk-first, recoverability-second, and offer-needed segment strategy rollups
-  - business-safe portfolio review output using the locked 4-headline plus 2-supporting metric hierarchy
-  - batch and suite consumers aligned to one numeric-impact contract
-- `PVAL-01` is now satisfied
-- Phase 38 planning is now split into:
-  - canonical calibration contract and row-level validation ingredients
-  - segment, distribution, and drift validation rollups
-  - business-safe review packaging and suite alignment
-- Phase 38 execution is complete and establishes:
-  - a canonical `calibration_validation` summary family on top of portfolio validation
-  - row-level batch validation flags for realism-clean, false optimism, and unstable target exposure
-  - segment and unit-family validation rollups plus suite-level drift packaging
-  - a dedicated `Calibration & Validation` review section that keeps the business layer honest without losing technical transparency
-- `CAL-01` is now satisfied
-- Phase 39 execution is complete and establishes:
-  - a canonical typed pilot bundle and normalized export seam
-  - reuse of the batch planning core for pilot package execution
-  - explicit `pilot_guardrails`, `product_confidence_snapshot`, `kpi_contract_snapshot`, and `milestone_acceptance_summary` in one pilot package
-  - pilot-only acceptance semantics for green-but-limited single-run evidence
-  - website handoff docs aligned to the engine-owned pilot package and controlled pilot boundary
-- `PILT-01` is now satisfied
-- The next active step is milestone audit for `v2.0`
-- Phase 36 context now locks:
-  - action-first surface hierarchy with `executive_summary -> action cards -> checkpoint strip -> offer panel -> reasons -> technical reveal`
-  - checkpoint strip directly above actions with `4w` visually dominant
-  - action cards as the primary product unit, with phase reduced to a lightweight grouping signal
-  - short companion offer signals in cards plus a dedicated offer panel only for offer-bearing plans
-  - strict `no UI-side narrative fallback` posture
-  - presentation-only UI transforms and fail-soft behavior when engine fields are missing
-- Phase 36 planning is now split into:
-  - typed surface contract and fallback-removal hardening
-  - action-first Demo Center customer-flow composition
-  - business-vs-technical UI boundary closure and regression stabilization
+- `v1.3 Portfolio Intelligence & Productization` remains the shipped productization baseline
+- `v2.0 Personalized Action & Decision Intelligence` turned feature-delta outputs into semantic, numeric, feasible, execution-aware, and institution-aware plans
+- The website remains a typed consumer of engine artifacts rather than a source of decision logic
+- Portfolio proof now includes numeric impact and calibration honesty, not just product confidence
+- Pilot integration remains export-first and controlled instead of pretending live connectivity
+- Milestone audit for `v2.0` passed with `10/10` requirements satisfied, `9/9` integrations, and `5/5` end-to-end flows
 
 ### Pending Todos
 
@@ -226,12 +58,11 @@ None yet.
 
 ### Blockers/Concerns
 
-- The local `gsd-tools.cjs` helper is missing internal modules, so milestone-op automation and some workflow helpers still require manual fallback.
-- The website build still emits the existing Vite chunk-size warning for the main bundle, though it remained non-blocking for `v1.3`.
-- Unrelated local work outside `.planning` still exists in the repo and should stay isolated from next-milestone setup.
+- The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
+- There is no active milestone yet; future work should start from a fresh milestone boundary instead of extending archived scope.
 
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Phase 39 execution completed; next step is `$gsd-audit-milestone`
+Stopped at: `v2.0` completion and archive; next step is `$gsd-new-milestone`
 Resume file: None

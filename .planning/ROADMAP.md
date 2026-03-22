@@ -6,6 +6,7 @@
 - ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
 - ✅ **v1.2 Recommendation Quality Hardening** - Phases 12-16 (completed 2026-03-16)
 - ✅ **v1.3 Portfolio Intelligence & Productization** - Phases 17-25 (completed 2026-03-20)
+- ✅ **v2.0 Personalized Action & Decision Intelligence** - Phases 30-39 (completed 2026-03-22)
 
 <details>
 <summary>✅ v1.0 Brownfield Baseline (Phases 1-7) - SHIPPED 2026-03-10</summary>
@@ -64,128 +65,27 @@ Historical archive: `.planning/milestones/v1.3-ROADMAP.md`
 
 </details>
 
+<details>
+<summary>✅ v2.0 Personalized Action & Decision Intelligence (Phases 30-39) - SHIPPED 2026-03-22</summary>
+
+Historical archive: `.planning/milestones/v2.0-ROADMAP.md`
+
+- Phase 30: Action Semantics Hardening
+- Phase 31: Numeric Target Engine
+- Phase 32: Feasibility & Constraint Engine
+- Phase 33: Action Difficulty & Execution Modeling
+- Phase 34: Offer Layer Integration
+- Phase 35: Narrative Generation v2
+- Phase 36: Product Surface Upgrade
+- Phase 37: Portfolio-Level Numeric Impact
+- Phase 38: Calibration & Validation
+- Phase 39: Pilot Integration
+
+</details>
+
 ## Active Milestone
 
-### v2.0 Personalized Action & Decision Intelligence
-
-**Goal**: Turn model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans with clear product-ready narratives and portfolio-level validation.
-**Phases**: 30-39 currently defined
-**Status**: Active; Phases 30-39 complete and milestone is ready for audit
-
-### Phase 30: Action Semantics Hardening
-
-**Goal**: Turn feature deltas into a stable real-world action mapping layer that is deterministic, typed, and product-safe.
-**Depends on**: Phase 25
-**Requirements**: `ACT-01`
-**Success criteria:**
-1. Feature-level changes map deterministically to action types, action groups, and user-facing action keys.
-2. Composite and grouped actions remain traceable back to technical effects without leaking raw feature language into default outputs.
-3. Regression coverage protects action-semantic stability across representative behavioral, structural, and institutional cases.
-
-### Phase 31: Numeric Target Engine
-
-**Goal**: Convert action semantics into customer-specific numeric targets with explicit units, deltas, and time windows.
-**Depends on**: Phase 30
-**Requirements**: `NUM-01`
-**Success criteria:**
-1. Each selected action step carries current value, target value, delta, unit, and due horizon.
-2. Numeric targets are customer-specific rather than template-only defaults.
-3. Numeric target serialization stays deterministic and auditable across the engine contract.
-
-### Phase 32: Feasibility & Constraint Engine
-
-**Goal**: Ensure numeric targets are realistic, repairable when safe, and rejected when infeasible.
-**Depends on**: Phase 31
-**Requirements**: `FEAS-01`
-**Success criteria:**
-1. Numeric targets pass through explicit clip, repair, reject, and dependency rules before they become valid steps.
-2. Feasibility logic explains why a target is valid, repaired, or rejected.
-3. Unrealistic numeric recommendations cannot surface as normal valid winners.
-
-### Phase 33: Action Difficulty & Execution Modeling
-
-**Goal**: Strengthen the difficulty and follow-through profile of each action so realistic completion becomes part of plan quality.
-**Depends on**: Phase 32
-**Requirements**: `EXEC-01`
-**Success criteria:**
-1. Every action carries a measurable difficulty or execution-likelihood profile.
-2. Harder or longer-horizon steps are penalized in realistic plan quality rather than treated like neutral targets.
-3. The engine can distinguish nominally strong but execution-weak plans from realistically executable ones.
-
-### Phase 34: Offer Layer Integration
-
-**Goal**: Make institution actions explicit through a separate offer layer with terms, approvals, and dependencies.
-**Depends on**: Phase 33
-**Requirements**: `OFFR-01`
-**Success criteria:**
-1. Institution-side actions are represented as explicit offers instead of being mixed indistinguishably with customer actions.
-2. Offer terms, approval state, and dependencies are machine-readable and product-safe.
-3. Customer and institution steps can coexist in one plan without collapsing their semantics.
-
-### Phase 35: Narrative Generation v2
-
-**Goal**: Translate numeric and institution-aware plans into clear product narratives while preserving traceability.
-**Depends on**: Phase 34
-**Requirements**: `NARV-01`
-**Success criteria:**
-1. Narratives explain what to do, why it matters, expected numeric effect, and consequence of completion or miss.
-2. Numeric and offer-aware plan meaning comes from the engine contract rather than UI-side invention.
-3. Default language is business-first while numeric and technical detail remain available on demand.
-
-### Phase 36: Product Surface Upgrade
-
-**Goal**: Bring the new numeric personalized plans into demo and product surfaces through typed artifact consumption.
-**Depends on**: Phase 35
-**Requirements**: `SURF-01`
-**Success criteria:**
-1. Demo and product surfaces render personalized numeric plans directly from engine-owned artifacts.
-2. UI layers do not re-interpret plan meaning or invent new decision logic.
-3. Numeric, institution-aware, and narrative layers remain coherent across product surfaces.
-
-### Phase 37: Portfolio-Level Numeric Impact
-
-**Goal**: Measure the portfolio-wide distribution and impact of the personalized numeric action layer.
-**Depends on**: Phase 36
-**Requirements**: `PVAL-01`
-**Success criteria:**
-1. Portfolio artifacts quantify how often personalized numeric plans exist, what they recommend, and how their impact distributes across segments.
-2. Portfolio views surface where numeric personalization improves usefulness and where it remains narrow or weak.
-3. Product-facing proof can speak about personalized-action impact beyond single-case demos.
-
-### Phase 38: Calibration & Validation
-
-**Goal**: Validate that numeric recommendations and impact distributions are realistic, calibrated, and not falsely optimistic.
-**Depends on**: Phase 37
-**Requirements**: `CAL-01`
-**Success criteria:**
-1. Numeric targets and impact distributions are checked for realism and calibration drift.
-2. False optimism and unstable target ranges are surfaced explicitly in validation outputs.
-3. The personalized numeric layer can be trusted as a controlled recommendation surface rather than a speculative generator.
-
-### Phase 39: Pilot Integration
-
-**Goal**: Start the personalized planning loop against real institution-style data and pilot integration seams.
-**Depends on**: Phase 38
-**Requirements**: `PILT-01`
-**Success criteria:**
-1. The personalized planning loop can run through pilot-style input and output contracts without breaking engine-owned truth.
-2. Real institution data seams are explicit enough to support pilot onboarding and evaluation.
-3. The system can start a learning loop from pilot integration rather than staying purely milestone-local and synthetic.
-
-### Why This Milestone Exists
-
-- `v1.3` proved the engine and surfaces can be trusted, but many outputs still stop at model-native recourse rather than truly personalized action intelligence.
-- The next milestone needs a deeper stack than a four-phase pass: semantics, numeric targeting, feasibility, execution realism, offer integration, narrative generation, product consumption, portfolio impact, calibration, and pilot integration all need explicit closure.
-- Portfolio validation now needs to answer not just whether plans work, but whether customer-specific numeric plans are realistic, interpretable, and institution-usable.
-
-### Success Bar
-
-- Feature deltas become real actions before they become numeric targets
-- Personalized plans are numeric, feasible, and customer-specific rather than generic recourse summaries
-- Institution-side actions, approvals, and dependencies are explicit in the same plan contract
-- Product surfaces can explain personalized plans without adding UI-side interpretation
-- Portfolio proof can say whether the personalized planning layer is actually more useful than the shipped `v1.3` baseline
-- Calibration and pilot integration confirm the new layer is realistic enough to carry into institution workflows
+No active milestone. Start the next one with `$gsd-new-milestone`.
 
 ## Progress
 

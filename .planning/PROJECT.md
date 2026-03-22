@@ -2,41 +2,50 @@
 
 ## What This Is
 
-Credit Coach is a credit-risk, recourse, and decision-intelligence platform for financial institutions. It moves beyond binary approve or deny decisions by combining PD prediction, explanation, behavior-aware and phased recommendation planning, institution-side offer logic, portfolio-proof artifacts, and buyer-safe product surfaces in one artifact-driven system.
-
-The project now has both an audited recommendation-quality core and a shipped productization layer across demo, proof, investor, analyst, and pilot-handoff workflows. The next milestone should extend this baseline rather than casually reopen it.
+Credit Coach is a credit-risk, recourse, and decision-intelligence platform for financial institutions. It now turns model-native recourse outputs into customer-specific, numeric, feasible, execution-aware, and institution-aware action plans, then carries those plans through product-safe narratives, typed buyer and analyst surfaces, portfolio proof, calibration review, and pilot-facing package delivery.
 
 ## Core Value
 
-Generate credit recourse plans that are actionable, behaviorally realistic, safe, and measurably effective enough to improve denied-customer outcomes without breaking governance constraints, then surface those plans in a form that enterprise buyers and analysts can actually understand and trust.
+Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
 
 ## Current State
 
-`v1.3 Portfolio Intelligence & Productization` shipped on `2026-03-20` and passed milestone audit. Credit Coach now supports:
-- full-portfolio evaluation, segment proof, and demo representativeness diagnostics
-- engine-owned narrative translation with business-first defaults and technical reveal
-- conservative behavior-aware ranking and deterministic `4w / 12w / 24w` trajectory contracts
-- curated Demo Center, Proof, and Investor surfaces synchronized to engine artifacts
-- analyst UAT, structured buyer intake, and repeatable pilot demo handoff guidance
+`v2.0 Personalized Action & Decision Intelligence` shipped on `2026-03-22` and passed milestone audit. Credit Coach now supports:
+- deterministic semantic action mapping with grouped business and technical identity
+- customer-specific numeric targets with feasibility, difficulty, and execution realism
+- explicit institution-side offer contracts with approval and acceptance semantics
+- engine-owned narratives and typed product surfaces that do not rely on UI-side meaning invention
+- portfolio-level numeric impact and calibration review across segments
+- pilot-facing package generation with guardrails, confidence, and onboarding docs
 
-The active milestone is now `v2.0 Personalized Action & Decision Intelligence`. This milestone should extend the shipped baseline by turning model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans that are easier to trust, explain, and validate at portfolio scale.
+There is no active milestone at the moment. The next step is to define the next milestone boundary instead of extending `v2.0` ad hoc.
 
 ## Next Milestone Goals
 
-## Current Milestone: v2.0 Personalized Action & Decision Intelligence
+Not yet defined. The strongest carried-forward themes are:
+- pilot-grade external institution integrations beyond artifact handoff
+- richer regulatory explanation and adverse-action communication packs
+- recurring automation for proof refresh, release review, and milestone health
+- external synchronization of institution policy and offer configuration
+
+<details>
+<summary>Archived Milestone Context: v2.0 Personalized Action & Decision Intelligence</summary>
 
 **Goal:** Turn model-level recourse outputs into customer-specific, numeric, feasible, and institution-aware action plans with clear product-ready narratives and portfolio-level validation.
 
-**Target features:**
-- harden action semantics before numeric targeting so feature deltas become real customer actions
-- turn those actions into numeric, feasible, and execution-aware targets with explicit institution-side offer handling
-- render the new personalized plans through engine-owned narratives and typed product surfaces
-- validate the new layer at portfolio scale, calibrate realism, and carry it into pilot integration seams
+**Target outcomes:**
+- feature deltas become semantic actions before they become numeric targets
+- personalized plans become numeric, feasible, execution-aware, and offer-aware
+- product surfaces consume engine-owned personalized narratives without UI-side reinterpretation
+- portfolio proof and calibration can say whether the new layer is useful and honest
+- pilot integration starts from a controlled, typed export-to-package seam
+
+</details>
 
 <details>
 <summary>Archived Milestone Context: v1.3 Portfolio Intelligence & Productization</summary>
 
-**Goal:** Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, re-harden execution and trajectory truth where product credibility demands it, and turn the website into a trustworthy buyer, analyst, and pilot asset.
+**Goal:** Prove the engine across the full portfolio, translate technical outputs into institution-ready narratives, re-harden execution and trajectory truth where product credibility demanded it, and turn the website into a trustworthy buyer, analyst, and pilot asset.
 
 **Target outcomes:**
 - full-portfolio proof replaces curated-story-only confidence
@@ -57,13 +66,14 @@ The active milestone is now `v2.0 Personalized Action & Decision Intelligence`. 
 - ✓ Seeded fairness, KPI contract, candidate-quality, telemetry evidence, and outcome-feedback packaging are hardened - v1.1
 - ✓ Recommendation quality is now typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-loop-capable - v1.2
 - ✓ Portfolio proof, business-first product surfaces, analyst validation, and pilot-baseline demo ops are now shipped and audited - v1.3
+- ✓ Personalized action intelligence is now semantic, numeric, feasible, execution-aware, institution-aware, portfolio-validated, and pilot-package-ready - v2.0
 
 ### Active
 
-- [ ] Feature deltas become real-world action contracts before they become numeric customer targets
-- [ ] Personalized plans become numeric, feasible, execution-aware, and institution-aware
-- [ ] Engine-owned narratives and product surfaces present the new plans without UI-side reinterpretation
-- [ ] Portfolio proof, calibration, and pilot integration validate whether the new layer is realistic and more useful than the `v1.3` baseline
+- [ ] Pilot-grade external institution integrations beyond curated export and package handoff
+- [ ] Regulatory explanation and adverse-action communication packs for institution workflows
+- [ ] Recurring automation for proof refresh, release review, and milestone health
+- [ ] Institution-side policy and offer configuration sync from external systems
 
 ### Out of Scope
 
@@ -74,24 +84,20 @@ The active milestone is now `v2.0 Personalized Action & Decision Intelligence`. 
 
 ## Context
 
-- The repository contains a substantial brownfield implementation under `credit-coach/` plus a full-stack website surface under `credit-coach-website/`.
-- The imported `v1.0` baseline established model, recourse, fairness, telemetry, and audit foundations.
-- `v1.1 Fairness Stability & KPI Hardening` remains the audited governance baseline.
-- `v1.2 Recommendation Quality Hardening` remains the shipped recommendation-quality baseline for typed actions, execution-aware ranking, trajectories, offers, and learning evidence.
-- `v1.3 Portfolio Intelligence & Productization` is now shipped and audited, adding full-portfolio proof, narrative translation, buyer-safe product surfaces, analyst validation, and pilot-baseline operations.
-- `v2.0 Personalized Action & Decision Intelligence` now reopens the engine at the plan-contract layer rather than at the raw model or portfolio-proof baseline.
-- This milestone is intentionally focused on making outputs more customer-specific and decision-useful, not on rebuilding the core scoring stack.
-- The milestone has been explicitly resequenced into a longer `Phase 30-39` chain covering semantics, numeric targets, constraints, execution realism, offers, narratives, surfaces, portfolio proof, calibration, and pilot integration.
-- Separate research was skipped for milestone initialization because the user supplied a focused milestone goal and the repo already carries rich brownfield evidence from `v1.2` and `v1.3`.
+- The repository contains a substantial Python engine under `credit-coach/` and a full-stack product surface under `credit-coach-website/`.
+- `v1.2 Recommendation Quality Hardening` remains the shipped baseline for typed actions, behavior-aware ranking, trajectories, offers, and learning evidence.
+- `v1.3 Portfolio Intelligence & Productization` remains the shipped baseline for full-portfolio proof, buyer-safe product surfaces, analyst validation, and pilot-baseline operations.
+- `v2.0 Personalized Action & Decision Intelligence` is now shipped and audited, adding personalized numeric planning contracts, execution and offer realism, richer narratives, stricter product-surface consumption, portfolio numeric proof, calibration review, and pilot packaging.
+- The next milestone should build forward from this baseline rather than casually reopening finished contract layers.
 
 ## Constraints
 
 - **Governance**: Fairness, reliability, telemetry, and release gates remain inherited constraints; product surfaces cannot soften them
 - **Artifact Truth**: The Python engine remains the source of truth, and website data should stay curated, typed, and synchronized from artifacts rather than recomputed in the frontend stack
 - **Business-First Surface**: Default UI must speak in analyst and enterprise-buyer language; raw technical traces belong in controlled secondary views
-- **Proof Before Hype**: Demo, proof, and investor claims should stay anchored to full-portfolio evidence and explicit trust cues
+- **Proof Before Hype**: Demo, proof, and pilot claims should stay anchored to portfolio evidence and explicit trust cues
 - **Brownfield**: Existing CLI runners, artifacts, website stack, and review surfaces should be evolved rather than replaced
-- **Milestone Continuity**: The active roadmap now continues from Phase 30 rather than resetting numbering
+- **Milestone Continuity**: Phase numbering continues across milestones rather than resetting
 
 ## Key Decisions
 
@@ -102,12 +108,9 @@ The active milestone is now `v2.0 Personalized Action & Decision Intelligence`. 
 | Preserve `v1.2` as the shipped recommendation-quality baseline | Typed actions, execution-aware ranking, trajectories, offers, and learning evidence are already in place and should be inherited | ✓ Good |
 | Treat `credit-coach-website/` as milestone scope rather than side documentation | Buyer demos, proof review, and pilot readiness depend on the website surface being real product infrastructure | ✓ Good |
 | Keep the Python engine as source of truth and sync curated website snapshots from artifacts | This avoids duplicating model logic in the website stack and keeps product surfaces auditable | ✓ Good |
-| Reopen behavior-aware and trajectory work only as targeted hardening passes | Portfolio proof and product translation exposed credibility gaps that needed focused repair, not a ground-up redesign | ✓ Good |
-| Require business-first defaults with explicit technical reveal | The target users are institutional decision-makers, but technical trust still has to remain accessible | ✓ Good |
-| Require milestone-local analyst validation before claiming pilot readiness | Trustworthiness needed explicit UAT evidence instead of implied future review | ✓ Good |
-| Archive `v1.3` before opening more work | The product now sits at a milestone boundary and should move forward under a fresh requirement contract | ✓ Good |
-| Open `v2.0 Personalized Action & Decision Intelligence` as the next milestone | The next leverage point is not more generic proof or productization, but sharper customer-specific plan contracts and decision-facing intelligence | ✓ Good |
-| Replan `v2.0` around Phase 30-39 instead of the earlier short draft | The user wants a fuller sequence that separates semantics, numeric targets, feasibility, execution, offer integration, narrative generation, surfaces, portfolio impact, calibration, and pilot integration | ✓ Good |
+| Open `v2.0 Personalized Action & Decision Intelligence` as a 10-phase contract stack | The next leverage point required explicit separation of semantics, targets, constraints, execution, offers, narratives, surfaces, proof, calibration, and pilot seams | ✓ Good |
+| Keep portfolio proof and calibration more honest than impressive | Execution-aware payoff, realism checks, and narrowness signals are more trustworthy than nominal uplift alone | ✓ Good |
+| Keep pilot integration export-first and controlled | The repo should not pretend to have live institution connectivity before the contract seam is genuinely ready | ✓ Good |
 
 ---
-*Last updated: 2026-03-20 after replanning milestone v2.0 around phases 30-39*
+*Last updated: 2026-03-22 after shipping milestone v2.0*
