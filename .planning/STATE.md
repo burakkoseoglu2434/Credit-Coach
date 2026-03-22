@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 38
-Plan: None yet
-Status: Ready for discussion
-Last activity: 2026-03-22 - Executed Phase 37 across numeric-impact metrics, segment strategy rollups, and business-safe review packaging
+Plan: `38-01`, `38-02`, `38-03` drafted
+Status: Ready for execution
+Last activity: 2026-03-22 - Planned Phase 38 across calibration contract, drift validation, and business-safe review packaging
 
-Progress: `v2.0` is underway; Phases 30-37 are complete and the next active seam is `Phase 38: Calibration & Validation`
+Progress: `v2.0` is underway; Phases 30-37 are complete, Phase 38 is planned, and the next active seam is executing `Phase 38: Calibration & Validation`
 
 ## Performance Metrics
 
@@ -190,7 +190,11 @@ Recent decisions affecting current work:
   - business-safe portfolio review output using the locked 4-headline plus 2-supporting metric hierarchy
   - batch and suite consumers aligned to one numeric-impact contract
 - `PVAL-01` is now satisfied
-- The next active design seam is `Phase 38: Calibration & Validation`
+- Phase 38 planning is now split into:
+  - canonical calibration contract and row-level validation ingredients
+  - segment, distribution, and drift validation rollups
+  - business-safe review packaging and suite alignment
+- The next active step is executing `Phase 38: Calibration & Validation`
 - Phase 36 context now locks:
   - action-first surface hierarchy with `executive_summary -> action cards -> checkpoint strip -> offer panel -> reasons -> technical reveal`
   - checkpoint strip directly above actions with `4w` visually dominant

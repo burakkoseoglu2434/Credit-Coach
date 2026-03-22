@@ -141,7 +141,7 @@
 - Phase 38: Calibration & Validation
 - Phase 39: Pilot Integration
 
-**Current checkpoint:** Phases 30-37 are complete and `Phase 38` is the next design seam.
+**Current checkpoint:** Phases 30-37 are complete and `Phase 38` is planned and ready for execution.
 
 **Success bar:**
 - Feature deltas become real actions, then numeric targets, then validated personalized plans
