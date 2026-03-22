@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 Phase: 37
 Plan: None yet
-Status: Ready for discussion
-Last activity: 2026-03-22 - Completed Phase 36 with strict typed surface consumption, action-first customer flow, and one end-of-page analyst reveal
+Status: Ready for planning
+Last activity: 2026-03-22 - Discussed Phase 37 and locked headline numeric impact, segment priority, nominal-vs-realized aggregation, and portfolio visibility rules
 
 Progress: `v2.0` is underway; Phases 30-36 are complete and the next active seam is `Phase 37: Portfolio-Level Numeric Impact`
 
@@ -164,6 +164,25 @@ Recent decisions affecting current work:
   - strict no-fallback UI behavior where missing engine fields fail soft rather than invent new meaning
 - `SURF-01` is now satisfied
 - The next active design seam is `Phase 37: Portfolio-Level Numeric Impact`
+- Phase 37 context now locks:
+  - four headline portfolio metrics:
+    - `numeric_plan_coverage`
+    - `requested_change_burden`
+    - `execution_aware_realization`
+    - `portfolio_payoff`
+  - normalized requested change burden for mixed-unit plans
+  - canonical payoff pair:
+    - `nominal_portfolio_payoff`
+    - `execution_aware_portfolio_payoff`
+  - first-class supporting metrics:
+    - `realization_gap`
+    - `offer_supported_realization_share`
+  - segment priority order:
+    - `risk_band`
+    - `recoverability_segment`
+    - `offer_needed_segment`
+  - business reading principle:
+    - more honest than impressive
 - Phase 36 context now locks:
   - action-first surface hierarchy with `executive_summary -> action cards -> checkpoint strip -> offer panel -> reasons -> technical reveal`
   - checkpoint strip directly above actions with `4w` visually dominant
@@ -189,5 +208,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Phase 36 execution completed; next step is `$gsd-discuss-phase 37`
+Stopped at: Phase 37 context captured; next step is `$gsd-plan-phase 37 --research`
 Resume file: None
