@@ -28,6 +28,7 @@ from credit_coach.evaluation.fairness import (
     lookup_group_penalty,
 )
 from credit_coach.evaluation.portfolio_validation import build_portfolio_validation_artifacts
+from credit_coach.evaluation.portfolio_validation import annotate_numeric_impact_rows
 from credit_coach.macro.impact import dynamic_alpha
 from credit_coach.macro.sources import load_macro_snapshot_mock
 from credit_coach.macro.stress_index import compute_macro_stress_index
@@ -4997,6 +4998,7 @@ def main() -> None:
         tau=tau,
         rec_cfg=rec_cfg,
     )
+    batch_df = annotate_numeric_impact_rows(batch_df)
     batch_out = run_ctx.tables_dir / "batch_recourse_results.csv"
     batch_df.to_csv(batch_out, index=False)
 
@@ -5667,6 +5669,16 @@ def main() -> None:
         json.dumps(portfolio_validation_summary, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+    portfolio_numeric_impact_breakdown_out = run_ctx.tables_dir / "portfolio_numeric_impact_breakdown.csv"
+    portfolio_validation_artifacts["numeric_impact_breakdown"].to_csv(
+        portfolio_numeric_impact_breakdown_out,
+        index=False,
+    )
+    portfolio_numeric_unit_family_breakdown_out = run_ctx.tables_dir / "portfolio_numeric_unit_family_breakdown.csv"
+    portfolio_validation_artifacts["numeric_unit_family_breakdown"].to_csv(
+        portfolio_numeric_unit_family_breakdown_out,
+        index=False,
+    )
     portfolio_coverage_breakdown_out = run_ctx.tables_dir / "portfolio_coverage_breakdown.csv"
     portfolio_validation_artifacts["coverage_breakdown"].to_csv(portfolio_coverage_breakdown_out, index=False)
     portfolio_coverage_drop_breakdown_out = run_ctx.tables_dir / "portfolio_coverage_drop_breakdown.csv"
@@ -6296,6 +6308,33 @@ def main() -> None:
         "high_stress_approval_gap_after": float(hs_after),
         "alpha_used": alpha,
         "macro_stress_index": float(msi),
+        "numeric_plan_coverage": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("numeric_plan_coverage", 0.0)
+        ),
+        "requested_change_burden": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("requested_change_burden", 0.0)
+        ),
+        "nominal_portfolio_payoff": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("nominal_portfolio_payoff", 0.0)
+        ),
+        "execution_aware_portfolio_payoff": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("execution_aware_portfolio_payoff", 0.0)
+        ),
+        "execution_aware_realization": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("execution_aware_realization", 0.0)
+        ),
+        "realization_gap": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("realization_gap", 0.0)
+        ),
+        "nominal_offer_supported_payoff": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("nominal_offer_supported_payoff", 0.0)
+        ),
+        "realized_offer_supported_payoff": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("realized_offer_supported_payoff", 0.0)
+        ),
+        "offer_supported_realization_share": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("offer_supported_realization_share", 0.0)
+        ),
     }
     if not denied_root_causes.empty:
         summary["denied_not_approved_top_root_cause"] = _safe_str(denied_root_causes.iloc[0].get("root_cause", ""))

@@ -52,6 +52,14 @@ _PHASE17_PROOF_BASELINE: dict[str, float] = {
     "reality_gap_flag_rate": 0.175,
 }
 
+_NUMERIC_TARGET_BURDEN_NORMALIZERS: dict[str, float] = {
+    "percentage_points": 30.0,
+    "ratio": 0.5,
+    "score_points": 80.0,
+    "months": 6.0,
+    "boolean_state": 1.0,
+}
+
 
 def _safe_int(value: Any, default: int = 0) -> int:
     try:
@@ -156,6 +164,146 @@ def _best_checkpoints(row: Mapping[str, Any]) -> list[dict[str, Any]]:
             "gate_pass_estimate": _safe_int(row.get("trajectory_gate_pass_24w"), 0),
         },
     ]
+
+
+def _primary_numeric_targets(steps: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    grouped_targets: dict[str, dict[str, Any]] = {}
+    for step in steps:
+        target = step.get("primary_numeric_target")
+        if not isinstance(target, Mapping):
+            continue
+        metric_key = _safe_str(target.get("metric_key"))
+        unit = _safe_str(target.get("unit"))
+        if not metric_key or not unit:
+            continue
+        group_key = _safe_str(step.get("action_group_id")) or "|".join(
+            [
+                _safe_str(step.get("action_key")),
+                metric_key,
+                str(_safe_int(target.get("due_month"), 0)),
+            ]
+        )
+        payload = dict(target)
+        payload["action_group_id"] = _safe_str(step.get("action_group_id"))
+        payload["action_key"] = _safe_str(step.get("action_key"))
+        payload["action_title"] = _safe_str(step.get("action_title"))
+        existing = grouped_targets.get(group_key)
+        if existing is None or abs(_safe_float(payload.get("delta_value"), 0.0)) > abs(
+            _safe_float(existing.get("delta_value"), 0.0)
+        ):
+            grouped_targets[group_key] = payload
+    return list(grouped_targets.values())
+
+
+def _normalized_primary_target_burden(target: Mapping[str, Any]) -> float:
+    unit = _safe_str(target.get("unit"))
+    delta_value = abs(_safe_float(target.get("delta_value"), 0.0))
+    if delta_value <= 0.0:
+        return 0.0
+    current_value = abs(_safe_float(target.get("current_value"), 0.0))
+    target_value = abs(_safe_float(target.get("target_value"), 0.0))
+    if unit == "currency":
+        denominator = max(current_value, target_value, 1.0)
+    elif unit == "count":
+        denominator = max(current_value, target_value, 1.0)
+    else:
+        denominator = _NUMERIC_TARGET_BURDEN_NORMALIZERS.get(unit, max(target_value, 1.0))
+    return _round_metric(min(1.0, delta_value / max(denominator, 1e-9)))
+
+
+def _aggregate_requested_change_burden(targets: Sequence[Mapping[str, Any]]) -> float:
+    if not targets:
+        return 0.0
+    residual = 1.0
+    for target in targets:
+        residual *= max(0.0, 1.0 - _normalized_primary_target_burden(target))
+    return _round_metric(1.0 - residual)
+
+
+def _numeric_impact_details(
+    row: Mapping[str, Any],
+    *,
+    steps: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    targets = _primary_numeric_targets(steps)
+    requested_change_burden = _aggregate_requested_change_burden(targets)
+    nominal_payoff = _safe_float(row.get("best_nominal_pd_improvement"), 0.0) if targets else 0.0
+    execution_aware_payoff = _safe_float(row.get("best_expected_pd_improvement"), 0.0) if targets else 0.0
+    nominal_offer_supported_payoff = 0.0
+    realized_offer_supported_payoff = 0.0
+    if targets and _safe_int(row.get("best_offer_plan"), 0) == 1:
+        nominal_offer_supported_payoff = nominal_payoff
+        realized_offer_supported_payoff = nominal_payoff * _safe_float(
+            row.get("best_combined_plan_realization_probability"),
+            0.0,
+        )
+        execution_aware_payoff = realized_offer_supported_payoff
+    execution_aware_realization = (
+        execution_aware_payoff / nominal_payoff if nominal_payoff > 0.0 else 0.0
+    )
+    return {
+        "numeric_targets": targets,
+        "numeric_target_count": int(len(targets)),
+        "primary_numeric_unit_families": sorted(
+            {
+                _safe_str(target.get("unit"))
+                for target in targets
+                if _safe_str(target.get("unit"))
+            }
+        ),
+        "requested_change_burden": requested_change_burden,
+        "nominal_portfolio_payoff": _round_metric(nominal_payoff),
+        "execution_aware_portfolio_payoff": _round_metric(execution_aware_payoff),
+        "execution_aware_realization": _round_metric(execution_aware_realization),
+        "realization_gap": _round_metric(max(0.0, nominal_payoff - execution_aware_payoff)),
+        "nominal_offer_supported_payoff": _round_metric(nominal_offer_supported_payoff),
+        "realized_offer_supported_payoff": _round_metric(realized_offer_supported_payoff),
+    }
+
+
+def annotate_numeric_impact_rows(batch_df: pd.DataFrame) -> pd.DataFrame:
+    work = batch_df.copy(deep=True)
+    if work.empty:
+        work["best_numeric_plan_target_count"] = pd.Series(dtype="int64")
+        work["best_primary_numeric_unit_families"] = pd.Series(dtype="object")
+        work["best_requested_change_burden"] = pd.Series(dtype="float64")
+        work["best_nominal_portfolio_payoff"] = pd.Series(dtype="float64")
+        work["best_execution_aware_portfolio_payoff"] = pd.Series(dtype="float64")
+        work["best_execution_aware_realization"] = pd.Series(dtype="float64")
+        work["best_realization_gap"] = pd.Series(dtype="float64")
+        work["best_nominal_offer_supported_payoff"] = pd.Series(dtype="float64")
+        work["best_realized_offer_supported_payoff"] = pd.Series(dtype="float64")
+        return work
+
+    details_rows: list[dict[str, Any]] = []
+    for row in work.to_dict(orient="records"):
+        details = _numeric_impact_details(row, steps=_best_steps(row))
+        details_rows.append(
+            {
+                "best_numeric_plan_target_count": int(details["numeric_target_count"]),
+                "best_primary_numeric_unit_families": "|".join(details["primary_numeric_unit_families"]),
+                "best_requested_change_burden": _safe_float(details["requested_change_burden"], 0.0),
+                "best_nominal_portfolio_payoff": _safe_float(details["nominal_portfolio_payoff"], 0.0),
+                "best_execution_aware_portfolio_payoff": _safe_float(
+                    details["execution_aware_portfolio_payoff"],
+                    0.0,
+                ),
+                "best_execution_aware_realization": _safe_float(details["execution_aware_realization"], 0.0),
+                "best_realization_gap": _safe_float(details["realization_gap"], 0.0),
+                "best_nominal_offer_supported_payoff": _safe_float(
+                    details["nominal_offer_supported_payoff"],
+                    0.0,
+                ),
+                "best_realized_offer_supported_payoff": _safe_float(
+                    details["realized_offer_supported_payoff"],
+                    0.0,
+                ),
+            }
+        )
+    details_frame = pd.DataFrame(details_rows, index=work.index)
+    for column in details_frame.columns:
+        work[column] = details_frame[column]
+    return work
 
 
 def _has_meaningful_action(steps: Sequence[Mapping[str, Any]], row: Mapping[str, Any]) -> bool:
@@ -698,6 +846,58 @@ def _coverage_reason_rows(work: pd.DataFrame, *, transition: str) -> pd.DataFram
     return pd.DataFrame(rows, columns=columns)
 
 
+def _numeric_unit_family_breakdown(work: pd.DataFrame) -> pd.DataFrame:
+    columns = [
+        "population",
+        "unit_family",
+        "count",
+        "share",
+        "mean_normalized_target_burden",
+        "burden_weight_share",
+    ]
+    if work.empty:
+        return pd.DataFrame(columns=columns)
+
+    target_rows: list[dict[str, Any]] = []
+    numeric_rows = work[work["_numeric_plan"].astype(int) == 1].copy()
+    for row in numeric_rows.to_dict(orient="records"):
+        for target in row.get("_primary_numeric_targets", []):
+            if not isinstance(target, Mapping):
+                continue
+            unit_family = _safe_str(target.get("unit"))
+            if not unit_family:
+                continue
+            target_rows.append(
+                {
+                    "population": "full_evaluation_population",
+                    "unit_family": unit_family,
+                    "normalized_target_burden": _normalized_primary_target_burden(target),
+                }
+            )
+    if not target_rows:
+        return pd.DataFrame(columns=columns)
+
+    targets_df = pd.DataFrame(target_rows)
+    total_targets = max(1, len(targets_df))
+    total_burden = max(1e-9, float(targets_df["normalized_target_burden"].sum()))
+    breakdown = (
+        targets_df.groupby(["population", "unit_family"], dropna=False)
+        .agg(
+            count=("unit_family", "size"),
+            mean_normalized_target_burden=("normalized_target_burden", "mean"),
+            burden_weight=("normalized_target_burden", "sum"),
+        )
+        .reset_index()
+    )
+    breakdown["share"] = breakdown["count"].astype(float) / float(total_targets)
+    breakdown["burden_weight_share"] = breakdown["burden_weight"].astype(float) / float(total_burden)
+    breakdown = breakdown.drop(columns=["burden_weight"])
+    return breakdown[columns].sort_values(
+        ["share", "mean_normalized_target_burden", "unit_family"],
+        ascending=[False, False, True],
+    ).reset_index(drop=True)
+
+
 def _segment_breakdown(work: pd.DataFrame) -> pd.DataFrame:
     columns = [
         "population",
@@ -716,6 +916,17 @@ def _segment_breakdown(work: pd.DataFrame) -> pd.DataFrame:
         "mean_plan_execution_probability",
         "mean_group_difficulty_score",
         "low_follow_through_readiness_rate",
+        "numeric_plan_coverage",
+        "requested_change_burden",
+        "nominal_portfolio_payoff",
+        "execution_aware_portfolio_payoff",
+        "execution_aware_realization",
+        "realization_gap",
+        "payoff_per_unit_burden",
+        "nominal_offer_supported_payoff",
+        "realized_offer_supported_payoff",
+        "offer_supported_realization_share",
+        "strain_score",
         "mean_nominal_pd_improvement",
         "execution_weighted_expected_improvement",
         "early_healthy_rate",
@@ -735,6 +946,25 @@ def _segment_breakdown(work: pd.DataFrame) -> pd.DataFrame:
             segment_value_str = _safe_str(segment_value, "unknown")
             frame_difficulty = difficulty_series.loc[frame.index]
             frame_readiness = readiness_series.loc[frame.index]
+            frame_numeric = frame[frame["_numeric_plan"].astype(int) == 1].copy()
+            requested_change_burden = _round_metric(
+                frame_numeric["_requested_change_burden"].astype(float).mean()
+            ) if not frame_numeric.empty else 0.0
+            nominal_portfolio_payoff = _round_metric(frame["_nominal_portfolio_payoff"].astype(float).mean())
+            execution_aware_portfolio_payoff = _round_metric(
+                frame["_execution_aware_portfolio_payoff"].astype(float).mean()
+            )
+            realization_gap = _round_metric(frame["_realization_gap"].astype(float).mean())
+            execution_aware_realization = _round_metric(
+                execution_aware_portfolio_payoff / nominal_portfolio_payoff
+            ) if nominal_portfolio_payoff > 0.0 else 0.0
+            payoff_per_unit_burden = _round_metric(
+                execution_aware_portfolio_payoff / requested_change_burden
+            ) if requested_change_burden > 0.0 else 0.0
+            realized_offer_supported_payoff = _round_metric(
+                frame["_realized_offer_supported_payoff"].astype(float).mean()
+            )
+            strain_score = _round_metric(requested_change_burden * max(0.0, 1.0 - execution_aware_realization))
             rows.append(
                 {
                     "population": "full_evaluation_population",
@@ -755,6 +985,21 @@ def _segment_breakdown(work: pd.DataFrame) -> pd.DataFrame:
                     ),
                     "mean_group_difficulty_score": _round_metric(frame_difficulty.mean()),
                     "low_follow_through_readiness_rate": _round_metric((frame_readiness == "low").astype(float).mean()),
+                    "numeric_plan_coverage": _round_metric(frame["_numeric_plan"].astype(float).mean()),
+                    "requested_change_burden": requested_change_burden,
+                    "nominal_portfolio_payoff": nominal_portfolio_payoff,
+                    "execution_aware_portfolio_payoff": execution_aware_portfolio_payoff,
+                    "execution_aware_realization": execution_aware_realization,
+                    "realization_gap": realization_gap,
+                    "payoff_per_unit_burden": payoff_per_unit_burden,
+                    "nominal_offer_supported_payoff": _round_metric(
+                        frame["_nominal_offer_supported_payoff"].astype(float).mean()
+                    ),
+                    "realized_offer_supported_payoff": realized_offer_supported_payoff,
+                    "offer_supported_realization_share": _round_metric(
+                        realized_offer_supported_payoff / execution_aware_portfolio_payoff
+                    ) if execution_aware_portfolio_payoff > 0.0 else 0.0,
+                    "strain_score": strain_score,
                     "mean_nominal_pd_improvement": _round_metric(
                         pd.to_numeric(frame["best_nominal_pd_improvement"], errors="coerce").fillna(0.0).mean()
                     ),
@@ -770,8 +1015,8 @@ def _segment_breakdown(work: pd.DataFrame) -> pd.DataFrame:
                 }
             )
     return pd.DataFrame(rows, columns=columns).sort_values(
-        ["segment_axis", "product_ready_plan_coverage", "count", "segment_value"],
-        ascending=[True, False, False, True],
+        ["segment_axis", "execution_aware_portfolio_payoff", "product_ready_plan_coverage", "count", "segment_value"],
+        ascending=[True, False, False, False, True],
     ).reset_index(drop=True)
 
 
@@ -820,6 +1065,75 @@ def _segment_extreme(segment_breakdown: pd.DataFrame, *, metric: str, highest: b
         "segment_label": _select_segment_label(row),
         metric: _safe_float(row.get(metric)),
         "count": _safe_int(row.get("count")),
+    }
+
+
+def _build_numeric_impact_summary(summary: Mapping[str, Any]) -> dict[str, Any]:
+    canonical_metrics = (
+        summary.get("canonical_metrics", {})
+        if isinstance(summary.get("canonical_metrics", {}), Mapping)
+        else {}
+    )
+    numeric_impact_story = (
+        summary.get("numeric_impact_story", {})
+        if isinstance(summary.get("numeric_impact_story", {}), Mapping)
+        else {}
+    )
+    return {
+        "headline_metrics": {
+            "numeric_plan_coverage": _round_metric(canonical_metrics.get("numeric_plan_coverage", 0.0)),
+            "requested_change_burden": _round_metric(canonical_metrics.get("requested_change_burden", 0.0)),
+            "execution_aware_realization": _round_metric(
+                canonical_metrics.get("execution_aware_realization", 0.0)
+            ),
+            "portfolio_payoff": _round_metric(canonical_metrics.get("portfolio_payoff", 0.0)),
+        },
+        "supporting_metrics": {
+            "realization_gap": _round_metric(canonical_metrics.get("realization_gap", 0.0)),
+            "offer_supported_realization_share": _round_metric(
+                canonical_metrics.get("offer_supported_realization_share", 0.0)
+            ),
+            "nominal_portfolio_payoff": _round_metric(
+                canonical_metrics.get("nominal_portfolio_payoff", 0.0)
+            ),
+            "payoff_per_unit_burden": _round_metric(canonical_metrics.get("payoff_per_unit_burden", 0.0)),
+            "nominal_offer_supported_payoff": _round_metric(
+                canonical_metrics.get("nominal_offer_supported_payoff", 0.0)
+            ),
+            "realized_offer_supported_payoff": _round_metric(
+                canonical_metrics.get("realized_offer_supported_payoff", 0.0)
+            ),
+        },
+        "segment_priority": {
+            "primary_segment_lens": _safe_str(numeric_impact_story.get("primary_segment_lens"), "risk_band"),
+            "secondary_segment_lens": _safe_str(
+                numeric_impact_story.get("secondary_segment_lens"),
+                "recoverability_segment",
+            ),
+            "offer_dependency_lens": _safe_str(
+                numeric_impact_story.get("offer_dependency_lens"),
+                "offer_needed_segment",
+            ),
+            "highest_payoff_segment": dict(
+                numeric_impact_story.get("highest_payoff_segment", {})
+                if isinstance(numeric_impact_story.get("highest_payoff_segment", {}), Mapping)
+                else {}
+            ),
+            "highest_burden_low_realization_segment": dict(
+                numeric_impact_story.get("highest_burden_low_realization_segment", {})
+                if isinstance(
+                    numeric_impact_story.get("highest_burden_low_realization_segment", {}),
+                    Mapping,
+                )
+                else {}
+            ),
+            "offer_dependent_segment": dict(
+                numeric_impact_story.get("offer_dependent_segment", {})
+                if isinstance(numeric_impact_story.get("offer_dependent_segment", {}), Mapping)
+                else {}
+            ),
+        },
+        "business_reading_principle": "more_honest_than_impressive",
     }
 
 
@@ -949,6 +1263,22 @@ def _render_portfolio_validation_review(summary: Mapping[str, Any]) -> str:
     segment_story = summary.get("segment_story", {})
     behavior_story = summary.get("behavior_story", {})
     product_proof = summary.get("product_proof", {})
+    numeric_impact = summary.get("numeric_impact", {})
+    numeric_headline = (
+        numeric_impact.get("headline_metrics", {})
+        if isinstance(numeric_impact.get("headline_metrics", {}), Mapping)
+        else {}
+    )
+    numeric_supporting = (
+        numeric_impact.get("supporting_metrics", {})
+        if isinstance(numeric_impact.get("supporting_metrics", {}), Mapping)
+        else {}
+    )
+    numeric_segment_priority = (
+        numeric_impact.get("segment_priority", {})
+        if isinstance(numeric_impact.get("segment_priority", {}), Mapping)
+        else {}
+    )
     phase17_delta = product_proof.get("phase17_delta", {}) if isinstance(product_proof, Mapping) else {}
     supporting_metrics = product_proof.get("supporting_metrics", {}) if isinstance(product_proof, Mapping) else {}
     lines = [
@@ -967,6 +1297,31 @@ def _render_portfolio_validation_review(summary: Mapping[str, Any]) -> str:
             f"- Supporting truth: weak 4w {_safe_float(supporting_metrics.get('weak_4w_health_rate', {}).get('current')):.1%}, "
             f"delayed trajectory {_safe_float(supporting_metrics.get('delayed_trajectory_rate', {}).get('current')):.1%}, "
             f"reality-gap {_safe_float(supporting_metrics.get('reality_gap_flag_rate', {}).get('current')):.1%}"
+        ),
+        "",
+        "## Numeric Impact",
+        f"- Numeric plan coverage: {_safe_float(numeric_headline.get('numeric_plan_coverage')):.1%}",
+        f"- Requested change burden: {_safe_float(numeric_headline.get('requested_change_burden')):.6f}",
+        f"- Execution-aware realization: {_safe_float(numeric_headline.get('execution_aware_realization')):.1%}",
+        f"- Portfolio payoff: {_safe_float(numeric_headline.get('portfolio_payoff')):.6f}",
+        f"- Realization gap: {_safe_float(numeric_supporting.get('realization_gap')):.6f}",
+        (
+            f"- Offer-supported realization share: "
+            f"{_safe_float(numeric_supporting.get('offer_supported_realization_share')):.1%}"
+        ),
+        "",
+        "## Numeric Segment Strategy",
+        (
+            f"- Highest payoff segment: "
+            f"{_safe_str(numeric_segment_priority.get('highest_payoff_segment', {}).get('segment_label'), 'n/a')}"
+        ),
+        (
+            f"- Highest burden / lowest realization segment: "
+            f"{_safe_str(numeric_segment_priority.get('highest_burden_low_realization_segment', {}).get('segment_label'), 'n/a')}"
+        ),
+        (
+            f"- Offer-dependent segment: "
+            f"{_safe_str(numeric_segment_priority.get('offer_dependent_segment', {}).get('segment_label'), 'n/a')}"
         ),
         "",
         "## Coverage Funnel",
@@ -1066,6 +1421,8 @@ def build_portfolio_validation_artifacts(
 ) -> dict[str, Any]:
     supporting_artifacts = {
         "portfolio_validation_summary_json": "tables/portfolio_validation_summary.json",
+        "portfolio_numeric_impact_breakdown_csv": "tables/portfolio_numeric_impact_breakdown.csv",
+        "portfolio_numeric_unit_family_breakdown_csv": "tables/portfolio_numeric_unit_family_breakdown.csv",
         "portfolio_coverage_breakdown_csv": "tables/portfolio_coverage_breakdown.csv",
         "portfolio_coverage_drop_breakdown_csv": "tables/portfolio_coverage_drop_breakdown.csv",
         "portfolio_reality_gap_breakdown_csv": "tables/portfolio_reality_gap_breakdown.csv",
@@ -1096,6 +1453,14 @@ def build_portfolio_validation_artifacts(
             },
             "strongest_segments": [],
             "weakest_segments": [],
+            "numeric_impact_story": {
+                "primary_segment_lens": "risk_band",
+                "secondary_segment_lens": "recoverability_segment",
+                "offer_dependency_lens": "offer_needed_segment",
+                "highest_payoff_segment": {},
+                "highest_burden_low_realization_segment": {},
+                "offer_dependent_segment": {},
+            },
             "segment_story": {
                 "where_engine_works": "",
                 "where_engine_struggles": "",
@@ -1105,12 +1470,15 @@ def build_portfolio_validation_artifacts(
             "demo_representativeness": _build_demo_representativeness(pd.DataFrame(), demo_case=demo_case),
             "supporting_artifacts": supporting_artifacts,
         }
+        empty_summary["numeric_impact"] = _build_numeric_impact_summary(empty_summary)
         empty_summary["product_proof"] = _build_product_proof(
             empty_summary,
             phase17_baseline=phase17_baseline,
         )
         return {
             "summary": empty_summary,
+            "numeric_impact_breakdown": pd.DataFrame(),
+            "numeric_unit_family_breakdown": pd.DataFrame(),
             "coverage_breakdown": pd.DataFrame(columns=["population", "funnel_stage", "count", "share"]),
             "coverage_drop_breakdown": pd.DataFrame(
                 columns=["population", "transition", "reason", "count", "share_of_source"]
@@ -1139,6 +1507,7 @@ def build_portfolio_validation_artifacts(
     for row in work.to_dict(orient="records"):
         steps = _best_steps(row)
         checkpoints = _best_checkpoints(row)
+        numeric_impact = _numeric_impact_details(row, steps=steps)
         raw_plan = _safe_int(row.get("had_any_candidate"), 0) == 1 and bool(_safe_str(row.get("best_plan_id")))
         degenerate_flag = _degenerate_plan_flag(row, steps)
         best_status = _safe_str(row.get("best_status"), "ERROR").upper()
@@ -1177,6 +1546,21 @@ def build_portfolio_validation_artifacts(
             and not _is_engine_native_action(steps, row)
             and _has_checkpoint_narrative(checkpoints)
         )
+        numeric_plan = bool(valid_plan and int(numeric_impact["numeric_target_count"]) > 0)
+        nominal_portfolio_payoff = _safe_float(numeric_impact["nominal_portfolio_payoff"], 0.0) if numeric_plan else 0.0
+        execution_aware_portfolio_payoff = (
+            _safe_float(numeric_impact["execution_aware_portfolio_payoff"], 0.0) if numeric_plan else 0.0
+        )
+        execution_aware_realization = (
+            _safe_float(numeric_impact["execution_aware_realization"], 0.0) if numeric_plan else 0.0
+        )
+        requested_change_burden = _safe_float(numeric_impact["requested_change_burden"], 0.0) if numeric_plan else 0.0
+        nominal_offer_supported_payoff = (
+            _safe_float(numeric_impact["nominal_offer_supported_payoff"], 0.0) if numeric_plan else 0.0
+        )
+        realized_offer_supported_payoff = (
+            _safe_float(numeric_impact["realized_offer_supported_payoff"], 0.0) if numeric_plan else 0.0
+        )
 
         row_records.append(
             {
@@ -1189,6 +1573,16 @@ def build_portfolio_validation_artifacts(
                 "_valid_plan": int(valid_plan),
                 "_governance_safe_plan": int(governance_safe),
                 "_product_ready_plan": int(product_ready),
+                "_numeric_plan": int(numeric_plan),
+                "_primary_numeric_targets": list(numeric_impact["numeric_targets"]),
+                "_primary_numeric_target_count": int(numeric_impact["numeric_target_count"]),
+                "_requested_change_burden": _round_metric(requested_change_burden),
+                "_nominal_portfolio_payoff": _round_metric(nominal_portfolio_payoff),
+                "_execution_aware_portfolio_payoff": _round_metric(execution_aware_portfolio_payoff),
+                "_execution_aware_realization": _round_metric(execution_aware_realization),
+                "_realization_gap": _round_metric(max(0.0, nominal_portfolio_payoff - execution_aware_portfolio_payoff)),
+                "_nominal_offer_supported_payoff": _round_metric(nominal_offer_supported_payoff),
+                "_realized_offer_supported_payoff": _round_metric(realized_offer_supported_payoff),
                 "_has_reality_gap": int(any(int(value) == 1 for value in flags.values())),
                 "_reality_gap_severity": _flag_severity(flags),
                 **flags,
@@ -1343,6 +1737,7 @@ def build_portfolio_validation_artifacts(
     reality_gap_breakdown = pd.DataFrame(flag_rows)
 
     segment_breakdown = _segment_breakdown(work)
+    numeric_unit_family_breakdown = _numeric_unit_family_breakdown(work)
 
     offer_diagnostics = pd.DataFrame(
         [
@@ -1445,9 +1840,38 @@ def build_portfolio_validation_artifacts(
     )
     highest_offer_needed_segment = _segment_extreme(segment_breakdown, metric="offer_plan_rate", highest=True)
     lowest_product_ready_segment = _segment_extreme(segment_breakdown, metric="product_ready_plan_coverage", highest=False)
+    numeric_plan_rows = work[work["_numeric_plan"].astype(int) == 1].copy()
+    requested_change_burden = _round_metric(
+        numeric_plan_rows["_requested_change_burden"].astype(float).mean()
+    ) if not numeric_plan_rows.empty else 0.0
+    nominal_portfolio_payoff = _round_metric(work["_nominal_portfolio_payoff"].astype(float).mean())
+    execution_aware_portfolio_payoff = _round_metric(work["_execution_aware_portfolio_payoff"].astype(float).mean())
+    execution_aware_realization = _round_metric(
+        execution_aware_portfolio_payoff / nominal_portfolio_payoff
+    ) if nominal_portfolio_payoff > 0.0 else 0.0
+    realized_offer_supported_payoff = _round_metric(work["_realized_offer_supported_payoff"].astype(float).mean())
+    nominal_offer_supported_payoff = _round_metric(work["_nominal_offer_supported_payoff"].astype(float).mean())
+    realization_gap = _round_metric(max(0.0, nominal_portfolio_payoff - execution_aware_portfolio_payoff))
+    payoff_per_unit_burden = _round_metric(
+        execution_aware_portfolio_payoff / requested_change_burden
+    ) if requested_change_burden > 0.0 else 0.0
+    offer_supported_realization_share = _round_metric(
+        realized_offer_supported_payoff / execution_aware_portfolio_payoff
+    ) if execution_aware_portfolio_payoff > 0.0 else 0.0
 
     canonical_metrics = {
         **_coverage_metrics(work),
+        "numeric_plan_coverage": _round_metric(work["_numeric_plan"].astype(float).mean()),
+        "requested_change_burden": requested_change_burden,
+        "nominal_portfolio_payoff": nominal_portfolio_payoff,
+        "execution_aware_portfolio_payoff": execution_aware_portfolio_payoff,
+        "portfolio_payoff": execution_aware_portfolio_payoff,
+        "execution_aware_realization": execution_aware_realization,
+        "realization_gap": realization_gap,
+        "payoff_per_unit_burden": payoff_per_unit_burden,
+        "nominal_offer_supported_payoff": nominal_offer_supported_payoff,
+        "realized_offer_supported_payoff": realized_offer_supported_payoff,
+        "offer_supported_realization_share": offer_supported_realization_share,
         "infeasible_plan_rate": _round_metric((work["action_realism_infeasible_plan_count"].astype(int) > 0).astype(float).mean()),
         "repaired_plan_rate": _round_metric((work["best_constraint_status"].astype(str).str.lower() == "repaired").astype(float).mean()),
         "provisional_plan_rate": _round_metric((work["best_constraint_status"].astype(str).str.lower() == "provisional").astype(float).mean()),
@@ -1530,6 +1954,29 @@ def build_portfolio_validation_artifacts(
             ).iloc[0]["slice_value"]
         )
 
+    risk_segment_breakdown = segment_breakdown[segment_breakdown["segment_axis"].astype(str) == "risk_band"].copy()
+    recoverability_segment_breakdown = segment_breakdown[
+        segment_breakdown["segment_axis"].astype(str) == "recoverability_segment"
+    ].copy()
+    offer_needed_segment_breakdown = segment_breakdown[
+        segment_breakdown["segment_axis"].astype(str) == "offer_needed_segment"
+    ].copy()
+    highest_payoff_segment = _segment_extreme(
+        risk_segment_breakdown,
+        metric="execution_aware_portfolio_payoff",
+        highest=True,
+    )
+    highest_burden_low_realization_segment = _segment_extreme(
+        recoverability_segment_breakdown,
+        metric="strain_score",
+        highest=True,
+    )
+    offer_dependent_segment = _segment_extreme(
+        offer_needed_segment_breakdown,
+        metric="offer_supported_realization_share",
+        highest=True,
+    )
+
     summary = {
         "canonical_population": "full_evaluation_population",
         "secondary_population": "denied",
@@ -1559,6 +2006,14 @@ def build_portfolio_validation_artifacts(
         },
         "strongest_segments": strongest_segments,
         "weakest_segments": weakest_segments,
+        "numeric_impact_story": {
+            "primary_segment_lens": "risk_band",
+            "secondary_segment_lens": "recoverability_segment",
+            "offer_dependency_lens": "offer_needed_segment",
+            "highest_payoff_segment": highest_payoff_segment,
+            "highest_burden_low_realization_segment": highest_burden_low_realization_segment,
+            "offer_dependent_segment": offer_dependent_segment,
+        },
         "highest_offer_needed_segment": highest_offer_needed_segment,
         "lowest_product_ready_segment": lowest_product_ready_segment,
         "segment_story": {
@@ -1578,14 +2033,37 @@ def build_portfolio_validation_artifacts(
         "demo_representativeness": demo_representativeness,
         "supporting_artifacts": supporting_artifacts,
     }
+    summary["numeric_impact"] = _build_numeric_impact_summary(summary)
     summary["product_proof"] = _build_product_proof(
         summary,
         phase17_baseline=phase17_baseline,
+    )
+    numeric_impact_breakdown = pd.DataFrame(
+        [
+            {
+                "population": "full_evaluation_population",
+                "breakdown_type": "overall",
+                "count": int(len(work)),
+                "numeric_plan_coverage": summary["canonical_metrics"]["numeric_plan_coverage"],
+                "requested_change_burden": summary["canonical_metrics"]["requested_change_burden"],
+                "nominal_portfolio_payoff": summary["canonical_metrics"]["nominal_portfolio_payoff"],
+                "execution_aware_portfolio_payoff": summary["canonical_metrics"]["execution_aware_portfolio_payoff"],
+                "portfolio_payoff": summary["canonical_metrics"]["portfolio_payoff"],
+                "execution_aware_realization": summary["canonical_metrics"]["execution_aware_realization"],
+                "realization_gap": summary["canonical_metrics"]["realization_gap"],
+                "payoff_per_unit_burden": summary["canonical_metrics"]["payoff_per_unit_burden"],
+                "nominal_offer_supported_payoff": summary["canonical_metrics"]["nominal_offer_supported_payoff"],
+                "realized_offer_supported_payoff": summary["canonical_metrics"]["realized_offer_supported_payoff"],
+                "offer_supported_realization_share": summary["canonical_metrics"]["offer_supported_realization_share"],
+            }
+        ]
     )
     review_markdown = _render_portfolio_validation_review(summary)
 
     return {
         "summary": summary,
+        "numeric_impact_breakdown": numeric_impact_breakdown,
+        "numeric_unit_family_breakdown": numeric_unit_family_breakdown,
         "coverage_breakdown": coverage_breakdown,
         "coverage_drop_breakdown": coverage_drop_breakdown,
         "reality_gap_breakdown": reality_gap_breakdown,
@@ -1605,6 +2083,8 @@ def aggregate_portfolio_validation_summaries(
 ) -> dict[str, Any]:
     supporting_artifacts = {
         "portfolio_validation_summary_json": "tables/portfolio_validation_summary.json",
+        "portfolio_numeric_impact_breakdown_csv": "tables/portfolio_numeric_impact_breakdown.csv",
+        "portfolio_numeric_unit_family_breakdown_csv": "tables/portfolio_numeric_unit_family_breakdown.csv",
         "portfolio_coverage_breakdown_csv": "tables/portfolio_coverage_breakdown.csv",
         "portfolio_coverage_drop_breakdown_csv": "tables/portfolio_coverage_drop_breakdown.csv",
         "portfolio_reality_gap_breakdown_csv": "tables/portfolio_reality_gap_breakdown.csv",
@@ -1616,7 +2096,7 @@ def aggregate_portfolio_validation_summaries(
         "portfolio_validation_review_md": "tables/portfolio_validation_review.md",
     }
     if not seed_summaries:
-        return {
+        empty_summary = {
             "canonical_population": "full_evaluation_population",
             "secondary_population": "denied",
             "seed_count": 0,
@@ -1630,6 +2110,14 @@ def aggregate_portfolio_validation_summaries(
             "reality_gap_summary": {},
             "strongest_segments": [],
             "weakest_segments": [],
+            "numeric_impact_story": {
+                "primary_segment_lens": "risk_band",
+                "secondary_segment_lens": "recoverability_segment",
+                "offer_dependency_lens": "offer_needed_segment",
+                "highest_payoff_segment": {},
+                "highest_burden_low_realization_segment": {},
+                "offer_dependent_segment": {},
+            },
             "highest_offer_needed_segment": {},
             "lowest_product_ready_segment": {},
             "segment_story": {
@@ -1654,6 +2142,8 @@ def aggregate_portfolio_validation_summaries(
             ),
             "supporting_artifacts": supporting_artifacts,
         }
+        empty_summary["numeric_impact"] = _build_numeric_impact_summary(empty_summary)
+        return empty_summary
 
     def _mean_metric(path: Sequence[str]) -> float:
         values = []
@@ -1810,6 +2300,46 @@ def aggregate_portfolio_validation_summaries(
         },
         "strongest_segments": strongest_segments,
         "weakest_segments": weakest_segments,
+        "numeric_impact_story": {
+            "primary_segment_lens": _mode_string(["numeric_impact_story", "primary_segment_lens"]) or "risk_band",
+            "secondary_segment_lens": _mode_string(["numeric_impact_story", "secondary_segment_lens"])
+            or "recoverability_segment",
+            "offer_dependency_lens": _mode_string(["numeric_impact_story", "offer_dependency_lens"])
+            or "offer_needed_segment",
+            "highest_payoff_segment": next(
+                (
+                    seed_summary.get("numeric_impact_story", {}).get("highest_payoff_segment", {})
+                    for seed_summary in seed_summaries
+                    if isinstance(seed_summary.get("numeric_impact_story", {}).get("highest_payoff_segment", {}), Mapping)
+                ),
+                {},
+            ),
+            "highest_burden_low_realization_segment": next(
+                (
+                    seed_summary.get("numeric_impact_story", {}).get(
+                        "highest_burden_low_realization_segment",
+                        {},
+                    )
+                    for seed_summary in seed_summaries
+                    if isinstance(
+                        seed_summary.get("numeric_impact_story", {}).get(
+                            "highest_burden_low_realization_segment",
+                            {},
+                        ),
+                        Mapping,
+                    )
+                ),
+                {},
+            ),
+            "offer_dependent_segment": next(
+                (
+                    seed_summary.get("numeric_impact_story", {}).get("offer_dependent_segment", {})
+                    for seed_summary in seed_summaries
+                    if isinstance(seed_summary.get("numeric_impact_story", {}).get("offer_dependent_segment", {}), Mapping)
+                ),
+                {},
+            ),
+        },
         "highest_offer_needed_segment": next(
             (
                 summary.get("highest_offer_needed_segment", {})
@@ -1835,6 +2365,7 @@ def aggregate_portfolio_validation_summaries(
         "demo_representativeness": demo_fit,
         "supporting_artifacts": supporting_artifacts,
     }
+    summary["numeric_impact"] = _build_numeric_impact_summary(summary)
     summary["product_proof"] = _build_product_proof(
         summary,
         phase17_baseline=phase17_baseline,

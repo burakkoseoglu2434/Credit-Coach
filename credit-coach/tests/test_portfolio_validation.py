@@ -25,6 +25,16 @@ def _semantic_phases_json() -> str:
                         "action_key": "reduce_card_utilization",
                         "action_title": "Reduce card utilization",
                         "action_class": "behavioral",
+                        "action_group_id": "reduce_card_utilization|phase_1_stabilize",
+                        "primary_numeric_target": {
+                            "metric_key": "credit_utilization_pct",
+                            "unit": "percentage_points",
+                            "current_value": 68.0,
+                            "target_value": 45.0,
+                            "delta_value": -23.0,
+                            "due_month": 3,
+                            "direction": "decrease",
+                        },
                     }
                 ],
             }
@@ -44,6 +54,35 @@ def _engine_native_phases_json() -> str:
                         "current_value": 610.0,
                         "target_value": 680.0,
                         "delta": 70.0,
+                    }
+                ],
+            }
+        ]
+    )
+
+
+def _offer_semantic_phases_json() -> str:
+    return json.dumps(
+        [
+            {
+                "phase_id": "phase_1_stabilize",
+                "phase_title": "Stabilize",
+                "steps": [
+                    {
+                        "feature_name": "installment",
+                        "action_key": "accept_restructure_offer",
+                        "action_title": "Accept restructure offer",
+                        "action_class": "institutional",
+                        "action_group_id": "accept_restructure_offer|phase_1_stabilize",
+                        "primary_numeric_target": {
+                            "metric_key": "monthly_payment_amount",
+                            "unit": "currency",
+                            "current_value": 1000.0,
+                            "target_value": 500.0,
+                            "delta_value": -500.0,
+                            "due_month": 1,
+                            "direction": "decrease",
+                        },
                     }
                 ],
             }
@@ -193,6 +232,74 @@ def test_build_portfolio_validation_artifacts_distinguishes_coverage_layers() ->
     )
 
 
+def test_build_portfolio_validation_artifacts_emits_numeric_impact_contract() -> None:
+    behavioral_row = _base_row("numeric_behavioral")
+    behavioral_row["risk_band"] = "near"
+    behavioral_row["best_nominal_pd_improvement"] = 0.10
+    behavioral_row["best_expected_pd_improvement"] = 0.08
+
+    offer_row = _base_row("numeric_offer")
+    offer_row["risk_band"] = "high"
+    offer_row["trajectory_gate_pass_4w"] = 0
+    offer_row["trajectory_gate_pass_12w"] = 1
+    offer_row["trajectory_pd_4w"] = 0.39
+    offer_row["trajectory_pd_12w"] = 0.31
+    offer_row["trajectory_pd_24w"] = 0.27
+    offer_row["best_trajectory_checkpoints_json"] = _checkpoint_json(pd_4w=0.39, pd_12w=0.31, pd_24w=0.27)
+    offer_row["best_offer_plan"] = 1
+    offer_row["best_rankable_offer"] = 1
+    offer_row["best_governance_safe_offer"] = 1
+    offer_row["best_offer_type"] = "restructure"
+    offer_row["best_offer_acceptance_probability"] = 0.50
+    offer_row["best_combined_plan_realization_probability"] = 0.30
+    offer_row["best_nominal_pd_improvement"] = 0.12
+    offer_row["best_expected_pd_improvement"] = 0.09
+    offer_row["best_phases_json"] = _offer_semantic_phases_json()
+
+    artifacts = build_portfolio_validation_artifacts(
+        pd.DataFrame([behavioral_row, offer_row]),
+        tau=0.35,
+        reliability_threshold_by_risk_band={"default": 0.7, "near": 0.7, "high": 0.7},
+    )
+
+    summary = artifacts["summary"]
+    canonical_metrics = summary["canonical_metrics"]
+    numeric_impact = summary["numeric_impact"]
+
+    assert canonical_metrics["numeric_plan_coverage"] == 1.0
+    assert canonical_metrics["requested_change_burden"] == 0.633333
+    assert canonical_metrics["nominal_portfolio_payoff"] == 0.11
+    assert canonical_metrics["execution_aware_portfolio_payoff"] == 0.058
+    assert canonical_metrics["portfolio_payoff"] == 0.058
+    assert canonical_metrics["execution_aware_realization"] == 0.527273
+    assert canonical_metrics["realization_gap"] == 0.052
+    assert canonical_metrics["nominal_offer_supported_payoff"] == 0.06
+    assert canonical_metrics["realized_offer_supported_payoff"] == 0.018
+    assert canonical_metrics["offer_supported_realization_share"] == 0.310345
+    assert canonical_metrics["payoff_per_unit_burden"] == 0.091579
+
+    assert numeric_impact["headline_metrics"]["numeric_plan_coverage"] == 1.0
+    assert numeric_impact["headline_metrics"]["portfolio_payoff"] == 0.058
+    assert (
+        numeric_impact["segment_priority"]["highest_payoff_segment"]["segment_label"]
+        == "risk_band:near"
+    )
+    assert (
+        numeric_impact["segment_priority"]["highest_burden_low_realization_segment"]["segment_label"]
+        == "recoverability_segment:recoverable"
+    )
+    assert (
+        numeric_impact["segment_priority"]["offer_dependent_segment"]["segment_label"]
+        == "offer_needed_segment:offer_needed"
+    )
+
+    numeric_breakdown = artifacts["numeric_impact_breakdown"]
+    assert float(numeric_breakdown.iloc[0]["execution_aware_portfolio_payoff"]) == 0.058
+
+    unit_breakdown = artifacts["numeric_unit_family_breakdown"]
+    assert set(unit_breakdown["unit_family"]) == {"currency", "percentage_points"}
+
+
 def test_portfolio_validation_demo_fit_can_mark_demo_narrow() -> None:
     rows = []
     for idx in range(8):
@@ -282,6 +389,23 @@ def test_render_portfolio_validation_review_is_business_first() -> None:
         },
         "strongest_segments": [{"segment_label": "risk_band:near", "product_ready_plan_coverage": 0.5}],
         "weakest_segments": [{"segment_label": "risk_band:high", "product_ready_plan_coverage": 0.1}],
+        "numeric_impact": {
+            "headline_metrics": {
+                "numeric_plan_coverage": 0.56,
+                "requested_change_burden": 0.41,
+                "execution_aware_realization": 0.62,
+                "portfolio_payoff": 0.034,
+            },
+            "supporting_metrics": {
+                "realization_gap": 0.021,
+                "offer_supported_realization_share": 0.28,
+            },
+            "segment_priority": {
+                "highest_payoff_segment": {"segment_label": "risk_band:near"},
+                "highest_burden_low_realization_segment": {"segment_label": "recoverability_segment:recoverable"},
+                "offer_dependent_segment": {"segment_label": "offer_needed_segment:offer_needed"},
+            },
+        },
         "segment_story": {
             "where_engine_works": "risk_band:near",
             "where_engine_struggles": "risk_band:high",
@@ -306,6 +430,8 @@ def test_render_portfolio_validation_review_is_business_first() -> None:
     assert "Coverage Funnel" in review
     assert "Reality Gap" in review
     assert "Behavior Reality" in review
+    assert "Numeric Impact" in review
+    assert "Numeric Segment Strategy" in review
     assert "Mean group difficulty score" in review
     assert "Segment Story" in review
     assert "Demo Fit" in review
@@ -327,6 +453,17 @@ def test_aggregate_portfolio_validation_summaries_can_report_more_honest_but_nar
                     "governance_safe_plan_coverage": 0.44,
                     "product_ready_plan_coverage": 0.28,
                     "no_plan_rate": 0.28,
+                    "numeric_plan_coverage": 0.54,
+                    "requested_change_burden": 0.42,
+                    "nominal_portfolio_payoff": 0.061,
+                    "execution_aware_portfolio_payoff": 0.043,
+                    "portfolio_payoff": 0.043,
+                    "execution_aware_realization": 0.704918,
+                    "realization_gap": 0.018,
+                    "payoff_per_unit_burden": 0.102381,
+                    "nominal_offer_supported_payoff": 0.022,
+                    "realized_offer_supported_payoff": 0.011,
+                    "offer_supported_realization_share": 0.255814,
                     "execution_weighted_expected_improvement": 0.05,
                     "mean_group_difficulty_score": 0.47,
                     "low_follow_through_readiness_rate": 0.22,
@@ -378,6 +515,7 @@ def test_aggregate_portfolio_validation_summaries_can_report_more_honest_but_nar
     assert proof["proof_confidence"] == "moderate"
     assert proof["phase17_delta"]["comparison_story"] == "more_honest_but_narrower"
     assert proof["phase17_delta"]["credibility_direction"] == "improved"
+    assert summary["numeric_impact"]["headline_metrics"]["numeric_plan_coverage"] == 0.54
 
 
 def test_build_product_confidence_snapshot_keeps_product_proof_separate_from_trust_layer() -> None:
