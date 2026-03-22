@@ -15,6 +15,16 @@ Bu dokumani "repo'ya yeni katilan biri icin kisa ama tam bir yol haritasi" gibi 
 
 ---
 
+## Cok kisa ozet
+
+- Credit Coach kredi riski tahmini yapar.
+- Uygun olmayan musteri icin uygulanabilir aksiyon plani uretir.
+- Bu planin gercekciligini ve uygulanma ihtimalini olcer.
+- Kurum tekliflerini ayri bir katman olarak degerlendirir.
+- Tek musteri ve portfoy duzeyinde kanit uretir.
+
+---
+
 ## 1. Bu proje ne yapiyor?
 
 Credit Coach, kredi basvurusu su an uygun gorunmeyen bir musteri icin:
@@ -37,6 +47,16 @@ Bir karar destek sistemi.
 ## 2. Projenin buyuk resmi
 
 Projeyi en rahat su sekilde dusunebilirsin:
+
+### Model ile engine farki
+
+Bu ayrimi en basindan net tutmak cok faydali:
+
+- **Model** = risk tahmini yapan ogrenilmis parca
+- **Engine** = model + recourse + feasibility + execution + kurum teklifi + anlati + validation
+
+Yani model, engine'in sadece bir parcasi.
+Projenin asil degeri butun engine katmanlarinda.
 
 ### Katman 1: Risk motoru
 
@@ -67,7 +87,7 @@ Bu proje artik bunu daha insan diliyle kuruyor:
 - harcama baskisini azalt
 - kredi karti kullanimini dusur
 - odeme duzenini guclendir
-- kurum destegi varsa uygun bir teklif kullan
+- kurum teklifi varsa uygun bir destek yolunu kullan
 
 ### Katman 3: Gercekcilik kontrolu
 
@@ -98,8 +118,33 @@ Toplu halde sunu olcuyor:
 - Bu sistem 100 musteri icin nasil davraniyor?
 - Cok mu zor planlar oneriyor?
 - Gerceklesme ihtimali dusuk mu?
-- Kurum destegi nerede kritik hale geliyor?
+- Kurum teklifi nerede kritik hale geliyor?
 - Sonuc umut verici mi, yoksa fazla iyimser mi?
+
+### 2.1 Bugun sistem ne uretir?
+
+Bu kisim, bugunku urunun somut olarak ne ciktigini hizlica gormek icin faydali.
+
+#### Tek musteri icin
+
+- executive summary
+- action steps
+- checkpoints
+- kurum teklifi anlatisi
+- technical reveal
+
+#### Portfoy icin
+
+- numeric plan coverage
+- requested change burden
+- execution-aware payoff
+- realization gap
+- kurum teklifi destekli realization share
+
+Bu listeyi su sekilde okuyabilirsin:
+
+- tek musteri tarafi = "bu kisi icin ne yapmaliyiz?"
+- portfoy tarafi = "bu sistem genel olarak ne kadar faydali ve ne kadar gercekci?"
 
 ---
 
@@ -199,9 +244,9 @@ Yani:
 - mumkun olmak baska,
 - uygulamak baska.
 
-### Adim 8: Kurum destegi varsa offer katmani eklenir
+### Adim 8: Kurum teklifi (offer) varsa ayri katman eklenir
 
-Sadece musteri aksiyonu degil, kurumun saglayabilecegi destek de ayri ele alinir.
+Sadece musteri aksiyonu degil, kurumun saglayabilecegi teklif de ayri ele alinir.
 
 Ornek:
 
@@ -847,13 +892,13 @@ Bu projede sabit kontrol noktalar var:
 
 Bu noktalar, planin gidisatini izlemek icin kullaniliyor.
 
-### Offer
+### Kurum teklifi (offer)
 
-Offer, kurum tarafindan saglanabilecek destek veya teklif.
+Offer, yani kurum teklifi, kurum tarafindan saglanabilecek destek veya teklif.
 
 Bu neden ayri katman?
 
-Cunku musteri aksiyonu ile kurum destegi ayni sey degil.
+Cunku musteri aksiyonu ile kurum teklifi ayni sey degil.
 
 Ornek:
 
@@ -874,11 +919,11 @@ Yani:
 - supply-side gate = kurum tarafi
 - customer-side realization = musteri tarafi
 
-### Narrative
+### Urun anlatisi (narrative)
 
-Narrative, teknik ciktinin urun diline cevrilmis hali.
+Narrative, yani urun anlatisi, teknik ciktinin urun diline cevrilmis hali.
 
-Bu projede narrative neden engine tarafinda?
+Bu projede urun anlatisi neden engine tarafinda?
 
 Cunku website kendi basina yorum uretmesin isteniyor.
 Anlatim da hesap mantigi kadar kontrollu olsun isteniyor.
@@ -1030,7 +1075,7 @@ Bu ayrimi bilmek cok onemli.
 - aksiyon semantigi
 - feasibility karar mantigi
 - execution difficulty mantigi
-- offer contract mantigi
+- kurum teklifi contract mantigi
 - checkpoint / trajectory mantigi
 - urun anlatisi ve business-vs-technical ayrimi
 - portfoy review paketleme
@@ -1209,7 +1254,7 @@ Burada:
 - ham feature degisimleri daha anlamli aksiyonlara dondu
 - execution-aware mantik geldi
 - zaman icindeki checkpoint dusuncesi guclendi
-- offer ve learning loop katmani olgunlasti
+- kurum teklifi ve learning loop katmani olgunlasti
 
 ### v1.3 - Urunlesme ve portfoy kaniti geldi
 
@@ -1275,6 +1320,18 @@ Canli entegrasyon yoksa bile,
 kuruma gidecek paket mantigi kurulmus.
 Bu, projeyi akademik demo olmaktan cikarip urun yoluna sokuyor.
 
+### 10.5 Portfolio inspection lane var
+
+Sistem artik tek musteri artifact'iyle sinirli degil.
+50-100 musteri gibi toplu koleksiyonlarla:
+
+- action dagilimi
+- constraint dagilimi
+- execution-aware sonuc
+- portfoyde en sik gorulen plan yapisi
+
+incelenebiliyor.
+
 ---
 
 ## 11. Hala hangi alanlar acik?
@@ -1286,14 +1343,42 @@ Acik tasinan ana alanlar:
 - dis kurum entegrasyonlari
 - regulatory / adverse action explanation pack'leri
 - proof refresh ve release review otomasyonu
-- kurum tarafli policy / offer sync
+- kurum tarafli policy / kurum teklifi sync
 
 Yani sistem artik iyi bir "beyin" ve iyi bir "urun demosu" seviyesinde.
 Siradaki buyuk adim daha derin entegrasyon ve operasyonel otomasyon olur.
 
+## 11.1 Bugun ne production-ready, ne degil?
+
+Bu bolum bilerek durust yazildi.
+Cunku bu projeyi dogru anlatmanin en iyi yolu, hem guclu hem acik alanlari birlikte gostermek.
+
+### Bugun guclu olanlar
+
+- semantic action planning
+- numeric targets
+- feasibility ve execution truth
+- kurum teklifi katmani
+- product surface
+- portfolio inspection lane
+
+### Henuz tam production-ready olmayan alanlar
+
+- canli kurum entegrasyonlari
+- surekli refresh ve monitoring otomasyonu
+- institution-specific deployment flow'lari
+- regulatory explanation pack'leri
+
+Bu ne demek?
+
+Sistemin cekirdek akli ve inceleme yapisi guclu.
+Ama "kuruma tam canli baglanalim ve sonsuz otomasyonla akalim" seviyesinde degil.
+
 ---
 
 ## 12. Ciktilari incelerken nereye bakmali?
+
+### 12.1 Single-customer artifacts
 
 Eger tek musteriye bakiyorsan:
 
@@ -1302,12 +1387,16 @@ Eger tek musteriye bakiyorsan:
 - `credit-coach/artifacts/runs/<run_id>/metrics.json`
 - `credit-coach/artifacts/runs/<run_id>/tables/customer_roadmap_steps.csv`
 
+### 12.2 Batch / collection artifacts
+
 Eger toplu inceleme yapiyorsan:
 
 - `credit-coach/artifacts/runs/<run_id>/tables/customer_artifact_collection/flat/customer_metrics.csv`
 - `credit-coach/artifacts/runs/<run_id>/tables/customer_artifact_collection/flat/customer_plans.csv`
 - `credit-coach/artifacts/runs/<run_id>/tables/customer_artifact_collection/flat/customer_roadmap_steps.csv`
 - `credit-coach/artifacts/runs/<run_id>/tables/customer_artifact_collection/collection_summary.md`
+
+### 12.3 Website demo artifacts
 
 Eger urun / proof tarafina bakiyorsan:
 
@@ -1318,6 +1407,25 @@ Ama cok kritik not:
 
 Website snapshot'lari her zaman en guncel engine run'i olmayabilir.
 Gercek kaynak olarak engine artifact'lerini esas almak daha dogru olur.
+
+### 12.4 Ilk inceleme checklist'i
+
+#### Tek musteri incelerken
+
+- `best_status` ne?
+- 4 haftalik checkpoint geciyor mu?
+- numeric target mantikli mi?
+- feasibility label ne diyor?
+- execution difficulty cok mu yuksek?
+- kurum teklifi var mi?
+
+#### Portfoy incelerken
+
+- coverage kac?
+- execution-aware payoff nasil?
+- realization gap yuksek mi?
+- en sik action ne?
+- en sik constraint ne?
 
 ---
 
@@ -1337,6 +1445,13 @@ Eger sifirdan ogrenmek istiyorsan sana su sirayi oneririm:
 10. En son `credit-coach-website/TECH_ARCHITECTURE.md` ile website tarafini oku.
 
 Bu sirayla gidersen once "ne"yi, sonra "nasil"i, sonra "neden"i anlarsin.
+
+### 13.1 Kim ne okumali?
+
+- **urun yoneticisi** -> 1, 2, 3, 9, 10, 12
+- **ML / data science** -> 3, 4, 5, 7, 8
+- **frontend / website** -> 4, 8.2, 10, 12
+- **yeni katilan herkes** -> 1, 2, 6, 13, 14
 
 ---
 
