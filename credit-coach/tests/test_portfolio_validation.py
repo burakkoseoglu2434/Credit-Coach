@@ -280,6 +280,12 @@ def test_build_portfolio_validation_artifacts_emits_numeric_impact_contract() ->
 
     assert numeric_impact["headline_metrics"]["numeric_plan_coverage"] == 1.0
     assert numeric_impact["headline_metrics"]["portfolio_payoff"] == 0.058
+    calibration_validation = summary["calibration_validation"]
+    assert calibration_validation["headline_metrics"]["realism_clean_plan_rate"] == 0.0
+    assert calibration_validation["headline_metrics"]["false_optimism_exposure"] == 0.5
+    assert calibration_validation["headline_metrics"]["unstable_target_range_exposure"] == 0.5
+    assert calibration_validation["headline_metrics"]["validated_execution_aware_carry_through"] == 0.527273
+    assert calibration_validation["supporting_metrics"]["narrow_distribution_exposure"] == 0.5
     assert (
         numeric_impact["segment_priority"]["highest_payoff_segment"]["segment_label"]
         == "risk_band:near"
@@ -295,9 +301,12 @@ def test_build_portfolio_validation_artifacts_emits_numeric_impact_contract() ->
 
     numeric_breakdown = artifacts["numeric_impact_breakdown"]
     assert float(numeric_breakdown.iloc[0]["execution_aware_portfolio_payoff"]) == 0.058
+    validation_breakdown = artifacts["calibration_validation_breakdown"]
+    assert float(validation_breakdown.iloc[0]["false_optimism_exposure"]) == 0.5
 
     unit_breakdown = artifacts["numeric_unit_family_breakdown"]
     assert set(unit_breakdown["unit_family"]) == {"currency", "percentage_points"}
+    assert "false_optimism_exposure" in unit_breakdown.columns
 
 
 def test_portfolio_validation_demo_fit_can_mark_demo_narrow() -> None:
@@ -406,6 +415,24 @@ def test_render_portfolio_validation_review_is_business_first() -> None:
                 "offer_dependent_segment": {"segment_label": "offer_needed_segment:offer_needed"},
             },
         },
+        "calibration_validation": {
+            "headline_metrics": {
+                "realism_clean_plan_rate": 0.31,
+                "false_optimism_exposure": 0.22,
+                "unstable_target_range_exposure": 0.18,
+                "validated_execution_aware_carry_through": 0.62,
+            },
+            "supporting_metrics": {
+                "narrow_distribution_exposure": 0.41,
+            },
+            "segment_priority": {
+                "highest_realism_segment": {"segment_label": "risk_band:near"},
+                "highest_optimism_segment": {"segment_label": "risk_band:high"},
+                "highest_instability_segment": {"segment_label": "recoverability_segment:hard_to_recover"},
+                "narrowest_unit_family": {"unit_family": "percentage_points"},
+            },
+            "distribution_story": {"stability_status": "watch"},
+        },
         "segment_story": {
             "where_engine_works": "risk_band:near",
             "where_engine_struggles": "risk_band:high",
@@ -431,6 +458,7 @@ def test_render_portfolio_validation_review_is_business_first() -> None:
     assert "Reality Gap" in review
     assert "Behavior Reality" in review
     assert "Numeric Impact" in review
+    assert "Calibration & Validation" in review
     assert "Numeric Segment Strategy" in review
     assert "Mean group difficulty score" in review
     assert "Segment Story" in review
@@ -464,6 +492,10 @@ def test_aggregate_portfolio_validation_summaries_can_report_more_honest_but_nar
                     "nominal_offer_supported_payoff": 0.022,
                     "realized_offer_supported_payoff": 0.011,
                     "offer_supported_realization_share": 0.255814,
+                    "realism_clean_plan_rate": 0.34,
+                    "false_optimism_exposure": 0.17,
+                    "unstable_target_range_exposure": 0.14,
+                    "narrow_distribution_exposure": 0.43,
                     "execution_weighted_expected_improvement": 0.05,
                     "mean_group_difficulty_score": 0.47,
                     "low_follow_through_readiness_rate": 0.22,
@@ -516,6 +548,44 @@ def test_aggregate_portfolio_validation_summaries_can_report_more_honest_but_nar
     assert proof["phase17_delta"]["comparison_story"] == "more_honest_but_narrower"
     assert proof["phase17_delta"]["credibility_direction"] == "improved"
     assert summary["numeric_impact"]["headline_metrics"]["numeric_plan_coverage"] == 0.54
+    assert summary["calibration_validation"]["headline_metrics"]["realism_clean_plan_rate"] == 0.34
+    assert summary["calibration_validation"]["supporting_metrics"]["false_optimism_exposure_drift"] == 0.0
+
+
+def test_aggregate_portfolio_validation_summaries_tracks_validation_drift() -> None:
+    summary = aggregate_portfolio_validation_summaries(
+        [
+            {
+                "canonical_metrics": {
+                    "realism_clean_plan_rate": 0.42,
+                    "false_optimism_exposure": 0.14,
+                    "unstable_target_range_exposure": 0.11,
+                    "narrow_distribution_exposure": 0.38,
+                    "execution_aware_realization": 0.67,
+                },
+                "calibration_validation_story": {
+                    "highest_realism_segment": {"segment_label": "risk_band:near"},
+                },
+            },
+            {
+                "canonical_metrics": {
+                    "realism_clean_plan_rate": 0.24,
+                    "false_optimism_exposure": 0.33,
+                    "unstable_target_range_exposure": 0.27,
+                    "narrow_distribution_exposure": 0.56,
+                    "execution_aware_realization": 0.52,
+                },
+                "calibration_validation_story": {
+                    "highest_realism_segment": {"segment_label": "risk_band:near"},
+                },
+            },
+        ]
+    )
+
+    calibration_validation = summary["calibration_validation"]
+    assert calibration_validation["supporting_metrics"]["realism_clean_plan_rate_drift"] == 0.18
+    assert calibration_validation["supporting_metrics"]["false_optimism_exposure_drift"] == 0.19
+    assert calibration_validation["distribution_story"]["stability_status"] == "drifting"
 
 
 def test_build_product_confidence_snapshot_keeps_product_proof_separate_from_trust_layer() -> None:

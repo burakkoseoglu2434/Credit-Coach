@@ -656,6 +656,10 @@ def test_build_phase_portfolio_validation_summary_uses_locked_phase17_contract()
                     "nominal_offer_supported_payoff": 0.026,
                     "realized_offer_supported_payoff": 0.012,
                     "offer_supported_realization_share": 0.292683,
+                    "realism_clean_plan_rate": 0.37,
+                    "false_optimism_exposure": 0.16,
+                    "unstable_target_range_exposure": 0.14,
+                    "narrow_distribution_exposure": 0.42,
                     "reality_gap_flag_rate": 0.15,
                     "execution_weighted_expected_improvement": 0.04,
                     "weak_4w_health_rate": 0.38,
@@ -679,6 +683,12 @@ def test_build_phase_portfolio_validation_summary_uses_locked_phase17_contract()
                 "weakest_segments": [
                     {"segment_label": "stress_band:high", "product_ready_plan_coverage": 0.2},
                 ],
+                "calibration_validation_story": {
+                    "highest_realism_segment": {"segment_label": "risk_band:near"},
+                    "highest_optimism_segment": {"segment_label": "risk_band:high"},
+                    "highest_instability_segment": {"segment_label": "recoverability_segment:hard_to_recover"},
+                    "narrowest_unit_family": {"unit_family": "percentage_points"},
+                },
                 "highest_offer_needed_segment": {"segment_label": "offer_needed_segment:offer_needed"},
                 "lowest_product_ready_segment": {"segment_label": "stress_band:high"},
                 "segment_story": {
@@ -727,6 +737,10 @@ def test_build_phase_portfolio_validation_summary_uses_locked_phase17_contract()
                     "nominal_offer_supported_payoff": 0.021,
                     "realized_offer_supported_payoff": 0.010,
                     "offer_supported_realization_share": 0.277778,
+                    "realism_clean_plan_rate": 0.26,
+                    "false_optimism_exposure": 0.29,
+                    "unstable_target_range_exposure": 0.22,
+                    "narrow_distribution_exposure": 0.57,
                     "reality_gap_flag_rate": 0.2,
                     "execution_weighted_expected_improvement": 0.038,
                     "weak_4w_health_rate": 0.42,
@@ -750,6 +764,12 @@ def test_build_phase_portfolio_validation_summary_uses_locked_phase17_contract()
                 "weakest_segments": [
                     {"segment_label": "stress_band:high", "product_ready_plan_coverage": 0.1},
                 ],
+                "calibration_validation_story": {
+                    "highest_realism_segment": {"segment_label": "risk_band:near"},
+                    "highest_optimism_segment": {"segment_label": "risk_band:high"},
+                    "highest_instability_segment": {"segment_label": "recoverability_segment:hard_to_recover"},
+                    "narrowest_unit_family": {"unit_family": "currency"},
+                },
                 "highest_offer_needed_segment": {"segment_label": "offer_needed_segment:offer_needed"},
                 "lowest_product_ready_segment": {"segment_label": "stress_band:high"},
                 "segment_story": {
@@ -783,11 +803,14 @@ def test_build_phase_portfolio_validation_summary_uses_locked_phase17_contract()
     assert summary["canonical_metrics"]["raw_plan_coverage"] == 0.75
     assert summary["canonical_metrics"]["product_ready_plan_coverage"] == 0.35
     assert summary["numeric_impact"]["headline_metrics"]["requested_change_burden"] == 0.46
+    assert summary["calibration_validation"]["headline_metrics"]["realism_clean_plan_rate"] == 0.315
+    assert summary["calibration_validation"]["supporting_metrics"]["false_optimism_exposure_drift"] == 0.13
     assert summary["reality_gap_summary"]["dominant_reality_gap_reason"] == "engine_native_action_flag"
     assert summary["demo_representativeness"]["demo_representativeness_verdict"] == "representative"
     assert summary["product_proof"]["proof_verdict"] == "promising"
     assert summary["product_proof"]["proof_confidence"] == "moderate"
     assert "portfolio_validation_summary_json" in summary["supporting_artifacts"]
+    assert "portfolio_calibration_validation_breakdown_csv" in summary["supporting_artifacts"]
 
 
 def test_build_phase_portfolio_validation_review_stays_executive_facing() -> None:
@@ -822,6 +845,26 @@ def test_build_phase_portfolio_validation_review_stays_executive_facing() -> Non
                     "offer_dependent_segment": {"segment_label": "offer_needed_segment:offer_needed"},
                 },
             },
+            "calibration_validation": {
+                "headline_metrics": {
+                    "realism_clean_plan_rate": 0.29,
+                    "false_optimism_exposure": 0.24,
+                    "unstable_target_range_exposure": 0.18,
+                    "validated_execution_aware_carry_through": 0.61,
+                },
+                "supporting_metrics": {
+                    "narrow_distribution_exposure": 0.48,
+                },
+                "segment_priority": {
+                    "highest_realism_segment": {"segment_label": "risk_band:near"},
+                    "highest_optimism_segment": {"segment_label": "risk_band:high"},
+                    "highest_instability_segment": {"segment_label": "recoverability_segment:hard_to_recover"},
+                    "narrowest_unit_family": {"unit_family": "percentage_points"},
+                },
+                "distribution_story": {
+                    "stability_status": "watch",
+                },
+            },
             "strongest_segments": [{"segment_label": "risk_band:near", "product_ready_plan_coverage": 0.46}],
             "weakest_segments": [{"segment_label": "stress_band:high", "product_ready_plan_coverage": 0.11}],
             "segment_story": {
@@ -842,6 +885,7 @@ def test_build_phase_portfolio_validation_review_stays_executive_facing() -> Non
 
     assert "Portfolio Validation Review" in review
     assert "Numeric Impact" in review
+    assert "Calibration & Validation" in review
     assert "Coverage Funnel" in review
     assert "Where engine works" in review
     assert "demo overstates portfolio reality" in review

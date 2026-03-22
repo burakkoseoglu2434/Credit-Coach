@@ -261,6 +261,159 @@ def _numeric_impact_details(
     }
 
 
+def _numeric_target_count_from_row(row: Mapping[str, Any]) -> int:
+    return max(
+        0,
+        _safe_int(
+            row.get(
+                "_primary_numeric_target_count",
+                row.get("best_numeric_plan_target_count", row.get("numeric_target_count", 0)),
+            ),
+            0,
+        ),
+    )
+
+
+def _requested_change_burden_from_row(row: Mapping[str, Any]) -> float:
+    return _safe_float(
+        row.get(
+            "_requested_change_burden",
+            row.get("best_requested_change_burden", row.get("requested_change_burden", 0.0)),
+        ),
+        0.0,
+    )
+
+
+def _nominal_portfolio_payoff_from_row(row: Mapping[str, Any]) -> float:
+    return _safe_float(
+        row.get(
+            "_nominal_portfolio_payoff",
+            row.get("best_nominal_portfolio_payoff", row.get("nominal_portfolio_payoff", 0.0)),
+        ),
+        0.0,
+    )
+
+
+def _execution_aware_payoff_from_row(row: Mapping[str, Any]) -> float:
+    return _safe_float(
+        row.get(
+            "_execution_aware_portfolio_payoff",
+            row.get(
+                "best_execution_aware_portfolio_payoff",
+                row.get("execution_aware_portfolio_payoff", 0.0),
+            ),
+        ),
+        0.0,
+    )
+
+
+def _execution_aware_realization_from_row(row: Mapping[str, Any]) -> float:
+    explicit = _safe_float(
+        row.get(
+            "_execution_aware_realization",
+            row.get("best_execution_aware_realization", row.get("execution_aware_realization", float("nan"))),
+        ),
+        float("nan"),
+    )
+    if explicit == explicit:
+        return explicit
+    nominal = _nominal_portfolio_payoff_from_row(row)
+    execution_aware = _execution_aware_payoff_from_row(row)
+    if nominal <= 0.0:
+        return 0.0
+    return _round_metric(execution_aware / nominal)
+
+
+def _difficulty_score_from_row(row: Mapping[str, Any]) -> float:
+    return _safe_float(
+        row.get(
+            "best_mean_group_difficulty_score",
+            row.get("mean_group_difficulty_score", 0.0),
+        ),
+        0.0,
+    )
+
+
+def _validation_false_optimism_flag(row: Mapping[str, Any]) -> int:
+    if _numeric_target_count_from_row(row) <= 0:
+        return 0
+    requested_change_burden = _requested_change_burden_from_row(row)
+    nominal_payoff = _nominal_portfolio_payoff_from_row(row)
+    execution_aware_payoff = _execution_aware_payoff_from_row(row)
+    execution_aware_realization = _execution_aware_realization_from_row(row)
+    plan_execution_probability = _safe_float(row.get("best_plan_execution_probability"), 0.0)
+    nominal_pd_improvement = _safe_float(row.get("best_nominal_pd_improvement"), nominal_payoff)
+    expected_pd_improvement = _safe_float(row.get("best_expected_pd_improvement"), execution_aware_payoff)
+    early_health_failed = _safe_int(row.get("trajectory_gate_pass_4w"), 0) == 0
+    large_realization_gap = (
+        nominal_payoff > 0.0
+        and (nominal_payoff - execution_aware_payoff) >= max(0.02, nominal_payoff * 0.40)
+    )
+    weak_follow_through = (
+        plan_execution_probability < 0.45
+        or execution_aware_realization < 0.55
+        or (
+            nominal_pd_improvement > 0.0
+            and expected_pd_improvement <= 0.50 * nominal_pd_improvement
+        )
+    )
+    high_uplift = nominal_pd_improvement >= 0.05 or nominal_payoff >= 0.05
+    burden_stretch = requested_change_burden >= 0.65
+    return int(high_uplift and (large_realization_gap or weak_follow_through or (burden_stretch and early_health_failed)))
+
+
+def _validation_unstable_target_range_flag(row: Mapping[str, Any]) -> int:
+    if _numeric_target_count_from_row(row) <= 0:
+        return 0
+    requested_change_burden = _requested_change_burden_from_row(row)
+    difficulty_score = _difficulty_score_from_row(row)
+    constraint_status = _safe_str(row.get("best_constraint_status")).lower()
+    trajectory_class = _safe_str(row.get("trajectory_class")) or _trajectory_class(row)
+    return int(
+        requested_change_burden >= 0.75
+        or difficulty_score >= 0.70
+        or _numeric_target_count_from_row(row) > 1
+        or constraint_status in {"repaired", "provisional"}
+        or trajectory_class in {"unstable", "replan_prone", "long_horizon_heavy"}
+    )
+
+
+def _validation_realism_clean_flag(row: Mapping[str, Any]) -> int:
+    if _numeric_target_count_from_row(row) <= 0:
+        return 0
+    requested_change_burden = _requested_change_burden_from_row(row)
+    difficulty_score = _difficulty_score_from_row(row)
+    execution_aware_realization = _execution_aware_realization_from_row(row)
+    constraint_status = _safe_str(row.get("best_constraint_status")).lower()
+    product_ready = (
+        _safe_int(row.get("_product_ready_plan"), -1) == 1
+        if "_product_ready_plan" in row
+        else constraint_status == "valid"
+    )
+    false_optimism_flag = _safe_int(
+        row.get("_validation_false_optimism_flag", row.get("best_false_optimism_flag", -1)),
+        -1,
+    )
+    if false_optimism_flag < 0:
+        false_optimism_flag = _validation_false_optimism_flag(row)
+    unstable_target_range_flag = _safe_int(
+        row.get("_validation_unstable_target_range_flag", row.get("best_unstable_target_range_flag", -1)),
+        -1,
+    )
+    if unstable_target_range_flag < 0:
+        unstable_target_range_flag = _validation_unstable_target_range_flag(row)
+    return int(
+        bool(product_ready)
+        and constraint_status == "valid"
+        and requested_change_burden <= 0.65
+        and difficulty_score <= 0.65
+        and execution_aware_realization >= 0.55
+        and _safe_int(row.get("trajectory_gate_pass_4w"), 0) == 1
+        and false_optimism_flag == 0
+        and unstable_target_range_flag == 0
+    )
+
+
 def annotate_numeric_impact_rows(batch_df: pd.DataFrame) -> pd.DataFrame:
     work = batch_df.copy(deep=True)
     if work.empty:
@@ -273,11 +426,29 @@ def annotate_numeric_impact_rows(batch_df: pd.DataFrame) -> pd.DataFrame:
         work["best_realization_gap"] = pd.Series(dtype="float64")
         work["best_nominal_offer_supported_payoff"] = pd.Series(dtype="float64")
         work["best_realized_offer_supported_payoff"] = pd.Series(dtype="float64")
+        work["best_false_optimism_flag"] = pd.Series(dtype="int64")
+        work["best_unstable_target_range_flag"] = pd.Series(dtype="int64")
+        work["best_realism_clean_flag"] = pd.Series(dtype="int64")
         return work
 
     details_rows: list[dict[str, Any]] = []
     for row in work.to_dict(orient="records"):
         details = _numeric_impact_details(row, steps=_best_steps(row))
+        annotated_row = {**row, **details}
+        false_optimism_flag = _validation_false_optimism_flag(annotated_row)
+        unstable_target_range_flag = _validation_unstable_target_range_flag(
+            {
+                **annotated_row,
+                "_validation_false_optimism_flag": false_optimism_flag,
+            }
+        )
+        realism_clean_flag = _validation_realism_clean_flag(
+            {
+                **annotated_row,
+                "_validation_false_optimism_flag": false_optimism_flag,
+                "_validation_unstable_target_range_flag": unstable_target_range_flag,
+            }
+        )
         details_rows.append(
             {
                 "best_numeric_plan_target_count": int(details["numeric_target_count"]),
@@ -298,6 +469,9 @@ def annotate_numeric_impact_rows(batch_df: pd.DataFrame) -> pd.DataFrame:
                     details["realized_offer_supported_payoff"],
                     0.0,
                 ),
+                "best_false_optimism_flag": int(false_optimism_flag),
+                "best_unstable_target_range_flag": int(unstable_target_range_flag),
+                "best_realism_clean_flag": int(realism_clean_flag),
             }
         )
     details_frame = pd.DataFrame(details_rows, index=work.index)
@@ -854,6 +1028,9 @@ def _numeric_unit_family_breakdown(work: pd.DataFrame) -> pd.DataFrame:
         "share",
         "mean_normalized_target_burden",
         "burden_weight_share",
+        "realism_clean_plan_rate",
+        "false_optimism_exposure",
+        "unstable_target_range_exposure",
     ]
     if work.empty:
         return pd.DataFrame(columns=columns)
@@ -872,6 +1049,9 @@ def _numeric_unit_family_breakdown(work: pd.DataFrame) -> pd.DataFrame:
                     "population": "full_evaluation_population",
                     "unit_family": unit_family,
                     "normalized_target_burden": _normalized_primary_target_burden(target),
+                    "realism_clean_flag": _safe_int(row.get("_validation_realism_clean_flag"), 0),
+                    "false_optimism_flag": _safe_int(row.get("_validation_false_optimism_flag"), 0),
+                    "unstable_target_range_flag": _safe_int(row.get("_validation_unstable_target_range_flag"), 0),
                 }
             )
     if not target_rows:
@@ -886,6 +1066,9 @@ def _numeric_unit_family_breakdown(work: pd.DataFrame) -> pd.DataFrame:
             count=("unit_family", "size"),
             mean_normalized_target_burden=("normalized_target_burden", "mean"),
             burden_weight=("normalized_target_burden", "sum"),
+            realism_clean_plan_rate=("realism_clean_flag", "mean"),
+            false_optimism_exposure=("false_optimism_flag", "mean"),
+            unstable_target_range_exposure=("unstable_target_range_flag", "mean"),
         )
         .reset_index()
     )
@@ -926,6 +1109,9 @@ def _segment_breakdown(work: pd.DataFrame) -> pd.DataFrame:
         "nominal_offer_supported_payoff",
         "realized_offer_supported_payoff",
         "offer_supported_realization_share",
+        "realism_clean_plan_rate",
+        "false_optimism_exposure",
+        "unstable_target_range_exposure",
         "strain_score",
         "mean_nominal_pd_improvement",
         "execution_weighted_expected_improvement",
@@ -999,6 +1185,13 @@ def _segment_breakdown(work: pd.DataFrame) -> pd.DataFrame:
                     "offer_supported_realization_share": _round_metric(
                         realized_offer_supported_payoff / execution_aware_portfolio_payoff
                     ) if execution_aware_portfolio_payoff > 0.0 else 0.0,
+                    "realism_clean_plan_rate": _round_metric(frame["_validation_realism_clean_flag"].astype(float).mean()),
+                    "false_optimism_exposure": _round_metric(
+                        frame["_validation_false_optimism_flag"].astype(float).mean()
+                    ),
+                    "unstable_target_range_exposure": _round_metric(
+                        frame["_validation_unstable_target_range_flag"].astype(float).mean()
+                    ),
                     "strain_score": strain_score,
                     "mean_nominal_pd_improvement": _round_metric(
                         pd.to_numeric(frame["best_nominal_pd_improvement"], errors="coerce").fillna(0.0).mean()
@@ -1137,6 +1330,103 @@ def _build_numeric_impact_summary(summary: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _build_calibration_validation_summary(
+    summary: Mapping[str, Any],
+    *,
+    seed_summaries: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    canonical_metrics = (
+        summary.get("canonical_metrics", {})
+        if isinstance(summary.get("canonical_metrics", {}), Mapping)
+        else {}
+    )
+    calibration_story = (
+        summary.get("calibration_validation_story", {})
+        if isinstance(summary.get("calibration_validation_story", {}), Mapping)
+        else {}
+    )
+
+    drift_metrics = {
+        "realism_clean_plan_rate_drift": 0.0,
+        "false_optimism_exposure_drift": 0.0,
+        "unstable_target_range_exposure_drift": 0.0,
+        "narrow_distribution_exposure_drift": 0.0,
+    }
+    if seed_summaries:
+        for metric_key in tuple(drift_metrics.keys()):
+            source_metric = metric_key.replace("_drift", "")
+            values = [
+                _safe_float(seed_summary.get("canonical_metrics", {}).get(source_metric), 0.0)
+                for seed_summary in seed_summaries
+                if isinstance(seed_summary.get("canonical_metrics", {}), Mapping)
+            ]
+            if values:
+                drift_metrics[metric_key] = _round_metric(max(values) - min(values))
+
+    max_drift = max(drift_metrics.values()) if drift_metrics else 0.0
+    if max_drift <= 0.05:
+        stability_status = "stable"
+    elif max_drift <= 0.10:
+        stability_status = "watch"
+    else:
+        stability_status = "drifting"
+
+    return {
+        "headline_metrics": {
+            "realism_clean_plan_rate": _round_metric(canonical_metrics.get("realism_clean_plan_rate", 0.0)),
+            "false_optimism_exposure": _round_metric(canonical_metrics.get("false_optimism_exposure", 0.0)),
+            "unstable_target_range_exposure": _round_metric(
+                canonical_metrics.get("unstable_target_range_exposure", 0.0)
+            ),
+            "validated_execution_aware_carry_through": _round_metric(
+                canonical_metrics.get("execution_aware_realization", 0.0)
+            ),
+        },
+        "supporting_metrics": {
+            "narrow_distribution_exposure": _round_metric(
+                canonical_metrics.get("narrow_distribution_exposure", 0.0)
+            ),
+            **{key: _round_metric(value) for key, value in drift_metrics.items()},
+            "execution_aware_portfolio_payoff": _round_metric(
+                canonical_metrics.get("execution_aware_portfolio_payoff", 0.0)
+            ),
+            "nominal_portfolio_payoff": _round_metric(canonical_metrics.get("nominal_portfolio_payoff", 0.0)),
+        },
+        "segment_priority": {
+            "highest_realism_segment": dict(
+                calibration_story.get("highest_realism_segment", {})
+                if isinstance(calibration_story.get("highest_realism_segment", {}), Mapping)
+                else {}
+            ),
+            "highest_optimism_segment": dict(
+                calibration_story.get("highest_optimism_segment", {})
+                if isinstance(calibration_story.get("highest_optimism_segment", {}), Mapping)
+                else {}
+            ),
+            "highest_instability_segment": dict(
+                calibration_story.get("highest_instability_segment", {})
+                if isinstance(calibration_story.get("highest_instability_segment", {}), Mapping)
+                else {}
+            ),
+            "narrowest_unit_family": dict(
+                calibration_story.get("narrowest_unit_family", {})
+                if isinstance(calibration_story.get("narrowest_unit_family", {}), Mapping)
+                else {}
+            ),
+        },
+        "distribution_story": {
+            "primary_segment_lens": _safe_str(calibration_story.get("primary_segment_lens"), "risk_band"),
+            "secondary_segment_lens": _safe_str(
+                calibration_story.get("secondary_segment_lens"),
+                "recoverability_segment",
+            ),
+            "distribution_lens": _safe_str(calibration_story.get("distribution_lens"), "unit_family"),
+            "stability_status": stability_status,
+        },
+        "business_reading_principle": "more_honest_than_impressive",
+    }
+
+
 def _build_demo_representativeness(
     work: pd.DataFrame,
     *,
@@ -1264,6 +1554,7 @@ def _render_portfolio_validation_review(summary: Mapping[str, Any]) -> str:
     behavior_story = summary.get("behavior_story", {})
     product_proof = summary.get("product_proof", {})
     numeric_impact = summary.get("numeric_impact", {})
+    calibration_validation = summary.get("calibration_validation", {})
     numeric_headline = (
         numeric_impact.get("headline_metrics", {})
         if isinstance(numeric_impact.get("headline_metrics", {}), Mapping)
@@ -1277,6 +1568,26 @@ def _render_portfolio_validation_review(summary: Mapping[str, Any]) -> str:
     numeric_segment_priority = (
         numeric_impact.get("segment_priority", {})
         if isinstance(numeric_impact.get("segment_priority", {}), Mapping)
+        else {}
+    )
+    validation_headline = (
+        calibration_validation.get("headline_metrics", {})
+        if isinstance(calibration_validation.get("headline_metrics", {}), Mapping)
+        else {}
+    )
+    validation_supporting = (
+        calibration_validation.get("supporting_metrics", {})
+        if isinstance(calibration_validation.get("supporting_metrics", {}), Mapping)
+        else {}
+    )
+    validation_segment_priority = (
+        calibration_validation.get("segment_priority", {})
+        if isinstance(calibration_validation.get("segment_priority", {}), Mapping)
+        else {}
+    )
+    validation_distribution_story = (
+        calibration_validation.get("distribution_story", {})
+        if isinstance(calibration_validation.get("distribution_story", {}), Mapping)
         else {}
     )
     phase17_delta = product_proof.get("phase17_delta", {}) if isinstance(product_proof, Mapping) else {}
@@ -1322,6 +1633,39 @@ def _render_portfolio_validation_review(summary: Mapping[str, Any]) -> str:
         (
             f"- Offer-dependent segment: "
             f"{_safe_str(numeric_segment_priority.get('offer_dependent_segment', {}).get('segment_label'), 'n/a')}"
+        ),
+        "",
+        "## Calibration & Validation",
+        f"- Realism-clean plan rate: {_safe_float(validation_headline.get('realism_clean_plan_rate')):.1%}",
+        f"- False optimism exposure: {_safe_float(validation_headline.get('false_optimism_exposure')):.1%}",
+        (
+            f"- Unstable target range exposure: "
+            f"{_safe_float(validation_headline.get('unstable_target_range_exposure')):.1%}"
+        ),
+        (
+            f"- Validated execution-aware carry-through: "
+            f"{_safe_float(validation_headline.get('validated_execution_aware_carry_through')):.1%}"
+        ),
+        (
+            f"- Narrow distribution exposure: "
+            f"{_safe_float(validation_supporting.get('narrow_distribution_exposure')):.1%}"
+        ),
+        f"- Stability status: {_safe_str(validation_distribution_story.get('stability_status'), 'stable')}",
+        (
+            f"- Highest realism segment: "
+            f"{_safe_str(validation_segment_priority.get('highest_realism_segment', {}).get('segment_label'), 'n/a')}"
+        ),
+        (
+            f"- Highest optimism segment: "
+            f"{_safe_str(validation_segment_priority.get('highest_optimism_segment', {}).get('segment_label'), 'n/a')}"
+        ),
+        (
+            f"- Highest instability segment: "
+            f"{_safe_str(validation_segment_priority.get('highest_instability_segment', {}).get('segment_label'), 'n/a')}"
+        ),
+        (
+            f"- Narrowest unit family: "
+            f"{_safe_str(validation_segment_priority.get('narrowest_unit_family', {}).get('unit_family'), 'n/a')}"
         ),
         "",
         "## Coverage Funnel",
@@ -1423,6 +1767,7 @@ def build_portfolio_validation_artifacts(
         "portfolio_validation_summary_json": "tables/portfolio_validation_summary.json",
         "portfolio_numeric_impact_breakdown_csv": "tables/portfolio_numeric_impact_breakdown.csv",
         "portfolio_numeric_unit_family_breakdown_csv": "tables/portfolio_numeric_unit_family_breakdown.csv",
+        "portfolio_calibration_validation_breakdown_csv": "tables/portfolio_calibration_validation_breakdown.csv",
         "portfolio_coverage_breakdown_csv": "tables/portfolio_coverage_breakdown.csv",
         "portfolio_coverage_drop_breakdown_csv": "tables/portfolio_coverage_drop_breakdown.csv",
         "portfolio_reality_gap_breakdown_csv": "tables/portfolio_reality_gap_breakdown.csv",
@@ -1461,6 +1806,15 @@ def build_portfolio_validation_artifacts(
                 "highest_burden_low_realization_segment": {},
                 "offer_dependent_segment": {},
             },
+            "calibration_validation_story": {
+                "primary_segment_lens": "risk_band",
+                "secondary_segment_lens": "recoverability_segment",
+                "distribution_lens": "unit_family",
+                "highest_realism_segment": {},
+                "highest_optimism_segment": {},
+                "highest_instability_segment": {},
+                "narrowest_unit_family": {},
+            },
             "segment_story": {
                 "where_engine_works": "",
                 "where_engine_struggles": "",
@@ -1471,6 +1825,7 @@ def build_portfolio_validation_artifacts(
             "supporting_artifacts": supporting_artifacts,
         }
         empty_summary["numeric_impact"] = _build_numeric_impact_summary(empty_summary)
+        empty_summary["calibration_validation"] = _build_calibration_validation_summary(empty_summary)
         empty_summary["product_proof"] = _build_product_proof(
             empty_summary,
             phase17_baseline=phase17_baseline,
@@ -1479,6 +1834,7 @@ def build_portfolio_validation_artifacts(
             "summary": empty_summary,
             "numeric_impact_breakdown": pd.DataFrame(),
             "numeric_unit_family_breakdown": pd.DataFrame(),
+            "calibration_validation_breakdown": pd.DataFrame(),
             "coverage_breakdown": pd.DataFrame(columns=["population", "funnel_stage", "count", "share"]),
             "coverage_drop_breakdown": pd.DataFrame(
                 columns=["population", "transition", "reason", "count", "share_of_source"]
@@ -1590,6 +1946,12 @@ def build_portfolio_validation_artifacts(
         )
 
     work = pd.DataFrame(row_records)
+    if not work.empty:
+        work["_validation_false_optimism_flag"] = work.apply(_validation_false_optimism_flag, axis=1).astype(int)
+        work["_validation_unstable_target_range_flag"] = (
+            work.apply(_validation_unstable_target_range_flag, axis=1).astype(int)
+        )
+        work["_validation_realism_clean_flag"] = work.apply(_validation_realism_clean_flag, axis=1).astype(int)
 
     work["drop_reason_raw_to_valid"] = ""
     raw_not_valid = work[(work["_raw_plan"] == 1) & (work["_valid_plan"] == 0)].copy()
@@ -1858,6 +2220,17 @@ def build_portfolio_validation_artifacts(
     offer_supported_realization_share = _round_metric(
         realized_offer_supported_payoff / execution_aware_portfolio_payoff
     ) if execution_aware_portfolio_payoff > 0.0 else 0.0
+    realism_clean_plan_rate = _round_metric(work["_validation_realism_clean_flag"].astype(float).mean())
+    false_optimism_exposure = _round_metric(work["_validation_false_optimism_flag"].astype(float).mean())
+    unstable_target_range_exposure = _round_metric(
+        work["_validation_unstable_target_range_flag"].astype(float).mean()
+    )
+    numeric_risk_distribution = (
+        work[work["_numeric_plan"].astype(int) == 1]["risk_band"].astype(str).value_counts(normalize=True)
+        if not work[work["_numeric_plan"].astype(int) == 1].empty
+        else pd.Series(dtype=float)
+    )
+    risk_band_concentration = _round_metric(float(numeric_risk_distribution.max())) if not numeric_risk_distribution.empty else 0.0
 
     canonical_metrics = {
         **_coverage_metrics(work),
@@ -1872,6 +2245,9 @@ def build_portfolio_validation_artifacts(
         "nominal_offer_supported_payoff": nominal_offer_supported_payoff,
         "realized_offer_supported_payoff": realized_offer_supported_payoff,
         "offer_supported_realization_share": offer_supported_realization_share,
+        "realism_clean_plan_rate": realism_clean_plan_rate,
+        "false_optimism_exposure": false_optimism_exposure,
+        "unstable_target_range_exposure": unstable_target_range_exposure,
         "infeasible_plan_rate": _round_metric((work["action_realism_infeasible_plan_count"].astype(int) > 0).astype(float).mean()),
         "repaired_plan_rate": _round_metric((work["best_constraint_status"].astype(str).str.lower() == "repaired").astype(float).mean()),
         "provisional_plan_rate": _round_metric((work["best_constraint_status"].astype(str).str.lower() == "provisional").astype(float).mean()),
@@ -1938,6 +2314,15 @@ def build_portfolio_validation_artifacts(
                 )
             )
         ),
+        "narrow_distribution_exposure": _round_metric(
+            max(
+                risk_band_concentration,
+                _safe_float(
+                    numeric_unit_family_breakdown["share"].max() if not numeric_unit_family_breakdown.empty else 0.0,
+                    0.0,
+                ),
+            )
+        ),
     }
     secondary_metrics = _coverage_metrics(denied_rows)
 
@@ -1976,6 +2361,32 @@ def build_portfolio_validation_artifacts(
         metric="offer_supported_realization_share",
         highest=True,
     )
+    highest_realism_segment = _segment_extreme(
+        risk_segment_breakdown,
+        metric="realism_clean_plan_rate",
+        highest=True,
+    )
+    highest_optimism_segment = _segment_extreme(
+        risk_segment_breakdown,
+        metric="false_optimism_exposure",
+        highest=True,
+    )
+    highest_instability_segment = _segment_extreme(
+        recoverability_segment_breakdown,
+        metric="unstable_target_range_exposure",
+        highest=True,
+    )
+    narrowest_unit_family = {}
+    if not numeric_unit_family_breakdown.empty:
+        top_unit_row = numeric_unit_family_breakdown.sort_values(
+            ["share", "mean_normalized_target_burden", "unit_family"],
+            ascending=[False, False, True],
+        ).iloc[0]
+        narrowest_unit_family = {
+            "unit_family": _safe_str(top_unit_row.get("unit_family")),
+            "share": _safe_float(top_unit_row.get("share")),
+            "mean_normalized_target_burden": _safe_float(top_unit_row.get("mean_normalized_target_burden")),
+        }
 
     summary = {
         "canonical_population": "full_evaluation_population",
@@ -2014,6 +2425,15 @@ def build_portfolio_validation_artifacts(
             "highest_burden_low_realization_segment": highest_burden_low_realization_segment,
             "offer_dependent_segment": offer_dependent_segment,
         },
+        "calibration_validation_story": {
+            "primary_segment_lens": "risk_band",
+            "secondary_segment_lens": "recoverability_segment",
+            "distribution_lens": "unit_family",
+            "highest_realism_segment": highest_realism_segment,
+            "highest_optimism_segment": highest_optimism_segment,
+            "highest_instability_segment": highest_instability_segment,
+            "narrowest_unit_family": narrowest_unit_family,
+        },
         "highest_offer_needed_segment": highest_offer_needed_segment,
         "lowest_product_ready_segment": lowest_product_ready_segment,
         "segment_story": {
@@ -2034,6 +2454,7 @@ def build_portfolio_validation_artifacts(
         "supporting_artifacts": supporting_artifacts,
     }
     summary["numeric_impact"] = _build_numeric_impact_summary(summary)
+    summary["calibration_validation"] = _build_calibration_validation_summary(summary)
     summary["product_proof"] = _build_product_proof(
         summary,
         phase17_baseline=phase17_baseline,
@@ -2058,12 +2479,27 @@ def build_portfolio_validation_artifacts(
             }
         ]
     )
+    calibration_validation_breakdown = pd.DataFrame(
+        [
+            {
+                "population": "full_evaluation_population",
+                "breakdown_type": "overall",
+                "count": int(len(work)),
+                "realism_clean_plan_rate": summary["canonical_metrics"]["realism_clean_plan_rate"],
+                "false_optimism_exposure": summary["canonical_metrics"]["false_optimism_exposure"],
+                "unstable_target_range_exposure": summary["canonical_metrics"]["unstable_target_range_exposure"],
+                "validated_execution_aware_carry_through": summary["canonical_metrics"]["execution_aware_realization"],
+                "narrow_distribution_exposure": summary["canonical_metrics"]["narrow_distribution_exposure"],
+            }
+        ]
+    )
     review_markdown = _render_portfolio_validation_review(summary)
 
     return {
         "summary": summary,
         "numeric_impact_breakdown": numeric_impact_breakdown,
         "numeric_unit_family_breakdown": numeric_unit_family_breakdown,
+        "calibration_validation_breakdown": calibration_validation_breakdown,
         "coverage_breakdown": coverage_breakdown,
         "coverage_drop_breakdown": coverage_drop_breakdown,
         "reality_gap_breakdown": reality_gap_breakdown,
@@ -2085,6 +2521,7 @@ def aggregate_portfolio_validation_summaries(
         "portfolio_validation_summary_json": "tables/portfolio_validation_summary.json",
         "portfolio_numeric_impact_breakdown_csv": "tables/portfolio_numeric_impact_breakdown.csv",
         "portfolio_numeric_unit_family_breakdown_csv": "tables/portfolio_numeric_unit_family_breakdown.csv",
+        "portfolio_calibration_validation_breakdown_csv": "tables/portfolio_calibration_validation_breakdown.csv",
         "portfolio_coverage_breakdown_csv": "tables/portfolio_coverage_breakdown.csv",
         "portfolio_coverage_drop_breakdown_csv": "tables/portfolio_coverage_drop_breakdown.csv",
         "portfolio_reality_gap_breakdown_csv": "tables/portfolio_reality_gap_breakdown.csv",
@@ -2118,6 +2555,15 @@ def aggregate_portfolio_validation_summaries(
                 "highest_burden_low_realization_segment": {},
                 "offer_dependent_segment": {},
             },
+            "calibration_validation_story": {
+                "primary_segment_lens": "risk_band",
+                "secondary_segment_lens": "recoverability_segment",
+                "distribution_lens": "unit_family",
+                "highest_realism_segment": {},
+                "highest_optimism_segment": {},
+                "highest_instability_segment": {},
+                "narrowest_unit_family": {},
+            },
             "highest_offer_needed_segment": {},
             "lowest_product_ready_segment": {},
             "segment_story": {
@@ -2143,6 +2589,7 @@ def aggregate_portfolio_validation_summaries(
             "supporting_artifacts": supporting_artifacts,
         }
         empty_summary["numeric_impact"] = _build_numeric_impact_summary(empty_summary)
+        empty_summary["calibration_validation"] = _build_calibration_validation_summary(empty_summary)
         return empty_summary
 
     def _mean_metric(path: Sequence[str]) -> float:
@@ -2340,6 +2787,44 @@ def aggregate_portfolio_validation_summaries(
                 {},
             ),
         },
+        "calibration_validation_story": {
+            "primary_segment_lens": _mode_string(["calibration_validation_story", "primary_segment_lens"]) or "risk_band",
+            "secondary_segment_lens": _mode_string(["calibration_validation_story", "secondary_segment_lens"])
+            or "recoverability_segment",
+            "distribution_lens": _mode_string(["calibration_validation_story", "distribution_lens"]) or "unit_family",
+            "highest_realism_segment": next(
+                (
+                    seed_summary.get("calibration_validation_story", {}).get("highest_realism_segment", {})
+                    for seed_summary in seed_summaries
+                    if isinstance(seed_summary.get("calibration_validation_story", {}).get("highest_realism_segment", {}), Mapping)
+                ),
+                {},
+            ),
+            "highest_optimism_segment": next(
+                (
+                    seed_summary.get("calibration_validation_story", {}).get("highest_optimism_segment", {})
+                    for seed_summary in seed_summaries
+                    if isinstance(seed_summary.get("calibration_validation_story", {}).get("highest_optimism_segment", {}), Mapping)
+                ),
+                {},
+            ),
+            "highest_instability_segment": next(
+                (
+                    seed_summary.get("calibration_validation_story", {}).get("highest_instability_segment", {})
+                    for seed_summary in seed_summaries
+                    if isinstance(seed_summary.get("calibration_validation_story", {}).get("highest_instability_segment", {}), Mapping)
+                ),
+                {},
+            ),
+            "narrowest_unit_family": next(
+                (
+                    seed_summary.get("calibration_validation_story", {}).get("narrowest_unit_family", {})
+                    for seed_summary in seed_summaries
+                    if isinstance(seed_summary.get("calibration_validation_story", {}).get("narrowest_unit_family", {}), Mapping)
+                ),
+                {},
+            ),
+        },
         "highest_offer_needed_segment": next(
             (
                 summary.get("highest_offer_needed_segment", {})
@@ -2366,6 +2851,7 @@ def aggregate_portfolio_validation_summaries(
         "supporting_artifacts": supporting_artifacts,
     }
     summary["numeric_impact"] = _build_numeric_impact_summary(summary)
+    summary["calibration_validation"] = _build_calibration_validation_summary(summary, seed_summaries=seed_summaries)
     summary["product_proof"] = _build_product_proof(
         summary,
         phase17_baseline=phase17_baseline,

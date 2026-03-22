@@ -1428,6 +1428,9 @@ def main() -> None:
     seed_trajectory_gate_by_income_breakdowns: list[pd.DataFrame] = []
     seed_trajectory_phase_action_mix_breakdowns: list[pd.DataFrame] = []
     seed_portfolio_validation_summaries: list[dict[str, Any]] = []
+    seed_portfolio_numeric_impact_breakdowns: list[pd.DataFrame] = []
+    seed_portfolio_numeric_unit_family_breakdowns: list[pd.DataFrame] = []
+    seed_portfolio_calibration_validation_breakdowns: list[pd.DataFrame] = []
     seed_portfolio_coverage_breakdowns: list[pd.DataFrame] = []
     seed_portfolio_coverage_drop_breakdowns: list[pd.DataFrame] = []
     seed_portfolio_reality_gap_breakdowns: list[pd.DataFrame] = []
@@ -1469,6 +1472,15 @@ def main() -> None:
         trajectory_summary = _load_json(root / "artifacts" / "runs" / run_id / "tables" / "trajectory_summary.json")
         portfolio_validation_summary = _load_json(
             root / "artifacts" / "runs" / run_id / "tables" / "portfolio_validation_summary.json"
+        )
+        portfolio_numeric_impact_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "portfolio_numeric_impact_breakdown.csv"
+        )
+        portfolio_numeric_unit_family_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "portfolio_numeric_unit_family_breakdown.csv"
+        )
+        portfolio_calibration_validation_breakdown = _load_csv(
+            root / "artifacts" / "runs" / run_id / "tables" / "portfolio_calibration_validation_breakdown.csv"
         )
         execution_probability_breakdown = _load_csv(
             root / "artifacts" / "runs" / run_id / "tables" / "execution_probability_breakdown.csv"
@@ -2064,6 +2076,15 @@ def main() -> None:
             seed_trajectory_phase_action_mix_breakdowns.append(trajectory_phase_action_mix)
         if portfolio_validation_summary:
             seed_portfolio_validation_summaries.append(dict(portfolio_validation_summary))
+        if not portfolio_numeric_impact_breakdown.empty:
+            portfolio_numeric_impact_breakdown["seed"] = int(seed)
+            seed_portfolio_numeric_impact_breakdowns.append(portfolio_numeric_impact_breakdown)
+        if not portfolio_numeric_unit_family_breakdown.empty:
+            portfolio_numeric_unit_family_breakdown["seed"] = int(seed)
+            seed_portfolio_numeric_unit_family_breakdowns.append(portfolio_numeric_unit_family_breakdown)
+        if not portfolio_calibration_validation_breakdown.empty:
+            portfolio_calibration_validation_breakdown["seed"] = int(seed)
+            seed_portfolio_calibration_validation_breakdowns.append(portfolio_calibration_validation_breakdown)
         if not portfolio_coverage_breakdown.empty:
             portfolio_coverage_breakdown["seed"] = int(seed)
             seed_portfolio_coverage_breakdowns.append(portfolio_coverage_breakdown)
@@ -2222,6 +2243,64 @@ def main() -> None:
         json.dumps(phase_portfolio_validation_summary, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+    phase_portfolio_numeric_impact_breakdown = aggregate_portfolio_breakdown(
+        seed_portfolio_numeric_impact_breakdowns,
+        group_columns=["population", "breakdown_type"],
+        value_columns={
+            "count": "sum",
+            "numeric_plan_coverage": "mean",
+            "requested_change_burden": "mean",
+            "nominal_portfolio_payoff": "mean",
+            "execution_aware_portfolio_payoff": "mean",
+            "portfolio_payoff": "mean",
+            "execution_aware_realization": "mean",
+            "realization_gap": "mean",
+            "payoff_per_unit_burden": "mean",
+            "nominal_offer_supported_payoff": "mean",
+            "realized_offer_supported_payoff": "mean",
+            "offer_supported_realization_share": "mean",
+        },
+        breakdown_type_seed="seed_portfolio_numeric_impact",
+        breakdown_type_rollup="portfolio_numeric_impact_rollup",
+    )
+    portfolio_numeric_impact_breakdown_path = run_ctx.tables_dir / "portfolio_numeric_impact_breakdown.csv"
+    phase_portfolio_numeric_impact_breakdown.to_csv(portfolio_numeric_impact_breakdown_path, index=False)
+    phase_portfolio_numeric_unit_family_breakdown = aggregate_portfolio_breakdown(
+        seed_portfolio_numeric_unit_family_breakdowns,
+        group_columns=["population", "unit_family"],
+        value_columns={
+            "count": "sum",
+            "share": "mean",
+            "mean_normalized_target_burden": "mean",
+            "burden_weight_share": "mean",
+            "realism_clean_plan_rate": "mean",
+            "false_optimism_exposure": "mean",
+            "unstable_target_range_exposure": "mean",
+        },
+        breakdown_type_seed="seed_portfolio_numeric_unit_family",
+        breakdown_type_rollup="portfolio_numeric_unit_family_rollup",
+    )
+    portfolio_numeric_unit_family_breakdown_path = run_ctx.tables_dir / "portfolio_numeric_unit_family_breakdown.csv"
+    phase_portfolio_numeric_unit_family_breakdown.to_csv(portfolio_numeric_unit_family_breakdown_path, index=False)
+    phase_portfolio_calibration_validation_breakdown = aggregate_portfolio_breakdown(
+        seed_portfolio_calibration_validation_breakdowns,
+        group_columns=["population", "breakdown_type"],
+        value_columns={
+            "count": "sum",
+            "realism_clean_plan_rate": "mean",
+            "false_optimism_exposure": "mean",
+            "unstable_target_range_exposure": "mean",
+            "validated_execution_aware_carry_through": "mean",
+            "narrow_distribution_exposure": "mean",
+        },
+        breakdown_type_seed="seed_portfolio_calibration_validation",
+        breakdown_type_rollup="portfolio_calibration_validation_rollup",
+    )
+    portfolio_calibration_validation_breakdown_path = run_ctx.tables_dir / "portfolio_calibration_validation_breakdown.csv"
+    phase_portfolio_calibration_validation_breakdown.to_csv(
+        portfolio_calibration_validation_breakdown_path,
+        index=False,
+    )
     phase_portfolio_coverage_breakdown = aggregate_portfolio_breakdown(
         seed_portfolio_coverage_breakdowns,
         group_columns=["population", "funnel_stage"],
@@ -2264,6 +2343,9 @@ def main() -> None:
             "rankable_offer_rate": "mean",
             "governance_safe_offer_rate": "mean",
             "mean_plan_execution_probability": "mean",
+            "realism_clean_plan_rate": "mean",
+            "false_optimism_exposure": "mean",
+            "unstable_target_range_exposure": "mean",
             "mean_nominal_pd_improvement": "mean",
             "execution_weighted_expected_improvement": "mean",
             "early_healthy_rate": "mean",

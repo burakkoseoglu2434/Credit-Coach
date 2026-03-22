@@ -5679,6 +5679,11 @@ def main() -> None:
         portfolio_numeric_unit_family_breakdown_out,
         index=False,
     )
+    portfolio_calibration_validation_breakdown_out = run_ctx.tables_dir / "portfolio_calibration_validation_breakdown.csv"
+    portfolio_validation_artifacts["calibration_validation_breakdown"].to_csv(
+        portfolio_calibration_validation_breakdown_out,
+        index=False,
+    )
     portfolio_coverage_breakdown_out = run_ctx.tables_dir / "portfolio_coverage_breakdown.csv"
     portfolio_validation_artifacts["coverage_breakdown"].to_csv(portfolio_coverage_breakdown_out, index=False)
     portfolio_coverage_drop_breakdown_out = run_ctx.tables_dir / "portfolio_coverage_drop_breakdown.csv"
@@ -6334,6 +6339,18 @@ def main() -> None:
         ),
         "offer_supported_realization_share": float(
             portfolio_validation_summary.get("canonical_metrics", {}).get("offer_supported_realization_share", 0.0)
+        ),
+        "realism_clean_plan_rate": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("realism_clean_plan_rate", 0.0)
+        ),
+        "false_optimism_exposure": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("false_optimism_exposure", 0.0)
+        ),
+        "unstable_target_range_exposure": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("unstable_target_range_exposure", 0.0)
+        ),
+        "narrow_distribution_exposure": float(
+            portfolio_validation_summary.get("canonical_metrics", {}).get("narrow_distribution_exposure", 0.0)
         ),
     }
     if not denied_root_causes.empty:
