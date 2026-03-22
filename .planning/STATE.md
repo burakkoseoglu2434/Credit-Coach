@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 Phase: 36
 Plan: None yet
-Status: Ready for discussion
-Last activity: 2026-03-22 - Executed Phase 35 across narrative ordering, personalization/tone, and business-vs-technical narrative closure
+Status: Ready for planning
+Last activity: 2026-03-22 - Discussed Phase 36 across surface hierarchy, action cards, offer surfacing, and strict UI-vs-engine meaning boundaries
 
 Progress: `v2.0` is underway; Phases 30-35 are complete and the next active seam is `Phase 36: Product Surface Upgrade`
 
@@ -156,6 +156,14 @@ Recent decisions affecting current work:
   - calmer, more directive, non-judgmental business wording with no raw follow-through probabilities in default summary cards
   - explicit `primary_numeric_targets` inside technical reveal to keep narrative-generation truth inspectable
 - `NARV-01` is now satisfied
+- The next active design seam is `Phase 36: Product Surface Upgrade`
+- Phase 36 context now locks:
+  - action-first surface hierarchy with `executive_summary -> action cards -> checkpoint strip -> offer panel -> reasons -> technical reveal`
+  - checkpoint strip directly above actions with `4w` visually dominant
+  - action cards as the primary product unit, with phase reduced to a lightweight grouping signal
+  - short companion offer signals in cards plus a dedicated offer panel only for offer-bearing plans
+  - strict `no UI-side narrative fallback` posture
+  - presentation-only UI transforms and fail-soft behavior when engine fields are missing
 
 ### Pending Todos
 
@@ -170,5 +178,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Phase 35 completed; next step is `$gsd-discuss-phase 36`
+Stopped at: Phase 36 discussion completed; next step is `$gsd-plan-phase 36 --research`
 Resume file: None
