@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 
 Phase: 36
 Plan: None yet
-Status: Ready for planning
-Last activity: 2026-03-22 - Discussed Phase 36 across surface hierarchy, action cards, offer surfacing, and strict UI-vs-engine meaning boundaries
+Status: Ready for execution
+Last activity: 2026-03-22 - Planned Phase 36 across typed surface contract hardening, action-first customer flow, and strict business-vs-technical UI closure
 
 Progress: `v2.0` is underway; Phases 30-35 are complete and the next active seam is `Phase 36: Product Surface Upgrade`
 
@@ -164,6 +164,10 @@ Recent decisions affecting current work:
   - short companion offer signals in cards plus a dedicated offer panel only for offer-bearing plans
   - strict `no UI-side narrative fallback` posture
   - presentation-only UI transforms and fail-soft behavior when engine fields are missing
+- Phase 36 planning is now split into:
+  - typed surface contract and fallback-removal hardening
+  - action-first Demo Center customer-flow composition
+  - business-vs-technical UI boundary closure and regression stabilization
 
 ### Pending Todos
 
@@ -178,5 +182,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-22
-Stopped at: Phase 36 discussion completed; next step is `$gsd-plan-phase 36 --research`
+Stopped at: Phase 36 planning completed; next step is `$gsd-execute-phase 36`
 Resume file: None

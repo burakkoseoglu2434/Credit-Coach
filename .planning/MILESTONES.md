@@ -141,7 +141,7 @@
 - Phase 38: Calibration & Validation
 - Phase 39: Pilot Integration
 
-**Current checkpoint:** Phases 30-35 are complete; next step is `Phase 36` discussion and planning.
+**Current checkpoint:** Phases 30-35 are complete and `Phase 36` is planned; next step is execution.
 
 **Success bar:**
 - Feature deltas become real actions, then numeric targets, then validated personalized plans
