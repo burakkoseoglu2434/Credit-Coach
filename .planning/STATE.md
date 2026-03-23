@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 40
-Plan: roadmap approved
-Status: Ready for phase discussion
-Last activity: 2026-03-23 - Captured Phase 40 context for `v2.1 Decision Ownership & Pilot-Ready Trust`
+Plan: phase plans approved
+Status: Ready for execution
+Last activity: 2026-03-23 - Planned Phase 40 `Contract & Trust Repair`
 
 Progress: `v2.1` is initialized. The next active seam is `Phase 40 Contract & Trust Repair`.
 
@@ -65,5 +65,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Phase 40 context captured; next step is `$gsd-plan-phase 40 --research`
+Stopped at: Phase 40 planning complete; next step is `$gsd-execute-phase 40`
 Resume file: None
