@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 41
-Plan: 0 plans authored
-Status: Ready for discussion
-Last activity: 2026-03-23 - Completed Phase 40.5 `Decision Ownership Layer`
+Plan: 3 plans authored
+Status: Ready for execution
+Last activity: 2026-03-23 - Planned Phase 41 `Cohort & Decision Calibration`
 
-Progress: `v2.1` now has a repaired contract and trust foundation plus one deterministic decision owner across raw, flat, narrative, and live-demo surfaces. The next active seam is calibrating that owner across realistic cohorts and funnel mixes.
+Progress: `v2.1` now has a repaired contract and trust foundation plus one deterministic decision owner across raw, flat, narrative, and live-demo surfaces. The next active seam is calibrating that owner across realistic cohorts, readiness distributions, and shadow policy comparisons without creating a second decision system.
 
 ## Performance Metrics
 
@@ -39,6 +39,7 @@ Progress: `v2.1` now has a repaired contract and trust foundation plus one deter
 - Portfolio proof can now speak about personalized numeric burden, realization, calibration, and pilot readiness.
 - Phase 40 now guarantees null-free summary truth, raw-flat parity checks, zero-step rejection, and business-facing consumer alignment to canonical summary fields.
 - Phase 40.5 now adds deterministic internal-vs-external decision ownership, subtype truth, confidence gating, and business-safe three-state consumer surfaces.
+- Phase 41 planning now defines cohort-aware funnel measurement, readiness cross-tabs, and shadow calibration packaging under the same collection run root.
 
 ## Accumulated Context
 
@@ -66,5 +67,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Phase 40.5 complete; next step is `$gsd-discuss-phase 41`
+Stopped at: Phase 41 planned; next step is `$gsd-execute-phase 41`
 Resume file: None
