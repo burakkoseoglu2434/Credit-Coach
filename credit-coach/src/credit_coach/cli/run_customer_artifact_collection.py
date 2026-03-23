@@ -21,6 +21,7 @@ from credit_coach.cli.run_recourse import (
     CustomerArtifactBundle,
     CustomerRecourseRunResult,
     FLOAT_PARITY_TOLERANCE,
+    _apply_decision_ownership_to_roadmap,
     _merge_dict,
     _normalize_customer_roadmap_contract,
     _safe_text,
@@ -83,6 +84,7 @@ def _json_dumps_compact(value: Any) -> str:
 
 def _normalized_roadmap_summary(bundle: CustomerArtifactBundle) -> dict[str, Any]:
     bundle.roadmap = _normalize_customer_roadmap_contract(bundle.roadmap)
+    bundle.roadmap = _apply_decision_ownership_to_roadmap(bundle.roadmap)
     bundle.metrics_summary = _sync_metrics_summary_with_roadmap_summary(bundle.metrics_summary, roadmap=bundle.roadmap)
     return dict(bundle.roadmap.get("summary", {}) or {})
 
@@ -110,30 +112,16 @@ def _apply_collection_parity_classification(
     data_issue_codes = list(summary.get("data_issue_codes", []))
     if mismatch_fields and "parity_mismatch" not in data_issue_codes:
         data_issue_codes.append("parity_mismatch")
-    data_issue_flag = int(
-        bool(_safe_int(summary.get("data_issue_flag", 0), 0))
-        or bool(mismatch_fields)
-    )
-    zero_step_flag = int(_safe_int(summary.get("zero_step_flag", 0), 0))
-    if zero_step_flag:
-        decision_status = "REJECTED"
-        decision_status_internal = "REJECTED"
-    elif mismatch_fields:
-        decision_status = "CONDITIONAL"
-        decision_status_internal = "NEEDS_REVIEW"
-    else:
-        decision_status = _safe_text(summary.get("decision_status"), "CONDITIONAL")
-        decision_status_internal = _safe_text(summary.get("decision_status_internal"), decision_status)
+    data_issue_flag = int(bool(_safe_int(summary.get("data_issue_flag", 0), 0)) or bool(mismatch_fields))
     bundle.roadmap["summary"].update(
         {
             "parity_pass": parity_pass,
             "data_issue_flag": data_issue_flag,
             "data_issue_codes": data_issue_codes,
-            "decision_status": decision_status,
-            "decision_status_internal": decision_status_internal,
         }
     )
     bundle.roadmap = _normalize_customer_roadmap_contract(bundle.roadmap)
+    bundle.roadmap = _apply_decision_ownership_to_roadmap(bundle.roadmap)
     bundle.metrics_summary = _sync_metrics_summary_with_roadmap_summary(bundle.metrics_summary, roadmap=bundle.roadmap)
 
 
@@ -342,7 +330,7 @@ def _augment_plans_df(
         out.insert(7, "plan_step_count", 0)
     plan_contract_pass = pd.Series([pd.NA] * len(out), index=out.index, dtype="object")
     selected_mask = out["selected_best_flag"].astype(int) == 1
-    plan_contract_pass.loc[selected_mask] = int(_safe_int(summary.get("raw_contract_pass", 0), 0))
+    plan_contract_pass.loc[selected_mask] = int(_safe_int(summary.get("plan_contract_pass", 0), 0))
     out.insert(8, "plan_contract_pass", plan_contract_pass)
     return out
 

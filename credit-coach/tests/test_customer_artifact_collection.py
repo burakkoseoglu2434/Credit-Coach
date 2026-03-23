@@ -74,11 +74,22 @@ def test_collection_parity_failure_marks_internal_review_and_external_conditiona
             ],
             "summary": {
                 "decision_status": "APPROVED",
+                "decision_status_internal": "APPROVED",
+                "decision_policy_version": "v2.1_phase_40_5",
+                "best_plan_id": "plan-a",
+                "best_constraint_status": "valid",
+                "plan_contract_pass": 1,
                 "credit_readiness_stage": "week_4",
                 "plan_execution_probability": 0.62,
                 "approval_dependent_plan_probability": 0.62,
                 "offer_acceptance_probability": 0.0,
                 "combined_plan_realization_probability": 0.62,
+                "expected_pd_improvement": 0.03,
+                "nominal_pd_improvement": 0.05,
+                "local_explainability_confidence": 0.8,
+                "offer_plan": 0,
+                "rankable_offer_count": 0,
+                "approval_pending_action_count": 0,
             },
         },
         roadmap_steps_df=pd.DataFrame(
@@ -454,11 +465,20 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
                     "decision_status": "CONDITIONAL",
                     "decision_status_internal": "NEEDS_REVIEW",
                     "decision_policy_version": "v2.1_phase_40_5",
+                    "best_plan_id": f"{customer_id}-plan-a",
+                    "best_constraint_status": "valid",
+                    "plan_contract_pass": 1,
                     "credit_readiness_stage": "week_12",
                     "plan_execution_probability": 0.61,
                     "approval_dependent_plan_probability": None,
                     "offer_acceptance_probability": None,
                     "combined_plan_realization_probability": None,
+                    "expected_pd_improvement": 0.03,
+                    "nominal_pd_improvement": 0.05,
+                    "local_explainability_confidence": 0.75,
+                    "offer_plan": 0,
+                    "rankable_offer_count": 0,
+                    "approval_pending_action_count": 0,
                 },
                 "phases": [
                     {
@@ -551,6 +571,10 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert set(metrics_df["decision_status"]) == {"CONDITIONAL"}
     assert set(metrics_df["decision_status_internal"]) == {"NEEDS_REVIEW"}
     assert set(metrics_df["decision_policy_version"]) == {"v2.1_phase_40_5"}
+    assert set(metrics_df["conditional_type"]) == {"DATA_ISSUE"}
+    assert (metrics_df["decision_confidence"] > 0).all()
+    assert (metrics_df["expected_readiness"] == "week_12").all()
+    assert metrics_df["upgrade_condition"].fillna("").astype(str).str.len().gt(0).all()
     assert (metrics_df["best_action_count"] == 2).all()
     assert (metrics_df["parity_pass"] == 1).all()
     assert (metrics_df["raw_contract_pass"] == 0).all()
