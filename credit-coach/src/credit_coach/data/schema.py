@@ -35,6 +35,15 @@ PlanConstraintStatus = Literal["valid", "repaired", "provisional", "invalid"]
 DifficultyLabel = Literal["low", "moderate", "high"]
 ReadinessLabel = Literal["low", "moderate", "high"]
 InstitutionalApprovalState = Literal["not_required", "approved", "pending", "unknown"]
+RoadmapDecisionStatus = Literal["APPROVED", "CONDITIONAL", "REJECTED"]
+RoadmapDecisionStatusInternal = Literal["APPROVED", "CONDITIONAL", "REJECTED", "NEEDS_REVIEW"]
+TrajectoryCheckpointStatus = Literal["on_track", "at_risk", "missed", "unknown"]
+ContractDataIssueCode = Literal[
+    "missing_required_field",
+    "checkpoint_status_missing",
+    "parity_mismatch",
+    "zero_step_no_path",
+]
 
 
 # ------------------------------------------------------------------ #
@@ -604,7 +613,7 @@ class TrajectoryCheckpoint(BaseModel):
         default=1,
         description="4w > 12w > 24w oncelik sirasi",
     )
-    status: Literal["on_track", "at_risk", "missed"] = Field(
+    status: TrajectoryCheckpointStatus = Field(
         default="at_risk",
         description="Checkpoint-local durum etiketi",
     )

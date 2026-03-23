@@ -6,7 +6,12 @@ from math import isclose
 import numpy as np
 import pandas as pd
 
-from credit_coach.cli.run_recourse import _build_customer_roadmap, _effective_recourse_search, _plan_to_row
+from credit_coach.cli.run_recourse import (
+    _build_customer_roadmap,
+    _effective_recourse_search,
+    _plan_to_row,
+    build_customer_artifact_bundle,
+)
 from credit_coach.data.schema import OfferContract, PlanAction, PlanRecord, TrajectoryCheckpoint, TrajectoryPhase
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.recourse.generator import PlanGenConfig, generate_plan_record
@@ -756,7 +761,7 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
     )
 
     assert "narrative" in roadmap
-    assert roadmap["narrative"]["executive_summary"]["decision_view"]["label"]["en"] == "Approval-ready view"
+    assert roadmap["narrative"]["executive_summary"]["decision_view"]["label"]["en"] == "Recovering"
     assert roadmap["narrative"]["steps"][0]["step_id"] == "limit_credit_usage:phase_1_stabilize"
     assert roadmap["narrative"]["steps"][0]["action_summary"]["tr"]
     assert "credit utilization" in roadmap["narrative"]["steps"][0]["expected_outcome"]["en"]
@@ -809,6 +814,166 @@ def test_plan_to_row_serializes_primary_numeric_target_in_timeline():
     assert timeline_steps[0]["primary_numeric_target"]["metric_key"] == "monthly_payment_amount"
     assert timeline_steps[0]["primary_numeric_target"]["unit"] == "currency"
     assert timeline_steps[0]["primary_numeric_target"]["generation_notes"] == ["auto_populated_fallback"]
+
+
+def test_build_customer_artifact_bundle_normalizes_contract_safe_summary_fields():
+    action = PlanAction(
+        feature_name="revol_util",
+        current_value=71.0,
+        target_value=52.0,
+        delta=-19.0,
+        time_months=1,
+        estimated_cost_usd=10.0,
+        action_key="limit_credit_usage",
+        action_class="behavioral",
+        action_title="Limit credit usage",
+        action_group_id="limit_credit_usage:phase_1_stabilize",
+    )
+    plan = PlanRecord(
+        plan_id="contract-plan",
+        customer_id="cust-contract",
+        run_id="run-contract",
+        horizon_months=6,
+        strategy="balanced",
+        actions=[action],
+        predicted_pd=0.31,
+        score=0.18,
+        robust_score=0.18,
+        status="NEEDS_REVIEW",
+        constraint_status="valid",
+        trajectory_status="on_track",
+        plan_execution_probability=0.64,
+    )
+    roadmap = _build_customer_roadmap(
+        customer_id="cust-contract",
+        base_pd=0.44,
+        tau=0.35,
+        best=plan,
+        best_source="internal",
+        row=pd.Series({"revol_util": 71.0}),
+        model=_DummyModel(),
+        calibrator=None,
+        feature_cols=["revol_util"],
+        local_reason_bundle={"reasons": [], "meta": {}},
+    )
+    roadmap["summary"]["approval_dependent_plan_probability"] = None
+    roadmap["summary"]["offer_acceptance_probability"] = None
+    roadmap["summary"]["combined_plan_realization_probability"] = None
+    roadmap["checkpoints"][0]["status"] = ""
+
+    bundle = build_customer_artifact_bundle(
+        customer_id="cust-contract",
+        model_version="model-001",
+        base_pd=0.44,
+        search_profile={"is_denied_target": True, "search_cfg": {"time_budget_ms": 0}},
+        segment_context={"income_band": "q2", "risk_band": "high", "segment_caps_applied": False},
+        validated=[plan],
+        candidate_pool=[plan],
+        best=plan,
+        best_source="internal",
+        roadmap=roadmap,
+        msi=0.2,
+        alpha=0.05,
+        robust_objective="cvar",
+        robust_cvar_quantile=0.9,
+        local_reason_bundle={"reasons": [], "meta": {}},
+        adverse_action_reasons=[],
+        dice_backend="skipped",
+        dice_records=[],
+        dice_telemetry={"method_requested": "random", "method_used": "skipped", "fallback_reason": "policy"},
+        search_elapsed_ms=10.0,
+        fairness_penalty=0.0,
+        decision_log_record={"decision_id": "d-40-1", "selection_propensity": 1.0},
+        decision_log_summary={"decision_log_completeness": 1.0},
+    )
+
+    summary = bundle.roadmap["summary"]
+    assert summary["decision_status"] == "CONDITIONAL"
+    assert summary["decision_status_internal"] == "CONDITIONAL"
+    assert isclose(float(summary["approval_dependent_plan_probability"]), 0.64)
+    assert isclose(float(summary["offer_acceptance_probability"]), 0.0)
+    assert isclose(float(summary["combined_plan_realization_probability"]), 0.64)
+    assert summary["checkpoint_status_4w"] == "unknown"
+    assert int(summary["raw_contract_pass"]) == 0
+    assert int(summary["data_issue_flag"]) == 1
+    assert "missing_required_field" in summary["data_issue_codes"]
+    assert "checkpoint_status_missing" in summary["data_issue_codes"]
+    assert bundle.metrics_summary["decision_status"] == "CONDITIONAL"
+    assert bundle.metrics_summary["checkpoint_status_4w"] == "unknown"
+
+
+def test_build_customer_artifact_bundle_zero_step_always_rejects():
+    plan = PlanRecord(
+        plan_id="zero-step-plan",
+        customer_id="cust-zero",
+        run_id="run-zero",
+        horizon_months=6,
+        strategy="balanced",
+        actions=[],
+        predicted_pd=0.46,
+        score=0.05,
+        robust_score=0.05,
+        status="NEEDS_REVIEW",
+        constraint_status="valid",
+        trajectory_status="on_track",
+        plan_execution_probability=0.41,
+    )
+    roadmap = {
+        "customer_id": "cust-zero",
+        "base_pd": 0.46,
+        "tau": 0.35,
+        "best_plan_id": "zero-step-plan",
+        "best_plan_source": "internal",
+        "best_status": "NEEDS_REVIEW",
+        "phases": [],
+        "checkpoints": [
+            {"week": 4, "status": "at_risk"},
+            {"week": 12, "status": "at_risk"},
+            {"week": 24, "status": "missed"},
+        ],
+        "summary": {
+            "decision_status": "NEEDS_REVIEW",
+            "credit_readiness_stage": "not_ready_yet",
+            "plan_execution_probability": 0.41,
+            "approval_dependent_plan_probability": None,
+            "offer_acceptance_probability": None,
+            "combined_plan_realization_probability": None,
+        },
+    }
+
+    bundle = build_customer_artifact_bundle(
+        customer_id="cust-zero",
+        model_version="model-001",
+        base_pd=0.46,
+        search_profile={"is_denied_target": True, "search_cfg": {"time_budget_ms": 0}},
+        segment_context={"income_band": "q1", "risk_band": "high", "segment_caps_applied": False},
+        validated=[plan],
+        candidate_pool=[plan],
+        best=plan,
+        best_source="internal",
+        roadmap=roadmap,
+        msi=0.2,
+        alpha=0.05,
+        robust_objective="cvar",
+        robust_cvar_quantile=0.9,
+        local_reason_bundle={"reasons": [], "meta": {}},
+        adverse_action_reasons=[],
+        dice_backend="skipped",
+        dice_records=[],
+        dice_telemetry={"method_requested": "random", "method_used": "skipped", "fallback_reason": "policy"},
+        search_elapsed_ms=9.0,
+        fairness_penalty=0.0,
+        decision_log_record={"decision_id": "d-40-2", "selection_propensity": 1.0},
+        decision_log_summary={"decision_log_completeness": 1.0},
+    )
+
+    summary = bundle.roadmap["summary"]
+    assert summary["decision_status"] == "REJECTED"
+    assert summary["decision_status_internal"] == "REJECTED"
+    assert int(summary["zero_step_flag"]) == 1
+    assert int(summary["best_action_count"]) == 0
+    assert "zero_step_no_path" in summary["data_issue_codes"]
+    assert bundle.metrics_summary["decision_status"] == "REJECTED"
 
 
 def test_plan_to_row_serializes_nested_offer_contract_in_timeline():

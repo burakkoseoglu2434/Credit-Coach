@@ -87,6 +87,32 @@ _ROADMAP_STEP_COLUMNS = [
     "semantic_preserved",
 ]
 
+FLOAT_PARITY_TOLERANCE = 1e-6
+_CHECKPOINT_WEEKS = (4, 12, 24)
+_CRITICAL_SOURCE_SUMMARY_FIELDS = (
+    "decision_status",
+    "credit_readiness_stage",
+    "plan_execution_probability",
+    "approval_dependent_plan_probability",
+    "offer_acceptance_probability",
+    "combined_plan_realization_probability",
+)
+_DATA_ISSUE_CODE_ORDER = (
+    "missing_required_field",
+    "checkpoint_status_missing",
+    "parity_mismatch",
+    "zero_step_no_path",
+)
+_EXTERNAL_STATUS_BRIDGE = {
+    "APPROVED": "APPROVED",
+    "CONDITIONAL": "CONDITIONAL",
+    "REJECTED": "REJECTED",
+    "NEEDS_REVIEW": "CONDITIONAL",
+    "PENDING": "CONDITIONAL",
+    "": "CONDITIONAL",
+}
+_INTERNAL_STATUS_ALLOWED = {"APPROVED", "CONDITIONAL", "REJECTED", "NEEDS_REVIEW"}
+
 
 @dataclass
 class CustomerArtifactBundle:
@@ -149,6 +175,242 @@ def _safe_int(v, default: int = 0) -> int:
         return int(v)
     except Exception:
         return int(default)
+
+
+def _safe_text(v: Any, default: str = "") -> str:
+    text = str(v or "").strip()
+    return text or default
+
+
+def _is_missing_contract_value(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    return False
+
+
+def _dedupe_issue_codes(values: Sequence[Any]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for raw in values:
+        code = _safe_text(raw)
+        if not code:
+            continue
+        if code not in _DATA_ISSUE_CODE_ORDER:
+            continue
+        if code in seen:
+            continue
+        seen.add(code)
+        ordered.append(code)
+    return sorted(ordered, key=lambda code: _DATA_ISSUE_CODE_ORDER.index(code))
+
+
+def _legacy_external_decision_status(value: Any) -> str:
+    normalized = _safe_text(value).upper()
+    return _EXTERNAL_STATUS_BRIDGE.get(normalized, "CONDITIONAL")
+
+
+def _legacy_internal_decision_status(value: Any, fallback: str) -> str:
+    normalized = _safe_text(value).upper()
+    if normalized in _INTERNAL_STATUS_ALLOWED:
+        return normalized
+    return _safe_text(fallback, "CONDITIONAL").upper()
+
+
+def _extract_checkpoint_status_map(checkpoints: Sequence[dict[str, Any]]) -> dict[int, str]:
+    status_map = {week: "unknown" for week in _CHECKPOINT_WEEKS}
+    for checkpoint in checkpoints:
+        week = int(_safe_int(checkpoint.get("week", 0), 0))
+        if week not in status_map:
+            continue
+        status_map[week] = _safe_text(checkpoint.get("status"), "unknown")
+    return status_map
+
+
+def _checkpoint_status_fallbacks(checkpoints: Sequence[Any]) -> tuple[list[dict[str, Any]], int]:
+    normalized: list[dict[str, Any]] = []
+    missing_count = 0
+    for raw_checkpoint in checkpoints:
+        checkpoint = dict(raw_checkpoint) if isinstance(raw_checkpoint, dict) else {}
+        status = _safe_text(checkpoint.get("status"))
+        if not status:
+            status = "unknown"
+            missing_count += 1
+        checkpoint["status"] = status
+        normalized.append(checkpoint)
+    return normalized, missing_count
+
+
+def _build_contract_health_from_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    critical_null_count = int(_safe_int(summary.get("critical_field_null_count", 0), 0))
+    missing_checkpoint_status_count = int(_safe_int(summary.get("missing_checkpoint_status_count", 0), 0))
+    field_count = max(1, len(_CRITICAL_SOURCE_SUMMARY_FIELDS))
+    return {
+        "critical_field_null_count": critical_null_count,
+        "missing_checkpoint_status_count": missing_checkpoint_status_count,
+        "raw_contract_pass": int(bool(_safe_int(summary.get("raw_contract_pass", 0), 0))),
+        "parity_pass": int(bool(_safe_int(summary.get("parity_pass", 1), 1))),
+        "data_issue_flag": int(bool(_safe_int(summary.get("data_issue_flag", 0), 0))),
+        "data_issue_codes": _dedupe_issue_codes(summary.get("data_issue_codes", [])),
+        "zero_step_flag": int(bool(_safe_int(summary.get("zero_step_flag", 0), 0))),
+        "best_action_count": int(_safe_int(summary.get("best_action_count", 0), 0)),
+        "checkpoint_status_4w": _safe_text(summary.get("checkpoint_status_4w"), "unknown"),
+        "checkpoint_status_12w": _safe_text(summary.get("checkpoint_status_12w"), "unknown"),
+        "checkpoint_status_24w": _safe_text(summary.get("checkpoint_status_24w"), "unknown"),
+        "summary_field_completion_rate": float(max(0.0, (field_count - critical_null_count) / field_count)),
+    }
+
+
+def _normalize_customer_roadmap_contract(roadmap: dict[str, Any]) -> dict[str, Any]:
+    out = dict(roadmap or {})
+    summary = dict(out.get("summary", {}) or {})
+    checkpoints_raw = out.get("checkpoints", [])
+    checkpoints, missing_checkpoint_status_count = _checkpoint_status_fallbacks(
+        checkpoints_raw if isinstance(checkpoints_raw, list) else []
+    )
+    status_map = _extract_checkpoint_status_map(checkpoints)
+    best_action_count = int(
+        sum(
+            len(phase.get("steps", []))
+            for phase in out.get("phases", [])
+            if isinstance(phase, dict) and isinstance(phase.get("steps", []), list)
+        )
+    )
+    zero_step_flag = int(best_action_count == 0)
+    computed_critical_field_null_count = int(
+        sum(1 for field in _CRITICAL_SOURCE_SUMMARY_FIELDS if _is_missing_contract_value(summary.get(field)))
+    )
+    critical_field_null_count = max(
+        computed_critical_field_null_count,
+        int(_safe_int(summary.get("critical_field_null_count", 0), 0)),
+    )
+    missing_checkpoint_status_count = max(
+        missing_checkpoint_status_count,
+        int(_safe_int(summary.get("missing_checkpoint_status_count", 0), 0)),
+    )
+    data_issue_codes = _dedupe_issue_codes(summary.get("data_issue_codes", []))
+    if critical_field_null_count > 0:
+        data_issue_codes.append("missing_required_field")
+    if missing_checkpoint_status_count > 0:
+        data_issue_codes.append("checkpoint_status_missing")
+    if zero_step_flag:
+        data_issue_codes.append("zero_step_no_path")
+    data_issue_codes = _dedupe_issue_codes(data_issue_codes)
+
+    plan_execution_probability = _safe_float(summary.get("plan_execution_probability", 0.0), 0.0)
+    approval_dependent_plan_probability = (
+        plan_execution_probability
+        if _is_missing_contract_value(summary.get("approval_dependent_plan_probability"))
+        else _safe_float(summary.get("approval_dependent_plan_probability", 0.0), plan_execution_probability)
+    )
+    offer_acceptance_probability = (
+        0.0
+        if _is_missing_contract_value(summary.get("offer_acceptance_probability"))
+        else _safe_float(summary.get("offer_acceptance_probability", 0.0), 0.0)
+    )
+    combined_plan_realization_probability = (
+        plan_execution_probability
+        if _is_missing_contract_value(summary.get("combined_plan_realization_probability"))
+        else _safe_float(summary.get("combined_plan_realization_probability", 0.0), plan_execution_probability)
+    )
+
+    raw_contract_pass = int(critical_field_null_count == 0 and missing_checkpoint_status_count == 0)
+    parity_pass = int(bool(_safe_int(summary.get("parity_pass", 1), 1)))
+    data_issue_flag = int(
+        critical_field_null_count > 0
+        or missing_checkpoint_status_count > 0
+        or parity_pass == 0
+    )
+    if parity_pass == 0:
+        data_issue_codes.append("parity_mismatch")
+        data_issue_codes = _dedupe_issue_codes(data_issue_codes)
+    data_issue_flag = int(bool(data_issue_flag))
+
+    legacy_status = _safe_text(
+        summary.get("decision_status"),
+        _safe_text(out.get("best_status"), "CONDITIONAL"),
+    ).upper()
+    decision_status = _legacy_external_decision_status(legacy_status)
+    decision_status_internal = _legacy_internal_decision_status(legacy_status, decision_status)
+    if zero_step_flag:
+        decision_status = "REJECTED"
+        decision_status_internal = "REJECTED"
+    elif parity_pass == 0:
+        decision_status = "CONDITIONAL"
+        decision_status_internal = "NEEDS_REVIEW"
+    elif data_issue_flag:
+        decision_status = "CONDITIONAL"
+        decision_status_internal = decision_status
+
+    summary.update(
+        {
+            "decision_status": decision_status,
+            "decision_status_internal": decision_status_internal,
+            "credit_readiness_stage": _safe_text(summary.get("credit_readiness_stage"), "not_ready_yet"),
+            "plan_execution_probability": plan_execution_probability,
+            "approval_dependent_plan_probability": approval_dependent_plan_probability,
+            "offer_acceptance_probability": offer_acceptance_probability,
+            "combined_plan_realization_probability": combined_plan_realization_probability,
+            "best_action_count": best_action_count,
+            "zero_step_flag": zero_step_flag,
+            "critical_field_null_count": critical_field_null_count,
+            "missing_checkpoint_status_count": missing_checkpoint_status_count,
+            "checkpoint_status_4w": status_map[4],
+            "checkpoint_status_12w": status_map[12],
+            "checkpoint_status_24w": status_map[24],
+            "raw_contract_pass": raw_contract_pass,
+            "parity_pass": parity_pass,
+            "data_issue_flag": data_issue_flag,
+            "data_issue_codes": data_issue_codes,
+        }
+    )
+    out["summary"] = summary
+    out["checkpoints"] = checkpoints
+    out["contract_health"] = _build_contract_health_from_summary(summary)
+    return out
+
+
+def _sync_metrics_summary_with_roadmap_summary(
+    metrics_summary: dict[str, Any],
+    *,
+    roadmap: dict[str, Any],
+) -> dict[str, Any]:
+    out = dict(metrics_summary or {})
+    summary = dict(roadmap.get("summary", {}) or {})
+    contract_health = dict(roadmap.get("contract_health", {}) or {})
+    out.update(
+        {
+            "decision_status": _safe_text(summary.get("decision_status"), "CONDITIONAL"),
+            "decision_status_internal": _safe_text(summary.get("decision_status_internal"), "CONDITIONAL"),
+            "credit_readiness_stage": _safe_text(summary.get("credit_readiness_stage"), "not_ready_yet"),
+            "plan_execution_probability": _safe_float(summary.get("plan_execution_probability", 0.0), 0.0),
+            "approval_dependent_plan_probability": _safe_float(
+                summary.get("approval_dependent_plan_probability", 0.0),
+                0.0,
+            ),
+            "offer_acceptance_probability": _safe_float(summary.get("offer_acceptance_probability", 0.0), 0.0),
+            "combined_plan_realization_probability": _safe_float(
+                summary.get("combined_plan_realization_probability", 0.0),
+                0.0,
+            ),
+            "best_action_count": int(_safe_int(summary.get("best_action_count", 0), 0)),
+            "zero_step_flag": int(bool(_safe_int(summary.get("zero_step_flag", 0), 0))),
+            "critical_field_null_count": int(_safe_int(summary.get("critical_field_null_count", 0), 0)),
+            "missing_checkpoint_status_count": int(_safe_int(summary.get("missing_checkpoint_status_count", 0), 0)),
+            "checkpoint_status_4w": _safe_text(summary.get("checkpoint_status_4w"), "unknown"),
+            "checkpoint_status_12w": _safe_text(summary.get("checkpoint_status_12w"), "unknown"),
+            "checkpoint_status_24w": _safe_text(summary.get("checkpoint_status_24w"), "unknown"),
+            "raw_contract_pass": int(bool(_safe_int(summary.get("raw_contract_pass", 0), 0))),
+            "parity_pass": int(bool(_safe_int(summary.get("parity_pass", 1), 1))),
+            "data_issue_flag": int(bool(_safe_int(summary.get("data_issue_flag", 0), 0))),
+            "data_issue_codes": list(summary.get("data_issue_codes", [])),
+            "summary_field_completion_rate": float(
+                contract_health.get("summary_field_completion_rate", 0.0)
+            ),
+        }
+    )
+    return out
 
 
 def _compute_income_edges(values: pd.Series, quantiles: list[float]) -> tuple[float, float, float]:
@@ -708,18 +970,20 @@ def _build_customer_roadmap(
         "dominant_difficulty_label": str(getattr(best, "dominant_difficulty_label", "") or ""),
         "follow_through_readiness_label": str(getattr(best, "follow_through_readiness_label", "") or ""),
     }
+    roadmap = _normalize_customer_roadmap_contract(roadmap)
+    normalized_summary = dict(roadmap.get("summary", {}) or {})
     roadmap["narrative"] = build_customer_roadmap_narrative(
         base_pd=base_pd,
         tau=tau,
-        phases=phases,
-        checkpoints=checkpoints,
-        status=str(best.status),
+        phases=roadmap.get("phases", []),
+        checkpoints=roadmap.get("checkpoints", []),
+        status=_safe_text(normalized_summary.get("decision_status"), str(best.status)),
         local_reason_bundle=local_reason_bundle or {},
         constraint_trace=list(getattr(best, "constraint_trace", [])),
-        plan_execution_probability=getattr(best, "plan_execution_probability", None),
-        approval_dependent_plan_probability=getattr(best, "approval_dependent_plan_probability", None),
-        offer_acceptance_probability=getattr(best, "offer_acceptance_probability", None),
-        combined_plan_realization_probability=getattr(best, "combined_plan_realization_probability", None),
+        plan_execution_probability=normalized_summary.get("plan_execution_probability", None),
+        approval_dependent_plan_probability=normalized_summary.get("approval_dependent_plan_probability", None),
+        offer_acceptance_probability=normalized_summary.get("offer_acceptance_probability", None),
+        combined_plan_realization_probability=normalized_summary.get("combined_plan_realization_probability", None),
         mean_group_difficulty_score=getattr(best, "mean_group_difficulty_score", None),
         peak_group_difficulty_score=getattr(best, "peak_group_difficulty_score", None),
         follow_through_readiness_label=getattr(best, "follow_through_readiness_label", None),
@@ -1767,6 +2031,7 @@ def _build_customer_metrics_summary(
     decision_log_record: dict[str, Any],
     decision_log_summary: dict[str, Any],
 ) -> dict[str, Any]:
+    roadmap = _normalize_customer_roadmap_contract(roadmap)
     cp_week4 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 4), {})
     cp_week12 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 12), {})
     cp_week24 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 24), {})
@@ -1785,7 +2050,7 @@ def _build_customer_metrics_summary(
         if validated
         else 0.0
     )
-    return {
+    metrics_summary = {
         "model_version": model_version,
         "customer_id": customer_id,
         "base_pd": base_pd,
@@ -1856,6 +2121,7 @@ def _build_customer_metrics_summary(
         "selection_propensity": float(decision_log_record["selection_propensity"]),
         "decision_log_completeness": float(decision_log_summary.get("decision_log_completeness", 0.0)),
     }
+    return _sync_metrics_summary_with_roadmap_summary(metrics_summary, roadmap=roadmap)
 
 
 def build_customer_artifact_bundle(
@@ -1884,6 +2150,7 @@ def build_customer_artifact_bundle(
     decision_log_record: dict[str, Any],
     decision_log_summary: dict[str, Any],
 ) -> CustomerArtifactBundle:
+    roadmap = _normalize_customer_roadmap_contract(roadmap)
     plans_df = pd.DataFrame([_plan_to_row(p) for p in validated])
     roadmap_steps_df = _build_customer_roadmap_steps_df(
         customer_id=customer_id,
@@ -1925,6 +2192,11 @@ def build_customer_artifact_bundle(
 
 
 def write_customer_artifact_bundle(bundle: CustomerArtifactBundle, output_dir: Path) -> dict[str, Path]:
+    bundle.roadmap = _normalize_customer_roadmap_contract(bundle.roadmap)
+    bundle.metrics_summary = _sync_metrics_summary_with_roadmap_summary(
+        bundle.metrics_summary,
+        roadmap=bundle.roadmap,
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     plans_json = output_dir / "plans.json"
     roadmap_json = output_dir / "customer_roadmap.json"
