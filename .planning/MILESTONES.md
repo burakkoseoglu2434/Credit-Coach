@@ -183,6 +183,6 @@
 - Phase 41 shipped cohort semantics, funnel measurement, and shadow calibration under the collection run root
 - Phase 43 shipped per-customer operator packets and collection-level review briefings without creating a second truth source
 
-**What's next:** discuss and plan Phase 42 `Planner Quality & Source Mix`
+**What's next:** execute Phase 42 `Planner Quality & Source Mix`
 
 ---

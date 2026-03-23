@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 Phase: 42
 Plan: 3 plans authored
-Status: Ready for planning
-Last activity: 2026-03-23 - Discussed Phase 42 `Planner Quality & Source Mix`
+Status: Ready for execution
+Last activity: 2026-03-23 - Planned Phase 42 `Planner Quality & Source Mix`
 
-Progress: `v2.1` now has a repaired contract base, one deterministic decision owner, a cohort-aware calibration lane, and shipped operator review packets plus collection-level briefings under the same run root. Phase 42 is now scoped and locked around explicit source provenance, empty-contender removal, internal-vs-dice competitiveness, and action-diversity / offer-maturity hardening.
+Progress: `v2.1` now has a repaired contract base, one deterministic decision owner, a cohort-aware calibration lane, and shipped operator review packets plus collection-level briefings under the same run root. Phase 42 is now execution-ready around explicit source provenance, empty-contender removal, internal-vs-dice competitiveness, and action-diversity / offer-maturity hardening.
 
 ## Performance Metrics
 
@@ -69,5 +69,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Phase 42 discussed; next step is `$gsd-plan-phase 42 --research`
+Stopped at: Phase 42 planned; next step is `$gsd-execute-phase 42`
 Resume file: None
