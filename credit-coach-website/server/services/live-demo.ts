@@ -206,6 +206,8 @@ type RawRoadmap = {
   best_plan_id?: unknown;
   best_status?: unknown;
   trajectory_status?: unknown;
+  summary?: Record<string, unknown>;
+  contract_health?: Record<string, unknown>;
   phases?: RawRoadmapPhase[];
   checkpoints?: RawCheckpoint[];
   narrative?: RawRoadmapNarrative;
@@ -676,6 +678,7 @@ function normalizeSingleCustomerDemo(
   rawMetrics: RawMetrics,
   runArtifacts: RunArtifacts,
 ): SingleCustomerDemo {
+  const summary = (rawRoadmap.summary ?? {}) as Record<string, unknown>;
   const checkpoint4w = getCheckpoint(rawRoadmap, 4);
   const checkpoint12w = getCheckpoint(rawRoadmap, 12);
   const checkpoint24w = getCheckpoint(rawRoadmap, 24);
@@ -754,18 +757,34 @@ function normalizeSingleCustomerDemo(
   const inferredOfferAcceptanceProbability =
     allSteps.some((step) => Boolean(step.offer_type)) ? 0.48 : 0;
   const planExecutionProbability = toNumber(
-    bestPlan.plan_execution_probability,
+    summary.plan_execution_probability ?? bestPlan.plan_execution_probability,
     inferredPlanExecutionProbability,
   );
   const offerAcceptanceProbability = toNumber(
-    bestPlan.offer_acceptance_probability,
+    summary.offer_acceptance_probability ?? bestPlan.offer_acceptance_probability,
     inferredOfferAcceptanceProbability,
   );
   const combinedPlanRealizationProbability = toNumber(
-    bestPlan.combined_plan_realization_probability,
+    summary.combined_plan_realization_probability ?? bestPlan.combined_plan_realization_probability,
     offerAcceptanceProbability > 0
       ? planExecutionProbability * offerAcceptanceProbability
       : planExecutionProbability,
+  );
+  const approvalReadyNow =
+    summary.approval_ready_now === undefined ? readiness.approvalReadyNow : toBoolean(summary.approval_ready_now);
+  const approvalReady4w =
+    summary.approval_ready_4w === undefined ? readiness.approvalReady4w : toBoolean(summary.approval_ready_4w);
+  const approvalReady12w =
+    summary.approval_ready_12w === undefined ? readiness.approvalReady12w : toBoolean(summary.approval_ready_12w);
+  const approvalReady24w =
+    summary.approval_ready_24w === undefined ? readiness.approvalReady24w : toBoolean(summary.approval_ready_24w);
+  const creditReadinessStage = toStringValue(
+    summary.credit_readiness_stage,
+    readiness.creditReadinessStage,
+  ) as SingleCustomerDemo["summary"]["credit_readiness_stage"];
+  const decisionStatus = toStringValue(
+    summary.decision_status ?? rawMetrics.decision_status ?? rawRoadmap.best_status ?? rawMetrics.best_status,
+    "CONDITIONAL",
   );
 
   const content: SingleCustomerDemo = {
@@ -784,13 +803,13 @@ function normalizeSingleCustomerDemo(
       plan_execution_probability: planExecutionProbability,
       offer_acceptance_probability: offerAcceptanceProbability,
       combined_plan_realization_probability: combinedPlanRealizationProbability,
-      trajectory_status: toStringValue(rawRoadmap.trajectory_status, "on_track"),
-      decision_status: toStringValue(rawRoadmap.best_status ?? rawMetrics.best_status, "NEEDS_REVIEW"),
-      approval_ready_now: readiness.approvalReadyNow,
-      approval_ready_4w: readiness.approvalReady4w,
-      approval_ready_12w: readiness.approvalReady12w,
-      approval_ready_24w: readiness.approvalReady24w,
-      credit_readiness_stage: readiness.creditReadinessStage,
+      trajectory_status: toStringValue(summary.trajectory_status ?? rawRoadmap.trajectory_status, "on_track"),
+      decision_status: decisionStatus,
+      approval_ready_now: approvalReadyNow,
+      approval_ready_4w: approvalReady4w,
+      approval_ready_12w: approvalReady12w,
+      approval_ready_24w: approvalReady24w,
+      credit_readiness_stage: creditReadinessStage,
     },
     phases,
     checkpoints: (rawRoadmap.checkpoints ?? []).map((checkpoint) => ({
