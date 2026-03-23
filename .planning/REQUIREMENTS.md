@@ -18,8 +18,8 @@
 
 ### Cohort And Calibration
 
-- [ ] **CAL-01**: Collection runs can evaluate decision funnels across mixed and stress-test cohorts with approve, conditional, rejected, and internal review shares
-- [ ] **CAL-02**: Decision thresholds can be tuned against cohort-level readiness, confidence-aware quality signals, false-positive proxy, and policy-version comparisons
+- [x] **CAL-01**: Collection runs can evaluate decision funnels across mixed and stress-test cohorts with approve, conditional, rejected, and internal review shares
+- [x] **CAL-02**: Decision thresholds can be tuned against cohort-level readiness, confidence-aware quality signals, false-positive proxy, and policy-version comparisons
 
 ### Operator Workflow
 
@@ -66,8 +66,8 @@
 | DEC-01 | Phase 40.5 | Satisfied |
 | DEC-02 | Phase 40.5 | Satisfied |
 | DEC-03 | Phase 40.5 | Satisfied |
-| CAL-01 | Phase 41 | Pending |
-| CAL-02 | Phase 41 | Pending |
+| CAL-01 | Phase 41 | Satisfied |
+| CAL-02 | Phase 41 | Satisfied |
 | OPS-01 | Phase 43 | Pending |
 | OPS-02 | Phase 43 | Pending |
 | PLAN-01 | Phase 42 | Pending |
@@ -81,4 +81,4 @@
 
 ---
 *Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after Phase 40 completion*
+*Last updated: 2026-03-23 after Phase 41 completion*
