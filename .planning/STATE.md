@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 40.5
-Plan: discussion pending
-Status: Ready for discussion
-Last activity: 2026-03-23 - Completed Phase 40 `Contract & Trust Repair`
+Plan: context captured
+Status: Ready for planning
+Last activity: 2026-03-23 - Discussed Phase 40.5 `Decision Ownership Layer`
 
-Progress: `v2.1` now has a repaired contract and trust foundation. The next active seam is `Phase 40.5 Decision Ownership Layer`.
+Progress: `v2.1` now has a repaired contract and trust foundation, and Phase 40.5 decision ownership context is locked. The next active seam is planning the deterministic decision layer.
 
 ## Performance Metrics
 
@@ -66,5 +66,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Phase 40 complete; next step is `$gsd-discuss-phase 40.5`
+Stopped at: Phase 40.5 discussion complete; next step is `$gsd-plan-phase 40.5 --research`
 Resume file: None
