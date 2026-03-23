@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 from credit_coach.coaching.messaging import (
+    build_operator_downside_risk,
+    build_operator_driver_line,
+    build_operator_offer_state,
+    build_operator_readiness_note,
+    build_operator_summary_line,
     build_adverse_action_payload,
     build_adverse_action_reasons,
     build_checkpoint_narrative,
@@ -46,6 +51,27 @@ def test_build_adverse_action_payload_contains_templates():
 def test_validate_reason_specificity_flags_generic_codes():
     assert validate_reason_specificity(["high_debt_to_income"]) is True
     assert validate_reason_specificity(["risk_factor_unknown"]) is False
+
+
+def test_operator_messaging_helpers_render_numeric_driver_and_safe_states():
+    line = build_operator_driver_line(
+        {
+            "driver_key": "realization_anchor",
+            "current_value": 0.38,
+            "target_value": 0.50,
+            "unit": "probability",
+            "comparison": "gte",
+        }
+    )
+    assert "0.38" in line.en
+    assert "target" in line.en
+    assert build_operator_summary_line("  Hello  ") == "Hello"
+    assert build_operator_offer_state(offer_maturity="active_rankable").en == "Institution offer is active"
+    assert "4 weeks" in build_operator_readiness_note("week_4").en
+    assert "slowly" in build_operator_downside_risk(
+        decision_status="CONDITIONAL",
+        conditional_type="OFFER_GATED",
+    ).en
 
 
 def test_build_customer_roadmap_narrative_is_deterministic():

@@ -568,6 +568,12 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert len(selection_df) == 3
     assert (collection_root / "collection_manifest.json").exists()
     assert (collection_root / "collection_summary.md").exists()
+    assert (collection_root / "operator_review_briefing.md").exists()
+    operator_dirs = [path for path in (collection_root / "operator_packets").iterdir() if path.is_dir()]
+    assert len(operator_dirs) == 3
+    for operator_dir in operator_dirs:
+        assert (operator_dir / "operator_packet.json").exists()
+        assert (operator_dir / "operator_packet.md").exists()
     assert (collection_root / "calibration" / "funnel_summary.json").exists()
     assert (collection_root / "calibration" / "readiness_distribution.csv").exists()
     assert (collection_root / "calibration" / "status_by_readiness.csv").exists()
@@ -589,6 +595,11 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert (metrics_df["checkpoint_status_4w"] == "at_risk").all()
     assert "data_issue_codes_json" in metrics_df.columns
     assert "offer_needed_flag" in metrics_df.columns
+    assert "operator_packet_relpath" in metrics_df.columns
+    assert "operator_top_blocker_codes_json" in metrics_df.columns
+    assert "operator_next_best_action_keys_json" in metrics_df.columns
+    assert "operator_offer_state_en" in metrics_df.columns
+    assert "operator_downside_risk_en" in metrics_df.columns
     assert "selected_best_flag" in plans_df.columns
     assert "plan_step_count" in plans_df.columns
     assert "plan_contract_pass" in plans_df.columns
@@ -604,6 +615,8 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "readiness_summary" in manifest
     assert "calibration_summary" in manifest
     assert "calibration_files" in manifest
+    assert "operator_files" in manifest
+    assert "operator_briefing_summary" in manifest
     assert "candidate_policy_versions_compared" in manifest
     assert set(manifest["funnel_summary"]).issuperset(
         {"approved_share", "conditional_share", "rejected_share", "internal_needs_review_share"}
@@ -616,4 +629,6 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "## Decision Funnel" in summary_md
     assert "## Readiness" in summary_md
     assert "## Calibration" in summary_md
+    assert "## Operator Review" in summary_md
+    assert "Likely-to-upgrade-soon queue" in summary_md
     assert "analysis-only" in review_md

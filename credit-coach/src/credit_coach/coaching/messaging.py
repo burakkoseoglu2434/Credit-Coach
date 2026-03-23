@@ -486,6 +486,16 @@ def _format_scalar(value: float) -> str:
 
 
 def _format_primary_target_value(value: float, unit: str, *, locale: str) -> str:
+    if unit in {"probability", "probability_points", "score"}:
+        return f"{float(value):.2f}".rstrip("0").rstrip(".")
+    if unit == "weeks":
+        display = _format_scalar(value)
+        suffix = " hafta" if locale == "tr" else " weeks"
+        return f"{display}{suffix}"
+    if unit == "flag":
+        if float(value) >= 0.5:
+            return "tamam" if locale == "tr" else "pass"
+        return "degil" if locale == "tr" else "fail"
     display = _format_scalar(value)
     if unit == "currency":
         suffix = " birim" if locale == "tr" else " units"
@@ -511,6 +521,10 @@ def _format_primary_target_value(value: float, unit: str, *, locale: str) -> str
 
 
 def _format_primary_target_delta(value: float, unit: str, *, locale: str) -> str:
+    if unit in {"probability", "probability_points", "score"}:
+        display = f"{abs(float(value)):.2f}".rstrip("0").rstrip(".")
+        sign = "+" if float(value) >= 0.0 else "-"
+        return f"{sign}{display}"
     display = _format_scalar(abs(value))
     sign = "+" if float(value) >= 0.0 else "-"
     if unit == "currency":
@@ -541,6 +555,152 @@ def _primary_target_direction_verb(direction: str) -> tuple[str, str]:
     if normalized == "maintain":
         return ("koru", "maintain")
     return ("indir", "reduce")
+
+
+_DECISION_DRIVER_LABELS: dict[str, tuple[str, str]] = {
+    "best_action_count": ("uygulanabilir adim sayisi", "actionable step count"),
+    "expected_pd_improvement": ("beklenen PD iyilesmesi", "expected PD improvement"),
+    "realization_anchor": ("uygulama gucu", "execution strength"),
+    "decision_confidence": ("karar guveni", "decision confidence"),
+    "expected_readiness_week": ("hazirlik zamani", "readiness timing"),
+    "critical_field_null_count": ("eksik karar verisi", "missing decision data"),
+    "parity_pass": ("artifact tutarliligi", "artifact consistency"),
+    "rankable_offer_count": ("aktif kurum teklifi", "active institution support"),
+}
+
+
+def build_operator_summary_line(decision_reason_summary: str | None) -> str:
+    return str(decision_reason_summary or "").strip()
+
+
+def build_operator_driver_line(driver: Mapping[str, Any]) -> LocalizedText:
+    driver_key = str(driver.get("driver_key", "") or "").strip()
+    label_tr, label_en = _DECISION_DRIVER_LABELS.get(
+        driver_key,
+        (driver_key.replace("_", " ").strip() or "engel", driver_key.replace("_", " ").strip() or "blocker"),
+    )
+    unit = str(driver.get("unit", "") or "").strip()
+    comparison = str(driver.get("comparison", "") or "").strip().lower()
+    current_value = _safe_float(driver.get("current_value", 0.0), 0.0)
+    target_value = _safe_float(driver.get("target_value", 0.0), 0.0)
+    if comparison == "gte":
+        cmp_tr = f">= {_format_primary_target_value(target_value, unit, locale='tr')}"
+        cmp_en = f">= {_format_primary_target_value(target_value, unit, locale='en')}"
+    elif comparison == "lte":
+        cmp_tr = f"<= {_format_primary_target_value(target_value, unit, locale='tr')}"
+        cmp_en = f"<= {_format_primary_target_value(target_value, unit, locale='en')}"
+    elif comparison == "eq":
+        cmp_tr = f"= {_format_primary_target_value(target_value, unit, locale='tr')}"
+        cmp_en = f"= {_format_primary_target_value(target_value, unit, locale='en')}"
+    else:
+        cmp_tr = _format_primary_target_value(target_value, unit, locale="tr")
+        cmp_en = _format_primary_target_value(target_value, unit, locale="en")
+    current_tr = _format_primary_target_value(current_value, unit, locale="tr")
+    current_en = _format_primary_target_value(current_value, unit, locale="en")
+    return _lt(
+        f"{label_tr}: {current_tr} -> hedef {cmp_tr}",
+        f"{label_en}: {current_en} -> target {cmp_en}",
+    )
+
+
+def build_operator_readiness_note(expected_readiness: str | None) -> LocalizedText:
+    readiness = str(expected_readiness or "").strip().lower()
+    if readiness == "now":
+        return _lt(
+            "Profil mevcut gorunumde yeniden basvuruya uygun duruyor.",
+            "The profile already looks ready for re-application in the current view.",
+        )
+    if readiness == "week_4":
+        return _lt(
+            "Plan korunursa yaklasik 4 hafta icinde onaya daha yakin bir gorunum beklenir.",
+            "If the plan holds, a more approval-ready view is expected within about 4 weeks.",
+        )
+    if readiness == "week_12":
+        return _lt(
+            "Plan korunursa yaklasik 12 hafta icinde onaya daha yakin bir gorunum beklenir.",
+            "If the plan holds, a more approval-ready view is expected within about 12 weeks.",
+        )
+    if readiness == "week_24":
+        return _lt(
+            "Plan korunursa yaklasik 24 hafta icinde daha guclu bir karar gorunumu beklenir.",
+            "If the plan holds, a stronger decision view is expected within about 24 weeks.",
+        )
+    if readiness == "unknown_review":
+        return _lt(
+            "Hazirlik zamani icin once karar verisinin kontrollu sekilde tamamlanmasi gerekiyor.",
+            "Decision data still needs controlled review before readiness timing is reliable.",
+        )
+    return _lt(
+        "Mevcut sinyaller henuz guvenilir bir onay hazirligi zamani vermiyor.",
+        "Current signals do not yet support a reliable approval-readiness timeline.",
+    )
+
+
+def build_operator_offer_state(
+    *,
+    offer_maturity: str | None,
+    offer_plan: bool | int | None = None,
+    offer_acceptance_probability: float | None = None,
+) -> LocalizedText:
+    maturity = str(offer_maturity or "").strip().lower()
+    has_offer = bool(offer_plan) or maturity not in {"", "none"} or _safe_float(offer_acceptance_probability, 0.0) > 0.0
+    if maturity == "active_rankable":
+        return _lt("Kurum teklifi aktif", "Institution offer is active")
+    if maturity == "provisional":
+        return _lt("Kurum teklifine bagli", "Depends on institution offer")
+    if maturity == "inactive" and has_offer:
+        return _lt("Musteri kabulune bagli", "Depends on customer acceptance")
+    return _lt("Kurum teklifi yok", "No institution offer")
+
+
+def build_operator_downside_risk(
+    *,
+    decision_status: str | None,
+    conditional_type: str | None = None,
+    rejection_type: str | None = None,
+) -> LocalizedText:
+    status = _normalize_business_decision_status(str(decision_status or "CONDITIONAL"))
+    conditional = str(conditional_type or "").strip().upper()
+    rejection = str(rejection_type or "").strip().upper()
+    if status == "APPROVED":
+        return _lt(
+            "Aksiyon ritmi bozulursa mevcut onaya uygun gorunum zayiflayabilir.",
+            "If follow-through slips, the current approval-ready view can soften.",
+        )
+    if status == "REJECTED":
+        if rejection == "NO_PATH":
+            return _lt(
+                "Aksiyon alinmazsa mevcut karar icin savunulabilir bir yol olusmaz.",
+                "Without action, there is no defendable path to a safer decision right now.",
+            )
+        if rejection == "LOW_IMPACT":
+            return _lt(
+                "Aksiyon alinmazsa mevcut iyilesme karari degistirecek kadar guclenmez.",
+                "Without action, the current improvement stays too small to change the decision.",
+            )
+        return _lt(
+            "Aksiyon alinmazsa mevcut planin gerceklesme gucu zayif kalir.",
+            "Without action, the current plan remains too fragile to rely on.",
+        )
+    if conditional == "OFFER_GATED":
+        return _lt(
+            "Kurum destegi devreye girmezse yol yalniz musteri aksiyonlariyla daha yavas ilerler.",
+            "If institution support does not activate, the path relies on customer action alone and may move more slowly.",
+        )
+    if conditional == "DATA_ISSUE":
+        return _lt(
+            "Karar verisi tamamlanmazsa hazirlik zamani belirsiz kalir.",
+            "If decision data stays incomplete, readiness timing remains uncertain.",
+        )
+    if conditional == "TIME_GATED":
+        return _lt(
+            "Aksiyon alinmazsa onay hazirligi beklenen pencerenin disina kayabilir.",
+            "If action is not taken, approval readiness can slip beyond the expected window.",
+        )
+    return _lt(
+        "Aksiyon alinmazsa karar gorunumu daha yavas guclenir.",
+        "Without action, the decision outlook will strengthen more slowly.",
+    )
 
 
 def _due_month_phrase(months: int, *, locale: str) -> str:

@@ -44,6 +44,13 @@ from credit_coach.evaluation.decision_calibration import (
 )
 from credit_coach.model.predict import predict_proba_pd
 from credit_coach.model.registry import load_model_bundle
+from credit_coach.ops.operator_review import (
+    build_collection_operator_briefing,
+    build_operator_review_packet,
+    operator_packet_metrics_fields,
+    render_collection_operator_briefing_markdown,
+    write_operator_review_packet,
+)
 from credit_coach.utils.hashing import hash_config
 from credit_coach.utils.run_context import create_run_context, load_config
 
@@ -381,6 +388,7 @@ def _collection_summary_markdown(
     funnel_summary: Mapping[str, Any],
     readiness_summary: Mapping[str, Any],
     calibration_summary: Mapping[str, Any],
+    operator_briefing: Mapping[str, Any],
 ) -> str:
     decision_status_counts = (
         metrics_df.get("decision_status", metrics_df.get("best_status", pd.Series(dtype=object)))
@@ -416,6 +424,28 @@ def _collection_summary_markdown(
             for label in ("now", "week_4", "week_12", "week_24", "not_ready", "unknown_review")
         ]
     )
+    priority_queues = list(operator_briefing.get("priority_queues", []) or [])
+    dominant_blockers = list(operator_briefing.get("dominant_blockers", []) or [])
+    conditional_hotspots = list(operator_briefing.get("conditional_hotspots", []) or [])
+    offer_hotspots = list(operator_briefing.get("offer_hotspots", []) or [])
+    review_guidance = list(operator_briefing.get("review_guidance", []) or [])
+    health_note = _safe_text(operator_briefing.get("health_note"))
+    priority_queue_summary = ", ".join(
+        [f"{_safe_text(queue.get('label'))}={int(queue.get('count', 0))}" for queue in priority_queues]
+    ) or "n/a"
+    dominant_blocker_summary = ", ".join(
+        [f"{_safe_text(item.get('title'))}={int(item.get('count', 0))}" for item in dominant_blockers]
+    ) or "n/a"
+    conditional_hotspot_summary = ", ".join(
+        [f"{_safe_text(item.get('conditional_type'))}={int(item.get('count', 0))}" for item in conditional_hotspots]
+    ) or "n/a"
+    offer_hotspot_summary = ", ".join(
+        [
+            f"{_safe_text(item.get('offer_needed_flag'))}/{_safe_text(item.get('decision_status'))}={int(item.get('count', 0))}"
+            for item in offer_hotspots
+        ]
+    ) or "n/a"
+    review_guidance_summary = " | ".join([_safe_text(item) for item in review_guidance]) or "n/a"
     return "\n".join(
         [
             "# Customer Artifact Collection",
@@ -462,6 +492,15 @@ def _collection_summary_markdown(
             f"- Baseline north-star pass: {bool(dict(calibration_summary.get('baseline_policy_metrics', {})).get('north_star_pass', False))}",
             f"- Baseline false-positive proxy: {_safe_float(dict(calibration_summary.get('baseline_policy_metrics', {})).get('false_positive_proxy'), 0.0):.4f}",
             "",
+            "## Operator Review",
+            f"- Likely-to-upgrade-soon queue: {int(next((queue.get('count', 0) for queue in priority_queues if str(queue.get('queue_key')) == 'likely_to_upgrade_soon'), 0))}",
+            f"- Priority queues: {priority_queue_summary}",
+            f"- Dominant blockers: {dominant_blocker_summary}",
+            f"- Conditional hotspots: {conditional_hotspot_summary}",
+            f"- Offer hotspots: {offer_hotspot_summary}",
+            f"- Review guidance: {review_guidance_summary}",
+            f"- Health note: {health_note or 'n/a'}",
+            "",
             "## Review Files",
             f"- Metrics: `{manifest_rel_root}/flat/customer_metrics.csv`",
             f"- Plans: `{manifest_rel_root}/flat/customer_plans.csv`",
@@ -470,6 +509,8 @@ def _collection_summary_markdown(
             f"- Funnel summary: `{manifest_rel_root}/calibration/funnel_summary.json`",
             f"- Policy comparison: `{manifest_rel_root}/calibration/policy_comparison.csv`",
             f"- Calibration review: `{manifest_rel_root}/calibration/calibration_review.md`",
+            f"- Operator briefing: `{manifest_rel_root}/operator_review_briefing.md`",
+            f"- Operator packets: `{manifest_rel_root}/operator_packets/`",
         ]
     ) + "\n"
 
@@ -561,9 +602,12 @@ def main(argv: Sequence[str] | None = None):
     raw_root = collection_root / "raw"
     flat_root = collection_root / "flat"
     calibration_root = collection_root / "calibration"
+    operator_root = collection_root / "operator_packets"
+    rel_root = "tables/customer_artifact_collection"
     raw_root.mkdir(parents=True, exist_ok=True)
     flat_root.mkdir(parents=True, exist_ok=True)
     calibration_root.mkdir(parents=True, exist_ok=True)
+    operator_root.mkdir(parents=True, exist_ok=True)
 
     def _process_selection(selection_row: pd.Series) -> dict[str, Any]:
         frame_position = int(selection_row["_frame_position"])
@@ -638,6 +682,7 @@ def main(argv: Sequence[str] | None = None):
     metrics_rows: list[dict[str, Any]] = []
     plan_frames: list[pd.DataFrame] = []
     step_frames: list[pd.DataFrame] = []
+    operator_packet_records: list[dict[str, Any]] = []
     for _, selection_row in selection_df.sort_values(["batch_index", "customer_id"]).iterrows():
         result = record_lookup[(int(selection_row["source_row_index"]), str(selection_row["customer_id"]))]
         metrics_row = _augment_metrics_row(
@@ -699,6 +744,21 @@ def main(argv: Sequence[str] | None = None):
         metrics_row.update(parity)
         raw_dir = raw_root / f"{int(selection_row['batch_index']):03d}_{_path_safe_customer_id(str(selection_row['customer_id']))}"
         write_customer_artifact_bundle(result.bundle, raw_dir)
+        packet = build_operator_review_packet(result.bundle.roadmap)
+        operator_dir = operator_root / f"{int(selection_row['batch_index']):03d}_{_path_safe_customer_id(str(selection_row['customer_id']))}"
+        packet_paths = write_operator_review_packet(packet, operator_dir)
+        packet_relpath = f"{rel_root}/operator_packets/{operator_dir.name}/operator_packet.json"
+        metrics_row.update(operator_packet_metrics_fields(packet, packet_relpath=packet_relpath))
+        operator_packet_records.append(
+            {
+                "customer_id": packet.customer_id,
+                "batch_index": int(selection_row["batch_index"]),
+                "packet_relpath": packet_relpath,
+                "packet": packet.model_dump(mode="json"),
+                "markdown_relpath": f"{rel_root}/operator_packets/{operator_dir.name}/operator_packet.md",
+                "written_files": {name: str(path) for name, path in packet_paths.items()},
+            }
+        )
         metrics_rows.append(metrics_row)
         plan_frames.append(plans_df)
         step_frames.append(steps_df)
@@ -749,6 +809,13 @@ def main(argv: Sequence[str] | None = None):
     decision_shift_matrix_df = policy_comparison_payload["decision_shift_matrix"]
     segment_breakdown_df = policy_comparison_payload["segment_breakdown"]
     calibration_summary = policy_comparison_payload["calibration_summary"]
+    operator_briefing = build_collection_operator_briefing(
+        metrics_df=metrics_df,
+        operator_packets=[record["packet"] for record in operator_packet_records],
+        funnel_summary=funnel_summary,
+        readiness_summary=readiness_summary,
+        segment_breakdown_df=segment_breakdown_df,
+    )
 
     funnel_json = calibration_root / "funnel_summary.json"
     readiness_csv = calibration_root / "readiness_distribution.csv"
@@ -757,6 +824,7 @@ def main(argv: Sequence[str] | None = None):
     shift_matrix_csv = calibration_root / "decision_shift_matrix.csv"
     segment_breakdown_csv = calibration_root / "segment_breakdown.csv"
     calibration_review_md = calibration_root / "calibration_review.md"
+    operator_briefing_md = collection_root / "operator_review_briefing.md"
 
     funnel_json.write_text(json.dumps(funnel_summary, indent=2, ensure_ascii=False), encoding="utf-8")
     readiness_distribution_df.to_csv(readiness_csv, index=False)
@@ -774,8 +842,10 @@ def main(argv: Sequence[str] | None = None):
         ),
         encoding="utf-8",
     )
-
-    rel_root = "tables/customer_artifact_collection"
+    operator_briefing_md.write_text(
+        render_collection_operator_briefing_markdown(operator_briefing),
+        encoding="utf-8",
+    )
     manifest_payload = {
         "collection_run_id": run_ctx.run_id,
         "cohort_policy": str(args.cohort_policy),
@@ -796,6 +866,7 @@ def main(argv: Sequence[str] | None = None):
         "funnel_summary": funnel_summary,
         "readiness_summary": readiness_summary,
         "calibration_summary": calibration_summary,
+        "operator_briefing_summary": operator_briefing,
         "contract_health": {
             "critical_field_null_rate": _safe_float(
                 metrics_df.get("critical_field_null_count", pd.Series(dtype=float)).gt(0).mean(),
@@ -843,6 +914,10 @@ def main(argv: Sequence[str] | None = None):
             "segment_breakdown_csv": f"{rel_root}/calibration/segment_breakdown.csv",
             "calibration_review_md": f"{rel_root}/calibration/calibration_review.md",
         },
+        "operator_files": {
+            "operator_briefing_md": f"{rel_root}/operator_review_briefing.md",
+            "operator_packets_root": f"{rel_root}/operator_packets",
+        },
     }
     manifest_path = collection_root / "collection_manifest.json"
     manifest_path.write_text(json.dumps(manifest_payload, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -856,6 +931,7 @@ def main(argv: Sequence[str] | None = None):
         funnel_summary=funnel_summary,
         readiness_summary=readiness_summary,
         calibration_summary=calibration_summary,
+        operator_briefing=operator_briefing,
     )
     summary_path = collection_root / "collection_summary.md"
     summary_path.write_text(summary_md, encoding="utf-8")

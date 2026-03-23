@@ -858,6 +858,126 @@ class CustomerRoadmapNarrative(BaseModel):
     )
 
 
+class OperatorPacketBlocker(BaseModel):
+    """
+    Operator short-view blocker item.
+    """
+
+    blocker_code: str = Field(..., description="Stable blocker code for aggregation and tracing")
+    blocker_title: LocalizedText = Field(..., description="Short blocker title")
+    blocker_detail: LocalizedText = Field(..., description="Business-readable blocker detail")
+    driver_key: str | None = Field(default=None, description="Related decision driver key when available")
+
+
+class OperatorPacketAction(BaseModel):
+    """
+    Operator short-view recommended action row.
+    """
+
+    step_id: str = Field(..., description="Stable link to the roadmap step")
+    action_key: str | None = Field(default=None, description="Linked semantic action key")
+    action_summary: LocalizedText = Field(..., description="Business-readable action summary")
+    timing_hint: LocalizedText | None = Field(default=None, description="Optional timing hint")
+    blocker_codes: list[str] = Field(
+        default_factory=list,
+        description="Blockers that this action is intended to address",
+    )
+
+
+class OperatorPacketShortView(BaseModel):
+    """
+    Fast operator-facing customer review surface.
+    """
+
+    decision_status: RoadmapDecisionStatus = Field(..., description="Business-visible decision state")
+    decision_reason_summary: str = Field(..., description="Owned one-line decision summary")
+    decision_confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Optional low-prominence decision confidence score",
+    )
+    top_blockers: list[OperatorPacketBlocker] = Field(
+        default_factory=list,
+        description="Top blockers keeping the customer from a better state today",
+    )
+    next_best_actions: list[OperatorPacketAction] = Field(
+        default_factory=list,
+        description="Concrete next actions traced back to blockers",
+    )
+    expected_readiness: DecisionExpectedReadiness = Field(..., description="Owned readiness label")
+    expected_readiness_note: LocalizedText | None = Field(
+        default=None,
+        description="Business-readable interpretation of the readiness label",
+    )
+    upgrade_condition: str | None = Field(
+        default=None,
+        description="What would move the decision upward",
+    )
+    offer_state: LocalizedText | None = Field(
+        default=None,
+        description="Business-safe institution-offer state",
+    )
+    downside_risk: LocalizedText | None = Field(
+        default=None,
+        description="Soft but honest downside-risk note",
+    )
+    technical_detail_available: bool = Field(
+        default=False,
+        description="Whether a technical appendix is available for this packet",
+    )
+
+
+class OperatorPacketTechnicalAppendix(BaseModel):
+    """
+    Same-artifact technical appendix for operator traceability.
+    """
+
+    decision_status_internal: RoadmapDecisionStatusInternal = Field(
+        ...,
+        description="Internal decision state kept out of default short view",
+    )
+    decision_reason_primary: DecisionReasonPrimary | None = Field(
+        default=None,
+        description="Primary structured decision reason code",
+    )
+    rejection_type: DecisionRejectionType | None = Field(
+        default=None,
+        description="Rejection subtype when relevant",
+    )
+    conditional_type: DecisionConditionalType | None = Field(
+        default=None,
+        description="Conditional subtype when relevant",
+    )
+    decision_reason_drivers: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Owned numeric drivers behind the current decision",
+    )
+    contract_health: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Derived contract-health slice relevant for operator debugging",
+    )
+    decision_gate_trace: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Compact gate trace for debugging and analyst review",
+    )
+
+
+class OperatorReviewPacket(BaseModel):
+    """
+    Derived per-customer operator review artifact.
+    """
+
+    packet_version: str = Field(default="v2.1_phase_43", description="Operator packet contract version")
+    customer_id: str = Field(..., description="Customer id carried into the packet")
+    best_plan_id: str | None = Field(default=None, description="Best-plan link for traceability")
+    short_view: OperatorPacketShortView = Field(..., description="Fast operator-facing review layer")
+    technical_appendix: OperatorPacketTechnicalAppendix = Field(
+        ...,
+        description="Technical appendix that stays within the same artifact",
+    )
+
+
 # ------------------------------------------------------------------ #
 # PlanRecord — recourse planı
 # ------------------------------------------------------------------ #
