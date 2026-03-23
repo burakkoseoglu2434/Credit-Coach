@@ -177,6 +177,12 @@
 - zero-step plans are always rejected and classified as `NO_PATH`
 - decision logic must be deterministic, parity-checked, and safe under artifact inconsistency
 
-**What's next:** discuss and plan Phase 43 `Operator Review Pack`
+**Progress so far:**
+- Phase 40 shipped null-free, parity-safe contract repair across raw and flat customer artifacts
+- Phase 40.5 shipped one deterministic decision owner with safe external three-state outputs
+- Phase 41 shipped cohort semantics, funnel measurement, and shadow calibration under the collection run root
+- Phase 43 shipped per-customer operator packets and collection-level review briefings without creating a second truth source
+
+**What's next:** discuss and plan Phase 42 `Planner Quality & Source Mix`
 
 ---

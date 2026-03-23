@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 43
+Phase: 42
 Plan: 3 plans authored
-Status: Ready for execution
-Last activity: 2026-03-23 - Planned Phase 43 `Operator Review Pack`
+Status: Ready for discussion
+Last activity: 2026-03-23 - Completed Phase 43 `Operator Review Pack`
 
-Progress: `v2.1` now has a repaired contract base, one deterministic decision owner, a cohort-aware calibration lane, and an execution-ready plan for operator review packets and collection briefings. The next active seam is implementing a short-plus-appendix review surface that lets operators triage 50 customers quickly without creating a second decision layer.
+Progress: `v2.1` now has a repaired contract base, one deterministic decision owner, a cohort-aware calibration lane, and shipped operator review packets plus collection-level briefings under the same run root. The next active seam is planner quality and source-mix honesty so operator-facing trust is backed by stronger internal plan selection.
 
 ## Performance Metrics
 
@@ -40,7 +40,7 @@ Progress: `v2.1` now has a repaired contract base, one deterministic decision ow
 - Phase 40 now guarantees null-free summary truth, raw-flat parity checks, zero-step rejection, and business-facing consumer alignment to canonical summary fields.
 - Phase 40.5 now adds deterministic internal-vs-external decision ownership, subtype truth, confidence gating, and business-safe three-state consumer surfaces.
 - Phase 41 now ships cohort semantics, funnel/readiness measurement, shadow calibration, and additive calibration packaging under the same collection run root.
-- Phase 43 is now planned as a derived operator-surface phase with per-customer packets, collection-level review briefing, and a strict business-safe versus appendix-detail split.
+- Phase 43 now ships a derived operator-surface lane with per-customer packets, collection-level review briefing, and a strict business-safe versus appendix-detail split.
 
 ## Accumulated Context
 
@@ -63,10 +63,10 @@ None yet.
 ### Blockers/Concerns
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
-- The next acceptance bar is no longer plan richness alone; the system must emit deterministic external decisions without exposing internal exception states.
+- The next acceptance bar is no longer decision ownership alone; internal planner quality and source-mix honesty must improve without weakening the shipped operator-facing trust layer.
 
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Phase 43 planned; next step is `$gsd-execute-phase 43`
+Stopped at: Phase 43 completed; next step is `$gsd-discuss-phase 42`
 Resume file: None

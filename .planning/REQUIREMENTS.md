@@ -23,8 +23,8 @@
 
 ### Operator Workflow
 
-- [ ] **OPS-01**: Operators can review 50 customers from one collection run in under 30 minutes using short decision packs with blockers, readiness, downside risk, and offer state
-- [ ] **OPS-02**: Collection summary and manifest expose pilot-review signals such as decision funnel, contract health, dominant rejection reasons, and conditional hot spots
+- [x] **OPS-01**: Operators can review 50 customers from one collection run in under 30 minutes using short decision packs with blockers, readiness, downside risk, and offer state
+- [x] **OPS-02**: Collection summary and manifest expose pilot-review signals such as decision funnel, contract health, dominant rejection reasons, and conditional hot spots
 
 ### Planner Quality
 
@@ -68,8 +68,8 @@
 | DEC-03 | Phase 40.5 | Satisfied |
 | CAL-01 | Phase 41 | Satisfied |
 | CAL-02 | Phase 41 | Satisfied |
-| OPS-01 | Phase 43 | Pending |
-| OPS-02 | Phase 43 | Pending |
+| OPS-01 | Phase 43 | Satisfied |
+| OPS-02 | Phase 43 | Satisfied |
 | PLAN-01 | Phase 42 | Pending |
 | PROD-01 | Phase 44 | Pending |
 | PROD-02 | Phase 44 | Pending |
@@ -81,4 +81,4 @@
 
 ---
 *Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after Phase 41 completion*
+*Last updated: 2026-03-23 after Phase 43 completion*
