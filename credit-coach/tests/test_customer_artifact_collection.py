@@ -568,6 +568,13 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert len(selection_df) == 3
     assert (collection_root / "collection_manifest.json").exists()
     assert (collection_root / "collection_summary.md").exists()
+    assert (collection_root / "calibration" / "funnel_summary.json").exists()
+    assert (collection_root / "calibration" / "readiness_distribution.csv").exists()
+    assert (collection_root / "calibration" / "status_by_readiness.csv").exists()
+    assert (collection_root / "calibration" / "policy_comparison.csv").exists()
+    assert (collection_root / "calibration" / "decision_shift_matrix.csv").exists()
+    assert (collection_root / "calibration" / "segment_breakdown.csv").exists()
+    assert (collection_root / "calibration" / "calibration_review.md").exists()
     assert set(metrics_df["decision_status"]) == {"CONDITIONAL"}
     assert set(metrics_df["decision_status_internal"]) == {"NEEDS_REVIEW"}
     assert set(metrics_df["decision_policy_version"]) == {"v2.1_phase_40_5"}
@@ -581,14 +588,32 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert (metrics_df["data_issue_flag"] == 1).all()
     assert (metrics_df["checkpoint_status_4w"] == "at_risk").all()
     assert "data_issue_codes_json" in metrics_df.columns
+    assert "offer_needed_flag" in metrics_df.columns
     assert "selected_best_flag" in plans_df.columns
     assert "plan_step_count" in plans_df.columns
     assert "plan_contract_pass" in plans_df.columns
+    assert "cohort_bucket" in selection_df.columns
+    assert "selection_policy_name" in selection_df.columns
+    assert "selection_fill_behavior" in selection_df.columns
 
     manifest = json.loads((collection_root / "collection_manifest.json").read_text(encoding="utf-8"))
     assert "contract_health" in manifest
     assert "raw_flat_mismatch_count" in manifest["contract_health"]
+    assert manifest["selection_policy_name"] == "denied_first_near"
+    assert "funnel_summary" in manifest
+    assert "readiness_summary" in manifest
+    assert "calibration_summary" in manifest
+    assert "calibration_files" in manifest
+    assert "candidate_policy_versions_compared" in manifest
+    assert set(manifest["funnel_summary"]).issuperset(
+        {"approved_share", "conditional_share", "rejected_share", "internal_needs_review_share"}
+    )
 
     summary_md = (collection_root / "collection_summary.md").read_text(encoding="utf-8")
+    review_md = (collection_root / "calibration" / "calibration_review.md").read_text(encoding="utf-8")
     assert "## Contract Health" in summary_md
     assert "Decision status distribution" in summary_md
+    assert "## Decision Funnel" in summary_md
+    assert "## Readiness" in summary_md
+    assert "## Calibration" in summary_md
+    assert "analysis-only" in review_md

@@ -30,6 +30,18 @@ from credit_coach.cli.run_recourse import (
     write_customer_artifact_bundle,
 )
 from credit_coach.data.ingest import load_feature_contract
+from credit_coach.evaluation.decision_calibration import (
+    build_calibration_review_markdown,
+    build_funnel_summary,
+    build_policy_comparison,
+    build_readiness_distribution,
+    build_selection_work_frame,
+    build_status_by_readiness,
+    prepare_metrics_for_calibration,
+    rebalance_offer_needed_selection,
+    select_initial_cohort,
+    summarize_readiness,
+)
 from credit_coach.model.predict import predict_proba_pd
 from credit_coach.model.registry import load_model_bundle
 from credit_coach.utils.hashing import hash_config
@@ -56,7 +68,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--cohort_policy",
         type=str,
         default="denied_first_near",
-        choices=("denied_first_near", "union_denied_near", "denied_only", "random_mixed"),
+        choices=(
+            "pilot_mixed",
+            "risk_band_balanced",
+            "ops_queue_replay",
+            "offer_needed_balanced",
+            "denied_first_near",
+            "union_denied_near",
+            "denied_only",
+            "random_mixed",
+        ),
     )
     parser.add_argument("--model_version", type=str, default="")
     parser.add_argument("--model_manifest", type=str, default="")
@@ -212,57 +233,20 @@ def _selection_frame(
     cohort_policy: str,
     segment_caps_cfg: dict[str, Any],
 ) -> pd.DataFrame:
-    work = input_df.copy()
-    if "source_row_index" not in work.columns:
-        work = work.reset_index().rename(columns={"index": "source_row_index"})
-    else:
-        work = work.reset_index(drop=True)
-    work["_frame_position"] = range(len(work))
-    work["base_pd"] = base_pd.reset_index(drop=True).astype(float).values
-    work["denied_base"] = work["base_pd"].astype(float) > float(tau)
-    work["risk_band"] = work["base_pd"].map(lambda value: _risk_band_from_pd(float(value), float(tau), segment_caps_cfg))
-    work["customer_id"] = [
-        _cohort_customer_id(row, fallback=f"customer_{int(row['source_row_index'])}")
-        for _, row in work.iterrows()
-    ]
-
-    requested = max(1, int(n_customers))
-    seed = int(sample_seed)
-
-    def _sample(frame: pd.DataFrame, n: int, random_state: int) -> pd.DataFrame:
-        if frame.empty or n <= 0:
-            return frame.iloc[0:0].copy()
-        keep = min(int(n), len(frame))
-        return frame.sample(n=keep, random_state=random_state).copy()
-
-    if cohort_policy == "denied_only":
-        selected = _sample(work[work["denied_base"]].copy(), requested, seed)
-        selected["selection_reason"] = "denied_only"
-    elif cohort_policy == "random_mixed":
-        selected = _sample(work, requested, seed)
-        selected["selection_reason"] = "random_mixed"
-    elif cohort_policy == "union_denied_near":
-        union = work[work["denied_base"] | (work["risk_band"].astype(str).str.lower() == "near")].copy()
-        selected = _sample(union, requested, seed)
-        selected["selection_reason"] = selected["denied_base"].map(lambda denied: "denied_union" if bool(denied) else "near_union")
-    else:
-        denied = _sample(work[work["denied_base"]].copy(), requested, seed)
-        denied["selection_reason"] = "denied"
-        remaining = requested - len(denied)
-        if remaining > 0:
-            near_candidates = work[
-                (~work["_frame_position"].isin(denied["_frame_position"]))
-                & (work["risk_band"].astype(str).str.lower() == "near")
-            ].copy()
-            near_fill = _sample(near_candidates, remaining, seed + 1)
-            near_fill["selection_reason"] = "near_fill"
-            selected = pd.concat([denied, near_fill], ignore_index=True)
-        else:
-            selected = denied.reset_index(drop=True)
-
-    selected = selected.reset_index(drop=True)
-    selected["cohort_policy"] = str(cohort_policy)
-    selected["batch_index"] = range(len(selected))
+    work = build_selection_work_frame(
+        input_df=input_df,
+        base_pd=base_pd,
+        tau=tau,
+        risk_band_fn=_risk_band_from_pd,
+        segment_caps_cfg=segment_caps_cfg,
+        customer_id_getter=_cohort_customer_id,
+    )
+    selected = select_initial_cohort(
+        work=work,
+        requested_n=max(1, int(n_customers)),
+        sample_seed=int(sample_seed),
+        cohort_policy=str(cohort_policy),
+    ).selected
     return selected[
         [
             "batch_index",
@@ -274,6 +258,9 @@ def _selection_frame(
             "risk_band",
             "selection_reason",
             "cohort_policy",
+            "cohort_bucket",
+            "selection_policy_name",
+            "selection_fill_behavior",
         ]
     ].copy()
 
@@ -295,6 +282,9 @@ def _augment_metrics_row(
             "selection_reason": str(selection_row["selection_reason"]),
             "cohort_policy": str(selection_row["cohort_policy"]),
             "denied_base": int(selection_row["denied_base"]),
+            "cohort_bucket": str(selection_row.get("cohort_bucket", "")),
+            "selection_policy_name": str(selection_row.get("selection_policy_name", selection_row["cohort_policy"])),
+            "selection_fill_behavior": str(selection_row.get("selection_fill_behavior", "")),
             "best_action_count": int(_safe_int(roadmap_summary.get("best_action_count", 0), 0)),
             "best_cost_usd": best_cost,
             "best_plan_execution_probability": _safe_float(roadmap_summary.get("plan_execution_probability"), 0.0),
@@ -303,6 +293,13 @@ def _augment_metrics_row(
                 0.0,
             ),
             "data_issue_codes_json": _json_dumps_compact(list(roadmap_summary.get("data_issue_codes", []))),
+            "offer_needed_flag": "offer_needed"
+            if (
+                int(_safe_int(roadmap_summary.get("offer_plan", 0), 0)) == 1
+                or _safe_text(roadmap_summary.get("offer_maturity"), "none").lower() != "none"
+                or _safe_float(roadmap_summary.get("offer_acceptance_probability"), 0.0) > 0.0
+            )
+            else "no_offer_needed",
         }
     )
     return metrics
@@ -323,15 +320,18 @@ def _augment_plans_df(
     out.insert(3, "customer_id", str(selection_row["customer_id"]))
     out.insert(4, "selection_reason", str(selection_row["selection_reason"]))
     out.insert(5, "cohort_policy", str(selection_row["cohort_policy"]))
-    out.insert(6, "selected_best_flag", (out.get("plan_id", pd.Series(dtype=object)).astype(str) == _safe_text(bundle.roadmap.get("best_plan_id"))).astype(int))
+    out.insert(6, "cohort_bucket", str(selection_row.get("cohort_bucket", "")))
+    out.insert(7, "selection_policy_name", str(selection_row.get("selection_policy_name", selection_row["cohort_policy"])))
+    out.insert(8, "selection_fill_behavior", str(selection_row.get("selection_fill_behavior", "")))
+    out.insert(9, "selected_best_flag", (out.get("plan_id", pd.Series(dtype=object)).astype(str) == _safe_text(bundle.roadmap.get("best_plan_id"))).astype(int))
     if "action_count" in out.columns:
-        out.insert(7, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
+        out.insert(10, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
     else:
-        out.insert(7, "plan_step_count", 0)
+        out.insert(10, "plan_step_count", 0)
     plan_contract_pass = pd.Series([pd.NA] * len(out), index=out.index, dtype="object")
     selected_mask = out["selected_best_flag"].astype(int) == 1
     plan_contract_pass.loc[selected_mask] = int(_safe_int(summary.get("plan_contract_pass", 0), 0))
-    out.insert(8, "plan_contract_pass", plan_contract_pass)
+    out.insert(11, "plan_contract_pass", plan_contract_pass)
     return out
 
 
@@ -347,6 +347,9 @@ def _augment_steps_df(
     out.insert(2, "source_row_index", int(selection_row["source_row_index"]))
     out.insert(3, "selection_reason", str(selection_row["selection_reason"]))
     out.insert(4, "cohort_policy", str(selection_row["cohort_policy"]))
+    out.insert(5, "cohort_bucket", str(selection_row.get("cohort_bucket", "")))
+    out.insert(6, "selection_policy_name", str(selection_row.get("selection_policy_name", selection_row["cohort_policy"])))
+    out.insert(7, "selection_fill_behavior", str(selection_row.get("selection_fill_behavior", "")))
     return out
 
 
@@ -374,6 +377,10 @@ def _collection_summary_markdown(
     metrics_df: pd.DataFrame,
     steps_df: pd.DataFrame,
     manifest_rel_root: str,
+    selection_metadata: Mapping[str, Any],
+    funnel_summary: Mapping[str, Any],
+    readiness_summary: Mapping[str, Any],
+    calibration_summary: Mapping[str, Any],
 ) -> str:
     decision_status_counts = (
         metrics_df.get("decision_status", metrics_df.get("best_status", pd.Series(dtype=object)))
@@ -402,6 +409,13 @@ def _collection_summary_markdown(
             if not steps_df.get("action_class", pd.Series(dtype=object)).empty
             else ""
         )
+    readiness_distribution = dict(readiness_summary.get("distribution", {}))
+    readiness_bits = ", ".join(
+        [
+            f"{label}={int(dict(readiness_distribution.get(label, {})).get('count', 0))}"
+            for label in ("now", "week_4", "week_12", "week_24", "not_ready", "unknown_review")
+        ]
+    )
     return "\n".join(
         [
             "# Customer Artifact Collection",
@@ -409,6 +423,9 @@ def _collection_summary_markdown(
             f"- Selected customers: {len(selection_df)}",
             f"- Denied-selected: {int(selection_df.get('denied_base', pd.Series(dtype=int)).astype(int).sum())}",
             f"- Near-fill: {int((selection_df.get('selection_reason', pd.Series(dtype=object)) == 'near_fill').sum())}",
+            f"- Selection policy: {selection_metadata.get('selection_policy_name', '')}",
+            f"- Selection fill behavior: {selection_metadata.get('selection_fill_behavior', '')}",
+            f"- Cohort purpose: {selection_metadata.get('cohort_purpose', '')}",
             "",
             "## Portfolio Readout",
             f"- Decision status distribution: {decision_status_counts or '{}'}",
@@ -420,6 +437,18 @@ def _collection_summary_markdown(
             f"- Most frequent action family: {top_action_family or 'n/a'}",
             f"- Most frequent constraint reason: {_top_constraint_reason(steps_df) or 'n/a'}",
             "",
+            "## Decision Funnel",
+            f"- Approved share: {_safe_float(funnel_summary.get('approved_share'), 0.0):.4f}",
+            f"- Conditional share: {_safe_float(funnel_summary.get('conditional_share'), 0.0):.4f}",
+            f"- Rejected share: {_safe_float(funnel_summary.get('rejected_share'), 0.0):.4f}",
+            f"- Internal needs-review share: {_safe_float(funnel_summary.get('internal_needs_review_share'), 0.0):.4f}",
+            f"- Approve + conditional share: {_safe_float(funnel_summary.get('approve_plus_conditional_share'), 0.0):.4f}",
+            f"- Conditional-to-approved potential: {_safe_float(funnel_summary.get('conditional_to_approved_potential'), 0.0):.4f}",
+            "",
+            "## Readiness",
+            f"- Distribution: {readiness_bits or 'n/a'}",
+            f"- Baseline readiness story: approved/conditional customers concentrate in {', '.join([label for label in ('now', 'week_4', 'week_12', 'week_24') if int(dict(readiness_distribution.get(label, {})).get('count', 0)) > 0]) or 'n/a'}",
+            "",
             "## Contract Health",
             f"- Critical field null rate: {_safe_float(metrics_df.get('critical_field_null_count', pd.Series(dtype=float)).gt(0).mean(), 0.0):.4f}",
             f"- Missing checkpoint status rate: {_safe_float(metrics_df.get('missing_checkpoint_status_count', pd.Series(dtype=float)).gt(0).mean(), 0.0):.4f}",
@@ -427,11 +456,20 @@ def _collection_summary_markdown(
             f"- Parity mismatch count: {int((metrics_df.get('parity_pass', pd.Series(dtype=float)).fillna(0).astype(int) == 0).sum())}",
             f"- Data issue count: {int(metrics_df.get('data_issue_flag', pd.Series(dtype=float)).fillna(0).astype(int).sum())}",
             "",
+            "## Calibration",
+            f"- Policy version evaluated: {calibration_summary.get('policy_version_evaluated', '')}",
+            f"- Candidate policies compared: {', '.join(calibration_summary.get('candidate_policy_versions_compared', []) or []) or 'n/a'}",
+            f"- Baseline north-star pass: {bool(dict(calibration_summary.get('baseline_policy_metrics', {})).get('north_star_pass', False))}",
+            f"- Baseline false-positive proxy: {_safe_float(dict(calibration_summary.get('baseline_policy_metrics', {})).get('false_positive_proxy'), 0.0):.4f}",
+            "",
             "## Review Files",
             f"- Metrics: `{manifest_rel_root}/flat/customer_metrics.csv`",
             f"- Plans: `{manifest_rel_root}/flat/customer_plans.csv`",
             f"- Roadmap steps: `{manifest_rel_root}/flat/customer_roadmap_steps.csv`",
             f"- Selection: `{manifest_rel_root}/flat/customer_selection.csv`",
+            f"- Funnel summary: `{manifest_rel_root}/calibration/funnel_summary.json`",
+            f"- Policy comparison: `{manifest_rel_root}/calibration/policy_comparison.csv`",
+            f"- Calibration review: `{manifest_rel_root}/calibration/calibration_review.md`",
         ]
     ) + "\n"
 
@@ -490,15 +528,22 @@ def main(argv: Sequence[str] | None = None):
     tau = float(model_cfg.get("decision", {}).get("tau_0", 0.35))
     base_proba = pd.Series(predict_proba_pd(model, calibrator, test_df[feature_cols]), dtype=float)
     segment_caps_cfg = rec_cfg.get("segment_caps", {}) if isinstance(rec_cfg.get("segment_caps", {}), dict) else {}
-    selection_df = _selection_frame(
+    selection_work = build_selection_work_frame(
         input_df=test_df,
         base_pd=base_proba,
         tau=tau,
-        n_customers=max(1, int(args.n_customers)),
+        risk_band_fn=_risk_band_from_pd,
+        segment_caps_cfg=segment_caps_cfg,
+        customer_id_getter=_cohort_customer_id,
+    )
+    selection_result = select_initial_cohort(
+        work=selection_work,
+        requested_n=max(1, int(args.n_customers)),
         sample_seed=int(args.sample_seed),
         cohort_policy=str(args.cohort_policy),
-        segment_caps_cfg=segment_caps_cfg,
     )
+    selection_df = selection_result.selected.copy()
+    selection_metadata = dict(selection_result.metadata)
 
     graph_out = Path(c_cfg.get("graph", {}).get("output_path", "artifacts/models/causal_graph.json"))
     if graph_out.exists():
@@ -515,10 +560,12 @@ def main(argv: Sequence[str] | None = None):
     collection_root = run_ctx.tables_dir / "customer_artifact_collection"
     raw_root = collection_root / "raw"
     flat_root = collection_root / "flat"
+    calibration_root = collection_root / "calibration"
     raw_root.mkdir(parents=True, exist_ok=True)
     flat_root.mkdir(parents=True, exist_ok=True)
+    calibration_root.mkdir(parents=True, exist_ok=True)
 
-    def _process_selection(selection_row: pd.Series) -> tuple[dict[str, Any], pd.DataFrame, pd.DataFrame]:
+    def _process_selection(selection_row: pd.Series) -> dict[str, Any]:
         frame_position = int(selection_row["_frame_position"])
         row = test_df.iloc[frame_position]
         result = generate_customer_recourse_artifacts(
@@ -541,6 +588,58 @@ def main(argv: Sequence[str] | None = None):
             persist_repository_records=False,
         )
         _normalized_roadmap_summary(result.bundle)
+        return {
+            "selection": dict(selection_row),
+            "result": result,
+        }
+
+    rows = [row for _, row in selection_df.iterrows()]
+    processed_records: list[dict[str, Any]] = []
+    n_workers = max(1, int(args.n_workers))
+    if n_workers == 1:
+        for selection_row in rows:
+            processed_records.append(_process_selection(selection_row))
+    else:
+        with ThreadPoolExecutor(max_workers=n_workers) as executor:
+            futures = {executor.submit(_process_selection, selection_row): selection_row for selection_row in rows}
+            for future in as_completed(futures):
+                processed_records.append(future.result())
+
+    if str(args.cohort_policy) == "offer_needed_balanced":
+        pre_metrics_rows: list[dict[str, Any]] = []
+        for record in processed_records:
+            selection_row = pd.Series(record["selection"])
+            summary = _normalized_roadmap_summary(record["result"].bundle)
+            pre_metrics_rows.append(
+                {
+                    "source_row_index": int(selection_row["source_row_index"]),
+                    "customer_id": str(selection_row["customer_id"]),
+                    "offer_needed_flag": "offer_needed"
+                    if (
+                        int(_safe_int(summary.get("offer_plan", 0), 0)) == 1
+                        or _safe_text(summary.get("offer_maturity"), "none").lower() != "none"
+                        or _safe_float(summary.get("offer_acceptance_probability"), 0.0) > 0.0
+                    )
+                    else "no_offer_needed",
+                }
+            )
+        selection_df, rebalance_metadata = rebalance_offer_needed_selection(
+            selection_df=selection_df,
+            metrics_df=pd.DataFrame(pre_metrics_rows),
+            requested_n=max(1, int(args.n_customers)),
+            sample_seed=int(args.sample_seed),
+        )
+        selection_metadata.update(rebalance_metadata)
+
+    record_lookup = {
+        (int(record["selection"]["source_row_index"]), str(record["selection"]["customer_id"])): record["result"]
+        for record in processed_records
+    }
+    metrics_rows: list[dict[str, Any]] = []
+    plan_frames: list[pd.DataFrame] = []
+    step_frames: list[pd.DataFrame] = []
+    for _, selection_row in selection_df.sort_values(["batch_index", "customer_id"]).iterrows():
+        result = record_lookup[(int(selection_row["source_row_index"]), str(selection_row["customer_id"]))]
         metrics_row = _augment_metrics_row(
             collection_run_id=run_ctx.run_id,
             selection_row=selection_row,
@@ -600,27 +699,9 @@ def main(argv: Sequence[str] | None = None):
         metrics_row.update(parity)
         raw_dir = raw_root / f"{int(selection_row['batch_index']):03d}_{_path_safe_customer_id(str(selection_row['customer_id']))}"
         write_customer_artifact_bundle(result.bundle, raw_dir)
-        return metrics_row, plans_df, steps_df
-
-    rows = [row for _, row in selection_df.iterrows()]
-    metrics_rows: list[dict[str, Any]] = []
-    plan_frames: list[pd.DataFrame] = []
-    step_frames: list[pd.DataFrame] = []
-    n_workers = max(1, int(args.n_workers))
-    if n_workers == 1:
-        for selection_row in rows:
-            metrics_row, plans_df, steps_df = _process_selection(selection_row)
-            metrics_rows.append(metrics_row)
-            plan_frames.append(plans_df)
-            step_frames.append(steps_df)
-    else:
-        with ThreadPoolExecutor(max_workers=n_workers) as executor:
-            futures = {executor.submit(_process_selection, selection_row): selection_row for selection_row in rows}
-            for future in as_completed(futures):
-                metrics_row, plans_df, steps_df = future.result()
-                metrics_rows.append(metrics_row)
-                plan_frames.append(plans_df)
-                step_frames.append(steps_df)
+        metrics_rows.append(metrics_row)
+        plan_frames.append(plans_df)
+        step_frames.append(steps_df)
 
     metrics_df = pd.DataFrame(metrics_rows).sort_values(["batch_index", "customer_id"]).reset_index(drop=True)
     customer_plans_df = (
@@ -635,6 +716,11 @@ def main(argv: Sequence[str] | None = None):
     )
     selection_out = selection_df.drop(columns=["_frame_position"]).copy()
     selection_out.insert(0, "collection_run_id", run_ctx.run_id)
+    selection_out = selection_out.merge(
+        metrics_df[["source_row_index", "customer_id", "offer_needed_flag"]].drop_duplicates(),
+        on=["source_row_index", "customer_id"],
+        how="left",
+    )
 
     metrics_csv = flat_root / "customer_metrics.csv"
     plans_csv = flat_root / "customer_plans.csv"
@@ -645,10 +731,58 @@ def main(argv: Sequence[str] | None = None):
     customer_steps_df.to_csv(steps_csv, index=False)
     selection_out.to_csv(selection_csv, index=False)
 
+    calibration_input_df = prepare_metrics_for_calibration(metrics_df)
+    funnel_summary = build_funnel_summary(calibration_input_df)
+    readiness_summary = summarize_readiness(calibration_input_df)
+    readiness_distribution_df = build_readiness_distribution(calibration_input_df)
+    status_by_readiness_df = build_status_by_readiness(calibration_input_df)
+    policy_version_evaluated = (
+        metrics_df.get("decision_policy_version", pd.Series(dtype=object)).astype(str).mode().iloc[0]
+        if not metrics_df.empty and not metrics_df.get("decision_policy_version", pd.Series(dtype=object)).empty
+        else ""
+    )
+    policy_comparison_payload = build_policy_comparison(
+        calibration_input_df,
+        policy_version_evaluated=policy_version_evaluated,
+    )
+    policy_comparison_df = policy_comparison_payload["policy_comparison"]
+    decision_shift_matrix_df = policy_comparison_payload["decision_shift_matrix"]
+    segment_breakdown_df = policy_comparison_payload["segment_breakdown"]
+    calibration_summary = policy_comparison_payload["calibration_summary"]
+
+    funnel_json = calibration_root / "funnel_summary.json"
+    readiness_csv = calibration_root / "readiness_distribution.csv"
+    status_by_readiness_csv = calibration_root / "status_by_readiness.csv"
+    policy_comparison_csv = calibration_root / "policy_comparison.csv"
+    shift_matrix_csv = calibration_root / "decision_shift_matrix.csv"
+    segment_breakdown_csv = calibration_root / "segment_breakdown.csv"
+    calibration_review_md = calibration_root / "calibration_review.md"
+
+    funnel_json.write_text(json.dumps(funnel_summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    readiness_distribution_df.to_csv(readiness_csv, index=False)
+    status_by_readiness_df.to_csv(status_by_readiness_csv, index=False)
+    policy_comparison_df.to_csv(policy_comparison_csv, index=False)
+    decision_shift_matrix_df.to_csv(shift_matrix_csv, index=False)
+    segment_breakdown_df.to_csv(segment_breakdown_csv, index=False)
+    calibration_review_md.write_text(
+        build_calibration_review_markdown(
+            selection_policy_name=str(selection_metadata.get("selection_policy_name", args.cohort_policy)),
+            cohort_purpose=str(selection_metadata.get("cohort_purpose", "")),
+            funnel_summary=funnel_summary,
+            readiness_summary=readiness_summary,
+            policy_comparison_df=policy_comparison_df,
+        ),
+        encoding="utf-8",
+    )
+
     rel_root = "tables/customer_artifact_collection"
     manifest_payload = {
         "collection_run_id": run_ctx.run_id,
         "cohort_policy": str(args.cohort_policy),
+        "selection_policy_name": str(selection_metadata.get("selection_policy_name", args.cohort_policy)),
+        "selection_fill_behavior": str(selection_metadata.get("selection_fill_behavior", "")),
+        "cohort_definition": dict(selection_metadata.get("cohort_definition", {})),
+        "cohort_purpose": str(selection_metadata.get("cohort_purpose", "")),
         "requested_n_customers": int(args.n_customers),
         "selected_n_customers": int(len(selection_out)),
         "denied_selected_count": int(selection_out["denied_base"].astype(int).sum()) if not selection_out.empty else 0,
@@ -656,7 +790,12 @@ def main(argv: Sequence[str] | None = None):
         "input_data_path": str(test_path),
         "model_version": str(manifest.get("model_version", "")),
         "config_hash": hash_config(cfg),
+        "policy_version_evaluated": policy_version_evaluated,
+        "candidate_policy_versions_compared": list(calibration_summary.get("candidate_policy_versions_compared", [])),
         "raw_root": f"{rel_root}/raw",
+        "funnel_summary": funnel_summary,
+        "readiness_summary": readiness_summary,
+        "calibration_summary": calibration_summary,
         "contract_health": {
             "critical_field_null_rate": _safe_float(
                 metrics_df.get("critical_field_null_count", pd.Series(dtype=float)).gt(0).mean(),
@@ -695,6 +834,15 @@ def main(argv: Sequence[str] | None = None):
             "customer_roadmap_steps_csv": f"{rel_root}/flat/customer_roadmap_steps.csv",
             "customer_selection_csv": f"{rel_root}/flat/customer_selection.csv",
         },
+        "calibration_files": {
+            "funnel_summary_json": f"{rel_root}/calibration/funnel_summary.json",
+            "readiness_distribution_csv": f"{rel_root}/calibration/readiness_distribution.csv",
+            "status_by_readiness_csv": f"{rel_root}/calibration/status_by_readiness.csv",
+            "policy_comparison_csv": f"{rel_root}/calibration/policy_comparison.csv",
+            "decision_shift_matrix_csv": f"{rel_root}/calibration/decision_shift_matrix.csv",
+            "segment_breakdown_csv": f"{rel_root}/calibration/segment_breakdown.csv",
+            "calibration_review_md": f"{rel_root}/calibration/calibration_review.md",
+        },
     }
     manifest_path = collection_root / "collection_manifest.json"
     manifest_path.write_text(json.dumps(manifest_payload, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -704,6 +852,10 @@ def main(argv: Sequence[str] | None = None):
         metrics_df=metrics_df,
         steps_df=customer_steps_df,
         manifest_rel_root=rel_root,
+        selection_metadata=selection_metadata,
+        funnel_summary=funnel_summary,
+        readiness_summary=readiness_summary,
+        calibration_summary=calibration_summary,
     )
     summary_path = collection_root / "collection_summary.md"
     summary_path.write_text(summary_md, encoding="utf-8")
