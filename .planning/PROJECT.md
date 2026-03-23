@@ -18,15 +18,17 @@ Generate customer-specific credit action plans that are actionable, behaviorally
 - portfolio-level numeric impact and calibration review across segments
 - pilot-facing package generation with guardrails, confidence, and onboarding docs
 
-There is no active milestone at the moment. The next step is to define the next milestone boundary instead of extending `v2.0` ad hoc.
+The active milestone is now `v2.1 Decision Ownership & Pilot-Ready Trust`, which turns the shipped personalized-action stack into a deterministic decision system with explicit external decisions, contract trust repair, calibration, and operator review speed.
 
-## Next Milestone Goals
+## Current Milestone: v2.1 Decision Ownership & Pilot-Ready Trust
 
-Not yet defined. The strongest carried-forward themes are:
-- pilot-grade external institution integrations beyond artifact handoff
-- richer regulatory explanation and adverse-action communication packs
-- recurring automation for proof refresh, release review, and milestone health
-- external synchronization of institution policy and offer configuration
+**Goal:** Transform the system from a decision-intelligence prototype into a deterministic, pilot-ready fintech decision system.
+
+**Target features:**
+- null-free, parity-safe decision artifacts across raw and flat customer outputs
+- deterministic internal and business-visible decision ownership with ordered policy logic
+- cohort-level decision calibration and 50-customer operator review packs
+- source-mix hardening and production-style pilot baselines for repeatable decision review
 
 <details>
 <summary>Archived Milestone Context: v2.0 Personalized Action & Decision Intelligence</summary>
@@ -70,10 +72,10 @@ Not yet defined. The strongest carried-forward themes are:
 
 ### Active
 
-- [ ] Pilot-grade external institution integrations beyond curated export and package handoff
-- [ ] Regulatory explanation and adverse-action communication packs for institution workflows
-- [ ] Recurring automation for proof refresh, release review, and milestone health
-- [ ] Institution-side policy and offer configuration sync from external systems
+- [ ] Deterministic decision ownership with business-visible `APPROVED | CONDITIONAL | REJECTED` and internal-only `NEEDS_REVIEW`
+- [ ] Null-free, parity-checked raw and flat artifacts that preserve trust instead of leaking contract faults
+- [ ] Mixed-cohort calibration and operator-ready review surfaces for 50-customer pilot flows
+- [ ] Planner source-mix hardening and production-style pilot decision QA with policy versioning
 
 ### Out of Scope
 
@@ -113,4 +115,4 @@ Not yet defined. The strongest carried-forward themes are:
 | Keep pilot integration export-first and controlled | The repo should not pretend to have live institution connectivity before the contract seam is genuinely ready | ✓ Good |
 
 ---
-*Last updated: 2026-03-22 after shipping milestone v2.0*
+*Last updated: 2026-03-23 after starting milestone v2.1*

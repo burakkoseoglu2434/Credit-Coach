@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-22)
+See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** no active milestone
+**Current focus:** milestone v2.1 decision ownership and pilot-ready trust
 
 ## Current Position
 
-Phase: none active
-Plan: milestone boundary
-Status: Milestone archived
-Last activity: 2026-03-22 - Archived `v2.0 Personalized Action & Decision Intelligence` after passed milestone audit
+Phase: Not started (defining milestone v2.1)
+Plan: milestone requirements and roadmap
+Status: Defining requirements
+Last activity: 2026-03-23 - Started `v2.1 Decision Ownership & Pilot-Ready Trust`
 
-Progress: `v2.0` is complete. The next active seam is defining a new milestone with `$gsd-new-milestone`.
+Progress: `v2.1` is being initialized. The next active seam is defining requirements and roadmap, then starting `Phase 40 Contract & Trust Repair`.
 
 ## Performance Metrics
 
@@ -37,6 +37,7 @@ Progress: `v2.0` is complete. The next active seam is defining a new milestone w
 - Credit Coach now carries one continuous stack from semantic action planning to pilot-facing package delivery.
 - Buyer-safe and analyst-safe surfaces remain typed consumers of engine-owned truth rather than alternate logic layers.
 - Portfolio proof can now speak about personalized numeric burden, realization, calibration, and pilot readiness.
+- The new acceptance bar is deterministic decision ownership, internal-vs-external status separation, and operator review speed for pilot cohorts.
 
 ## Accumulated Context
 
@@ -59,10 +60,10 @@ None yet.
 ### Blockers/Concerns
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
-- There is no active milestone yet; future work should start from a fresh milestone boundary instead of extending archived scope.
+- The next acceptance bar is no longer plan richness alone; the system must emit deterministic external decisions without exposing internal exception states.
 
 ## Session Continuity
 
-Last session: 2026-03-22
-Stopped at: `v2.0` completion and archive; next step is `$gsd-new-milestone`
+Last session: 2026-03-23
+Stopped at: milestone initialization for `v2.1`; next step is finish requirements and roadmap, then start `Phase 40`
 Resume file: None

@@ -1,6 +1,6 @@
 # Project Milestones: Credit Coach
 
-**Current active milestone:** none
+**Current active milestone:** v2.1 Decision Ownership & Pilot-Ready Trust
 
 ## v1.0 Brownfield Baseline (Shipped: 2026-03-10)
 
@@ -145,5 +145,38 @@
 - Local `gsd-tools.cjs` milestone-op automation still requires manual fallback
 
 **What's next:** Define the next milestone with `$gsd-new-milestone`
+
+---
+
+## v2.1 Decision Ownership & Pilot-Ready Trust (Started: 2026-03-23)
+
+**Goal:** Turn the shipped decision-intelligence stack into a deterministic, pilot-ready fintech decision system with trusted artifact contracts, explicit decision ownership, calibration loops, and operator review speed.
+
+**Planned phases:** 40, 40.5, 41, 43, 42, 44
+
+**North Star:**
+- business-visible decisions: `APPROVED | CONDITIONAL | REJECTED`
+- internal decisions: `APPROVED | CONDITIONAL | REJECTED | NEEDS_REVIEW`
+- `APPROVED + CONDITIONAL >= 30%`
+- `APPROVED >= 10%`
+- internal `NEEDS_REVIEW < 10%` target and `< 20%` hard max
+- deterministic decision for every customer with a one-line business explanation and structured drivers
+- operator review for 50 customers in under 30 minutes
+
+**Execution order:**
+- Phase 40: Contract & Trust Repair
+- Phase 40.5: Decision Ownership Layer
+- Phase 41: Cohort & Decision Calibration
+- Phase 43: Operator Review Pack
+- Phase 42: Planner Quality & Source Mix
+- Phase 44: Production Pilot Baseline
+
+**Key milestone constraints:**
+- `NEEDS_REVIEW` is internal-only and must never appear on business-facing surfaces
+- decision ordering is fixed: `REJECTED -> APPROVED -> CONDITIONAL -> NEEDS_REVIEW`
+- zero-step plans are always rejected and classified as `NO_PATH`
+- decision logic must be deterministic, parity-checked, and safe under artifact inconsistency
+
+**What's next:** define active requirements and create the roadmap, then start Phase 40
 
 ---
