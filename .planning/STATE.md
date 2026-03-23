@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 40
-Plan: phase plans approved
-Status: Ready for execution
-Last activity: 2026-03-23 - Planned Phase 40 `Contract & Trust Repair`
+Phase: 40.5
+Plan: discussion pending
+Status: Ready for discussion
+Last activity: 2026-03-23 - Completed Phase 40 `Contract & Trust Repair`
 
-Progress: `v2.1` is initialized. The next active seam is `Phase 40 Contract & Trust Repair`.
+Progress: `v2.1` now has a repaired contract and trust foundation. The next active seam is `Phase 40.5 Decision Ownership Layer`.
 
 ## Performance Metrics
 
@@ -38,6 +38,7 @@ Progress: `v2.1` is initialized. The next active seam is `Phase 40 Contract & Tr
 - Buyer-safe and analyst-safe surfaces remain typed consumers of engine-owned truth rather than alternate logic layers.
 - Portfolio proof can now speak about personalized numeric burden, realization, calibration, and pilot readiness.
 - The new acceptance bar is deterministic decision ownership, internal-vs-external status separation, and operator review speed for pilot cohorts.
+- Phase 40 now guarantees null-free summary truth, raw-flat parity checks, zero-step rejection, and business-facing consumer alignment to canonical summary fields.
 
 ## Accumulated Context
 
@@ -65,5 +66,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Phase 40 planning complete; next step is `$gsd-execute-phase 40`
+Stopped at: Phase 40 complete; next step is `$gsd-discuss-phase 40.5`
 Resume file: None

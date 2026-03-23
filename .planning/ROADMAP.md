@@ -246,7 +246,7 @@ Historical archive: `.planning/milestones/v2.0-ROADMAP.md`
 | 37. Portfolio-Level Numeric Impact | v2.0 | 3/3 | Complete | 2026-03-22 |
 | 38. Calibration & Validation | v2.0 | 3/3 | Complete | 2026-03-22 |
 | 39. Pilot Integration | v2.0 | 3/3 | Complete | 2026-03-22 |
-| 40. Contract & Trust Repair | v2.1 | 0/3 | Planned | — |
+| 40. Contract & Trust Repair | v2.1 | 3/3 | Complete | 2026-03-23 |
 | 40.5 Decision Ownership Layer | v2.1 | 0/3 | Planned | — |
 | 41. Cohort & Decision Calibration | v2.1 | 0/3 | Planned | — |
 | 43. Operator Review Pack | v2.1 | 0/3 | Planned | — |

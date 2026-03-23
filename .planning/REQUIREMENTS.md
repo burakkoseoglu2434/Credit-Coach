@@ -7,8 +7,8 @@
 
 ### Contract And Trust
 
-- [ ] **TRST-01**: Single-customer and collection artifacts emit null-free decision-critical fields and checkpoint statuses across raw and flat outputs
-- [ ] **TRST-02**: Raw and flat customer decision artifacts stay parity-checked and classify contract faults without exposing `NEEDS_REVIEW` on business-facing surfaces
+- [x] **TRST-01**: Single-customer and collection artifacts emit null-free decision-critical fields and checkpoint statuses across raw and flat outputs
+- [x] **TRST-02**: Raw and flat customer decision artifacts stay parity-checked and classify contract faults without exposing `NEEDS_REVIEW` on business-facing surfaces
 
 ### Decision Ownership
 
@@ -61,8 +61,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TRST-01 | Phase 40 | Pending |
-| TRST-02 | Phase 40 | Pending |
+| TRST-01 | Phase 40 | Satisfied |
+| TRST-02 | Phase 40 | Satisfied |
 | DEC-01 | Phase 40.5 | Pending |
 | DEC-02 | Phase 40.5 | Pending |
 | DEC-03 | Phase 40.5 | Pending |
@@ -81,4 +81,4 @@
 
 ---
 *Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after milestone v2.1 initialization*
+*Last updated: 2026-03-23 after Phase 40 completion*
