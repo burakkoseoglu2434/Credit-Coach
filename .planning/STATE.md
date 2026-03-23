@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 44
-Plan: discussion pending
-Status: Ready for discussion
-Last activity: 2026-03-23 - Completed Phase 42 `Planner Quality & Source Mix`
+Plan: planning pending
+Status: Ready for planning
+Last activity: 2026-03-23 - Discussed Phase 44 `Production Pilot Baseline`
 
 Progress: `v2.1` now has a repaired contract base, one deterministic decision owner, a cohort-aware calibration lane, shipped operator review packets, and a hardened planner-quality layer with explicit source provenance, empty-contender removal, honest recovery-lane reporting, and anti-collapse / offer-maturity metrics under the same run root. The remaining milestone work is the production pilot baseline in Phase 44.
 
@@ -65,10 +65,10 @@ None yet.
 ### Blockers/Concerns
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
-- The next acceptance bar is production-grade pilot operation: rerun QA, policy-version packaging, and institution-facing explanation packs without leaking internal-only states.
+- The next acceptance bar is production-grade pilot operation: rerun QA, policy-version packaging, institution overlays, and institution-facing explanation packs without leaking internal-only states.
 
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Phase 42 complete; next step is `$gsd-discuss-phase 44`
+Stopped at: Phase 44 context locked; next step is `$gsd-plan-phase 44 --research`
 Resume file: None
