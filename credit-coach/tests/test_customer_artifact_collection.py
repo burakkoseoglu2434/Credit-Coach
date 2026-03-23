@@ -53,6 +53,88 @@ def test_selection_frame_denied_first_near_prioritizes_denied_then_fills_near() 
     assert list(selected["batch_index"]) == [0, 1, 2, 3]
 
 
+def test_collection_parity_failure_marks_internal_review_and_external_conditional() -> None:
+    bundle = CustomerArtifactBundle(
+        customer_id="cust-parity",
+        plans_df=pd.DataFrame([{"plan_id": "plan-a", "action_count": 1}]),
+        roadmap={
+            "customer_id": "cust-parity",
+            "best_plan_id": "plan-a",
+            "best_plan_source": "internal",
+            "phases": [
+                {
+                    "phase_id": "phase_1_stabilize",
+                    "steps": [{"step_id": "step-1"}],
+                }
+            ],
+            "checkpoints": [
+                {"week": 4, "status": "at_risk"},
+                {"week": 12, "status": "on_track"},
+                {"week": 24, "status": "on_track"},
+            ],
+            "summary": {
+                "decision_status": "APPROVED",
+                "credit_readiness_stage": "week_4",
+                "plan_execution_probability": 0.62,
+                "approval_dependent_plan_probability": 0.62,
+                "offer_acceptance_probability": 0.0,
+                "combined_plan_realization_probability": 0.62,
+            },
+        },
+        roadmap_steps_df=pd.DataFrame(
+            [
+                {"customer_id": "cust-parity", "best_plan_id": "plan-a", "action_key": "limit_credit_usage"},
+            ]
+        ),
+        metrics_summary={"customer_id": "cust-parity", "best_plan_id": "plan-a", "best_plan_source": "internal"},
+    )
+    metrics_row = {
+        "customer_id": "cust-parity",
+        "best_plan_id": "plan-a",
+        "best_plan_source": "internal",
+        "decision_status": "APPROVED",
+        "decision_status_internal": "APPROVED",
+        "credit_readiness_stage": "week_4",
+        "plan_execution_probability": 0.62,
+        "approval_dependent_plan_probability": 0.62,
+        "offer_acceptance_probability": 0.0,
+        "combined_plan_realization_probability": 0.62,
+        "best_action_count": 99,
+        "zero_step_flag": 0,
+        "checkpoint_status_4w": "at_risk",
+        "checkpoint_status_12w": "on_track",
+        "checkpoint_status_24w": "on_track",
+        "raw_contract_pass": 1,
+        "parity_pass": 1,
+        "data_issue_flag": 0,
+    }
+    plans_df = pd.DataFrame(
+        [
+            {"plan_id": "plan-a", "selected_best_flag": 1},
+        ]
+    )
+
+    parity = collector._validate_customer_artifact_parity(
+        bundle=bundle,
+        metrics_row=metrics_row,
+        plans_df=plans_df,
+        steps_df=bundle.roadmap_steps_df,
+    )
+    assert parity["parity_pass"] == 0
+    assert "best_action_count" in parity["parity_mismatch_fields"]
+
+    collector._apply_collection_parity_classification(
+        bundle,
+        mismatch_fields=parity["parity_mismatch_fields"],
+    )
+    summary = bundle.roadmap["summary"]
+    assert summary["decision_status"] == "CONDITIONAL"
+    assert summary["decision_status_internal"] == "NEEDS_REVIEW"
+    assert int(summary["parity_pass"]) == 0
+    assert int(summary["data_issue_flag"]) == 1
+    assert "parity_mismatch" in summary["data_issue_codes"]
+
+
 def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Path) -> None:
     action = PlanAction(
         feature_name="revol_util",
@@ -366,17 +448,37 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
             plans_df=plans_df,
             roadmap={
                 "customer_id": customer_id,
+                "best_plan_id": f"{customer_id}-plan-a",
+                "best_plan_source": "internal",
                 "summary": {
+                    "decision_status": "NEEDS_REVIEW",
+                    "credit_readiness_stage": "week_12",
                     "plan_execution_probability": 0.61,
-                    "combined_plan_realization_probability": 0.44,
+                    "approval_dependent_plan_probability": None,
+                    "offer_acceptance_probability": None,
+                    "combined_plan_realization_probability": None,
                 },
-                "phases": [],
-                "checkpoints": [],
+                "phases": [
+                    {
+                        "phase_id": "phase_1_stabilize",
+                        "steps": [{"step_id": f"{customer_id}:step-1"}],
+                    },
+                    {
+                        "phase_id": "phase_2_build",
+                        "steps": [{"step_id": f"{customer_id}:step-2"}],
+                    },
+                ],
+                "checkpoints": [
+                    {"week": 4, "status": "at_risk"},
+                    {"week": 12, "status": "on_track"},
+                    {"week": 24, "status": "on_track"},
+                ],
             },
             roadmap_steps_df=steps_df,
             metrics_summary={
                 "customer_id": customer_id,
                 "best_status": "NEEDS_REVIEW",
+                "best_plan_id": f"{customer_id}-plan-a",
                 "best_plan_source": "internal",
                 "plan_count": 2,
                 "approved_count": 0,
@@ -444,3 +546,22 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert len(selection_df) == 3
     assert (collection_root / "collection_manifest.json").exists()
     assert (collection_root / "collection_summary.md").exists()
+    assert set(metrics_df["decision_status"]) == {"CONDITIONAL"}
+    assert set(metrics_df["decision_status_internal"]) == {"CONDITIONAL"}
+    assert (metrics_df["best_action_count"] == 2).all()
+    assert (metrics_df["parity_pass"] == 1).all()
+    assert (metrics_df["raw_contract_pass"] == 0).all()
+    assert (metrics_df["data_issue_flag"] == 1).all()
+    assert (metrics_df["checkpoint_status_4w"] == "at_risk").all()
+    assert "data_issue_codes_json" in metrics_df.columns
+    assert "selected_best_flag" in plans_df.columns
+    assert "plan_step_count" in plans_df.columns
+    assert "plan_contract_pass" in plans_df.columns
+
+    manifest = json.loads((collection_root / "collection_manifest.json").read_text(encoding="utf-8"))
+    assert "contract_health" in manifest
+    assert "raw_flat_mismatch_count" in manifest["contract_health"]
+
+    summary_md = (collection_root / "collection_summary.md").read_text(encoding="utf-8")
+    assert "## Contract Health" in summary_md
+    assert "Decision status distribution" in summary_md

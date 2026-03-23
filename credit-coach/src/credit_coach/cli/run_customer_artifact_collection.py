@@ -20,7 +20,11 @@ from credit_coach.cli.run_batch_recourse_eval import (
 from credit_coach.cli.run_recourse import (
     CustomerArtifactBundle,
     CustomerRecourseRunResult,
+    FLOAT_PARITY_TOLERANCE,
     _merge_dict,
+    _normalize_customer_roadmap_contract,
+    _safe_text,
+    _sync_metrics_summary_with_roadmap_summary,
     generate_customer_recourse_artifacts,
     write_customer_artifact_bundle,
 )
@@ -71,6 +75,120 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return int(value)
     except Exception:
         return int(default)
+
+
+def _json_dumps_compact(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _normalized_roadmap_summary(bundle: CustomerArtifactBundle) -> dict[str, Any]:
+    bundle.roadmap = _normalize_customer_roadmap_contract(bundle.roadmap)
+    bundle.metrics_summary = _sync_metrics_summary_with_roadmap_summary(bundle.metrics_summary, roadmap=bundle.roadmap)
+    return dict(bundle.roadmap.get("summary", {}) or {})
+
+
+def _is_close_contract_value(left: Any, right: Any) -> bool:
+    try:
+        if left is None or right is None:
+            return left is right
+        if isinstance(left, bool) or isinstance(right, bool):
+            return bool(left) == bool(right)
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            return abs(float(left) - float(right)) <= FLOAT_PARITY_TOLERANCE
+    except Exception:
+        return False
+    return left == right
+
+
+def _apply_collection_parity_classification(
+    bundle: CustomerArtifactBundle,
+    *,
+    mismatch_fields: list[str],
+) -> None:
+    summary = _normalized_roadmap_summary(bundle)
+    parity_pass = int(not mismatch_fields)
+    data_issue_codes = list(summary.get("data_issue_codes", []))
+    if mismatch_fields and "parity_mismatch" not in data_issue_codes:
+        data_issue_codes.append("parity_mismatch")
+    data_issue_flag = int(
+        bool(_safe_int(summary.get("data_issue_flag", 0), 0))
+        or bool(mismatch_fields)
+    )
+    zero_step_flag = int(_safe_int(summary.get("zero_step_flag", 0), 0))
+    if zero_step_flag:
+        decision_status = "REJECTED"
+        decision_status_internal = "REJECTED"
+    elif mismatch_fields:
+        decision_status = "CONDITIONAL"
+        decision_status_internal = "NEEDS_REVIEW"
+    else:
+        decision_status = _safe_text(summary.get("decision_status"), "CONDITIONAL")
+        decision_status_internal = _safe_text(summary.get("decision_status_internal"), decision_status)
+    bundle.roadmap["summary"].update(
+        {
+            "parity_pass": parity_pass,
+            "data_issue_flag": data_issue_flag,
+            "data_issue_codes": data_issue_codes,
+            "decision_status": decision_status,
+            "decision_status_internal": decision_status_internal,
+        }
+    )
+    bundle.roadmap = _normalize_customer_roadmap_contract(bundle.roadmap)
+    bundle.metrics_summary = _sync_metrics_summary_with_roadmap_summary(bundle.metrics_summary, roadmap=bundle.roadmap)
+
+
+def _validate_customer_artifact_parity(
+    *,
+    bundle: CustomerArtifactBundle,
+    metrics_row: dict[str, Any],
+    plans_df: pd.DataFrame,
+    steps_df: pd.DataFrame,
+) -> dict[str, Any]:
+    summary = _normalized_roadmap_summary(bundle)
+    metrics_summary = dict(bundle.metrics_summary)
+    mismatch_fields: list[str] = []
+    field_names = (
+        "customer_id",
+        "best_plan_id",
+        "best_plan_source",
+        "decision_status",
+        "decision_status_internal",
+        "credit_readiness_stage",
+        "plan_execution_probability",
+        "approval_dependent_plan_probability",
+        "offer_acceptance_probability",
+        "combined_plan_realization_probability",
+        "best_action_count",
+        "zero_step_flag",
+        "checkpoint_status_4w",
+        "checkpoint_status_12w",
+        "checkpoint_status_24w",
+        "raw_contract_pass",
+        "parity_pass",
+        "data_issue_flag",
+    )
+    source_pairs = {
+        "customer_id": bundle.customer_id,
+        "best_plan_id": _safe_text(bundle.roadmap.get("best_plan_id")),
+        "best_plan_source": _safe_text(bundle.roadmap.get("best_plan_source")),
+        **{field: summary.get(field) for field in field_names if field in summary},
+    }
+    for field in field_names:
+        expected = source_pairs.get(field, metrics_summary.get(field))
+        actual = metrics_row.get(field)
+        if not _is_close_contract_value(expected, actual):
+            mismatch_fields.append(field)
+    if int(_safe_int(summary.get("best_action_count", 0), 0)) != int(len(steps_df)):
+        mismatch_fields.append("best_action_count_vs_steps")
+    selected_best = plans_df.loc[plans_df.get("selected_best_flag", pd.Series(dtype=int)).fillna(0).astype(int) == 1]
+    if selected_best.empty:
+        mismatch_fields.append("selected_best_plan")
+    return {
+        "parity_pass": int(not mismatch_fields),
+        "parity_mismatch_count": len(mismatch_fields),
+        "parity_mismatch_fields": sorted(set(mismatch_fields)),
+        "parity_mismatch_fields_json": _json_dumps_compact(sorted(set(mismatch_fields))),
+    }
 
 
 def _path_safe_customer_id(customer_id: str) -> str:
@@ -178,8 +296,7 @@ def _augment_metrics_row(
     selection_row: pd.Series,
     result: CustomerRecourseRunResult,
 ) -> dict[str, Any]:
-    roadmap_summary = result.bundle.roadmap.get("summary", {})
-    action_count = int(len(result.bundle.roadmap_steps_df))
+    roadmap_summary = _normalized_roadmap_summary(result.bundle)
     best_cost = float(pd.to_numeric(result.bundle.roadmap_steps_df.get("estimated_cost_usd", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
     metrics = dict(result.bundle.metrics_summary)
     metrics.update(
@@ -190,13 +307,14 @@ def _augment_metrics_row(
             "selection_reason": str(selection_row["selection_reason"]),
             "cohort_policy": str(selection_row["cohort_policy"]),
             "denied_base": int(selection_row["denied_base"]),
-            "best_action_count": action_count,
+            "best_action_count": int(_safe_int(roadmap_summary.get("best_action_count", 0), 0)),
             "best_cost_usd": best_cost,
             "best_plan_execution_probability": _safe_float(roadmap_summary.get("plan_execution_probability"), 0.0),
             "best_combined_plan_realization_probability": _safe_float(
                 roadmap_summary.get("combined_plan_realization_probability"),
                 0.0,
             ),
+            "data_issue_codes_json": _json_dumps_compact(list(roadmap_summary.get("data_issue_codes", []))),
         }
     )
     return metrics
@@ -207,7 +325,9 @@ def _augment_plans_df(
     collection_run_id: str,
     selection_row: pd.Series,
     plans_df: pd.DataFrame,
+    bundle: CustomerArtifactBundle,
 ) -> pd.DataFrame:
+    summary = _normalized_roadmap_summary(bundle)
     out = plans_df.copy()
     out.insert(0, "collection_run_id", str(collection_run_id))
     out.insert(1, "batch_index", int(selection_row["batch_index"]))
@@ -215,6 +335,15 @@ def _augment_plans_df(
     out.insert(3, "customer_id", str(selection_row["customer_id"]))
     out.insert(4, "selection_reason", str(selection_row["selection_reason"]))
     out.insert(5, "cohort_policy", str(selection_row["cohort_policy"]))
+    out.insert(6, "selected_best_flag", (out.get("plan_id", pd.Series(dtype=object)).astype(str) == _safe_text(bundle.roadmap.get("best_plan_id"))).astype(int))
+    if "action_count" in out.columns:
+        out.insert(7, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
+    else:
+        out.insert(7, "plan_step_count", 0)
+    plan_contract_pass = pd.Series([pd.NA] * len(out), index=out.index, dtype="object")
+    selected_mask = out["selected_best_flag"].astype(int) == 1
+    plan_contract_pass.loc[selected_mask] = int(_safe_int(summary.get("raw_contract_pass", 0), 0))
+    out.insert(8, "plan_contract_pass", plan_contract_pass)
     return out
 
 
@@ -258,8 +387,8 @@ def _collection_summary_markdown(
     steps_df: pd.DataFrame,
     manifest_rel_root: str,
 ) -> str:
-    best_status_counts = (
-        metrics_df.get("best_status", pd.Series(dtype=object))
+    decision_status_counts = (
+        metrics_df.get("decision_status", metrics_df.get("best_status", pd.Series(dtype=object)))
         .astype(str)
         .value_counts()
         .sort_index()
@@ -294,7 +423,7 @@ def _collection_summary_markdown(
             f"- Near-fill: {int((selection_df.get('selection_reason', pd.Series(dtype=object)) == 'near_fill').sum())}",
             "",
             "## Portfolio Readout",
-            f"- Best status distribution: {best_status_counts or '{}'}",
+            f"- Decision status distribution: {decision_status_counts or '{}'}",
             f"- Risk band distribution: {risk_band_counts or '{}'}",
             f"- Mean best action count: {_safe_float(metrics_df.get('best_action_count', pd.Series(dtype=float)).mean(), 0.0):.2f}",
             f"- Mean best cost USD: {_safe_float(metrics_df.get('best_cost_usd', pd.Series(dtype=float)).mean(), 0.0):.2f}",
@@ -302,6 +431,13 @@ def _collection_summary_markdown(
             f"- Most frequent action key: {top_action_key or 'n/a'}",
             f"- Most frequent action family: {top_action_family or 'n/a'}",
             f"- Most frequent constraint reason: {_top_constraint_reason(steps_df) or 'n/a'}",
+            "",
+            "## Contract Health",
+            f"- Critical field null rate: {_safe_float(metrics_df.get('critical_field_null_count', pd.Series(dtype=float)).gt(0).mean(), 0.0):.4f}",
+            f"- Missing checkpoint status rate: {_safe_float(metrics_df.get('missing_checkpoint_status_count', pd.Series(dtype=float)).gt(0).mean(), 0.0):.4f}",
+            f"- Raw contract pass rate: {_safe_float(metrics_df.get('raw_contract_pass', pd.Series(dtype=float)).mean(), 0.0):.4f}",
+            f"- Parity mismatch count: {int((metrics_df.get('parity_pass', pd.Series(dtype=float)).fillna(0).astype(int) == 0).sum())}",
+            f"- Data issue count: {int(metrics_df.get('data_issue_flag', pd.Series(dtype=float)).fillna(0).astype(int).sum())}",
             "",
             "## Review Files",
             f"- Metrics: `{manifest_rel_root}/flat/customer_metrics.csv`",
@@ -416,8 +552,7 @@ def main(argv: Sequence[str] | None = None):
             graph=graph,
             persist_repository_records=False,
         )
-        raw_dir = raw_root / f"{int(selection_row['batch_index']):03d}_{_path_safe_customer_id(str(selection_row['customer_id']))}"
-        write_customer_artifact_bundle(result.bundle, raw_dir)
+        _normalized_roadmap_summary(result.bundle)
         metrics_row = _augment_metrics_row(
             collection_run_id=run_ctx.run_id,
             selection_row=selection_row,
@@ -427,12 +562,56 @@ def main(argv: Sequence[str] | None = None):
             collection_run_id=run_ctx.run_id,
             selection_row=selection_row,
             plans_df=result.bundle.plans_df,
+            bundle=result.bundle,
         )
         steps_df = _augment_steps_df(
             collection_run_id=run_ctx.run_id,
             selection_row=selection_row,
             steps_df=result.bundle.roadmap_steps_df,
         )
+        parity = _validate_customer_artifact_parity(
+            bundle=result.bundle,
+            metrics_row=metrics_row,
+            plans_df=plans_df,
+            steps_df=steps_df,
+        )
+        _apply_collection_parity_classification(
+            result.bundle,
+            mismatch_fields=list(parity.get("parity_mismatch_fields", [])),
+        )
+        metrics_row = _augment_metrics_row(
+            collection_run_id=run_ctx.run_id,
+            selection_row=selection_row,
+            result=result,
+        )
+        plans_df = _augment_plans_df(
+            collection_run_id=run_ctx.run_id,
+            selection_row=selection_row,
+            plans_df=result.bundle.plans_df,
+            bundle=result.bundle,
+        )
+        parity = _validate_customer_artifact_parity(
+            bundle=result.bundle,
+            metrics_row=metrics_row,
+            plans_df=plans_df,
+            steps_df=steps_df,
+        )
+        metrics_row.update(parity)
+        result.bundle.metrics_summary.update(parity)
+        result.bundle.roadmap["summary"].update(parity)
+        result.bundle.roadmap = _normalize_customer_roadmap_contract(result.bundle.roadmap)
+        result.bundle.metrics_summary = _sync_metrics_summary_with_roadmap_summary(
+            result.bundle.metrics_summary,
+            roadmap=result.bundle.roadmap,
+        )
+        metrics_row = _augment_metrics_row(
+            collection_run_id=run_ctx.run_id,
+            selection_row=selection_row,
+            result=result,
+        )
+        metrics_row.update(parity)
+        raw_dir = raw_root / f"{int(selection_row['batch_index']):03d}_{_path_safe_customer_id(str(selection_row['customer_id']))}"
+        write_customer_artifact_bundle(result.bundle, raw_dir)
         return metrics_row, plans_df, steps_df
 
     rows = [row for _, row in selection_df.iterrows()]
@@ -490,6 +669,38 @@ def main(argv: Sequence[str] | None = None):
         "model_version": str(manifest.get("model_version", "")),
         "config_hash": hash_config(cfg),
         "raw_root": f"{rel_root}/raw",
+        "contract_health": {
+            "critical_field_null_rate": _safe_float(
+                metrics_df.get("critical_field_null_count", pd.Series(dtype=float)).gt(0).mean(),
+                0.0,
+            ),
+            "missing_checkpoint_status_rate": _safe_float(
+                metrics_df.get("missing_checkpoint_status_count", pd.Series(dtype=float)).gt(0).mean(),
+                0.0,
+            ),
+            "raw_contract_pass_rate": _safe_float(
+                metrics_df.get("raw_contract_pass", pd.Series(dtype=float)).mean(),
+                0.0,
+            ),
+            "raw_flat_mismatch_count": int(
+                (metrics_df.get("parity_pass", pd.Series(dtype=float)).fillna(0).astype(int) == 0).sum()
+            ),
+            "zero_step_rejected_count": int(
+                (
+                    metrics_df.get("zero_step_flag", pd.Series(dtype=float)).fillna(0).astype(int) == 1
+                ).sum()
+            ),
+            "data_issue_conditional_count": int(
+                (
+                    (metrics_df.get("data_issue_flag", pd.Series(dtype=float)).fillna(0).astype(int) == 1)
+                    & (metrics_df.get("decision_status", pd.Series(dtype=object)).astype(str) == "CONDITIONAL")
+                ).sum()
+            ),
+            "summary_field_completion_rate": _safe_float(
+                metrics_df.get("summary_field_completion_rate", pd.Series(dtype=float)).mean(),
+                0.0,
+            ),
+        },
         "flat_files": {
             "customer_metrics_csv": f"{rel_root}/flat/customer_metrics.csv",
             "customer_plans_csv": f"{rel_root}/flat/customer_plans.csv",
