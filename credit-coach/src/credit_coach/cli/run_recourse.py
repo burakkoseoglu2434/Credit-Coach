@@ -1172,6 +1172,7 @@ def _build_customer_roadmap(
         decision_policy_version=_safe_text(normalized_summary.get("decision_policy_version"), ""),
         decision_gate_trace=dict(normalized_summary.get("decision_gate_trace", {}) or {}),
         offer_maturity=_safe_text(normalized_summary.get("offer_maturity"), ""),
+        customer_context={str(k): row.get(k) for k in row.index},
     ).model_dump(mode="json")
     return roadmap
 

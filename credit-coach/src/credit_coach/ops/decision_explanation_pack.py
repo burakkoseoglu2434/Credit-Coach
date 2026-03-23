@@ -30,6 +30,18 @@ def _summary(roadmap: Mapping[str, Any]) -> dict[str, Any]:
     return dict(payload) if isinstance(payload, Mapping) else {}
 
 
+def _localized_text_value(payload: Any, *, locale: str = "en") -> str:
+    if isinstance(payload, Mapping):
+        primary = _safe_text(payload.get(locale))
+        if primary:
+            return primary
+        secondary_locale = "tr" if locale == "en" else "en"
+        secondary = _safe_text(payload.get(secondary_locale))
+        if secondary:
+            return secondary
+    return _safe_text(payload)
+
+
 def _as_packet(packet: Mapping[str, Any] | Any) -> dict[str, Any]:
     if hasattr(packet, "model_dump"):
         payload = packet.model_dump(mode="json")
@@ -105,6 +117,47 @@ def _extract_reason_codes(summary: Mapping[str, Any], metrics_summary: Mapping[s
     return []
 
 
+def _narrative_action_projection(roadmap: Mapping[str, Any]) -> tuple[str | None, str | None]:
+    narrative = roadmap.get("narrative", {})
+    if not isinstance(narrative, Mapping):
+        return None, None
+    raw_steps = narrative.get("steps", [])
+    if not isinstance(raw_steps, Sequence):
+        return None, None
+    recommended_customer_action = None
+    institution_condition = None
+    for raw_step in raw_steps:
+        if not isinstance(raw_step, Mapping):
+            continue
+        if recommended_customer_action is None:
+            recommended_customer_action = _localized_text_value(raw_step.get("primary_recommendation"), locale="en")
+            if not recommended_customer_action:
+                recommended_customer_action = _localized_text_value(raw_step.get("action_summary"), locale="en")
+        if institution_condition is None:
+            institution_condition = _localized_text_value(raw_step.get("institution_condition"), locale="en")
+        if recommended_customer_action and institution_condition:
+            break
+    return recommended_customer_action or None, institution_condition or None
+
+
+def _operator_packet_action_projection(short_view: Mapping[str, Any]) -> tuple[str | None, str | None]:
+    raw_actions = short_view.get("next_best_actions", [])
+    if not isinstance(raw_actions, Sequence):
+        return None, None
+    recommended_customer_action = None
+    institution_condition = None
+    for raw_action in raw_actions:
+        if not isinstance(raw_action, Mapping):
+            continue
+        if recommended_customer_action is None:
+            recommended_customer_action = _localized_text_value(raw_action.get("action_summary"), locale="en")
+        if institution_condition is None:
+            institution_condition = _localized_text_value(raw_action.get("institution_condition"), locale="en")
+        if recommended_customer_action and institution_condition:
+            break
+    return recommended_customer_action or None, institution_condition or None
+
+
 def _assert_packet_drift_guard(
     *,
     pack: DecisionExplanationPack,
@@ -120,6 +173,7 @@ def _assert_packet_drift_guard(
     packet_summary = _safe_text(short_view.get("decision_reason_summary"))
     packet_readiness = _safe_text(short_view.get("expected_readiness"))
     packet_upgrade = _safe_text(short_view.get("upgrade_condition"))
+    packet_recommended_action, packet_institution_condition = _operator_packet_action_projection(short_view)
 
     if packet_decision_id and packet_decision_id != pack.decision_id:
         raise ValueError("Explanation pack drift: decision_id mismatch")
@@ -133,6 +187,10 @@ def _assert_packet_drift_guard(
         raise ValueError("Explanation pack drift: expected readiness mismatch")
     if packet_upgrade and packet_upgrade != _safe_text(pack.upgrade_condition):
         raise ValueError("Explanation pack drift: upgrade condition mismatch")
+    if packet_recommended_action and packet_recommended_action != _safe_text(pack.recommended_customer_action):
+        raise ValueError("Explanation pack drift: recommended customer action mismatch")
+    if packet_institution_condition and packet_institution_condition != _safe_text(pack.institution_condition):
+        raise ValueError("Explanation pack drift: institution condition mismatch")
 
 
 def build_decision_explanation_pack(
@@ -150,12 +208,15 @@ def build_decision_explanation_pack(
     customer_id = _safe_text(roadmap.get("customer_id"), _safe_text(summary.get("customer_id"), "customer"))
     decision_id = _safe_text(summary.get("decision_id"), f"{customer_id}_decision")
     policy_version = _safe_text(summary.get("decision_policy_version"), "")
+    recommended_customer_action, institution_condition = _narrative_action_projection(roadmap)
     pack = DecisionExplanationPack(
         decision_id=decision_id,
         customer_id=customer_id,
         decision_outcome=_require_external_decision(summary.get("decision_status")),
         one_line_decision_reason=_safe_text(summary.get("decision_reason_summary"), "Decision explanation unavailable."),
         structured_numeric_drivers=_build_driver_rows(summary),
+        recommended_customer_action=recommended_customer_action,
+        institution_condition=institution_condition,
         upgrade_condition=_safe_text(summary.get("upgrade_condition")) or None,
         expected_readiness=_safe_text(summary.get("expected_readiness"), "unknown_review"),
         adverse_action_friendly_reasons=_build_reason_rows(_extract_reason_codes(summary, metrics_summary)),
@@ -182,6 +243,8 @@ def render_decision_explanation_pack_markdown(pack: DecisionExplanationPack) -> 
         f"- Reason: {pack.one_line_decision_reason}",
         "",
         "## Improvement Path",
+        f"- Recommended customer action: {pack.recommended_customer_action or 'n/a'}",
+        f"- Institution condition: {pack.institution_condition or 'n/a'}",
         f"- Upgrade condition: {pack.upgrade_condition or 'n/a'}",
         f"- Expected readiness: {pack.expected_readiness}",
         "",

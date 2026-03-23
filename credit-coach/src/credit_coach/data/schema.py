@@ -727,6 +727,14 @@ class RoadmapStepNarrative(BaseModel):
     action_key: str | None = Field(default=None, description="Bagli aksiyon anahtari")
     action_group_id: str | None = Field(default=None, description="Composite action group kimligi")
     action_summary: LocalizedText = Field(..., description="Musteriye veya analiste gorunen kisa ozet")
+    primary_recommendation: LocalizedText | None = Field(
+        default=None,
+        description="Sayisal ve customer-action odakli birincil onerme metni",
+    )
+    institution_condition: LocalizedText | None = Field(
+        default=None,
+        description="Kurum veya offer tarafli kosulun ayri callout metni",
+    )
     why_this_matters: LocalizedText = Field(..., description="Adimin neden onemli oldugunu aciklar")
     expected_outcome: LocalizedText = Field(..., description="Beklenen sonucu ozetler")
     what_happens_if_done: LocalizedText = Field(..., description="Adim yapilirsa beklenen durum")
@@ -880,6 +888,10 @@ class OperatorPacketAction(BaseModel):
     step_id: str = Field(..., description="Stable link to the roadmap step")
     action_key: str | None = Field(default=None, description="Linked semantic action key")
     action_summary: LocalizedText = Field(..., description="Business-readable action summary")
+    institution_condition: LocalizedText | None = Field(
+        default=None,
+        description="Separate institution-side condition callout when relevant",
+    )
     timing_hint: LocalizedText | None = Field(default=None, description="Optional timing hint")
     blocker_codes: list[str] = Field(
         default_factory=list,

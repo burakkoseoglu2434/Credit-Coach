@@ -180,6 +180,14 @@ class DecisionExplanationPack(BaseModel):
         default_factory=list,
         description="Institution-safe numeric drivers",
     )
+    recommended_customer_action: str | None = Field(
+        default=None,
+        description="Owned customer-facing action recommendation derived from the roadmap narrative",
+    )
+    institution_condition: str | None = Field(
+        default=None,
+        description="Institution-side condition or dependency kept separate from customer action",
+    )
     driver_methodology_note: str = Field(
         default="Drivers are derived from the owned decision payload and exposed only as institution-safe numeric summaries.",
         description="Short methodology note for the driver list",

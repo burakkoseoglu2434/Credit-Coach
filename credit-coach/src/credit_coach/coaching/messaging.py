@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any, Mapping, Sequence
 
 from credit_coach.data.schema import (
@@ -737,6 +738,256 @@ def _append_localized_sentence(base: tuple[str, str], addition: LocalizedText | 
     return _lt(f"{tr} {addition.tr}".strip(), f"{en} {addition.en}".strip())
 
 
+def _finite_float(value: Any) -> float | None:
+    try:
+        numeric = float(value)
+    except Exception:
+        return None
+    if not math.isfinite(numeric):
+        return None
+    return numeric
+
+
+def _context_float(customer_context: Mapping[str, Any] | None, *keys: str) -> float | None:
+    if not isinstance(customer_context, Mapping):
+        return None
+    for key in keys:
+        if not key:
+            continue
+        numeric = _finite_float(customer_context.get(key))
+        if numeric is not None:
+            return numeric
+    return None
+
+
+def _small_monetary_delta(value: float | None) -> bool:
+    if value is None:
+        return True
+    return abs(float(value)) < 500.0
+
+
+def _utilization_ratio(value: float) -> float:
+    numeric = float(value)
+    return numeric / 100.0 if abs(numeric) > 1.0 else numeric
+
+
+def _generic_exact_recommendation(target: Mapping[str, Any]) -> LocalizedText | None:
+    metric_key = str(target.get("metric_key", "") or "")
+    unit = str(target.get("unit", "") or "")
+    current_value = _finite_float(target.get("current_value"))
+    target_value = _finite_float(target.get("target_value"))
+    if not metric_key or current_value is None or target_value is None:
+        return None
+    if metric_key == "credit_score_points" or unit in {"score_points", "score", "boolean_state"}:
+        return None
+    label_tr, label_en = _PRIMARY_TARGET_METRIC_LABELS.get(
+        metric_key,
+        (metric_key.replace("_", " ").strip() or "hedef metrik", metric_key.replace("_", " ").strip() or "target metric"),
+    )
+    current_tr = _format_primary_target_value(current_value, unit, locale="tr")
+    current_en = _format_primary_target_value(current_value, unit, locale="en")
+    target_tr = _format_primary_target_value(target_value, unit, locale="tr")
+    target_en = _format_primary_target_value(target_value, unit, locale="en")
+    direction = str(target.get("direction", "") or "decrease").strip().lower()
+    if direction == "increase":
+        return _lt(
+            f"{label_tr} seviyesini {current_tr}'den {target_tr} seviyesine cikar.",
+            f"Increase {label_en} from {current_en} to {target_en}.",
+        )
+    if direction == "maintain":
+        return _lt(
+            f"{label_tr} seviyesini {target_tr} civarinda koru.",
+            f"Maintain {label_en} around {target_en}.",
+        )
+    return _lt(
+        f"{label_tr} seviyesini {current_tr}'den {target_tr} seviyesine indir.",
+        f"Reduce {label_en} from {current_en} to {target_en}.",
+    )
+
+
+def _utilization_paydown_amount(
+    target: Mapping[str, Any],
+    *,
+    customer_context: Mapping[str, Any] | None,
+) -> float | None:
+    current_value = _finite_float(target.get("current_value"))
+    target_value = _finite_float(target.get("target_value"))
+    if current_value is None or target_value is None:
+        return None
+    current_ratio = _utilization_ratio(current_value)
+    target_ratio = _utilization_ratio(target_value)
+    if current_ratio <= 0.0 or target_ratio >= current_ratio:
+        return None
+    current_balance = _context_float(customer_context, "revol_bal")
+    inferred_limit = None
+    if current_balance is not None and current_ratio > 0.0:
+        inferred_limit = current_balance / current_ratio
+    if inferred_limit is None:
+        inferred_limit = _context_float(customer_context, "total_rev_hi_lim", "total_bc_limit", "tot_hi_cred_lim")
+    if inferred_limit is None or inferred_limit <= 0.0:
+        return None
+    if current_balance is None:
+        current_balance = current_ratio * inferred_limit
+    target_balance = target_ratio * inferred_limit
+    paydown = max(0.0, current_balance - target_balance)
+    return paydown if paydown > 0.0 else None
+
+
+def _build_utilization_recommendation(
+    target: Mapping[str, Any],
+    *,
+    customer_context: Mapping[str, Any] | None,
+) -> LocalizedText | None:
+    current_value = _finite_float(target.get("current_value"))
+    target_value = _finite_float(target.get("target_value"))
+    if current_value is None or target_value is None:
+        return None
+    current_tr = _format_primary_target_value(current_value, "percentage_points", locale="tr")
+    current_en = _format_primary_target_value(current_value, "percentage_points", locale="en")
+    target_tr = _format_primary_target_value(target_value, "percentage_points", locale="tr")
+    target_en = _format_primary_target_value(target_value, "percentage_points", locale="en")
+    paydown = _utilization_paydown_amount(target, customer_context=customer_context)
+    if not _small_monetary_delta(paydown):
+        paydown_tr = _format_primary_target_value(float(paydown), "currency", locale="tr")
+        paydown_en = _format_primary_target_value(float(paydown), "currency", locale="en")
+        return _lt(
+            f"Kart kullanim oranini {current_tr}'den {target_tr} altina indir. Bu da yaklasik {paydown_tr} donen borc azaltimi demek.",
+            f"Reduce credit utilization from {current_en} to below {target_en}. That implies about {paydown_en} of revolving-balance paydown.",
+        )
+    return _lt(
+        f"Kart kullanim oranini {current_tr}'den {target_tr} altina indir.",
+        f"Reduce credit utilization from {current_en} to below {target_en}.",
+    )
+
+
+def _build_installment_recommendation(target: Mapping[str, Any]) -> LocalizedText | None:
+    current_value = _finite_float(target.get("current_value"))
+    target_value = _finite_float(target.get("target_value"))
+    if current_value is None or target_value is None:
+        return None
+    current_tr = _format_primary_target_value(current_value, "currency", locale="tr")
+    current_en = _format_primary_target_value(current_value, "currency", locale="en")
+    target_tr = _format_primary_target_value(target_value, "currency", locale="tr")
+    target_en = _format_primary_target_value(target_value, "currency", locale="en")
+    reduction = max(0.0, current_value - target_value)
+    if not _small_monetary_delta(reduction):
+        reduction_tr = _format_primary_target_value(reduction, "currency", locale="tr")
+        reduction_en = _format_primary_target_value(reduction, "currency", locale="en")
+        return _lt(
+            f"Aylik taksit yukunu yaklasik {reduction_tr} azalt ve {current_tr}'den {target_tr} seviyesine cek.",
+            f"Reduce the monthly payment burden by about {reduction_en} and move it from {current_en} to {target_en}.",
+        )
+    return _lt(
+        f"Aylik taksit yukunu {current_tr}'den {target_tr} seviyesine cek.",
+        f"Move the monthly payment burden from {current_en} to {target_en}.",
+    )
+
+
+def _build_loan_amount_recommendation(target: Mapping[str, Any]) -> LocalizedText | None:
+    current_value = _finite_float(target.get("current_value"))
+    target_value = _finite_float(target.get("target_value"))
+    if current_value is None or target_value is None:
+        return None
+    current_tr = _format_primary_target_value(current_value, "currency", locale="tr")
+    current_en = _format_primary_target_value(current_value, "currency", locale="en")
+    target_tr = _format_primary_target_value(target_value, "currency", locale="tr")
+    target_en = _format_primary_target_value(target_value, "currency", locale="en")
+    reduction = max(0.0, current_value - target_value)
+    if not _small_monetary_delta(reduction):
+        reduction_tr = _format_primary_target_value(reduction, "currency", locale="tr")
+        reduction_en = _format_primary_target_value(reduction, "currency", locale="en")
+        return _lt(
+            f"Talep edilen kredi tutarini yaklasik {reduction_tr} dusur ve {current_tr}'den {target_tr} seviyesine cek.",
+            f"Reduce the requested loan amount by about {reduction_en} and move it from {current_en} to {target_en}.",
+        )
+    return _lt(
+        f"Talep edilen kredi tutarini {current_tr}'den {target_tr} seviyesine cek.",
+        f"Move the requested loan amount from {current_en} to {target_en}.",
+    )
+
+
+def _build_dti_recommendation(
+    target: Mapping[str, Any],
+    *,
+    customer_context: Mapping[str, Any] | None,
+) -> LocalizedText | None:
+    current_value = _finite_float(target.get("current_value"))
+    target_value = _finite_float(target.get("target_value"))
+    if current_value is None or target_value is None:
+        return None
+    current_tr = _format_primary_target_value(current_value, "percentage_points", locale="tr")
+    current_en = _format_primary_target_value(current_value, "percentage_points", locale="en")
+    target_tr = _format_primary_target_value(target_value, "percentage_points", locale="tr")
+    target_en = _format_primary_target_value(target_value, "percentage_points", locale="en")
+    annual_inc = _context_float(customer_context, "annual_inc")
+    monthly_relief = None
+    if annual_inc is not None and annual_inc > 0.0:
+        monthly_relief = max(0.0, ((current_value - target_value) / 100.0) * annual_inc / 12.0)
+    if not _small_monetary_delta(monthly_relief):
+        relief_tr = _format_primary_target_value(float(monthly_relief), "currency", locale="tr")
+        relief_en = _format_primary_target_value(float(monthly_relief), "currency", locale="en")
+        return _lt(
+            f"Aylik borc/harcama baskisini yaklasik {relief_tr} azalt ve borc/gelir oranini {current_tr}'den {target_tr} seviyesine indir.",
+            f"Reduce monthly debt pressure by about {relief_en} and move debt-to-income from {current_en} to {target_en}.",
+        )
+    return _lt(
+        f"Borc/gelir oranini {current_tr}'den {target_tr} seviyesine indir.",
+        f"Reduce debt-to-income from {current_en} to {target_en}.",
+    )
+
+
+def _build_limit_institution_condition(target: Mapping[str, Any]) -> LocalizedText | None:
+    current_value = _finite_float(target.get("current_value"))
+    target_value = _finite_float(target.get("target_value"))
+    if current_value is None or target_value is None:
+        return None
+    current_tr = _format_primary_target_value(current_value, "currency", locale="tr")
+    current_en = _format_primary_target_value(current_value, "currency", locale="en")
+    target_tr = _format_primary_target_value(target_value, "currency", locale="tr")
+    target_en = _format_primary_target_value(target_value, "currency", locale="en")
+    increase = max(0.0, target_value - current_value)
+    if not _small_monetary_delta(increase):
+        increase_tr = _format_primary_target_value(increase, "currency", locale="tr")
+        increase_en = _format_primary_target_value(increase, "currency", locale="en")
+        return _lt(
+            f"Profilin guclenmesi icin toplam limit tarafinda yaklasik {increase_tr} ek kapasite gerekiyor.",
+            f"The profile needs about {increase_en} of additional total credit capacity to strengthen.",
+        )
+    return _lt(
+        f"Profilin guclenmesi icin toplam limit tarafinda {current_tr}'den {target_tr} seviyesine cikmak gerekiyor.",
+        f"The profile needs total credit capacity to move from {current_en} to {target_en} to strengthen.",
+    )
+
+
+def _build_step_recommendations(
+    action: Mapping[str, Any],
+    *,
+    customer_context: Mapping[str, Any] | None,
+) -> tuple[LocalizedText | None, LocalizedText | None]:
+    target = _primary_numeric_target(action)
+    metric_key = str(target.get("metric_key", "") or "")
+    action_key = str(action.get("action_key", "") or "")
+    primary_recommendation: LocalizedText | None = None
+    institution_condition: LocalizedText | None = None
+
+    if metric_key == "credit_utilization_pct":
+        primary_recommendation = _build_utilization_recommendation(target, customer_context=customer_context)
+    elif metric_key == "monthly_payment_amount":
+        primary_recommendation = _build_installment_recommendation(target)
+    elif metric_key == "requested_loan_amount":
+        primary_recommendation = _build_loan_amount_recommendation(target)
+    elif metric_key == "debt_to_income_pct":
+        primary_recommendation = _build_dti_recommendation(target, customer_context=customer_context)
+    elif metric_key in {"total_high_credit_limit_amount", "credit_limit_amount", "bankcard_limit_amount"} or action_key == "credit_limit_adjustment":
+        institution_condition = _build_limit_institution_condition(target)
+    else:
+        primary_recommendation = _generic_exact_recommendation(target)
+
+    if institution_condition is None:
+        institution_condition = _offer_state_note(action)
+    return primary_recommendation, institution_condition
+
+
 def _primary_target_sentence(action: Mapping[str, Any]) -> LocalizedText | None:
     target = _primary_numeric_target(action)
     metric_key = str(target.get("metric_key", "") or "")
@@ -1101,7 +1352,13 @@ def build_reason_narratives(local_reasons: list[dict], max_items: int = 4) -> li
     return out
 
 
-def build_step_narrative(action: Mapping[str, Any], *, step_id: str, phase_id: str) -> RoadmapStepNarrative:
+def build_step_narrative(
+    action: Mapping[str, Any],
+    *,
+    step_id: str,
+    phase_id: str,
+    customer_context: Mapping[str, Any] | None = None,
+) -> RoadmapStepNarrative:
     business_view = action.get("business_view", {})
     if not isinstance(business_view, Mapping):
         business_view = {}
@@ -1140,6 +1397,10 @@ def build_step_narrative(action: Mapping[str, Any], *, step_id: str, phase_id: s
         done = template["what_happens_if_done"]
         not_done = template["what_happens_if_not_done"]
     primary_target_sentence = _primary_target_sentence(action)
+    primary_recommendation, institution_condition = _build_step_recommendations(
+        action,
+        customer_context=customer_context,
+    )
     offer_narrative = build_offer_narrative(action)
     return RoadmapStepNarrative(
         step_id=step_id,
@@ -1147,6 +1408,8 @@ def build_step_narrative(action: Mapping[str, Any], *, step_id: str, phase_id: s
         action_key=action_key or None,
         action_group_id=action_group_id or None,
         action_summary=_localized_pair(summary),
+        primary_recommendation=primary_recommendation,
+        institution_condition=institution_condition,
         why_this_matters=_localized_pair(why),
         expected_outcome=_append_localized_sentence(expected, primary_target_sentence),
         what_happens_if_done=_localized_pair(done),
@@ -1820,6 +2083,7 @@ def build_customer_roadmap_narrative(
     decision_policy_version: str | None = None,
     decision_gate_trace: Mapping[str, Any] | None = None,
     offer_maturity: str | None = None,
+    customer_context: Mapping[str, Any] | None = None,
 ) -> CustomerRoadmapNarrative:
     local_reason_bundle = local_reason_bundle or {}
     reason_rows = list(local_reason_bundle.get("reasons", [])) if isinstance(local_reason_bundle.get("reasons", []), list) else []
@@ -1912,7 +2176,14 @@ def build_customer_roadmap_narrative(
 
     for step_id in step_order:
         phase_id, representative_step = representative_steps[step_id]
-        step_narratives.append(build_step_narrative(representative_step, step_id=step_id, phase_id=phase_id))
+        step_narratives.append(
+            build_step_narrative(
+                representative_step,
+                step_id=step_id,
+                phase_id=phase_id,
+                customer_context=customer_context,
+            )
+        )
 
     sorted_checkpoints = sorted(
         [checkpoint for checkpoint in checkpoints if isinstance(checkpoint, Mapping)],

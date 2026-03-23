@@ -184,6 +184,7 @@ def test_build_customer_roadmap_narrative_is_deterministic():
         mean_group_difficulty_score=0.42,
         peak_group_difficulty_score=0.42,
         follow_through_readiness_label="moderate",
+        customer_context={"annual_inc": 180000.0},
     )
     right = build_customer_roadmap_narrative(
         base_pd=0.42,
@@ -208,6 +209,7 @@ def test_build_customer_roadmap_narrative_is_deterministic():
         mean_group_difficulty_score=0.42,
         peak_group_difficulty_score=0.42,
         follow_through_readiness_label="moderate",
+        customer_context={"annual_inc": 180000.0},
     )
 
     assert left.model_dump(mode="json") == right.model_dump(mode="json")
@@ -215,6 +217,8 @@ def test_build_customer_roadmap_narrative_is_deterministic():
     assert left.executive_summary.time_to_readiness.label.en == "4 weeks"
     assert left.executive_summary.summary_line.en == "The plan is viable, but execution confidence is not strong enough yet."
     assert left.steps[0].action_summary.en.startswith("Reduce non-essential spending")
+    assert left.steps[0].primary_recommendation is not None
+    assert "about 600 units" in left.steps[0].primary_recommendation.en
     assert "debt-to-income ratio" in left.steps[0].expected_outcome.en
     assert "currently at %28" in left.steps[0].expected_outcome.en
     assert "%24" in left.steps[0].expected_outcome.en
@@ -369,6 +373,17 @@ def test_build_customer_roadmap_narrative_keeps_dependency_gated_feasibility_bus
                             "time_months": 3,
                             "phase_id": "phase_2_build",
                         },
+                        "primary_numeric_target": {
+                            "metric_key": "total_high_credit_limit_amount",
+                            "unit": "currency",
+                            "current_value": 6000.0,
+                            "target_value": 7500.0,
+                            "delta_value": 1500.0,
+                            "due_month": 3,
+                            "direction": "increase",
+                            "generation_notes": ["semantic_sanity_only"],
+                            "raw_generation_basis": {"source_feature_name": "total_rev_hi_lim"},
+                        },
                     }
                 ],
             }
@@ -381,6 +396,9 @@ def test_build_customer_roadmap_narrative_keeps_dependency_gated_feasibility_bus
     )
     assert narrative.steps[0].feasibility_outcome_label is not None
     assert narrative.steps[0].offer_narrative is None
+    assert narrative.steps[0].primary_recommendation is None
+    assert narrative.steps[0].institution_condition is not None
+    assert "additional total credit capacity" in narrative.steps[0].institution_condition.en
     assert narrative.steps[0].feasibility_outcome_label.tr == "Dis bagimlilik nedeniyle kosullu"
     assert narrative.executive_summary.decision_view.label.en == "Conditional view"
     assert narrative.technical_reveal.constraints_applied[0]["dependency_gate"] is True
@@ -469,6 +487,8 @@ def test_build_customer_roadmap_narrative_groups_same_action_step_in_default_vie
 
     assert len(narrative.steps) == 1
     assert narrative.steps[0].step_id == "refinance:phase_2_build"
+    assert narrative.steps[0].primary_recommendation is not None
+    assert "monthly payment burden" in narrative.steps[0].primary_recommendation.en
     assert "monthly payment amount" in narrative.steps[0].expected_outcome.en
     assert "currently at 510 units" in narrative.steps[0].expected_outcome.en
     assert "450 units" in narrative.steps[0].expected_outcome.en
@@ -504,6 +524,118 @@ def test_build_customer_roadmap_narrative_limits_default_reasons_but_keeps_full_
 
     assert len(narrative.reasons) == 3
     assert len(narrative.technical_reveal.explainability_reasons) == 4
+
+
+def test_build_customer_roadmap_narrative_keeps_small_monetary_delta_as_exact_threshold() -> None:
+    narrative = build_customer_roadmap_narrative(
+        base_pd=0.44,
+        tau=0.35,
+        phases=[
+            {
+                "phase_id": "phase_2_build",
+                "steps": [
+                    {
+                        "step_id": "adjust_requested_loan_amount:phase_2_build",
+                        "action_key": "adjust_requested_loan_amount",
+                        "action_class": "behavioral",
+                        "action_title": "Adjust requested loan amount",
+                        "time_months": 1,
+                        "business_view": {
+                            "action_key": "adjust_requested_loan_amount",
+                            "action_family": "application_sizing",
+                            "action_class": "behavioral",
+                            "action_title": "Adjust requested loan amount",
+                            "action_description": "Resize the requested amount to a safer level.",
+                            "action_group_id": "adjust_requested_loan_amount:phase_2_build",
+                        },
+                        "technical_view": {
+                            "feature_name": "loan_amnt",
+                            "current_value": 35000.0,
+                            "target_value": 34680.0,
+                            "delta": -320.0,
+                            "time_months": 1,
+                            "phase_id": "phase_2_build",
+                        },
+                        "primary_numeric_target": {
+                            "metric_key": "requested_loan_amount",
+                            "unit": "currency",
+                            "current_value": 35000.0,
+                            "target_value": 34680.0,
+                            "delta_value": -320.0,
+                            "due_month": 1,
+                            "direction": "decrease",
+                            "generation_notes": ["semantic_sanity_only"],
+                            "raw_generation_basis": {"source_feature_name": "loan_amnt"},
+                        },
+                    }
+                ],
+            }
+        ],
+        checkpoints=[],
+        status="CONDITIONAL",
+        local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.7}},
+    )
+
+    assert narrative.steps[0].primary_recommendation is not None
+    assert "about 320 units" not in narrative.steps[0].primary_recommendation.en
+    assert "35,000 units" in narrative.steps[0].primary_recommendation.en
+    assert "34,680 units" in narrative.steps[0].primary_recommendation.en
+
+
+def test_build_customer_roadmap_narrative_does_not_use_credit_score_as_primary_recommendation() -> None:
+    narrative = build_customer_roadmap_narrative(
+        base_pd=0.47,
+        tau=0.35,
+        phases=[
+            {
+                "phase_id": "phase_1_stabilize",
+                "steps": [
+                    {
+                        "step_id": "improve_payment_consistency:phase_1_stabilize",
+                        "action_key": "improve_payment_consistency",
+                        "action_class": "behavioral",
+                        "action_title": "Improve payment consistency",
+                        "time_months": 3,
+                        "business_view": {
+                            "action_key": "improve_payment_consistency",
+                            "action_family": "payment_behavior",
+                            "action_class": "behavioral",
+                            "action_title": "Improve payment consistency",
+                            "action_description": "Build a clean payment streak.",
+                            "action_group_id": "improve_payment_consistency:phase_1_stabilize",
+                        },
+                        "technical_view": {
+                            "feature_name": "last_fico_range_high",
+                            "current_value": 610.0,
+                            "target_value": 635.0,
+                            "delta": 25.0,
+                            "time_months": 3,
+                            "phase_id": "phase_1_stabilize",
+                        },
+                        "primary_numeric_target": {
+                            "metric_key": "credit_score_points",
+                            "unit": "score_points",
+                            "current_value": 610.0,
+                            "target_value": 635.0,
+                            "delta_value": 25.0,
+                            "due_month": 3,
+                            "direction": "increase",
+                            "generation_notes": ["semantic_sanity_only"],
+                            "raw_generation_basis": {"source_feature_name": "last_fico_range_high"},
+                        },
+                    }
+                ],
+            }
+        ],
+        checkpoints=[],
+        status="CONDITIONAL",
+        expected_readiness="week_12",
+        conditional_type="TIME_GATED",
+        local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.7}},
+    )
+
+    assert narrative.steps[0].primary_recommendation is None
+    assert narrative.steps[0].action_summary.en.startswith("Make repayment behavior consistent")
 
 
 def test_build_checkpoint_narrative_reflects_missed_status_and_inconsistency():

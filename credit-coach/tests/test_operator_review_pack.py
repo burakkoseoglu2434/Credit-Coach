@@ -64,6 +64,10 @@ def _sample_roadmap() -> dict:
                 {
                     "step_id": "reduce_spending:phase_1",
                     "action_key": "reduce_spending",
+                    "primary_recommendation": {
+                        "tr": "Aylik borc/harcama baskisini yaklasik 600 birim azalt ve borc/gelir oranini %28'den %24 seviyesine indir.",
+                        "en": "Reduce monthly debt pressure by about 600 units and move debt-to-income from %28 to %24.",
+                    },
                     "action_summary": {
                         "tr": "Harcama baskisini azalt.",
                         "en": "Reduce spending pressure.",
@@ -84,6 +88,10 @@ def _sample_roadmap() -> dict:
                 {
                     "step_id": "limit_credit_usage:phase_1",
                     "action_key": "limit_credit_usage",
+                    "institution_condition": {
+                        "tr": "Profilin guclenmesi icin toplam limit tarafinda yaklasik 1,500 birim ek kapasite gerekiyor.",
+                        "en": "The profile needs about 1,500 units of additional total credit capacity to strengthen.",
+                    },
                     "action_summary": {
                         "tr": "Kart kullanimini sinirla.",
                         "en": "Limit credit usage.",
@@ -124,10 +132,14 @@ def test_build_operator_review_packet_keeps_owned_summary_and_action_traces() ->
     assert len(packet.short_view.top_blockers) == 2
     assert len(packet.short_view.next_best_actions) == 2
     assert all(action.blocker_codes for action in packet.short_view.next_best_actions)
+    assert packet.short_view.next_best_actions[0].action_summary.en.startswith("Reduce monthly debt pressure by about 600 units")
+    assert packet.short_view.next_best_actions[1].institution_condition is not None
+    assert "additional total credit capacity" in packet.short_view.next_best_actions[1].institution_condition.en
     assert "target" in packet.short_view.top_blockers[0].blocker_detail.en.lower()
 
     markdown = render_operator_review_packet_markdown(packet)
     assert "## 1-line Summary" in markdown
+    assert "Institution condition:" in markdown
     assert "NEEDS_REVIEW" not in markdown.split("## Technical Appendix")[0]
 
 

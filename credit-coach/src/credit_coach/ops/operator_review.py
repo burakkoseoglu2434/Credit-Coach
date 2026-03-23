@@ -155,6 +155,11 @@ def _step_related_to_blocker(step: Mapping[str, Any], blocker: OperatorPacketBlo
         return True
     action_key = _safe_text(step.get("action_key")).lower()
     action_summary = _safe_text((step.get("action_summary", {}) or {}).get("en")).lower() if isinstance(step.get("action_summary"), Mapping) else ""
+    primary_recommendation = (
+        _safe_text((step.get("primary_recommendation", {}) or {}).get("en")).lower()
+        if isinstance(step.get("primary_recommendation"), Mapping)
+        else ""
+    )
     expected_outcome = _safe_text((step.get("expected_outcome", {}) or {}).get("en")).lower() if isinstance(step.get("expected_outcome"), Mapping) else ""
     if blocker_key in {"rankable_offer_count"}:
         return bool(step.get("offer_narrative")) or action_key in {"installment_plan", "credit_limit_adjustment", "settlement_discount"}
@@ -162,7 +167,7 @@ def _step_related_to_blocker(step: Mapping[str, Any], blocker: OperatorPacketBlo
         return True
     if blocker_key in {"critical_field_null_count", "parity_pass"}:
         return True
-    joined = " ".join([action_key, action_summary, expected_outcome])
+    joined = " ".join([action_key, action_summary, primary_recommendation, expected_outcome])
     heuristic_terms = {
         "best_action_count": "",
         "realization_anchor": "execution",
@@ -187,15 +192,19 @@ def _actions_from_narrative(
         ]
         if not blocker_codes and blockers:
             blocker_codes = [blockers[0].blocker_code]
-        action_summary = _localized_text_from_payload(raw_step.get("action_summary"))
+        action_summary = _localized_text_from_payload(raw_step.get("primary_recommendation"))
+        if action_summary is None:
+            action_summary = _localized_text_from_payload(raw_step.get("action_summary"))
         if action_summary is None:
             continue
+        institution_condition = _localized_text_from_payload(raw_step.get("institution_condition"))
         timing_hint = _localized_text_from_payload(raw_step.get("action_timing_hint"))
         selected.append(
             OperatorPacketAction(
                 step_id=_safe_text(raw_step.get("step_id"), "step"),
                 action_key=_safe_text(raw_step.get("action_key")) or None,
                 action_summary=action_summary,
+                institution_condition=institution_condition,
                 timing_hint=timing_hint,
                 blocker_codes=blocker_codes[:3],
             )
@@ -293,6 +302,8 @@ def render_operator_review_packet_markdown(packet: OperatorReviewPacket) -> str:
         for action in short.next_best_actions:
             timing = f" ({action.timing_hint.en})" if action.timing_hint is not None else ""
             lines.append(f"- {action.action_summary.en}{timing}")
+            if action.institution_condition is not None:
+                lines.append(f"- Institution condition: {action.institution_condition.en}")
     else:
         lines.append("- n/a")
     lines.extend(

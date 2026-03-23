@@ -745,7 +745,7 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
         tau=0.35,
         best=plan,
         best_source="internal",
-        row=pd.Series({"revol_util": 71.0}),
+        row=pd.Series({"revol_util": 71.0, "revol_bal": 7100.0, "total_rev_hi_lim": 10000.0}),
         model=_DummyModel(),
         calibrator=None,
         feature_cols=["revol_util"],
@@ -768,6 +768,7 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
     assert roadmap["narrative"]["executive_summary"]["summary_line"]["en"] == roadmap["summary"]["decision_reason_summary"]
     assert roadmap["narrative"]["steps"][0]["step_id"] == "limit_credit_usage:phase_1_stabilize"
     assert roadmap["narrative"]["steps"][0]["action_summary"]["tr"]
+    assert "revolving-balance paydown" in roadmap["narrative"]["steps"][0]["primary_recommendation"]["en"]
     assert "credit utilization" in roadmap["narrative"]["steps"][0]["expected_outcome"]["en"]
     assert "within this month" in roadmap["narrative"]["steps"][0]["expected_outcome"]["en"]
     assert roadmap["phases"][0]["steps"][0]["difficulty_label"] == "moderate"

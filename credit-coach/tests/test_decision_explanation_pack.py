@@ -47,6 +47,14 @@ def _sample_roadmap() -> dict:
                 {
                     "step_id": "limit_credit_usage:phase_1",
                     "action_key": "limit_credit_usage",
+                    "primary_recommendation": {
+                        "tr": "Kart kullanim oranini %82'den %50 altina indir.",
+                        "en": "Reduce credit utilization from %82 to below %50.",
+                    },
+                    "institution_condition": {
+                        "tr": "Profilin guclenmesi icin toplam limit tarafinda yaklasik 1,200 birim ek kapasite gerekiyor.",
+                        "en": "The profile needs about 1,200 units of additional total credit capacity to strengthen.",
+                    },
                     "action_summary": {"tr": "Kart kullanimini azalt.", "en": "Reduce credit utilization."},
                     "what_happens_if_not_done": {"tr": "Hazirlik gecikir.", "en": "Readiness remains delayed."},
                 }
@@ -73,6 +81,8 @@ def test_build_decision_explanation_pack_is_external_only_and_matches_operator_p
     assert pack.policy_version == operator_packet.decision_policy_version
     assert pack.expected_readiness == "week_12"
     assert pack.upgrade_condition == "Utilization 82% -> below 50%"
+    assert pack.recommended_customer_action == "Reduce credit utilization from %82 to below %50."
+    assert pack.institution_condition == "The profile needs about 1,200 units of additional total credit capacity to strengthen."
     assert len(pack.structured_numeric_drivers) == 1
     assert pack.structured_numeric_drivers[0].driver_key == "utilization"
     assert [reason.reason_code for reason in pack.adverse_action_friendly_reasons] == [
@@ -111,3 +121,4 @@ def test_write_decision_explanation_pack_emits_json_and_markdown(tmp_path: Path)
     assert payload["decision_outcome"] == "CONDITIONAL"
     assert payload["external_decision_only"] is True
     assert payload["qa_status"] == "DEGRADED"
+    assert payload["recommended_customer_action"] == "Reduce credit utilization from %82 to below %50."
