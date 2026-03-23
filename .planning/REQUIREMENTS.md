@@ -12,9 +12,9 @@
 
 ### Decision Ownership
 
-- [ ] **DEC-01**: Every customer receives deterministic internal and business-visible decision states using ordered policy logic, confidence gating, readiness gating, and zero-step rejection
-- [ ] **DEC-02**: Every non-rejected customer receives a one-line business explanation, structured numeric drivers, decision confidence, expected readiness, and upgrade condition
-- [ ] **DEC-03**: Offer maturity, conditional subtype, and rejection subtype truth explicitly determine whether a customer can be approved, conditional, or rejected
+- [x] **DEC-01**: Every customer receives deterministic internal and business-visible decision states using ordered policy logic, confidence gating, readiness gating, and zero-step rejection
+- [x] **DEC-02**: Every non-rejected customer receives a one-line business explanation, structured numeric drivers, decision confidence, expected readiness, and upgrade condition
+- [x] **DEC-03**: Offer maturity, conditional subtype, and rejection subtype truth explicitly determine whether a customer can be approved, conditional, or rejected
 
 ### Cohort And Calibration
 
@@ -63,9 +63,9 @@
 |-------------|-------|--------|
 | TRST-01 | Phase 40 | Satisfied |
 | TRST-02 | Phase 40 | Satisfied |
-| DEC-01 | Phase 40.5 | Pending |
-| DEC-02 | Phase 40.5 | Pending |
-| DEC-03 | Phase 40.5 | Pending |
+| DEC-01 | Phase 40.5 | Satisfied |
+| DEC-02 | Phase 40.5 | Satisfied |
+| DEC-03 | Phase 40.5 | Satisfied |
 | CAL-01 | Phase 41 | Pending |
 | CAL-02 | Phase 41 | Pending |
 | OPS-01 | Phase 43 | Pending |

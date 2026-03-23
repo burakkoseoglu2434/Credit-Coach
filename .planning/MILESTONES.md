@@ -177,6 +177,6 @@
 - zero-step plans are always rejected and classified as `NO_PATH`
 - decision logic must be deterministic, parity-checked, and safe under artifact inconsistency
 
-**What's next:** define active requirements and create the roadmap, then start Phase 40
+**What's next:** discuss and plan Phase 41 `Cohort & Decision Calibration`
 
 ---
