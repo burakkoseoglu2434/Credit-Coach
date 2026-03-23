@@ -50,6 +50,8 @@ Those remain in later phases, especially:
 ### Required Schema And Contract Changes For Raw Customer Artifacts
 - `customer_roadmap.json` remains the canonical raw single-customer artifact.
 - Decision-carrying fields should have one canonical home: `summary`.
+- `summary` is the source of truth.
+- `contract_health` is a derived view only and must never become a competing decision source.
 - Required null-free `summary` fields for every raw roadmap:
   - `decision_status`
   - `decision_status_internal`
@@ -90,6 +92,25 @@ Those remain in later phases, especially:
   - `checkpoint_inconsistency_flag`
 - Raw checkpoint `status` can never be missing or empty after Phase 40.
 - Raw roadmap may contain zero steps only when the customer is contract-rejected as `NO_PATH`.
+
+### Contract-Safe Fallback Rules
+- Phase 40 must fill decision-carrying fields deterministically even before Phase 40.5 ships the full policy layer.
+- Canonical external status fallback:
+  - if `zero_step_flag == 1` -> `decision_status = REJECTED`
+  - else if `data_issue_flag == 1` -> `decision_status = CONDITIONAL`
+  - else -> `decision_status = best_status` legacy passthrough
+- Canonical internal status fallback:
+  - if `zero_step_flag == 1` -> `decision_status_internal = REJECTED`
+  - else if severe inconsistency or parity failure exists -> `decision_status_internal = NEEDS_REVIEW`
+  - else -> `decision_status_internal = decision_status`
+- Canonical probability fallback rules:
+  - if `combined_plan_realization_probability` is null -> set it to `plan_execution_probability`
+  - if `approval_dependent_plan_probability` is null -> set it to `plan_execution_probability`
+  - if `offer_acceptance_probability` is null -> set it to `0.0`
+- Canonical zero-step rule:
+  - `zero_step_flag = (best_action_count == 0)`
+- Canonical checkpoint fallback:
+  - if `checkpoint.status` is null or empty -> set `checkpoint.status = "unknown"` and mark `data_issue_flag = 1`
 
 ### Required Schema And Contract Changes For Flat Review Artifacts
 - `customer_metrics.csv` becomes the canonical flat customer-level review table.
@@ -160,17 +181,24 @@ Those remain in later phases, especially:
   - `data_issue_flag`
 - Parity failure is classified, not silently ignored.
 - Parity comparison must use normalized numeric tolerance only where float formatting differs; all statuses and flags require exact match.
+- Global float parity tolerance is fixed at `1e-6`.
+- Parity failure behavior is fixed:
+  - `parity_pass = 0`
+  - `data_issue_flag = 1`
+  - `decision_status_internal = NEEDS_REVIEW`
+  - `decision_status = CONDITIONAL`
+  - `data_issue_codes += ["parity_mismatch"]`
 
 ### Global Zero-Step Enforcement Rules
 - Zero-step is defined as:
-  - sum of all raw roadmap steps across phases == `0`
+  - `best_action_count == 0`
   - and flat `customer_roadmap_steps.csv` has zero rows for that best customer
 - Global rule:
-  - if `step_count == 0`
+  - if `best_action_count == 0`
   - then external decision must be `REJECTED`
   - internal decision must be `REJECTED`
   - `zero_step_flag = 1`
-  - `rejection_type = NO_PATH` should be carried if the schema already supports it, otherwise Phase 40 must emit `data_issue_codes += ["no_path_zero_step"]` as a bridge until Phase 40.5
+  - `rejection_type = NO_PATH` should be carried if the schema already supports it, otherwise Phase 40 must emit `data_issue_codes += ["zero_step_no_path"]` as a bridge until Phase 40.5
 - No zero-step customer may serialize as:
   - `APPROVED`
   - `CONDITIONAL`
@@ -197,14 +225,33 @@ Those remain in later phases, especially:
   - `summary_field_completion_rate`
 - `collection_summary.md` should show the rollups in business-readable form.
 - `collection_manifest.json` should carry the same metrics in machine-readable form.
+- `raw_contract_pass` is defined as:
+  - `critical_field_null_count == 0`
+  - and `missing_checkpoint_status_count == 0`
+- `data_issue_flag = 1` if any of the following hold:
+  - `critical_field_null_count > 0`
+  - `missing_checkpoint_status_count > 0`
+  - `parity_pass == 0`
+- Canonical `data_issue_codes` enum set for Phase 40:
+  - `missing_required_field`
+  - `checkpoint_status_missing`
+  - `parity_mismatch`
+  - `zero_step_no_path`
 
 ### Validation And Fail-Fast Rules
-- Validation should run in three stages:
-  1. raw roadmap normalization
-  2. flat row construction
-  3. raw-vs-flat parity validation
+- Validation should run in one fixed nine-step order:
+  1. normalize raw roadmap
+  2. fill null defaults
+  3. compute `zero_step_flag`
+  4. compute `data_issue_flag`
+  5. compute internal decision
+  6. compute external decision
+  7. build flat row
+  8. run raw-vs-flat parity validation
+  9. finalize `contract_health`
 - Raw artifact normalization must fail fast if mandatory roadmap structure is missing:
   - no `summary`
+  - malformed JSON or malformed roadmap object
   - malformed checkpoints
   - missing `customer_id`
   - missing `best_plan_id`
@@ -231,6 +278,7 @@ Those remain in later phases, especially:
 ### Acceptance Criteria
 - `customer_roadmap.json` summary is null-free for all required decision-carrying fields.
 - `customer_metrics.csv` carries the same decision-critical truth as raw roadmap summary.
+- `combined_plan_realization_probability`, `approval_dependent_plan_probability`, and `offer_acceptance_probability` never serialize as null after fallback normalization.
 - checkpoint `status` is present for every emitted checkpoint.
 - all zero-step customers serialize as `REJECTED`.
 - internal-only `NEEDS_REVIEW` never leaks into business-visible flat outputs.
@@ -254,7 +302,13 @@ Those remain in later phases, especially:
   - zero-step enforcement regression tests
 
 ### Recommended Implementation Order
-- First, lock one shared contract definition for required raw and flat fields so `run_recourse` and collection code stop drifting independently.
+- First, add one shared `contract_normalize()` seam for:
+  - null fill
+  - canonical fallback values
+  - zero-step detection
+  - data issue flagging
+  - internal/external contract-safe status fallback
+- Second, lock one shared contract definition for required raw and flat fields so `run_recourse` and collection code stop drifting independently.
 - Second, normalize `_build_customer_roadmap(...)` and `_build_customer_metrics_summary(...)` to emit the full null-free summary plus checkpoint-status fields.
 - Third, extend `write_customer_artifact_bundle(...)` and collector augmentation code so raw and flat artifacts carry the same decision-critical truth.
 - Fourth, add zero-step detection and hard rejection enforcement before artifacts are written.
@@ -269,8 +323,8 @@ Those remain in later phases, especially:
 ### Claude's Discretion
 - Exact helper/function names for normalization and parity validation
 - Whether contract-health data lives only in `summary`, only in `contract_health`, or both, as long as one canonical source is declared and parity remains testable
-- Exact JSON shape of `data_issue_codes` as long as it is stable and machine-readable
-- Exact float-comparison tolerance for parity checks
+- Exact JSON shape of `data_issue_codes` payload as long as it uses the locked canonical enum values
+- Exact severity threshold that separates ordinary data issues from severe inconsistency as long as parity failure always counts as severe
 
 </decisions>
 
