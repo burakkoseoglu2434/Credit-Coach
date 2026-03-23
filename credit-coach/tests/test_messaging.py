@@ -141,6 +141,16 @@ def test_build_customer_roadmap_narrative_is_deterministic():
         phases=phases,
         checkpoints=checkpoints,
         status="NEEDS_REVIEW",
+        decision_status_internal="NEEDS_REVIEW",
+        decision_confidence=0.58,
+        expected_readiness="week_4",
+        decision_reason_summary="The plan is viable, but execution confidence is not strong enough yet.",
+        decision_reason_primary="LOW_EXECUTION",
+        conditional_type="EXECUTION_GATED",
+        upgrade_condition="revol_util 71.0 -> 50.0",
+        decision_policy_version="v2.1_phase_40_5",
+        decision_gate_trace={"reject": False, "approve": False, "conditional": False, "confidence": 0.58},
+        offer_maturity="none",
         local_reason_bundle=local_reason_bundle,
         constraint_trace=[{"reason_code": "clip:income_cap"}],
         plan_execution_probability=0.72,
@@ -155,6 +165,16 @@ def test_build_customer_roadmap_narrative_is_deterministic():
         phases=phases,
         checkpoints=checkpoints,
         status="NEEDS_REVIEW",
+        decision_status_internal="NEEDS_REVIEW",
+        decision_confidence=0.58,
+        expected_readiness="week_4",
+        decision_reason_summary="The plan is viable, but execution confidence is not strong enough yet.",
+        decision_reason_primary="LOW_EXECUTION",
+        conditional_type="EXECUTION_GATED",
+        upgrade_condition="revol_util 71.0 -> 50.0",
+        decision_policy_version="v2.1_phase_40_5",
+        decision_gate_trace={"reject": False, "approve": False, "conditional": False, "confidence": 0.58},
+        offer_maturity="none",
         local_reason_bundle=local_reason_bundle,
         constraint_trace=[{"reason_code": "clip:income_cap"}],
         plan_execution_probability=0.72,
@@ -165,8 +185,9 @@ def test_build_customer_roadmap_narrative_is_deterministic():
     )
 
     assert left.model_dump(mode="json") == right.model_dump(mode="json")
-    assert left.executive_summary.decision_view.label.en == "Needs reassessment"
+    assert left.executive_summary.decision_view.label.en == "Conditional view"
     assert left.executive_summary.time_to_readiness.label.en == "4 weeks"
+    assert left.executive_summary.summary_line.en == "The plan is viable, but execution confidence is not strong enough yet."
     assert left.steps[0].action_summary.en.startswith("Reduce non-essential spending")
     assert "debt-to-income ratio" in left.steps[0].expected_outcome.en
     assert "currently at %28" in left.steps[0].expected_outcome.en
@@ -192,6 +213,10 @@ def test_build_customer_roadmap_narrative_is_deterministic():
     assert left.technical_reveal.primary_numeric_targets[0]["primary_numeric_target"]["metric_key"] == "debt_to_income_pct"
     assert left.technical_reveal.execution_details["follow_through_readiness_label"] == "moderate"
     assert left.technical_reveal.execution_details["step_execution_details"][0]["difficulty_label"] == "moderate"
+    assert left.technical_reveal.decision_details["decision_status"] == "CONDITIONAL"
+    assert left.technical_reveal.decision_details["decision_status_internal"] == "NEEDS_REVIEW"
+    assert left.technical_reveal.decision_details["expected_readiness"] == "week_4"
+    assert left.technical_reveal.decision_details["upgrade_condition"] == "revol_util 71.0 -> 50.0"
 
 
 def test_build_customer_roadmap_narrative_separates_offer_and_checkpoint_layers():
@@ -254,6 +279,10 @@ def test_build_customer_roadmap_narrative_separates_offer_and_checkpoint_layers(
             }
         ],
         status="NEEDS_REVIEW",
+        expected_readiness="week_12",
+        conditional_type="OFFER_GATED",
+        decision_reason_summary="The plan is viable, but institution-side support is not fully active yet.",
+        upgrade_condition="rankable_offer_count 0.0 -> 1.0",
         local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.6}},
         plan_execution_probability=0.61,
         offer_acceptance_probability=0.49,
@@ -273,6 +302,8 @@ def test_build_customer_roadmap_narrative_separates_offer_and_checkpoint_layers(
     assert narrative.technical_reveal.approval_dependencies[0]["approval_dependent_probability"] == 0.73
     assert narrative.technical_reveal.confidence_inputs["offer_acceptance_probability"] == 0.49
     assert narrative.technical_reveal.execution_details["combined_plan_realization_probability"] == 0.2989
+    assert narrative.executive_summary.decision_view.label.en == "Conditional view"
+    assert narrative.technical_reveal.decision_details["conditional_type"] == "OFFER_GATED"
 
 
 def test_build_customer_roadmap_narrative_keeps_dependency_gated_feasibility_business_safe():
@@ -318,11 +349,14 @@ def test_build_customer_roadmap_narrative_keeps_dependency_gated_feasibility_bus
         ],
         checkpoints=[{"checkpoint_id": "checkpoint_week_12", "week": 12, "predicted_pd": 0.34, "gate_pass_estimate": 1}],
         status="NEEDS_REVIEW",
+        expected_readiness="week_12",
+        conditional_type="TIME_GATED",
         local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.6}},
     )
     assert narrative.steps[0].feasibility_outcome_label is not None
     assert narrative.steps[0].offer_narrative is None
     assert narrative.steps[0].feasibility_outcome_label.tr == "Dis bagimlilik nedeniyle kosullu"
+    assert narrative.executive_summary.decision_view.label.en == "Conditional view"
     assert narrative.technical_reveal.constraints_applied[0]["dependency_gate"] is True
     assert narrative.technical_reveal.constraints_applied[0]["reason_code"] == "requires_institutional_approval"
 

@@ -803,6 +803,10 @@ class RoadmapTechnicalReveal(BaseModel):
         default_factory=dict,
         description="Narrative confidence etiketine giren ham sinyaller",
     )
+    decision_details: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Business-facing narrative'in dayandigi final decision payload",
+    )
     narrative_confidence_label: Literal["high", "moderate", "low"] | None = Field(
         default=None,
         description="UI default gorunumunde kullanilabilecek confidence etiketi",

@@ -763,7 +763,8 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
     assert roadmap["summary"]["decision_status"] == "CONDITIONAL"
     assert roadmap["summary"]["expected_readiness"] == "week_12"
     assert "narrative" in roadmap
-    assert roadmap["narrative"]["executive_summary"]["decision_view"]["label"]["en"] == "Recovering"
+    assert roadmap["narrative"]["executive_summary"]["decision_view"]["label"]["en"] == "Conditional view"
+    assert roadmap["narrative"]["executive_summary"]["summary_line"]["en"] == roadmap["summary"]["decision_reason_summary"]
     assert roadmap["narrative"]["steps"][0]["step_id"] == "limit_credit_usage:phase_1_stabilize"
     assert roadmap["narrative"]["steps"][0]["action_summary"]["tr"]
     assert "credit utilization" in roadmap["narrative"]["steps"][0]["expected_outcome"]["en"]
@@ -776,6 +777,8 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
     assert roadmap["phases"][0]["steps"][0]["primary_numeric_target"]["generation_notes"] == ["auto_populated_fallback"]
     assert roadmap["narrative"]["technical_reveal"]["feature_changes"][0]["feature_name"] == "revol_util"
     assert roadmap["narrative"]["technical_reveal"]["primary_numeric_targets"][0]["primary_numeric_target"]["metric_key"] == "credit_utilization_pct"
+    assert roadmap["narrative"]["technical_reveal"]["decision_details"]["decision_status_internal"] == "NEEDS_REVIEW"
+    assert roadmap["narrative"]["technical_reveal"]["decision_details"]["expected_readiness"] == "week_12"
     assert "%" not in roadmap["narrative"]["executive_summary"]["follow_through_readiness"]["description"]["en"]
     assert action.business_view.action_family == "utilization"
     assert action.technical_view.feature_name == "revol_util"

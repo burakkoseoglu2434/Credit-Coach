@@ -250,7 +250,17 @@ export const singleCustomerDemoSchema = z.object({
     offer_acceptance_probability: z.number(),
     combined_plan_realization_probability: z.number(),
     trajectory_status: z.string(),
-    decision_status: z.string().optional(),
+    decision_status: z.enum(["APPROVED", "CONDITIONAL", "REJECTED"]).optional(),
+    decision_confidence: z.number().optional(),
+    decision_reason_summary: z.string().optional(),
+    expected_readiness: z
+      .enum(["now", "week_4", "week_12", "week_24", "not_ready", "unknown_review"])
+      .optional(),
+    conditional_type: z
+      .enum(["DATA_ISSUE", "OFFER_GATED", "TIME_GATED", "EXECUTION_GATED"])
+      .optional(),
+    upgrade_condition: z.string().optional(),
+    decision_policy_version: z.string().optional(),
     approval_ready_now: z.boolean().optional(),
     approval_ready_4w: z.boolean().optional(),
     approval_ready_12w: z.boolean().optional(),

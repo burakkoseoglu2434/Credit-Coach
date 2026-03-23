@@ -295,6 +295,68 @@ function toBoolean(value: unknown) {
   return false;
 }
 
+function normalizeExpectedReadiness(
+  value: unknown,
+): SingleCustomerDemo["summary"]["expected_readiness"] | undefined {
+  const normalized = toStringValue(value).trim().toLowerCase();
+  if (
+    normalized === "now" ||
+    normalized === "week_4" ||
+    normalized === "week_12" ||
+    normalized === "week_24" ||
+    normalized === "not_ready" ||
+    normalized === "unknown_review"
+  ) {
+    return normalized;
+  }
+  return undefined;
+}
+
+function normalizeDecisionStatus(
+  value: unknown,
+): SingleCustomerDemo["summary"]["decision_status"] | undefined {
+  const normalized = toStringValue(value).trim().toUpperCase();
+  if (normalized === "APPROVED" || normalized === "CONDITIONAL" || normalized === "REJECTED") {
+    return normalized as SingleCustomerDemo["summary"]["decision_status"];
+  }
+  return undefined;
+}
+
+function normalizeConditionalType(
+  value: unknown,
+): SingleCustomerDemo["summary"]["conditional_type"] | undefined {
+  const normalized = toStringValue(value).trim().toUpperCase();
+  if (
+    normalized === "DATA_ISSUE" ||
+    normalized === "OFFER_GATED" ||
+    normalized === "TIME_GATED" ||
+    normalized === "EXECUTION_GATED"
+  ) {
+    return normalized as SingleCustomerDemo["summary"]["conditional_type"];
+  }
+  return undefined;
+}
+
+function normalizeCreditReadinessStage(
+  value: unknown,
+  fallback: SingleCustomerDemo["summary"]["credit_readiness_stage"],
+): SingleCustomerDemo["summary"]["credit_readiness_stage"] {
+  const normalized = toStringValue(value).trim().toLowerCase();
+  if (
+    normalized === "now" ||
+    normalized === "week_4" ||
+    normalized === "week_12" ||
+    normalized === "week_24" ||
+    normalized === "not_ready_yet"
+  ) {
+    return normalized as SingleCustomerDemo["summary"]["credit_readiness_stage"];
+  }
+  if (normalized === "not_ready" || normalized === "unknown_review") {
+    return "not_ready_yet";
+  }
+  return fallback;
+}
+
 function toRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -778,14 +840,16 @@ function normalizeSingleCustomerDemo(
     summary.approval_ready_12w === undefined ? readiness.approvalReady12w : toBoolean(summary.approval_ready_12w);
   const approvalReady24w =
     summary.approval_ready_24w === undefined ? readiness.approvalReady24w : toBoolean(summary.approval_ready_24w);
-  const creditReadinessStage = toStringValue(
-    summary.credit_readiness_stage,
+  const expectedReadiness = normalizeExpectedReadiness(summary.expected_readiness);
+  const creditReadinessStage = normalizeCreditReadinessStage(
+    expectedReadiness ?? summary.credit_readiness_stage,
     readiness.creditReadinessStage,
-  ) as SingleCustomerDemo["summary"]["credit_readiness_stage"];
-  const decisionStatus = toStringValue(
-    summary.decision_status ?? rawMetrics.decision_status ?? rawRoadmap.best_status ?? rawMetrics.best_status,
-    "CONDITIONAL",
   );
+  const decisionStatus = normalizeDecisionStatus(summary.decision_status ?? rawMetrics.decision_status) ?? "CONDITIONAL";
+  const decisionConfidence =
+    typeof summary.decision_confidence === "number" || typeof summary.decision_confidence === "string"
+      ? toNumber(summary.decision_confidence)
+      : undefined;
 
   const content: SingleCustomerDemo = {
     customer: {
@@ -805,6 +869,12 @@ function normalizeSingleCustomerDemo(
       combined_plan_realization_probability: combinedPlanRealizationProbability,
       trajectory_status: toStringValue(summary.trajectory_status ?? rawRoadmap.trajectory_status, "on_track"),
       decision_status: decisionStatus,
+      decision_confidence: decisionConfidence,
+      decision_reason_summary: toStringValue(summary.decision_reason_summary),
+      expected_readiness: expectedReadiness,
+      conditional_type: normalizeConditionalType(summary.conditional_type),
+      upgrade_condition: toStringValue(summary.upgrade_condition),
+      decision_policy_version: toStringValue(summary.decision_policy_version),
       approval_ready_now: approvalReadyNow,
       approval_ready_4w: approvalReady4w,
       approval_ready_12w: approvalReady12w,

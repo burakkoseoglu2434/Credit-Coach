@@ -1314,34 +1314,148 @@ def _readiness_stage(base_pd: float, checkpoints: Sequence[Mapping[str, Any]], t
     return ("not_ready_yet", None)
 
 
-def _decision_view_card(status: str, readiness_stage: str) -> NarrativeCard:
+def _normalize_business_decision_status(status: str) -> str:
     normalized = str(status or "").upper()
+    if normalized == "APPROVED":
+        return "APPROVED"
+    if normalized == "REJECTED":
+        return "REJECTED"
+    return "CONDITIONAL"
+
+
+def _resolve_business_readiness_stage(
+    expected_readiness: str | None,
+    *,
+    base_pd: float,
+    checkpoints: Sequence[Mapping[str, Any]],
+    tau: float,
+) -> tuple[str, int | None]:
+    normalized = str(expected_readiness or "").strip().lower()
+    if normalized == "now":
+        return ("now", 0)
+    if normalized in {"week_4", "week4"}:
+        return ("week_4", 4)
+    if normalized in {"week_12", "week12"}:
+        return ("week_12", 12)
+    if normalized in {"week_24", "week24"}:
+        return ("week_24", 24)
+    if normalized in {"not_ready", "unknown_review"}:
+        return ("not_ready_yet", None)
+    return _readiness_stage(base_pd, checkpoints, tau)
+
+
+def _decision_summary_line(
+    status: str,
+    *,
+    decision_reason_summary: str | None = None,
+    conditional_type: str | None = None,
+    rejection_type: str | None = None,
+    upgrade_condition: str | None = None,
+) -> LocalizedText:
+    normalized = _normalize_business_decision_status(status)
+    has_upgrade_condition = bool(str(upgrade_condition or "").strip())
+    if normalized == "APPROVED":
+        return _lt(
+            "Plan, mevcut kanitlarla onay cizgisini karsiliyor.",
+            str(decision_reason_summary or "The current plan meets the approval policy under the current evidence."),
+        )
+    if normalized == "REJECTED":
+        if str(rejection_type or "").upper() == "NO_PATH":
+            return _lt(
+                "Su an icin uygulanabilir bir yol gorunmuyor.",
+                str(decision_reason_summary or "No actionable plan is available right now."),
+            )
+        if str(rejection_type or "").upper() == "LOW_IMPACT":
+            return _lt(
+                "Mevcut plan riski yeterince iyilestirmiyor.",
+                str(decision_reason_summary or "The current plan would not improve risk enough yet."),
+            )
+        return _lt(
+            "Mevcut planin gerceklesme gucu henuz yeterli degil.",
+            str(decision_reason_summary or "The current plan is not realistic enough to rely on."),
+        )
+    if str(conditional_type or "").upper() == "DATA_ISSUE":
+        return _lt(
+            "Plan yon olarak anlamli, ancak karar verisinin kontrollu bicimde tamamlanmasi gerekiyor.",
+            str(decision_reason_summary or "The plan looks directionally viable, but decision data needs controlled review."),
+        )
+    if str(conditional_type or "").upper() == "OFFER_GATED":
+        return _lt(
+            "Plan anlamli, ancak kurum desteginin tamamen aktiflesmesi gerekiyor.",
+            str(decision_reason_summary or "The plan is viable, but institution-side support is not fully active yet."),
+        )
+    if str(conditional_type or "").upper() == "TIME_GATED":
+        return _lt(
+            "Plan anlamli, ancak onay icin biraz daha zaman gerekiyor.",
+            str(decision_reason_summary or "The plan is viable, but more time is needed before approval."),
+        )
+    if has_upgrade_condition:
+        return _lt(
+            "Plan anlamli, ancak belirli esikler tamamlanmadan onay gorunumu guclenmiyor.",
+            str(decision_reason_summary or "The plan is viable, but specific thresholds still need to be met."),
+        )
+    return _lt(
+        "Plan anlamli, ancak uygulama guveni henuz yeterince guclu degil.",
+        str(decision_reason_summary or "The plan is viable, but execution confidence is not strong enough yet."),
+    )
+
+
+def _decision_view_card(
+    status: str,
+    readiness_stage: str,
+    *,
+    conditional_type: str | None = None,
+    decision_reason_summary: str | None = None,
+    upgrade_condition: str | None = None,
+) -> NarrativeCard:
+    normalized = _normalize_business_decision_status(status)
     if normalized == "APPROVED":
         return _card(
             "Onaya uygun gorunum",
             "Approval-ready view",
-            "Model bu profili yeniden onaya uygun buluyor.",
-            "The model sees this profile as approval-ready again.",
-        )
-    if normalized == "NEEDS_REVIEW" and readiness_stage != "not_ready_yet":
-        return _card(
-            "Yeniden degerlendirme gerekir",
-            "Needs reassessment",
-            "Profil gucleniyor ancak son karar kontrollu inceleme ile verilmeli.",
-            "The profile is strengthening, but the final decision should still be controlled and reviewed.",
+            "Mevcut sinyaller kontrollu bicimde onay gorunumunu destekliyor.",
+            str(decision_reason_summary or "The current signals support an approval-ready view in a controlled way."),
         )
     if normalized == "REJECTED":
         return _card(
             "Henuz erken",
             "Not ready yet",
             "Mevcut sinyaller, daha fazla iyilesme olmadan olumlu karar icin yeterli degil.",
-            "Current signals are still not sufficient for a positive decision without more improvement.",
+            str(decision_reason_summary or "Current signals are still not sufficient for a positive decision without more improvement."),
+        )
+    if str(conditional_type or "").upper() == "OFFER_GATED":
+        return _card(
+            "Kosullu gorunum",
+            "Conditional view",
+            "Plan anlamli, ancak kurum desteginin aktiflesmesi gerekiyor.",
+            str(decision_reason_summary or "The plan is viable, but institution-side support still needs to activate."),
+        )
+    if str(conditional_type or "").upper() == "TIME_GATED" or readiness_stage in {"week_12", "week_24"}:
+        return _card(
+            "Kosullu gorunum",
+            "Conditional view",
+            "Plan anlamli, ancak onay gorunumu icin biraz daha zaman gerekiyor.",
+            str(decision_reason_summary or "The plan is viable, but it still needs more time before it looks approval-ready."),
+        )
+    if str(conditional_type or "").upper() == "DATA_ISSUE":
+        return _card(
+            "Kosullu gorunum",
+            "Conditional view",
+            "Plan yon olarak anlamli, ancak karar verisinin kontrollu sekilde tamamlanmasi gerekiyor.",
+            str(decision_reason_summary or "The plan looks viable, but the decision data still needs controlled review."),
+        )
+    if str(upgrade_condition or "").strip():
+        return _card(
+            "Kosullu gorunum",
+            "Conditional view",
+            "Plan anlamli, ancak belirli esikler tamamlanmadan onay gorunumu guclenmiyor.",
+            str(decision_reason_summary or "The plan is viable, but specific thresholds still need to be met before approval."),
         )
     return _card(
-        "Toparlaniyor",
-        "Recovering",
-        "Plan ilerliyor ancak daha fazla guclenme gerekiyor.",
-        "The plan is progressing, but more strengthening is still needed.",
+        "Kosullu gorunum",
+        "Conditional view",
+        "Plan ilerliyor, ancak uygulama guveni henuz tam olarak guclenmedi.",
+        str(decision_reason_summary or "The plan is progressing, but execution confidence is not strong enough yet."),
     )
 
 
@@ -1463,10 +1577,26 @@ def build_executive_summary(
     approval_dependent_plan_probability: float | None = None,
     follow_through_readiness_label: str | None = None,
     peak_group_difficulty_score: float | None = None,
+    expected_readiness: str | None = None,
+    decision_reason_summary: str | None = None,
+    conditional_type: str | None = None,
+    rejection_type: str | None = None,
+    upgrade_condition: str | None = None,
 ) -> RoadmapExecutiveSummary:
-    readiness_stage, readiness_week = _readiness_stage(base_pd, checkpoints, tau)
+    readiness_stage, readiness_week = _resolve_business_readiness_stage(
+        expected_readiness,
+        base_pd=base_pd,
+        checkpoints=checkpoints,
+        tau=tau,
+    )
     offer_status = _offer_status_card(actions)
-    decision_view = _decision_view_card(status, readiness_stage)
+    decision_view = _decision_view_card(
+        status,
+        readiness_stage,
+        conditional_type=conditional_type,
+        decision_reason_summary=decision_reason_summary,
+        upgrade_condition=upgrade_condition,
+    )
     time_to_readiness = _time_to_readiness_card(readiness_stage, readiness_week)
     expected_result = _expected_result_card(base_pd, checkpoints, readiness_stage, readiness_week)
     return RoadmapExecutiveSummary(
@@ -1474,9 +1604,12 @@ def build_executive_summary(
             "Musteri icin kontrollu ve kisisellestirilmis bir toparlanma yolu kuruldu.",
             "A controlled and personalized recovery path is now in place for the customer.",
         ),
-        summary_line=_lt(
-            "Plan, mevcut durumdan hedefe giden adimlari ve kontrol noktalarini tek bir yol haritasinda toplar.",
-            "The plan brings the current state, target moves, and checkpoints into one roadmap.",
+        summary_line=_decision_summary_line(
+            status,
+            decision_reason_summary=decision_reason_summary,
+            conditional_type=conditional_type,
+            rejection_type=rejection_type,
+            upgrade_condition=upgrade_condition,
         ),
         risk_start=_risk_card(base_pd, tau),
         recommended_path=_recommended_path_card(actions, offer_status),
@@ -1516,6 +1649,17 @@ def build_customer_roadmap_narrative(
     mean_group_difficulty_score: float | None = None,
     peak_group_difficulty_score: float | None = None,
     follow_through_readiness_label: str | None = None,
+    decision_status_internal: str | None = None,
+    decision_confidence: float | None = None,
+    expected_readiness: str | None = None,
+    decision_reason_summary: str | None = None,
+    decision_reason_primary: str | None = None,
+    rejection_type: str | None = None,
+    conditional_type: str | None = None,
+    upgrade_condition: str | None = None,
+    decision_policy_version: str | None = None,
+    decision_gate_trace: Mapping[str, Any] | None = None,
+    offer_maturity: str | None = None,
 ) -> CustomerRoadmapNarrative:
     local_reason_bundle = local_reason_bundle or {}
     reason_rows = list(local_reason_bundle.get("reasons", [])) if isinstance(local_reason_bundle.get("reasons", []), list) else []
@@ -1652,6 +1796,11 @@ def build_customer_roadmap_narrative(
         approval_dependent_plan_probability=approval_dependent_plan_probability,
         follow_through_readiness_label=follow_through_readiness_label,
         peak_group_difficulty_score=peak_group_difficulty_score,
+        expected_readiness=expected_readiness,
+        decision_reason_summary=decision_reason_summary,
+        conditional_type=conditional_type,
+        rejection_type=rejection_type,
+        upgrade_condition=upgrade_condition,
     )
     execution_step_details = []
     for step_id in step_order:
@@ -1697,6 +1846,20 @@ def build_customer_roadmap_narrative(
                 "peak_group_difficulty_score": peak_group_difficulty_score,
                 "follow_through_readiness_label": follow_through_readiness_label,
                 "step_execution_details": execution_step_details,
+            },
+            decision_details={
+                "decision_status": _normalize_business_decision_status(status),
+                "decision_status_internal": str(decision_status_internal or ""),
+                "decision_confidence": decision_confidence,
+                "expected_readiness": expected_readiness,
+                "decision_reason_summary": decision_reason_summary,
+                "decision_reason_primary": decision_reason_primary,
+                "rejection_type": rejection_type,
+                "conditional_type": conditional_type,
+                "upgrade_condition": upgrade_condition,
+                "decision_policy_version": decision_policy_version,
+                "decision_gate_trace": dict(decision_gate_trace or {}),
+                "offer_maturity": offer_maturity,
             },
             confidence_inputs={
                 "local_explainability_confidence": confidence_score,

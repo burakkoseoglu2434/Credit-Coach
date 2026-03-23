@@ -1145,6 +1145,17 @@ def _build_customer_roadmap(
         mean_group_difficulty_score=getattr(best, "mean_group_difficulty_score", None),
         peak_group_difficulty_score=getattr(best, "peak_group_difficulty_score", None),
         follow_through_readiness_label=getattr(best, "follow_through_readiness_label", None),
+        decision_status_internal=_safe_text(normalized_summary.get("decision_status_internal"), ""),
+        decision_confidence=normalized_summary.get("decision_confidence", None),
+        expected_readiness=_safe_text(normalized_summary.get("expected_readiness"), ""),
+        decision_reason_summary=_safe_text(normalized_summary.get("decision_reason_summary"), ""),
+        decision_reason_primary=_safe_text(normalized_summary.get("decision_reason_primary"), ""),
+        rejection_type=_safe_text(normalized_summary.get("rejection_type"), ""),
+        conditional_type=_safe_text(normalized_summary.get("conditional_type"), ""),
+        upgrade_condition=_safe_text(normalized_summary.get("upgrade_condition"), ""),
+        decision_policy_version=_safe_text(normalized_summary.get("decision_policy_version"), ""),
+        decision_gate_trace=dict(normalized_summary.get("decision_gate_trace", {}) or {}),
+        offer_maturity=_safe_text(normalized_summary.get("offer_maturity"), ""),
     ).model_dump(mode="json")
     return roadmap
 
