@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-Phase: Not started (defining milestone v2.1)
-Plan: milestone requirements and roadmap
-Status: Defining requirements
-Last activity: 2026-03-23 - Started `v2.1 Decision Ownership & Pilot-Ready Trust`
+Phase: 40
+Plan: roadmap approved
+Status: Ready for phase discussion
+Last activity: 2026-03-23 - Defined requirements and roadmap for `v2.1 Decision Ownership & Pilot-Ready Trust`
 
-Progress: `v2.1` is being initialized. The next active seam is defining requirements and roadmap, then starting `Phase 40 Contract & Trust Repair`.
+Progress: `v2.1` is initialized. The next active seam is `Phase 40 Contract & Trust Repair`.
 
 ## Performance Metrics
 
@@ -65,5 +65,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: milestone initialization for `v2.1`; next step is finish requirements and roadmap, then start `Phase 40`
+Stopped at: milestone initialization complete for `v2.1`; next step is `$gsd-discuss-phase 40`
 Resume file: None
