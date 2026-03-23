@@ -1,6 +1,6 @@
 # Project Milestones: Credit Coach
 
-**Current active milestone:** v2.1 Decision Ownership & Pilot-Ready Trust
+**Current active milestone:** None - run `$gsd-new-milestone` to define the next milestone
 
 ## v1.0 Brownfield Baseline (Shipped: 2026-03-10)
 
@@ -148,43 +148,33 @@
 
 ---
 
-## v2.1 Decision Ownership & Pilot-Ready Trust (Started: 2026-03-23)
+## v2.1 Decision Ownership & Pilot-Ready Trust (Shipped: 2026-03-23)
 
-**Goal:** Turn the shipped decision-intelligence stack into a deterministic, pilot-ready fintech decision system with trusted artifact contracts, explicit decision ownership, calibration loops, and operator review speed.
+**Delivered:** An audited deterministic-decision and pilot-trust milestone that repaired artifact contracts, established one decision owner, added cohort-aware calibration and operator review surfaces, hardened planner provenance and source-mix honesty, and closed with a repeatable pilot refresh baseline, artifact QA, institution overlays, and institution-facing explanation packs.
 
-**Planned phases:** 40, 40.5, 41, 43, 42, 44
+**Phases completed:** 40-44 (18 plans total)
 
-**North Star:**
-- business-visible decisions: `APPROVED | CONDITIONAL | REJECTED`
-- internal decisions: `APPROVED | CONDITIONAL | REJECTED | NEEDS_REVIEW`
-- `APPROVED + CONDITIONAL >= 30%`
-- `APPROVED >= 10%`
-- internal `NEEDS_REVIEW < 10%` target and `< 20%` hard max
-- deterministic decision for every customer with a one-line business explanation and structured drivers
-- operator review for 50 customers in under 30 minutes
+**Key accomplishments:**
+- Repaired raw and flat customer artifacts so decision-critical fields, parity signals, and zero-step rejection became null-free, explicit, and business-safe
+- Shipped one deterministic decision owner with external `APPROVED | CONDITIONAL | REJECTED` outputs, internal review diagnostics, confidence, readiness, subtype truth, and upgrade conditions
+- Added mixed-cohort funnel, readiness, and shadow calibration evidence under the same collection run root as raw and flat artifacts
+- Added per-customer operator packets and collection-level briefings that support fast review without creating a second truth source
+- Made planner provenance, empty-contender removal, source-mix honesty, diversity guardrails, and offer-maturity signals first-class review outputs
+- Closed the milestone with repeatable pilot refresh orchestration, dedicated artifact QA, thin institution overlays, institution-facing explanation packs, and bounded proof documentation
 
-**Execution order:**
-- Phase 40: Contract & Trust Repair
-- Phase 40.5: Decision Ownership Layer
-- Phase 41: Cohort & Decision Calibration
-- Phase 43: Operator Review Pack
-- Phase 42: Planner Quality & Source Mix
-- Phase 44: Production Pilot Baseline
+**Stats:**
+- 6 GSD phases completed with 18 executed plans and 84 planned tasks
+- Milestone audit passed with 12/12 requirements satisfied
+- Nyquist compliance: 6/6 phases compliant
+- 97 files changed in the shipped milestone range with 14,475 insertions and 778 deletions
+- Timeline: 2026-03-23 through 2026-03-23
 
-**Key milestone constraints:**
-- `NEEDS_REVIEW` is internal-only and must never appear on business-facing surfaces
-- decision ordering is fixed: `REJECTED -> APPROVED -> CONDITIONAL -> NEEDS_REVIEW`
-- zero-step plans are always rejected and classified as `NO_PATH`
-- decision logic must be deterministic, parity-checked, and safe under artifact inconsistency
+**Known gaps carried forward:**
+- Live institution integrations remain future work beyond the shipped overlay and package-based pilot baseline
+- Compliance-adjacent explanation workflows remain bounded support artifacts rather than full compliance automation
+- Recurring proof refresh, release review, and milestone health automation remain future scope
+- Local `gsd-tools.cjs` milestone-op automation still requires manual fallback, and some validation frontmatter metadata needs cleanup
 
-**Progress so far:**
-- Phase 40 shipped null-free, parity-safe contract repair across raw and flat customer artifacts
-- Phase 40.5 shipped one deterministic decision owner with safe external three-state outputs
-- Phase 41 shipped cohort semantics, funnel measurement, and shadow calibration under the collection run root
-- Phase 43 shipped per-customer operator packets and collection-level review briefings without creating a second truth source
-- Phase 42 shipped explicit source provenance, empty-contender removal, internal-vs-dice competitiveness metrics, recovery-lane honesty, and planner-quality anti-collapse signals
-- Phase 44 shipped repeatable pilot refresh orchestration, dedicated artifact QA, thin institution overlays, institution-facing explanation packs, and bounded pilot/proof documentation
-
-**What's next:** complete the milestone with `$gsd-complete-milestone`
+**What's next:** Define the next milestone with `$gsd-new-milestone`
 
 ---

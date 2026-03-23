@@ -10,25 +10,35 @@ Generate customer-specific credit action plans that are actionable, behaviorally
 
 ## Current State
 
-`v2.0 Personalized Action & Decision Intelligence` shipped on `2026-03-22` and passed milestone audit. Credit Coach now supports:
-- deterministic semantic action mapping with grouped business and technical identity
-- customer-specific numeric targets with feasibility, difficulty, and execution realism
-- explicit institution-side offer contracts with approval and acceptance semantics
-- engine-owned narratives and typed product surfaces that do not rely on UI-side meaning invention
-- portfolio-level numeric impact and calibration review across segments
-- pilot-facing package generation with guardrails, confidence, and onboarding docs
+`v2.1 Decision Ownership & Pilot-Ready Trust` shipped on `2026-03-23` and passed milestone audit. Credit Coach now supports:
+- null-free, parity-safe raw and flat artifact contracts that carry decision-critical truth safely
+- one deterministic decision owner with external `APPROVED | CONDITIONAL | REJECTED` outcomes and internal diagnostic review state
+- cohort-aware funnel, readiness, and shadow calibration outputs under the same collection run root
+- per-customer operator packets and collection-level review briefings derived from the owned decision payload
+- explicit planner provenance, empty-contender removal, source-mix honesty, diversity guardrails, and offer-maturity signals
+- repeatable pilot baseline refresh, dedicated artifact QA, thin institution overlays, and institution-facing explanation packs
 
-The active milestone is now `v2.1 Decision Ownership & Pilot-Ready Trust`, which turns the shipped personalized-action stack into a deterministic decision system with explicit external decisions, contract trust repair, calibration, and operator review speed.
+No active milestone is currently defined. The next planning step is to open a fresh milestone with `$gsd-new-milestone`.
 
-## Current Milestone: v2.1 Decision Ownership & Pilot-Ready Trust
+## Next Milestone Goals
+
+- move from pilot package handoff toward deeper institution-specific integration contracts without reopening deterministic decision ownership
+- expand compliance-adjacent explanation and governance workflows while keeping internal-only decision truth bounded
+- automate proof refresh, release review, and milestone health workflows that are still operator-triggered today
+- clean up milestone tooling and validation metadata debt so archive and audit flows no longer need manual fallback
+
+<details>
+<summary>Archived Milestone Context: v2.1 Decision Ownership & Pilot-Ready Trust</summary>
 
 **Goal:** Transform the system from a decision-intelligence prototype into a deterministic, pilot-ready fintech decision system.
 
-**Target features:**
-- null-free, parity-safe decision artifacts across raw and flat customer outputs
-- deterministic internal and business-visible decision ownership with ordered policy logic
-- cohort-level decision calibration and 50-customer operator review packs
-- source-mix hardening and production-style pilot baselines for repeatable decision review
+**Target outcomes:**
+- repaired artifact contracts carry null-free, parity-safe decision truth
+- one deterministic decision owner governs raw, flat, product, and website decision surfaces
+- mixed-cohort calibration and operator review artifacts make the decision stack reviewable at scale
+- planner provenance, source-mix honesty, and pilot-baseline QA make the pilot story controlled and repeatable
+
+</details>
 
 <details>
 <summary>Archived Milestone Context: v2.0 Personalized Action & Decision Intelligence</summary>
@@ -69,13 +79,14 @@ The active milestone is now `v2.1 Decision Ownership & Pilot-Ready Trust`, which
 - ✓ Recommendation quality is now typed-action-aware, behavior-aware, trajectory-aware, offer-aware, and learning-loop-capable - v1.2
 - ✓ Portfolio proof, business-first product surfaces, analyst validation, and pilot-baseline demo ops are now shipped and audited - v1.3
 - ✓ Personalized action intelligence is now semantic, numeric, feasible, execution-aware, institution-aware, portfolio-validated, and pilot-package-ready - v2.0
+- ✓ Deterministic decision ownership, contract trust repair, cohort calibration, operator review packs, planner source-mix honesty, and repeatable pilot refresh now ship together as one audited baseline - v2.1
 
 ### Active
 
-- [ ] Deterministic decision ownership with business-visible `APPROVED | CONDITIONAL | REJECTED` and internal-only `NEEDS_REVIEW`
-- [ ] Null-free, parity-checked raw and flat artifacts that preserve trust instead of leaking contract faults
-- [ ] Mixed-cohort calibration and operator-ready review surfaces for 50-customer pilot flows
-- [ ] Planner source-mix hardening and production-style pilot decision QA with policy versioning
+- [ ] Institution-specific inbound and outbound integration contracts beyond export-first pilot packaging
+- [ ] Compliance-adjacent explanation and governance workflows beyond bounded pilot support artifacts
+- [ ] Recurring proof refresh, release review, and milestone health automation
+- [ ] Milestone tooling and planning metadata cleanup so archive and audit workflows can run without manual fallback
 
 ### Out of Scope
 
@@ -90,7 +101,8 @@ The active milestone is now `v2.1 Decision Ownership & Pilot-Ready Trust`, which
 - `v1.2 Recommendation Quality Hardening` remains the shipped baseline for typed actions, behavior-aware ranking, trajectories, offers, and learning evidence.
 - `v1.3 Portfolio Intelligence & Productization` remains the shipped baseline for full-portfolio proof, buyer-safe product surfaces, analyst validation, and pilot-baseline operations.
 - `v2.0 Personalized Action & Decision Intelligence` is now shipped and audited, adding personalized numeric planning contracts, execution and offer realism, richer narratives, stricter product-surface consumption, portfolio numeric proof, calibration review, and pilot packaging.
-- The next milestone should build forward from this baseline rather than casually reopening finished contract layers.
+- `v2.1 Decision Ownership & Pilot-Ready Trust` is now shipped and audited, adding repaired artifact trust, deterministic decision ownership, collection-root funnel and calibration evidence, operator review packs, planner-quality honesty, and repeatable pilot refresh infrastructure.
+- The next milestone should build forward from this decision-and-pilot baseline rather than casually reopening finished contract layers.
 
 ## Constraints
 
@@ -113,6 +125,8 @@ The active milestone is now `v2.1 Decision Ownership & Pilot-Ready Trust`, which
 | Open `v2.0 Personalized Action & Decision Intelligence` as a 10-phase contract stack | The next leverage point required explicit separation of semantics, targets, constraints, execution, offers, narratives, surfaces, proof, calibration, and pilot seams | ✓ Good |
 | Keep portfolio proof and calibration more honest than impressive | Execution-aware payoff, realism checks, and narrowness signals are more trustworthy than nominal uplift alone | ✓ Good |
 | Keep pilot integration export-first and controlled | The repo should not pretend to have live institution connectivity before the contract seam is genuinely ready | ✓ Good |
+| Separate business-visible decision truth from internal review diagnostics | The pilot story needed deterministic external decisions without leaking internal exception states | ✓ Good |
+| Treat calibration, operator review, planner quality, and pilot refresh as additive consumers of one decision owner | This preserved deterministic ownership while still making the system measurable, reviewable, and packageable | ✓ Good |
 
 ---
-*Last updated: 2026-03-23 after starting milestone v2.1*
+*Last updated: 2026-03-23 after completing milestone v2.1*
