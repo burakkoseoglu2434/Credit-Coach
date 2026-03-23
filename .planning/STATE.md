@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 Phase: 42
 Plan: 3 plans authored
-Status: Ready for discussion
-Last activity: 2026-03-23 - Completed Phase 43 `Operator Review Pack`
+Status: Ready for planning
+Last activity: 2026-03-23 - Discussed Phase 42 `Planner Quality & Source Mix`
 
-Progress: `v2.1` now has a repaired contract base, one deterministic decision owner, a cohort-aware calibration lane, and shipped operator review packets plus collection-level briefings under the same run root. The next active seam is planner quality and source-mix honesty so operator-facing trust is backed by stronger internal plan selection.
+Progress: `v2.1` now has a repaired contract base, one deterministic decision owner, a cohort-aware calibration lane, and shipped operator review packets plus collection-level briefings under the same run root. Phase 42 is now scoped and locked around explicit source provenance, empty-contender removal, internal-vs-dice competitiveness, and action-diversity / offer-maturity hardening.
 
 ## Performance Metrics
 
@@ -41,6 +41,7 @@ Progress: `v2.1` now has a repaired contract base, one deterministic decision ow
 - Phase 40.5 now adds deterministic internal-vs-external decision ownership, subtype truth, confidence gating, and business-safe three-state consumer surfaces.
 - Phase 41 now ships cohort semantics, funnel/readiness measurement, shadow calibration, and additive calibration packaging under the same collection run root.
 - Phase 43 now ships a derived operator-surface lane with per-customer packets, collection-level review briefing, and a strict business-safe versus appendix-detail split.
+- Phase 42 is now discussed and locked around source-mix honesty, zero-action contender removal, and planner-quality anti-collapse guardrails.
 
 ## Accumulated Context
 
@@ -68,5 +69,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Phase 43 completed; next step is `$gsd-discuss-phase 42`
+Stopped at: Phase 42 discussed; next step is `$gsd-plan-phase 42 --research`
 Resume file: None
