@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 43
-Plan: Ready for discussion
-Status: Phase 41 complete
-Last activity: 2026-03-23 - Completed Phase 41 `Cohort & Decision Calibration`
+Plan: 3 plans authored
+Status: Ready for execution
+Last activity: 2026-03-23 - Planned Phase 43 `Operator Review Pack`
 
-Progress: `v2.1` now has a repaired contract base, one deterministic decision owner, and a cohort-aware calibration lane that measures the shipped policy across pilot, balanced, replay, and stress-test cohorts under one collection artifact root. The next active seam is turning those artifacts into fast operator review packs without creating a second decision layer.
+Progress: `v2.1` now has a repaired contract base, one deterministic decision owner, a cohort-aware calibration lane, and an execution-ready plan for operator review packets and collection briefings. The next active seam is implementing a short-plus-appendix review surface that lets operators triage 50 customers quickly without creating a second decision layer.
 
 ## Performance Metrics
 
@@ -40,6 +40,7 @@ Progress: `v2.1` now has a repaired contract base, one deterministic decision ow
 - Phase 40 now guarantees null-free summary truth, raw-flat parity checks, zero-step rejection, and business-facing consumer alignment to canonical summary fields.
 - Phase 40.5 now adds deterministic internal-vs-external decision ownership, subtype truth, confidence gating, and business-safe three-state consumer surfaces.
 - Phase 41 now ships cohort semantics, funnel/readiness measurement, shadow calibration, and additive calibration packaging under the same collection run root.
+- Phase 43 is now planned as a derived operator-surface phase with per-customer packets, collection-level review briefing, and a strict business-safe versus appendix-detail split.
 
 ## Accumulated Context
 
@@ -67,5 +68,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Phase 41 complete; next step is `$gsd-discuss-phase 43`
+Stopped at: Phase 43 planned; next step is `$gsd-execute-phase 43`
 Resume file: None
