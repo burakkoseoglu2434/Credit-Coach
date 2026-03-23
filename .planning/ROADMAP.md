@@ -250,5 +250,5 @@ Historical archive: `.planning/milestones/v2.0-ROADMAP.md`
 | 40.5 Decision Ownership Layer | v2.1 | 3/3 | Complete | 2026-03-23 |
 | 41. Cohort & Decision Calibration | v2.1 | 3/3 | Complete | 2026-03-23 |
 | 43. Operator Review Pack | v2.1 | 3/3 | Complete | 2026-03-23 |
-| 42. Planner Quality & Source Mix | v2.1 | 0/3 | Planned | — |
+| 42. Planner Quality & Source Mix | v2.1 | 3/3 | Complete | 2026-03-23 |
 | 44. Production Pilot Baseline | v2.1 | 0/3 | Planned | — |

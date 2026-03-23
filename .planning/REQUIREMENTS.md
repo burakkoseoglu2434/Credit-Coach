@@ -28,7 +28,7 @@
 
 ### Planner Quality
 
-- [ ] **PLAN-01**: Best-plan selection eliminates zero-action winners, reports source mix, and improves internal planner competitiveness versus `dice`, `rule`, and `fallback` candidates
+- [x] **PLAN-01**: Best-plan selection eliminates zero-action winners, reports source mix, and improves internal planner competitiveness versus `dice`, `rule`, and `fallback` candidates
 
 ### Production Pilot Baseline
 
@@ -70,7 +70,7 @@
 | CAL-02 | Phase 41 | Satisfied |
 | OPS-01 | Phase 43 | Satisfied |
 | OPS-02 | Phase 43 | Satisfied |
-| PLAN-01 | Phase 42 | Pending |
+| PLAN-01 | Phase 42 | Satisfied |
 | PROD-01 | Phase 44 | Pending |
 | PROD-02 | Phase 44 | Pending |
 
@@ -81,4 +81,4 @@
 
 ---
 *Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after Phase 43 completion*
+*Last updated: 2026-03-23 after Phase 42 completion*

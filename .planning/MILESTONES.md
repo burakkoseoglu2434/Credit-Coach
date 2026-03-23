@@ -182,7 +182,8 @@
 - Phase 40.5 shipped one deterministic decision owner with safe external three-state outputs
 - Phase 41 shipped cohort semantics, funnel measurement, and shadow calibration under the collection run root
 - Phase 43 shipped per-customer operator packets and collection-level review briefings without creating a second truth source
+- Phase 42 shipped explicit source provenance, empty-contender removal, internal-vs-dice competitiveness metrics, recovery-lane honesty, and planner-quality anti-collapse signals
 
-**What's next:** execute Phase 42 `Planner Quality & Source Mix`
+**What's next:** discuss Phase 44 `Production Pilot Baseline`
 
 ---
