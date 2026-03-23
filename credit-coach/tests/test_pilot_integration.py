@@ -215,6 +215,22 @@ def test_run_pilot_integration_emits_pilot_package_and_reuses_batch_artifacts(
             str(bundle_path),
             "--artifact_root",
             str(tmp_path / "pilot_runs"),
+            "--institution_profile_key",
+            "test_bank_profile",
+            "--policy_version_evaluated",
+            "v2.1_phase_40_5",
+            "--institution_policy_overlay_json",
+            json.dumps({"cadence_mode": "weekly_during_pilot"}),
+            "--institution_offer_overlay_json",
+            json.dumps({"enabled_offer_families": ["installment_plan"]}),
+            "--pilot_profile_overlay_json",
+            json.dumps({"profile_key": "test_bank_profile"}),
+            "--resolved_runtime_config_json",
+            json.dumps({"resolved": {"cadence_mode": "weekly_during_pilot"}}),
+            "--explanation_pack_root",
+            str(tmp_path / "decision_explanation_packs"),
+            "--refresh_run_id",
+            "refresh-001",
         ]
     )
 
@@ -231,6 +247,11 @@ def test_run_pilot_integration_emits_pilot_package_and_reuses_batch_artifacts(
     assert manifest["acceptance_status"] == "PILOT_ONLY"
     assert manifest["pilot_eligible"] is True
     assert manifest["broad_rollout_allowed"] is False
+    assert manifest["institution_profile_key"] == "test_bank_profile"
+    assert manifest["policy_version_evaluated"] == "v2.1_phase_40_5"
+    assert manifest["overlay_provenance"]["institution_policy"]["cadence_mode"] == "weekly_during_pilot"
+    assert manifest["explanation_artifacts"]["decision_explanation_packs_root"] == str(tmp_path / "decision_explanation_packs")
+    assert manifest["refresh_provenance"]["refresh_run_id"] == "refresh-001"
     assert acceptance["acceptance_status"] == "PILOT_ONLY"
     assert release_pack["acceptance_status"] == "PILOT_ONLY"
     assert (pilot_ctx.tables_dir / "product_confidence_snapshot.json").exists()

@@ -972,6 +972,8 @@ class OperatorReviewPacket(BaseModel):
     """
 
     packet_version: str = Field(default="v2.1_phase_43", description="Operator packet contract version")
+    decision_id: str = Field(..., description="Owned decision snapshot id")
+    decision_policy_version: str = Field(..., description="Owned decision-policy version")
     customer_id: str = Field(..., description="Customer id carried into the packet")
     best_plan_id: str | None = Field(default=None, description="Best-plan link for traceability")
     short_view: OperatorPacketShortView = Field(..., description="Fast operator-facing review layer")

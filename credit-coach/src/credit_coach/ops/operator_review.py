@@ -257,6 +257,8 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
         decision_gate_trace=dict(summary.get("decision_gate_trace", {}) or {}),
     )
     return OperatorReviewPacket(
+        decision_id=_safe_text(summary.get("decision_id"), f"{_safe_text(roadmap.get('customer_id'), _safe_text(summary.get('customer_id'), 'customer'))}_decision"),
+        decision_policy_version=_safe_text(summary.get("decision_policy_version"), ""),
         customer_id=_safe_text(roadmap.get("customer_id"), _safe_text(summary.get("customer_id"), "customer")),
         best_plan_id=_safe_text(roadmap.get("best_plan_id"), _safe_text(summary.get("best_plan_id"))) or None,
         short_view=short_view,
@@ -271,6 +273,8 @@ def render_operator_review_packet_markdown(packet: OperatorReviewPacket) -> str:
         f"# Operator Packet — {packet.customer_id}",
         "",
         "## Decision Header",
+        f"- Decision ID: {packet.decision_id}",
+        f"- Decision policy version: {packet.decision_policy_version or 'n/a'}",
         f"- Decision: {short.decision_status}",
         f"- Decision confidence: {short.decision_confidence:.2f}" if short.decision_confidence is not None else "- Decision confidence: n/a",
         "",
@@ -329,6 +333,8 @@ def operator_packet_metrics_fields(
 ) -> dict[str, Any]:
     return {
         "operator_packet_relpath": str(packet_relpath),
+        "operator_decision_id": str(packet.decision_id),
+        "operator_decision_policy_version": str(packet.decision_policy_version),
         "operator_decision_summary": str(packet.short_view.decision_reason_summary),
         "operator_top_blocker_codes_json": json.dumps(
             [blocker.blocker_code for blocker in packet.short_view.top_blockers],

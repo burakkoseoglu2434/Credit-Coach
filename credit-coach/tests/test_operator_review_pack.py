@@ -19,6 +19,8 @@ def _sample_roadmap() -> dict:
         "customer_id": "cust-operator",
         "best_plan_id": "plan-123",
         "summary": {
+            "decision_id": "decision-cust-operator",
+            "decision_policy_version": "v2.1_phase_40_5",
             "decision_status": "CONDITIONAL",
             "decision_status_internal": "NEEDS_REVIEW",
             "decision_reason_summary": "The plan is viable, but execution confidence is not strong enough yet.",
@@ -116,6 +118,8 @@ def test_build_operator_review_packet_keeps_owned_summary_and_action_traces() ->
     assert packet.short_view.offer_state is not None
     assert packet.short_view.offer_state.en == "No institution offer"
     assert packet.short_view.technical_detail_available is True
+    assert packet.decision_id == "decision-cust-operator"
+    assert packet.decision_policy_version == "v2.1_phase_40_5"
     assert packet.technical_appendix.decision_status_internal == "NEEDS_REVIEW"
     assert len(packet.short_view.top_blockers) == 2
     assert len(packet.short_view.next_best_actions) == 2
@@ -134,6 +138,7 @@ def test_write_operator_review_packet_emits_json_and_markdown(tmp_path: Path) ->
     assert out["operator_packet_json"].exists()
     assert out["operator_packet_md"].exists()
     payload = json.loads(out["operator_packet_json"].read_text(encoding="utf-8"))
+    assert payload["decision_id"] == "decision-cust-operator"
     assert payload["short_view"]["decision_status"] == "CONDITIONAL"
     assert payload["technical_appendix"]["decision_status_internal"] == "NEEDS_REVIEW"
 

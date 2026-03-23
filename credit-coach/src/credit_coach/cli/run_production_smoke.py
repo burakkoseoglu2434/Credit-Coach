@@ -4,7 +4,7 @@ import argparse
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import pandas as pd
 
@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(level
 logger = logging.getLogger("run_production_smoke")
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Run production smoke gates from latest artifacts")
     p.add_argument("--kpi_contract", type=str, default="configs/kpi_contract.yaml")
     p.add_argument("--batch_summary_json", type=str, default="")
@@ -72,7 +72,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--require_telemetry_enabled", dest="require_telemetry_enabled", action="store_true")
     p.add_argument("--allow_telemetry_disabled", dest="require_telemetry_enabled", action="store_false")
     p.set_defaults(require_telemetry_enabled=None)
-    return p.parse_args()
+    p.add_argument("--artifact_root", type=str, default="artifacts/runs")
+    return p.parse_args(argv)
 
 
 def _latest_or_fail(pattern: str, *, hint: str) -> Path:
@@ -695,8 +696,8 @@ def build_smoke_release_summary(
         return summary
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: Sequence[str] | None = None):
+    args = parse_args(argv)
     contract_thresholds = load_kpi_thresholds(args.kpi_contract)
     args = apply_kpi_thresholds_to_args(args, contract_thresholds)
     resolved_thresholds = extract_kpi_thresholds(args)
@@ -791,7 +792,7 @@ def main() -> None:
             "milestone_acceptance_json": str(milestone_acceptance_path) if milestone_acceptance_path is not None else "",
             "thresholds": resolved_thresholds,
         },
-        base_artifact_dir="artifacts/runs",
+        base_artifact_dir=args.artifact_root,
     )
     mirrored_telemetry = _mirror_artifact(telemetry_path, run_ctx.tables_dir / "telemetry_export.json")
     mirrored_phase_scale = _mirror_artifact(
@@ -819,6 +820,7 @@ def main() -> None:
     gate_df = pd.DataFrame(rows)
     out_csv = run_ctx.tables_dir / "production_smoke_report.csv"
     out_json = run_ctx.tables_dir / "production_smoke_report.json"
+    out_release_summary = run_ctx.tables_dir / "release_smoke_summary.json"
     out_kpi_snapshot = run_ctx.tables_dir / "kpi_snapshot.json"
     out_contract_snapshot = run_ctx.tables_dir / "kpi_contract_snapshot.json"
     out_release_evidence_snapshot = run_ctx.tables_dir / "release_evidence_snapshot.json"
@@ -905,6 +907,17 @@ def main() -> None:
         ),
         encoding="utf-8",
     )
+    out_release_summary.write_text(
+        json.dumps(
+            {
+                "run_id": run_ctx.run_id,
+                **release_summary,
+            },
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
     release_evidence_snapshot = build_release_evidence_pack(
         runner_type="smoke",
         phase=str(release_summary.get("phase", "")),
@@ -917,6 +930,7 @@ def main() -> None:
         required_artifacts={
             "production_smoke_report_csv": "tables/production_smoke_report.csv",
             "production_smoke_report_json": "tables/production_smoke_report.json",
+            "release_smoke_summary_json": "tables/release_smoke_summary.json",
             "kpi_snapshot_json": "tables/kpi_snapshot.json",
             "kpi_contract_snapshot_json": "tables/kpi_contract_snapshot.json",
         },
@@ -936,6 +950,7 @@ def main() -> None:
         existing_artifacts=[
             "tables/production_smoke_report.csv",
             "tables/production_smoke_report.json",
+            "tables/release_smoke_summary.json",
             "tables/kpi_snapshot.json",
             "tables/kpi_contract_snapshot.json",
             *(
@@ -978,6 +993,7 @@ def main() -> None:
         }
     )
     logger.info("Production smoke complete. status=%s", overall_status)
+    return run_ctx
     logger.info("Outputs: %s %s %s %s", out_csv, out_json, out_kpi_snapshot, out_contract_snapshot)
 
 

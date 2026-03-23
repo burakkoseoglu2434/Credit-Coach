@@ -54,6 +54,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--artifact_root", type=str, default="artifacts/pilot_runs")
     parser.add_argument("--model_version", type=str, default="")
     parser.add_argument("--model_manifest", type=str, default="")
+    parser.add_argument("--institution_policy_overlay_json", type=str, default="")
+    parser.add_argument("--institution_offer_overlay_json", type=str, default="")
+    parser.add_argument("--pilot_profile_overlay_json", type=str, default="")
+    parser.add_argument("--resolved_runtime_config_json", type=str, default="")
+    parser.add_argument("--institution_profile_key", type=str, default="")
+    parser.add_argument("--policy_version_evaluated", type=str, default="")
+    parser.add_argument("--explanation_pack_root", type=str, default="")
+    parser.add_argument("--refresh_run_id", type=str, default="")
     return parser.parse_args(argv)
 
 
@@ -61,6 +69,16 @@ def _load_json(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"Expected JSON object at {path}")
+    return payload
+
+
+def _load_inline_json_arg(raw_payload: str) -> dict[str, Any]:
+    raw = str(raw_payload or "").strip()
+    if not raw:
+        return {}
+    payload = json.loads(raw)
+    if not isinstance(payload, dict):
+        raise ValueError("Expected JSON object payload")
     return payload
 
 
@@ -112,6 +130,10 @@ def main(argv: Sequence[str] | None = None):
     macro_config_path = _resolve_repo_path(args.macro_config)
     kpi_contract_path = _resolve_repo_path(args.kpi_contract)
     base_cfg = load_config(base_config_path)
+    institution_policy_overlay = _load_inline_json_arg(args.institution_policy_overlay_json)
+    institution_offer_overlay = _load_inline_json_arg(args.institution_offer_overlay_json)
+    pilot_profile_overlay = _load_inline_json_arg(args.pilot_profile_overlay_json)
+    resolved_runtime_config = _load_inline_json_arg(args.resolved_runtime_config_json)
     feature_contract = load_feature_contract(_resolve_repo_path(base_cfg.get("features_config", "configs/features_48.yaml")))
     required_features = list(feature_contract["features"])
     target_column_name = str(feature_contract["target"])
@@ -132,6 +154,9 @@ def main(argv: Sequence[str] | None = None):
             "group_feature": str(args.group_feature).strip() or resolved_mapping.group_feature_name,
             "n_customers": n_customers,
             "sample_seed": int(args.sample_seed),
+            "institution_profile_key": str(args.institution_profile_key).strip(),
+            "policy_version_evaluated": str(args.policy_version_evaluated).strip(),
+            "refresh_run_id": str(args.refresh_run_id).strip(),
             "configs": {
                 "base_config": str(base_config_path),
                 "model_config": str(model_config_path),
@@ -381,6 +406,8 @@ def main(argv: Sequence[str] | None = None):
             "batch_run_id": str(batch_run_ctx.run_id),
             "institution_name": bundle.institution.institution_name,
             "group_feature_name": group_feature,
+            "institution_profile_key": str(args.institution_profile_key).strip(),
+            "refresh_run_id": str(args.refresh_run_id).strip(),
         },
     )
     (run_ctx.tables_dir / "release_evidence_pack.json").write_text(
@@ -416,6 +443,22 @@ def main(argv: Sequence[str] | None = None):
             "pilot_calibration_summary_json": "tables/pilot_calibration_summary.json",
         },
         mapping_provenance=pilot_input_manifest["mapping_provenance"],
+        overlay_provenance={
+            "institution_policy": institution_policy_overlay,
+            "institution_offer": institution_offer_overlay,
+            "pilot_profile": pilot_profile_overlay,
+        },
+        refresh_provenance={
+            "refresh_run_id": str(args.refresh_run_id).strip(),
+        },
+        resolved_runtime_config=resolved_runtime_config,
+        institution_profile_key=str(args.institution_profile_key).strip(),
+        policy_version_evaluated=str(args.policy_version_evaluated).strip(),
+        explanation_artifacts={
+            "decision_explanation_packs_root": str(args.explanation_pack_root).strip(),
+        }
+        if str(args.explanation_pack_root).strip()
+        else {},
     )
     (run_ctx.tables_dir / "pilot_package_manifest.json").write_text(
         manifest.model_dump_json(indent=2),
