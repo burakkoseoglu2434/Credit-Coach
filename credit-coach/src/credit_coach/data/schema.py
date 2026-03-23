@@ -29,6 +29,9 @@ from credit_coach.utils.time import utc_now
 
 
 ActionClass = Literal["behavioral", "structural", "institutional"]
+PlanSource = Literal["internal", "dice", "rule", "fallback"]
+PlanContenderBucket = Literal["ACTIONABLE", "APPROVAL_SHELL_ONLY", "EMPTY"]
+PlanEmptyReason = Literal["ZERO_ACTION", "SEMANTIC_EMPTY"]
 ConstraintFamily = Literal["capacity", "policy", "dependency", "interaction", "semantic", "documentation"]
 ActionConstraintStatus = Literal["valid", "clipped", "repaired", "provisional", "invalid"]
 PlanConstraintStatus = Literal["valid", "repaired", "provisional", "invalid"]
@@ -1020,6 +1023,26 @@ class PlanRecord(BaseModel):
     trajectory_checkpoints: list[TrajectoryCheckpoint] = Field(
         default_factory=list,
         description="Canonical 4w/12w/24w trajectory checkpoint listesi",
+    )
+    plan_source: PlanSource | None = Field(
+        default=None,
+        description="Canonical planner/source provenance lane",
+    )
+    contender_bucket: PlanContenderBucket | None = Field(
+        default=None,
+        description="Planner-quality contender bucket classification",
+    )
+    empty_candidate_reason: PlanEmptyReason | None = Field(
+        default=None,
+        description="Diagnostic reason when a contender is filtered as empty",
+    )
+    approval_shell_only_flag: bool = Field(
+        default=False,
+        description="Plan sadece approval-dependent shell olarak mi tasiniyor",
+    )
+    offer_maturity: OfferMaturity | None = Field(
+        default=None,
+        description="Planner-level offer maturity truth for candidate quality",
     )
 
     # Risk metrikleri

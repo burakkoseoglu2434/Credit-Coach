@@ -56,6 +56,7 @@ from credit_coach.utils.run_context import create_run_context, load_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("run_customer_artifact_collection")
+_CANDIDATE_SOURCE_CATALOG: tuple[str, ...] = ("internal", "dice", "rule", "fallback")
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -281,6 +282,21 @@ def _augment_metrics_row(
     roadmap_summary = _normalized_roadmap_summary(result.bundle)
     best_cost = float(pd.to_numeric(result.bundle.roadmap_steps_df.get("estimated_cost_usd", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
     metrics = dict(result.bundle.metrics_summary)
+    candidate_pool_df = result.candidate_pool_df.copy()
+    if "plan_source" in candidate_pool_df.columns:
+        source_counts = candidate_pool_df["plan_source"].astype(str).value_counts().to_dict()
+    else:
+        source_counts = {}
+    candidate_count = int(metrics.get("candidate_pool_count", len(candidate_pool_df)))
+    if "contender_bucket" in candidate_pool_df.columns:
+        contender_bucket = candidate_pool_df["contender_bucket"].astype(str).str.upper()
+        non_empty_count = int((contender_bucket != "EMPTY").sum())
+        approval_shell_only_count = int((contender_bucket == "APPROVAL_SHELL_ONLY").sum())
+        empty_removed_count = int((contender_bucket == "EMPTY").sum())
+    else:
+        non_empty_count = int(metrics.get("candidate_non_empty_count", candidate_count))
+        approval_shell_only_count = int(metrics.get("candidate_approval_shell_only_count", 0))
+        empty_removed_count = int(metrics.get("candidate_empty_removed_count", 0))
     metrics.update(
         {
             "collection_run_id": str(collection_run_id),
@@ -299,6 +315,16 @@ def _augment_metrics_row(
                 roadmap_summary.get("combined_plan_realization_probability"),
                 0.0,
             ),
+            "best_contender_bucket": str(metrics.get("best_contender_bucket", "") or ""),
+            "best_offer_maturity": str(metrics.get("best_offer_maturity", roadmap_summary.get("offer_maturity", "none")) or "none"),
+            "candidate_pool_diversity_index": _safe_float(metrics.get("candidate_pool_diversity_index", 0.0), 0.0),
+            "candidate_source_entropy": _safe_float(metrics.get("candidate_source_entropy", 0.0), 0.0),
+            "candidate_non_empty_count": non_empty_count,
+            "candidate_approval_shell_only_count": approval_shell_only_count,
+            "candidate_empty_removed_count": empty_removed_count,
+            "offer_ready_contender_share": _safe_float(metrics.get("offer_ready_contender_share", 0.0), 0.0),
+            "provisional_offer_share": _safe_float(metrics.get("provisional_offer_share", 0.0), 0.0),
+            "approval_shell_only_share": _safe_float(metrics.get("approval_shell_only_share", 0.0), 0.0),
             "data_issue_codes_json": _json_dumps_compact(list(roadmap_summary.get("data_issue_codes", []))),
             "offer_needed_flag": "offer_needed"
             if (
@@ -309,6 +335,11 @@ def _augment_metrics_row(
             else "no_offer_needed",
         }
     )
+    for source in _CANDIDATE_SOURCE_CATALOG:
+        metrics[f"candidate_source_{source}_count"] = int(metrics.get(f"candidate_source_{source}_count", source_counts.get(source, 0)))
+        metrics[f"candidate_source_{source}_present"] = int(
+            metrics.get(f"candidate_source_{source}_present", int(source_counts.get(source, 0) > 0))
+        )
     return metrics
 
 
@@ -321,6 +352,16 @@ def _augment_plans_df(
 ) -> pd.DataFrame:
     summary = _normalized_roadmap_summary(bundle)
     out = plans_df.copy()
+    if "plan_source" not in out.columns:
+        out["plan_source"] = ""
+    if "contender_bucket" not in out.columns:
+        out["contender_bucket"] = ""
+    if "empty_candidate_reason" not in out.columns:
+        out["empty_candidate_reason"] = ""
+    if "approval_shell_only_flag" not in out.columns:
+        out["approval_shell_only_flag"] = 0
+    if "offer_maturity" not in out.columns:
+        out["offer_maturity"] = "none"
     out.insert(0, "collection_run_id", str(collection_run_id))
     out.insert(1, "batch_index", int(selection_row["batch_index"]))
     out.insert(2, "source_row_index", int(selection_row["source_row_index"]))
@@ -446,6 +487,31 @@ def _collection_summary_markdown(
         ]
     ) or "n/a"
     review_guidance_summary = " | ".join([_safe_text(item) for item in review_guidance]) or "n/a"
+    best_source_counts = (
+        metrics_df.get("best_plan_source", pd.Series(dtype=object)).astype(str).value_counts().sort_index().to_dict()
+    )
+    mean_source_entropy = _safe_float(metrics_df.get("candidate_source_entropy", pd.Series(dtype=float)).mean(), 0.0)
+    mean_pool_diversity = _safe_float(metrics_df.get("candidate_pool_diversity_index", pd.Series(dtype=float)).mean(), 0.0)
+    non_empty_share = _safe_float(
+        (
+            pd.to_numeric(metrics_df.get("candidate_non_empty_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
+            / pd.to_numeric(metrics_df.get("candidate_pool_count", pd.Series(dtype=float)), errors="coerce").replace(0, pd.NA)
+        ).fillna(0.0).mean(),
+        0.0,
+    )
+    offer_ready_share = _safe_float(metrics_df.get("offer_ready_contender_share", pd.Series(dtype=float)).mean(), 0.0)
+    provisional_offer_share = _safe_float(metrics_df.get("provisional_offer_share", pd.Series(dtype=float)).mean(), 0.0)
+    approval_shell_only_share = _safe_float(metrics_df.get("approval_shell_only_share", pd.Series(dtype=float)).mean(), 0.0)
+    best_action_class_dominance = 0.0
+    best_action_family_dominance = 0.0
+    if not steps_df.empty and "action_class" in steps_df.columns:
+        class_counts = steps_df["action_class"].astype(str).value_counts()
+        if not class_counts.empty:
+            best_action_class_dominance = float(class_counts.iloc[0] / max(1, int(class_counts.sum())))
+    if not steps_df.empty and "action_key" in steps_df.columns:
+        family_counts = steps_df["action_key"].astype(str).value_counts()
+        if not family_counts.empty:
+            best_action_family_dominance = float(family_counts.iloc[0] / max(1, int(family_counts.sum())))
     return "\n".join(
         [
             "# Customer Artifact Collection",
@@ -491,6 +557,21 @@ def _collection_summary_markdown(
             f"- Candidate policies compared: {', '.join(calibration_summary.get('candidate_policy_versions_compared', []) or []) or 'n/a'}",
             f"- Baseline north-star pass: {bool(dict(calibration_summary.get('baseline_policy_metrics', {})).get('north_star_pass', False))}",
             f"- Baseline false-positive proxy: {_safe_float(dict(calibration_summary.get('baseline_policy_metrics', {})).get('false_positive_proxy'), 0.0):.4f}",
+            "",
+            "## Planner Source Mix",
+            f"- Best-plan source distribution: {best_source_counts or '{}'}",
+            f"- Mean candidate source entropy: {mean_source_entropy:.4f}",
+            f"- Mean candidate pool diversity index: {mean_pool_diversity:.4f}",
+            f"- Internal vs dice competitiveness: internal={_safe_float((metrics_df.get('best_plan_source', pd.Series(dtype=object)).astype(str) == 'internal').mean(), 0.0):.4f}, dice={_safe_float((metrics_df.get('best_plan_source', pd.Series(dtype=object)).astype(str) == 'dice').mean(), 0.0):.4f}",
+            f"- Recovery lanes: rule={_safe_float((metrics_df.get('best_plan_source', pd.Series(dtype=object)).astype(str) == 'rule').mean(), 0.0):.4f}, fallback={_safe_float((metrics_df.get('best_plan_source', pd.Series(dtype=object)).astype(str) == 'fallback').mean(), 0.0):.4f}",
+            "",
+            "## Planner Quality",
+            f"- Non-empty contender share: {non_empty_share:.4f}",
+            f"- Offer-ready contender share: {offer_ready_share:.4f}",
+            f"- Provisional offer share: {provisional_offer_share:.4f}",
+            f"- Approval-shell-only share: {approval_shell_only_share:.4f}",
+            f"- Best action-class dominance: {best_action_class_dominance:.4f}",
+            f"- Best action-family dominance: {best_action_family_dominance:.4f}",
             "",
             "## Operator Review",
             f"- Likely-to-upgrade-soon queue: {int(next((queue.get('count', 0) for queue in priority_queues if str(queue.get('queue_key')) == 'likely_to_upgrade_soon'), 0))}",
@@ -867,6 +948,38 @@ def main(argv: Sequence[str] | None = None):
         "readiness_summary": readiness_summary,
         "calibration_summary": calibration_summary,
         "operator_briefing_summary": operator_briefing,
+        "source_mix_summary": {
+            "best_source_distribution": metrics_df.get("best_plan_source", pd.Series(dtype=object)).astype(str).value_counts().sort_index().to_dict(),
+            "mean_candidate_source_entropy": _safe_float(
+                metrics_df.get("candidate_source_entropy", pd.Series(dtype=float)).mean(),
+                0.0,
+            ),
+            "mean_candidate_pool_diversity_index": _safe_float(
+                metrics_df.get("candidate_pool_diversity_index", pd.Series(dtype=float)).mean(),
+                0.0,
+            ),
+        },
+        "plan_quality_summary": {
+            "non_empty_contender_share": _safe_float(
+                (
+                    pd.to_numeric(metrics_df.get("candidate_non_empty_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
+                    / pd.to_numeric(metrics_df.get("candidate_pool_count", pd.Series(dtype=float)), errors="coerce").replace(0, pd.NA)
+                ).fillna(0.0).mean(),
+                0.0,
+            ),
+            "offer_ready_contender_share": _safe_float(
+                metrics_df.get("offer_ready_contender_share", pd.Series(dtype=float)).mean(),
+                0.0,
+            ),
+            "provisional_offer_share": _safe_float(
+                metrics_df.get("provisional_offer_share", pd.Series(dtype=float)).mean(),
+                0.0,
+            ),
+            "approval_shell_only_share": _safe_float(
+                metrics_df.get("approval_shell_only_share", pd.Series(dtype=float)).mean(),
+                0.0,
+            ),
+        },
         "contract_health": {
             "critical_field_null_rate": _safe_float(
                 metrics_df.get("critical_field_null_count", pd.Series(dtype=float)).gt(0).mean(),

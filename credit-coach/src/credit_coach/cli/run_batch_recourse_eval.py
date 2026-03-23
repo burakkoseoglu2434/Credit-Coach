@@ -15,7 +15,18 @@ import pandas as pd
 from credit_coach.causality.action_constraints import causal_penalty
 from credit_coach.causality.graph_utils import load_graph
 from credit_coach.coaching.loop import run_weekly_coaching_loop
-from credit_coach.coaching.planner import choose_best_plan
+from credit_coach.coaching.planner import (
+    CANDIDATE_SOURCE_CATALOG,
+    annotate_plan_planner_quality,
+    candidate_pool_diversity_index,
+    candidate_source_counts,
+    candidate_source_entropy,
+    canonical_plan_source,
+    choose_best_plan,
+    contender_bucket_counts,
+    execution_aware_value,
+    filter_empty_contenders,
+)
 from credit_coach.data.ingest import load_feature_contract
 from credit_coach.data.schema import PlanAction, PlanRecord
 from credit_coach.evaluation.fairness import (
@@ -70,8 +81,8 @@ _STATUS_PRIORITY = {
     "REJECTED": 2,
     "ERROR": 3,
 }
+_CANDIDATE_SOURCE_CATALOG = CANDIDATE_SOURCE_CATALOG
 
-_CANDIDATE_SOURCE_CATALOG: tuple[str, ...] = ("internal", "dice", "rule", "fallback")
 _HIGH_RISK_ACTIVATION_FLOOR = 0.05
 
 
@@ -2026,19 +2037,12 @@ def _candidate_rank_tuple(plan: PlanRecord) -> tuple:
 
 
 def _plan_source(plan: PlanRecord) -> str:
-    pid = str(plan.plan_id)
-    if "_fallback_" in pid:
-        return "fallback"
-    if "_dice_" in pid:
-        return "dice"
-    if "_rule_" in pid:
-        return "rule"
-    return "internal"
+    return canonical_plan_source(plan)
 
 
 def _plan_signature(plan: PlanRecord) -> tuple[str, ...]:
-    feats = sorted({str(a.feature_name) for a in plan.actions})
-    return tuple(feats)
+    feats = sorted({str(getattr(action, "feature_name", "") or "") for action in list(getattr(plan, "actions", []) or [])})
+    return tuple(feature for feature in feats if feature)
 
 
 def _jaccard_distance(a: tuple[str, ...], b: tuple[str, ...]) -> float:
@@ -2052,35 +2056,11 @@ def _jaccard_distance(a: tuple[str, ...], b: tuple[str, ...]) -> float:
 
 
 def _candidate_source_entropy(plans: list[PlanRecord]) -> float:
-    if not plans:
-        return 0.0
-    counts: dict[str, int] = {}
-    for p in plans:
-        src = _plan_source(p)
-        counts[src] = counts.get(src, 0) + 1
-    total = float(len(plans))
-    entropy = 0.0
-    for c in counts.values():
-        p = float(c) / total
-        if p > 0:
-            entropy -= p * math.log(p, 2.0)
-    max_entropy = math.log(max(1, len(counts)), 2.0)
-    if max_entropy <= 0:
-        return 0.0
-    return float(entropy / max_entropy)
+    return candidate_source_entropy(plans)
 
 
 def _candidate_pool_diversity_index(plans: list[PlanRecord]) -> float:
-    if len(plans) <= 1:
-        return 0.0
-    sigs = [_plan_signature(p) for p in plans]
-    distances: list[float] = []
-    for i in range(len(sigs)):
-        for j in range(i + 1, len(sigs)):
-            distances.append(_jaccard_distance(sigs[i], sigs[j]))
-    if not distances:
-        return 0.0
-    return float(np.mean(np.asarray(distances, dtype=float)))
+    return candidate_pool_diversity_index(plans)
 
 
 def _plan_gate_margin(
@@ -2744,9 +2724,18 @@ def _candidate_quality_metrics_for_population(rows: pd.DataFrame) -> dict[str, f
         return {
             "candidate_pool_diversity_index": 0.0,
             "candidate_source_entropy": 0.0,
+            "non_empty_contender_share": 0.0,
+            "approved_or_conditional_contender_share": 0.0,
+            "mean_execution_aware_value": 0.0,
+            "offer_ready_contender_share": 0.0,
+            "provisional_offer_share": 0.0,
+            "approval_shell_only_share": 0.0,
             **{f"best_source_{source}_rate": 0.0 for source in _CANDIDATE_SOURCE_CATALOG},
         }
     best_source = rows.get("best_source", pd.Series([""] * len(rows))).astype(str).str.strip().str.lower()
+    contender_bucket = rows.get("best_contender_bucket", pd.Series([""] * len(rows))).astype(str).str.strip().str.upper()
+    best_status = rows.get("best_status", pd.Series([""] * len(rows))).astype(str).str.strip().str.upper()
+    offer_maturity = rows.get("best_offer_maturity", pd.Series(["none"] * len(rows))).astype(str).str.strip().str.lower()
     metrics = {
         "candidate_pool_diversity_index": _round_metric(
             pd.to_numeric(rows.get("candidate_pool_diversity_index", pd.Series([0.0] * len(rows))), errors="coerce")
@@ -2758,6 +2747,16 @@ def _candidate_quality_metrics_for_population(rows: pd.DataFrame) -> dict[str, f
             .fillna(0.0)
             .mean()
         ),
+        "non_empty_contender_share": _round_metric((contender_bucket != "EMPTY").mean()),
+        "approved_or_conditional_contender_share": _round_metric(best_status.isin(["APPROVED", "NEEDS_REVIEW"]).mean()),
+        "mean_execution_aware_value": _round_metric(
+            pd.to_numeric(rows.get("best_execution_aware_value", pd.Series([0.0] * len(rows))), errors="coerce")
+            .fillna(0.0)
+            .mean()
+        ),
+        "offer_ready_contender_share": _round_metric((offer_maturity == "active_rankable").mean()),
+        "provisional_offer_share": _round_metric((offer_maturity == "provisional").mean()),
+        "approval_shell_only_share": _round_metric((contender_bucket == "APPROVAL_SHELL_ONLY").mean()),
     }
     for source in _CANDIDATE_SOURCE_CATALOG:
         metrics[f"best_source_{source}_rate"] = _round_metric((best_source == source).mean())
@@ -3710,6 +3709,7 @@ def _dice_plan_record(
         horizon_months=6,
         strategy="balanced",
         actions=plan_actions,
+        plan_source=str(source_tag),
         predicted_pd=pred_pd,
         causal_penalty=cpen,
         score=score,
@@ -4708,10 +4708,29 @@ def main(argv: Sequence[str] | None = None):
                 min_reliability=min_reliability_f,
                 min_worst_risk_margin=min_worst_margin_f,
             )
+            candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
+            contender_counts = contender_bucket_counts(candidate_pool)
+            source_counts = candidate_source_counts(candidate_pool)
             out["candidate_pool_count"] = int(len(candidate_pool))
             out["candidate_pool_approved_count"] = int(sum(1 for p in candidate_pool if p.status == "APPROVED"))
             out["candidate_pool_diversity_index"] = _candidate_pool_diversity_index(candidate_pool)
             out["candidate_source_entropy"] = _candidate_source_entropy(candidate_pool)
+            out["candidate_non_empty_count"] = int(contender_counts["ACTIONABLE"] + contender_counts["APPROVAL_SHELL_ONLY"])
+            out["candidate_approval_shell_only_count"] = int(contender_counts["APPROVAL_SHELL_ONLY"])
+            out["candidate_empty_removed_count"] = int(contender_counts["EMPTY"])
+            out["candidate_offer_ready_share"] = float(
+                sum(1 for plan in candidate_pool if str(getattr(plan, "offer_maturity", "none")) == "active_rankable")
+                / max(1, len(candidate_pool))
+            )
+            out["candidate_provisional_offer_share"] = float(
+                sum(1 for plan in candidate_pool if str(getattr(plan, "offer_maturity", "none")) == "provisional")
+                / max(1, len(candidate_pool))
+            )
+            out["candidate_approval_shell_only_share"] = float(
+                contender_counts["APPROVAL_SHELL_ONLY"] / max(1, len(candidate_pool))
+            )
+            for source in _CANDIDATE_SOURCE_CATALOG:
+                out[f"candidate_source_{source}_count"] = int(source_counts.get(source, 0))
             elapsed_after_pool_ms = float((time.perf_counter() - t0) * 1000.0)
             fallback_enabled = bool(search_cfg.get("enable_deterministic_fallback", True))
             time_budget_exceeded = bool(time_budget_ms > 0 and elapsed_after_pool_ms >= float(time_budget_ms))
@@ -4727,10 +4746,15 @@ def main(argv: Sequence[str] | None = None):
                         min_worst_risk_margin=min_worst_margin_f,
                     ),
                 )[: max(1, min(hard_cap_keep, len(validated)))]
+                candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
+                contender_counts = contender_bucket_counts(candidate_pool)
                 out["candidate_pool_count"] = int(len(candidate_pool))
                 out["candidate_pool_approved_count"] = int(sum(1 for p in candidate_pool if p.status == "APPROVED"))
                 out["candidate_pool_diversity_index"] = _candidate_pool_diversity_index(candidate_pool)
                 out["candidate_source_entropy"] = _candidate_source_entropy(candidate_pool)
+                out["candidate_non_empty_count"] = int(contender_counts["ACTIONABLE"] + contender_counts["APPROVAL_SHELL_ONLY"])
+                out["candidate_approval_shell_only_count"] = int(contender_counts["APPROVAL_SHELL_ONLY"])
+                out["candidate_empty_removed_count"] = int(contender_counts["EMPTY"])
                 out["fallback_triggered"] = 1
                 out["fallback_reason"] = "budget_hard_cap_internal_only"
             if (not candidate_pool) and fallback_enabled:
@@ -4772,16 +4796,31 @@ def main(argv: Sequence[str] | None = None):
                         segment_context=segment_context,
                     )
                     candidate_pool = [fp]
+                    candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
                     out["candidate_pool_count"] = 1
                     out["candidate_pool_approved_count"] = int(fp.status == "APPROVED")
                     out["candidate_pool_diversity_index"] = 0.0
                     out["candidate_source_entropy"] = 0.0
+                    out["candidate_non_empty_count"] = 1
+                    out["candidate_approval_shell_only_count"] = int(
+                        str(getattr(candidate_pool[0], "contender_bucket", "") or "") == "APPROVAL_SHELL_ONLY"
+                    )
+                    out["candidate_empty_removed_count"] = int(
+                        str(getattr(candidate_pool[0], "contender_bucket", "") or "") == "EMPTY"
+                    )
                     out["fallback_triggered"] = 1
                     out["fallback_reason"] = "time_budget_exceeded" if time_budget_exceeded else "empty_candidate_pool"
             out["approved_plan_count"] = int(out["candidate_pool_approved_count"])
             out["had_any_candidate"] = int(out["candidate_pool_count"] > 0)
             out["gate_pass_any_candidate"] = int(out["candidate_pool_approved_count"] > 0)
             candidate_pool_for_best = _prefer_non_rejected_candidates(candidate_pool)
+            filtered_candidate_pool, removed_empty_candidates = filter_empty_contenders(candidate_pool_for_best)
+            if filtered_candidate_pool:
+                candidate_pool_for_best = filtered_candidate_pool
+            out["candidate_empty_removed_count"] = max(
+                int(out.get("candidate_empty_removed_count", 0)),
+                int(len(removed_empty_candidates)),
+            )
 
             best = choose_best_plan(
                 candidate_pool_for_best,
@@ -4798,6 +4837,8 @@ def main(argv: Sequence[str] | None = None):
             out["best_status_reason"] = str(best.status_reason or "")
             out["best_constraint_status"] = str(getattr(best, "constraint_status", "valid") or "valid")
             out["best_source"] = _plan_source(best)
+            out["best_contender_bucket"] = str(getattr(best, "contender_bucket", "") or "")
+            out["best_offer_maturity"] = str(getattr(best, "offer_maturity", "none") or "none")
             out["best_plan_id"] = str(best.plan_id)
             out["best_horizon_months"] = int(best.horizon_months)
             out["best_strategy"] = str(best.strategy)
@@ -4809,6 +4850,7 @@ def main(argv: Sequence[str] | None = None):
                 getattr(best, "plan_execution_probability", 0.0),
                 0.0,
             )
+            out["best_execution_aware_value"] = execution_aware_value(best, base_pd=base_pd_i, tau=tau)
             out["best_mean_action_execution_probability"] = _safe_float(
                 getattr(best, "mean_action_execution_probability", 0.0),
                 0.0,

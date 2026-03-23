@@ -1473,6 +1473,7 @@ def generate_plan_record(
         horizon_months=horizon_months,
         strategy=strategy,
         actions=actions,
+        plan_source="internal",
         predicted_pd=pred_pd,
         reliability=reliability,
         robust_score=robust_score,

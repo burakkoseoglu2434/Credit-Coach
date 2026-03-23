@@ -595,6 +595,18 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert (metrics_df["checkpoint_status_4w"] == "at_risk").all()
     assert "data_issue_codes_json" in metrics_df.columns
     assert "offer_needed_flag" in metrics_df.columns
+    assert "candidate_pool_diversity_index" in metrics_df.columns
+    assert "candidate_source_entropy" in metrics_df.columns
+    assert "candidate_source_internal_count" in metrics_df.columns
+    assert "candidate_source_internal_present" in metrics_df.columns
+    assert "candidate_non_empty_count" in metrics_df.columns
+    assert "candidate_approval_shell_only_count" in metrics_df.columns
+    assert "candidate_empty_removed_count" in metrics_df.columns
+    assert "offer_ready_contender_share" in metrics_df.columns
+    assert "provisional_offer_share" in metrics_df.columns
+    assert "approval_shell_only_share" in metrics_df.columns
+    assert "best_contender_bucket" in metrics_df.columns
+    assert "best_offer_maturity" in metrics_df.columns
     assert "operator_packet_relpath" in metrics_df.columns
     assert "operator_top_blocker_codes_json" in metrics_df.columns
     assert "operator_next_best_action_keys_json" in metrics_df.columns
@@ -609,6 +621,8 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
 
     manifest = json.loads((collection_root / "collection_manifest.json").read_text(encoding="utf-8"))
     assert "contract_health" in manifest
+    assert "source_mix_summary" in manifest
+    assert "plan_quality_summary" in manifest
     assert "raw_flat_mismatch_count" in manifest["contract_health"]
     assert manifest["selection_policy_name"] == "denied_first_near"
     assert "funnel_summary" in manifest
@@ -629,6 +643,8 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "## Decision Funnel" in summary_md
     assert "## Readiness" in summary_md
     assert "## Calibration" in summary_md
+    assert "## Planner Source Mix" in summary_md
+    assert "## Planner Quality" in summary_md
     assert "## Operator Review" in summary_md
     assert "Likely-to-upgrade-soon queue" in summary_md
     assert "analysis-only" in review_md

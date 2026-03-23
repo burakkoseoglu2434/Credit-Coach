@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from credit_coach.data.schema import PlanRecord
@@ -21,6 +22,14 @@ _CONSTRAINT_PRIORITY = {
     "provisional": 2,
     "invalid": 3,
 }
+CANDIDATE_SOURCE_CATALOG: tuple[str, ...] = ("internal", "dice", "rule", "fallback")
+_SOURCE_TIE_PRIORITY = {source: idx for idx, source in enumerate(CANDIDATE_SOURCE_CATALOG)}
+_CONTENDER_BUCKET_PRIORITY = {
+    "ACTIONABLE": 0,
+    "APPROVAL_SHELL_ONLY": 1,
+    "EMPTY": 2,
+}
+_VALID_OFFER_MATURITY = {"none", "inactive", "provisional", "active_rankable"}
 
 
 def _safe_float(v, default: float = 0.0) -> float:
@@ -35,6 +44,170 @@ def _safe_int(v, default: int = 0) -> int:
         return int(v)
     except Exception:
         return int(default)
+
+
+def canonical_plan_source(plan: PlanRecord) -> str:
+    explicit = str(getattr(plan, "plan_source", "") or "").strip().lower()
+    if explicit in CANDIDATE_SOURCE_CATALOG:
+        return explicit
+    pid = str(getattr(plan, "plan_id", "") or "")
+    if "_fallback_" in pid:
+        return "fallback"
+    if "_dice_" in pid:
+        return "dice"
+    if "_rule_" in pid:
+        return "rule"
+    return "internal"
+
+
+def _normalized_offer_maturity(plan: PlanRecord) -> str:
+    explicit = str(getattr(plan, "offer_maturity", "") or "").strip().lower()
+    if explicit in _VALID_OFFER_MATURITY:
+        return explicit
+    if not bool(getattr(plan, "offer_plan", False)):
+        return "none"
+    if _safe_int(getattr(plan, "approval_pending_action_count", 0), 0) > 0:
+        return "provisional"
+    if _safe_int(getattr(plan, "rankable_offer_count", 0), 0) > 0:
+        return "active_rankable"
+    return "inactive"
+
+
+def _action_has_business_semantics(action: Any) -> bool:
+    return any(
+        str(getattr(action, field, "") or "").strip()
+        for field in ("action_key", "action_title", "action_family", "action_class")
+    )
+
+
+def _approval_shell_only(plan: PlanRecord) -> bool:
+    actions = list(getattr(plan, "actions", []) or [])
+    if not actions:
+        return False
+    executable_count = _safe_int(getattr(plan, "executable_action_count", 0), 0)
+    if executable_count > 0:
+        return False
+    approval_pending_count = _safe_int(getattr(plan, "approval_pending_action_count", 0), 0)
+    if approval_pending_count >= len(actions):
+        return True
+    approval_only_flags = [
+        bool(getattr(action, "approval_pending_semantic_only", False))
+        or str(getattr(action, "institutional_approval_state", "") or "").strip().lower() == "pending"
+        for action in actions
+    ]
+    return bool(approval_only_flags) and all(approval_only_flags)
+
+
+def classify_plan_contender(plan: PlanRecord) -> tuple[str, str | None]:
+    actions = list(getattr(plan, "actions", []) or [])
+    if not actions:
+        return "EMPTY", "ZERO_ACTION"
+    if _approval_shell_only(plan):
+        return "APPROVAL_SHELL_ONLY", None
+    visible_actions = [
+        action
+        for action in actions
+        if _action_has_business_semantics(action)
+        and str(getattr(action, "action_status", "") or "").strip().lower() != "invalid"
+    ]
+    if visible_actions:
+        return "ACTIONABLE", None
+    if str(getattr(plan, "constraint_status", "valid") or "valid").strip().lower() == "invalid":
+        return "EMPTY", "SEMANTIC_EMPTY"
+    return "EMPTY", "SEMANTIC_EMPTY"
+
+
+def annotate_plan_planner_quality(plan: PlanRecord) -> PlanRecord:
+    plan.plan_source = canonical_plan_source(plan)
+    contender_bucket, empty_reason = classify_plan_contender(plan)
+    plan.contender_bucket = contender_bucket
+    plan.empty_candidate_reason = empty_reason
+    plan.approval_shell_only_flag = contender_bucket == "APPROVAL_SHELL_ONLY"
+    plan.offer_maturity = _normalized_offer_maturity(plan)
+    return plan
+
+
+def filter_empty_contenders(plans: list[PlanRecord]) -> tuple[list[PlanRecord], list[PlanRecord]]:
+    annotated = [annotate_plan_planner_quality(plan) for plan in plans]
+    kept = [plan for plan in annotated if str(getattr(plan, "contender_bucket", "") or "").upper() != "EMPTY"]
+    removed = [plan for plan in annotated if str(getattr(plan, "contender_bucket", "") or "").upper() == "EMPTY"]
+    return kept, removed
+
+
+def candidate_source_counts(plans: list[PlanRecord]) -> dict[str, int]:
+    counts = {source: 0 for source in CANDIDATE_SOURCE_CATALOG}
+    for plan in plans:
+        counts[canonical_plan_source(plan)] += 1
+    return counts
+
+
+def candidate_source_presence_flags(plans: list[PlanRecord]) -> dict[str, int]:
+    counts = candidate_source_counts(plans)
+    return {source: int(counts.get(source, 0) > 0) for source in CANDIDATE_SOURCE_CATALOG}
+
+
+def contender_bucket_counts(plans: list[PlanRecord]) -> dict[str, int]:
+    counts = {"ACTIONABLE": 0, "APPROVAL_SHELL_ONLY": 0, "EMPTY": 0}
+    for plan in plans:
+        annotate_plan_planner_quality(plan)
+        bucket = str(getattr(plan, "contender_bucket", "") or "").strip().upper()
+        if bucket in counts:
+            counts[bucket] += 1
+    return counts
+
+
+def _plan_signature(plan: PlanRecord) -> tuple[str, ...]:
+    feats = sorted({str(getattr(action, "feature_name", "") or "") for action in list(getattr(plan, "actions", []) or [])})
+    return tuple(feature for feature in feats if feature)
+
+
+def _jaccard_distance(a: tuple[str, ...], b: tuple[str, ...]) -> float:
+    sa, sb = set(a), set(b)
+    if not sa and not sb:
+        return 0.0
+    union = len(sa | sb)
+    if union <= 0:
+        return 0.0
+    return float(1.0 - (len(sa & sb) / union))
+
+
+def candidate_pool_diversity_index(plans: list[PlanRecord]) -> float:
+    if len(plans) <= 1:
+        return 0.0
+    sigs = [_plan_signature(plan) for plan in plans]
+    distances: list[float] = []
+    for i in range(len(sigs)):
+        for j in range(i + 1, len(sigs)):
+            distances.append(_jaccard_distance(sigs[i], sigs[j]))
+    if not distances:
+        return 0.0
+    return float(sum(distances) / float(len(distances)))
+
+
+def candidate_source_entropy(plans: list[PlanRecord]) -> float:
+    if not plans:
+        return 0.0
+    counts = candidate_source_counts(plans)
+    total = float(len(plans))
+    nonzero = [count for count in counts.values() if count > 0]
+    if not nonzero:
+        return 0.0
+    entropy = 0.0
+    for count in nonzero:
+        probability = float(count) / total
+        if probability > 0.0:
+            entropy -= probability * math.log(probability, 2.0)
+    max_entropy = math.log(max(1, len(nonzero)), 2.0)
+    if max_entropy <= 0.0:
+        return 0.0
+    return float(entropy / max_entropy)
+
+
+def execution_aware_value(plan: PlanRecord, *, base_pd: float | None = None, tau: float | None = None) -> float:
+    explicit = getattr(plan, "expected_recovery_proxy", None)
+    if explicit is not None:
+        return max(0.0, _safe_float(explicit, 0.0))
+    return _expected_pd_improvement(plan, base_pd=base_pd, tau=tau)
 
 
 def _plan_cost(plan: PlanRecord) -> float:
@@ -294,6 +467,114 @@ def _phase_aware_priority_score(
     if bool(consistency["checkpoint_inconsistency_flag"]):
         score -= 10.0
     return float(score)
+
+
+def _contender_bucket_priority(plan: PlanRecord) -> int:
+    annotate_plan_planner_quality(plan)
+    bucket = str(getattr(plan, "contender_bucket", "") or "").strip().upper()
+    return int(_CONTENDER_BUCKET_PRIORITY.get(bucket, 3))
+
+
+def _offer_maturity_penalty(plan: PlanRecord) -> int:
+    maturity = _normalized_offer_maturity(plan)
+    if maturity in {"none", "active_rankable"}:
+        return 0
+    if maturity == "provisional":
+        return 1
+    return 2
+
+
+def _source_tie_rank(plan: PlanRecord) -> int:
+    return int(_SOURCE_TIE_PRIORITY.get(canonical_plan_source(plan), len(_SOURCE_TIE_PRIORITY)))
+
+
+def _near_tie_signature(
+    plan: PlanRecord,
+    *,
+    tau: float | None,
+    min_reliability: float | None,
+    min_worst_risk_margin: float | None,
+) -> tuple[int, int, int, float]:
+    return (
+        _constraint_priority(plan),
+        _status_priority(plan.status),
+        _contender_bucket_priority(plan),
+        _gate_pass_score(
+            plan,
+            tau=tau,
+            min_reliability=min_reliability,
+            min_worst_risk_margin=min_worst_risk_margin,
+        ),
+    )
+
+
+def _is_near_tie(
+    leader: PlanRecord,
+    challenger: PlanRecord,
+    *,
+    base_pd: float | None,
+    tau: float | None,
+    min_reliability: float | None,
+    min_worst_risk_margin: float | None,
+) -> bool:
+    if _near_tie_signature(
+        leader,
+        tau=tau,
+        min_reliability=min_reliability,
+        min_worst_risk_margin=min_worst_risk_margin,
+    ) != _near_tie_signature(
+        challenger,
+        tau=tau,
+        min_reliability=min_reliability,
+        min_worst_risk_margin=min_worst_risk_margin,
+    ):
+        return False
+    if abs(_expected_pd_improvement(leader, base_pd=base_pd, tau=tau) - _expected_pd_improvement(challenger, base_pd=base_pd, tau=tau)) > 0.01:
+        return False
+    if abs(_plan_execution_probability(leader) - _plan_execution_probability(challenger)) > 0.08:
+        return False
+    if abs(_plan_cost(leader) - _plan_cost(challenger)) > 150.0:
+        return False
+    if abs(_safe_float(getattr(leader, "predicted_pd", 1.0), 1.0) - _safe_float(getattr(challenger, "predicted_pd", 1.0), 1.0)) > 0.02:
+        return False
+    return True
+
+
+def _select_with_source_tiebreak(
+    ranked: list[PlanRecord],
+    *,
+    base_pd: float | None,
+    tau: float | None,
+    min_reliability: float | None,
+    min_worst_risk_margin: float | None,
+) -> PlanRecord:
+    leader = ranked[0]
+    tie_group = [leader]
+    for challenger in ranked[1:]:
+        if not _is_near_tie(
+            leader,
+            challenger,
+            base_pd=base_pd,
+            tau=tau,
+            min_reliability=min_reliability,
+            min_worst_risk_margin=min_worst_risk_margin,
+        ):
+            break
+        tie_group.append(challenger)
+    if len(tie_group) == 1:
+        return leader
+    if len({canonical_plan_source(plan) for plan in tie_group}) == 1:
+        return leader
+    return sorted(
+        tie_group,
+        key=lambda plan: (
+            _source_tie_rank(plan),
+            _offer_maturity_penalty(plan),
+            _plan_cost(plan),
+            int(len(list(getattr(plan, "actions", []) or []))),
+            float(getattr(plan, "predicted_pd", 1.0) or 1.0),
+        ),
+    )[0]
 
 
 def _trajectory_policy_label(
@@ -721,6 +1002,7 @@ def _denied_sort_key(
     return (
         _constraint_priority(plan),
         _status_priority(plan.status),
+        _contender_bucket_priority(plan),
         _gate_total_violation(
             plan,
             tau=tau,
@@ -746,6 +1028,7 @@ def _denied_sort_key(
         -_expected_pd_improvement(plan, base_pd=base_pd, tau=tau),
         -_plan_execution_probability(plan),
         -_expected_recovery_proxy(plan),
+        _offer_maturity_penalty(plan),
         int(len(plan.actions)),
         _plan_cost(plan),
         plan.predicted_pd or 1.0,
@@ -805,6 +1088,7 @@ def _high_risk_sort_key(
     return (
         _constraint_priority(plan),
         _status_priority(plan.status),
+        _contender_bucket_priority(plan),
         float(high_violation),
         _execution_rank_penalty(
             plan,
@@ -824,6 +1108,7 @@ def _high_risk_sort_key(
         -_expected_pd_improvement(plan, base_pd=base_pd, tau=tau),
         -_plan_execution_probability(plan),
         -_expected_recovery_proxy(plan),
+        _offer_maturity_penalty(plan),
         -float(base_priority),
         int(len(plan.actions)),
         _plan_cost(plan),
@@ -846,6 +1131,7 @@ def choose_best_plan(
     if not plans:
         raise ValueError("No plans provided")
     for plan in plans:
+        annotate_plan_planner_quality(plan)
         _annotate_trajectory_policy(
             plan,
             base_pd=base_pd,
@@ -853,6 +1139,9 @@ def choose_best_plan(
             segment_context=segment_context,
         )
     candidates = _prefer_non_rejected(_prefer_constraint_eligible(plans))
+    filtered_candidates, _removed_empty_candidates = filter_empty_contenders(candidates)
+    if filtered_candidates:
+        candidates = filtered_candidates
 
     # fairness_penalty remains part of generator scoring, but plan selection
     # enforces a deterministic user-facing tie-break rule.
@@ -867,7 +1156,7 @@ def choose_best_plan(
     risk_band = str((segment_context or {}).get("risk_band", "")).strip().lower()
     is_denied_base = bool(base_pd is not None and tau is not None and float(base_pd) > float(tau))
     if denied_enabled and high_risk_enabled and risk_band == "high" and is_denied_base:
-        return sorted(
+        ranked = sorted(
             candidates,
             key=lambda p: _high_risk_sort_key(
                 p,
@@ -879,10 +1168,17 @@ def choose_best_plan(
                 fairness_penalty=float(fairness_penalty),
                 denied_objective_cfg=denied_objective_cfg,
             ),
-        )[0]
+        )
+        return _select_with_source_tiebreak(
+            ranked,
+            base_pd=base_pd,
+            tau=tau,
+            min_reliability=min_reliability,
+            min_worst_risk_margin=min_worst_risk_margin,
+        )
 
     if denied_mode and denied_enabled:
-        return sorted(
+        ranked = sorted(
             candidates,
             key=lambda p: _denied_sort_key(
                 p,
@@ -893,13 +1189,21 @@ def choose_best_plan(
                 denied_objective_cfg=denied_objective_cfg,
                 fairness_penalty=float(fairness_penalty),
             ),
-        )[0]
+        )
+        return _select_with_source_tiebreak(
+            ranked,
+            base_pd=base_pd,
+            tau=tau,
+            min_reliability=min_reliability,
+            min_worst_risk_margin=min_worst_risk_margin,
+        )
 
-    return sorted(
+    ranked = sorted(
         candidates,
         key=lambda p: (
             _constraint_priority(p),
             _status_priority(p.status),
+            _contender_bucket_priority(p),
             -_gate_pass_score(
                 p,
                 tau=tau,
@@ -924,9 +1228,17 @@ def choose_best_plan(
             -_expected_pd_improvement(p, base_pd=base_pd, tau=tau),
             -_plan_execution_probability(p),
             -_expected_recovery_proxy(p),
+            _offer_maturity_penalty(p),
             int(len(p.actions)),
             _plan_cost(p),
             p.predicted_pd or 1.0,
             -(p.robust_score if p.robust_score is not None else (p.score or -1e9)),
         ),
-    )[0]
+    )
+    return _select_with_source_tiebreak(
+        ranked,
+        base_pd=base_pd,
+        tau=tau,
+        min_reliability=min_reliability,
+        min_worst_risk_margin=min_worst_risk_margin,
+    )

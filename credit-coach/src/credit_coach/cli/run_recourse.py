@@ -17,7 +17,18 @@ from credit_coach.coaching.messaging import (
     build_adverse_action_reasons,
     build_customer_roadmap_narrative,
 )
-from credit_coach.coaching.planner import choose_best_plan
+from credit_coach.coaching.planner import (
+    CANDIDATE_SOURCE_CATALOG,
+    annotate_plan_planner_quality,
+    candidate_pool_diversity_index,
+    candidate_source_counts,
+    candidate_source_entropy,
+    candidate_source_presence_flags,
+    choose_best_plan,
+    contender_bucket_counts,
+    execution_aware_value,
+    filter_empty_contenders,
+)
 from credit_coach.data.ingest import load_feature_contract
 from credit_coach.data.schema import PlanAction, PlanRecord
 from credit_coach.decision.ownership import build_customer_decision_payload
@@ -1161,6 +1172,7 @@ def _build_customer_roadmap(
 
 
 def _plan_to_row(plan: PlanRecord) -> dict:
+    annotate_plan_planner_quality(plan)
     timeline_steps: list[dict] = []
     phase_1_count = 0
     phase_2_count = 0
@@ -1268,6 +1280,11 @@ def _plan_to_row(plan: PlanRecord) -> dict:
     )
     return {
         "plan_id": plan.plan_id,
+        "plan_source": str(getattr(plan, "plan_source", "") or ""),
+        "contender_bucket": str(getattr(plan, "contender_bucket", "") or ""),
+        "empty_candidate_reason": str(getattr(plan, "empty_candidate_reason", "") or ""),
+        "approval_shell_only_flag": int(bool(getattr(plan, "approval_shell_only_flag", False))),
+        "offer_maturity": str(getattr(plan, "offer_maturity", "") or ""),
         "horizon": plan.horizon_months,
         "strategy": plan.strategy,
         "predicted_pd": plan.predicted_pd,
@@ -1474,6 +1491,7 @@ def _dice_plan_record(
         horizon_months=6,
         strategy="balanced",
         actions=plan_actions,
+        plan_source="dice",
         predicted_pd=pred_pd,
         causal_penalty=cpen,
         score=score,
@@ -1976,7 +1994,7 @@ def main(argv: Sequence[str] | None = None):
             dice_records.append(p)
             save_plan(p)
 
-    dice_df = pd.DataFrame([_plan_to_row(p) for p in dice_records])
+    dice_df = pd.DataFrame([_plan_to_row(annotate_plan_planner_quality(p)) for p in dice_records])
     dice_csv = run_ctx.tables_dir / "dice_plans.csv"
     dice_json = run_ctx.tables_dir / "dice_plans.json"
     dice_df.to_csv(dice_csv, index=False)
@@ -1987,22 +2005,19 @@ def main(argv: Sequence[str] | None = None):
     candidate_pool = validated + dice_records
     candidate_pool_max_size = int(search_cfg.get("candidate_pool_max_size", 0))
     candidate_pool = _prune_candidate_pool(candidate_pool, candidate_pool_max_size)
-    pool_df = pd.DataFrame(
-        [
-            {
-                **_plan_to_row(p),
-                "plan_source": ("dice" if "_dice_" in str(p.plan_id) else "internal"),
-            }
-            for p in candidate_pool
-        ]
-    )
+    candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
+    pool_df = pd.DataFrame([_plan_to_row(plan) for plan in candidate_pool])
     pool_csv = run_ctx.tables_dir / "candidate_pool.csv"
     pool_json = run_ctx.tables_dir / "candidate_pool.json"
     pool_df.to_csv(pool_csv, index=False)
     pool_json.write_text(pool_df.to_json(orient="records", indent=2), encoding="utf-8")
 
+    candidate_pool_for_best, _removed_empty_candidates = filter_empty_contenders(candidate_pool)
+    if not candidate_pool_for_best:
+        candidate_pool_for_best = candidate_pool
+
     best = choose_best_plan(
-        candidate_pool,
+        candidate_pool_for_best,
         base_pd=base_pd,
         tau=tau,
         min_reliability=min_reliability_f,
@@ -2012,7 +2027,7 @@ def main(argv: Sequence[str] | None = None):
         segment_context=segment_context,
         denied_objective_cfg=robust_cfg.get("denied_objective", {}),
     )
-    best_source = "dice" if "_dice_" in str(best.plan_id) else "internal"
+    best_source = str(getattr(best, "plan_source", "") or "")
     roadmap = _build_customer_roadmap(
         customer_id=args.customer_id,
         base_pd=base_pd,
@@ -2201,6 +2216,9 @@ def _build_customer_metrics_summary(
     decision_log_summary: dict[str, Any],
 ) -> dict[str, Any]:
     roadmap = _normalize_customer_roadmap_contract(roadmap)
+    candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
+    best = annotate_plan_planner_quality(best)
+    roadmap_tau = roadmap.get("tau", None)
     cp_week4 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 4), {})
     cp_week12 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 12), {})
     cp_week24 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 24), {})
@@ -2219,6 +2237,9 @@ def _build_customer_metrics_summary(
         if validated
         else 0.0
     )
+    source_counts = candidate_source_counts(candidate_pool)
+    source_presence = candidate_source_presence_flags(candidate_pool)
+    contender_counts = contender_bucket_counts(candidate_pool)
     metrics_summary = {
         "model_version": model_version,
         "customer_id": customer_id,
@@ -2234,8 +2255,13 @@ def _build_customer_metrics_summary(
         "approved_count": int(sum(1 for p in validated if p.status == "APPROVED")),
         "candidate_pool_count": len(candidate_pool),
         "candidate_pool_approved_count": int(sum(1 for p in candidate_pool if p.status == "APPROVED")),
+        "candidate_pool_diversity_index": candidate_pool_diversity_index(candidate_pool),
+        "candidate_source_entropy": candidate_source_entropy(candidate_pool),
         "best_plan_id": best.plan_id,
         "best_plan_source": best_source,
+        "best_contender_bucket": str(getattr(best, "contender_bucket", "") or ""),
+        "best_offer_maturity": str(getattr(best, "offer_maturity", "none") or "none"),
+        "best_execution_aware_value": execution_aware_value(best, base_pd=base_pd, tau=_safe_float(roadmap_tau, 0.0) if roadmap_tau is not None else None),
         "best_status": best.status,
         "trajectory_pd_4w": _safe_float(cp_week4.get("predicted_pd", base_pd), base_pd),
         "trajectory_pd_12w": _safe_float(cp_week12.get("predicted_pd", base_pd), base_pd),
@@ -2290,6 +2316,27 @@ def _build_customer_metrics_summary(
         "selection_propensity": float(decision_log_record["selection_propensity"]),
         "decision_log_completeness": float(decision_log_summary.get("decision_log_completeness", 0.0)),
     }
+    for source in CANDIDATE_SOURCE_CATALOG:
+        metrics_summary[f"candidate_source_{source}_count"] = int(source_counts.get(source, 0))
+        metrics_summary[f"candidate_source_{source}_present"] = int(source_presence.get(source, 0))
+    metrics_summary.update(
+        {
+            "candidate_non_empty_count": int(contender_counts["ACTIONABLE"] + contender_counts["APPROVAL_SHELL_ONLY"]),
+            "candidate_approval_shell_only_count": int(contender_counts["APPROVAL_SHELL_ONLY"]),
+            "candidate_empty_removed_count": int(contender_counts["EMPTY"]),
+            "offer_ready_contender_share": float(
+                sum(1 for plan in candidate_pool if str(getattr(plan, "offer_maturity", "none")) == "active_rankable")
+                / max(1, len(candidate_pool))
+            ),
+            "provisional_offer_share": float(
+                sum(1 for plan in candidate_pool if str(getattr(plan, "offer_maturity", "none")) == "provisional")
+                / max(1, len(candidate_pool))
+            ),
+            "approval_shell_only_share": float(
+                contender_counts["APPROVAL_SHELL_ONLY"] / max(1, len(candidate_pool))
+            ),
+        }
+    )
     return _sync_metrics_summary_with_roadmap_summary(metrics_summary, roadmap=roadmap)
 
 
@@ -2680,22 +2727,19 @@ def generate_customer_recourse_artifacts(
             if persist_repository_records:
                 save_plan(plan)
 
-    dice_df = pd.DataFrame([_plan_to_row(plan) for plan in dice_records])
+    dice_df = pd.DataFrame([_plan_to_row(annotate_plan_planner_quality(plan)) for plan in dice_records])
     candidate_pool = validated + dice_records
     candidate_pool_max_size = int(search_cfg.get("candidate_pool_max_size", 0))
     candidate_pool = _prune_candidate_pool(candidate_pool, candidate_pool_max_size)
-    candidate_pool_df = pd.DataFrame(
-        [
-            {
-                **_plan_to_row(plan),
-                "plan_source": ("dice" if "_dice_" in str(plan.plan_id) else "internal"),
-            }
-            for plan in candidate_pool
-        ]
-    )
+    candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
+    candidate_pool_df = pd.DataFrame([_plan_to_row(plan) for plan in candidate_pool])
+
+    candidate_pool_for_best, _removed_empty_candidates = filter_empty_contenders(candidate_pool)
+    if not candidate_pool_for_best:
+        candidate_pool_for_best = candidate_pool
 
     best = choose_best_plan(
-        candidate_pool,
+        candidate_pool_for_best,
         base_pd=base_pd,
         tau=tau,
         min_reliability=min_reliability_f,
@@ -2705,7 +2749,7 @@ def generate_customer_recourse_artifacts(
         segment_context=segment_context,
         denied_objective_cfg=robust_cfg.get("denied_objective", {}),
     )
-    best_source = "dice" if "_dice_" in str(best.plan_id) else "internal"
+    best_source = str(getattr(best, "plan_source", "") or "")
     roadmap = _build_customer_roadmap(
         customer_id=customer_id,
         base_pd=base_pd,
