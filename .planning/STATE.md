@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 Phase: 44
-Plan: 01-03 ready
-Status: Ready for execution
-Last activity: 2026-03-23 - Planned Phase 44 `Production Pilot Baseline`
+Plan: 01-03 complete
+Status: Ready for milestone completion
+Last activity: 2026-03-23 - Executed Phase 44 `Production Pilot Baseline`
 
-Progress: `v2.1` now has a repaired contract base, one deterministic decision owner, a cohort-aware calibration lane, shipped operator review packets, and a hardened planner-quality layer with explicit source provenance, empty-contender removal, honest recovery-lane reporting, and anti-collapse / offer-maturity metrics under the same run root. The remaining milestone work is the production pilot baseline in Phase 44.
+Progress: `v2.1` now has a repaired contract base, one deterministic decision owner, a cohort-aware calibration lane, shipped operator review packets, a hardened planner-quality layer with explicit source provenance, and a completed production-pilot baseline with rerunnable refresh orchestration, dedicated artifact QA, thin institution overlays, institution-facing explanation packs, and bounded pilot/proof docs. The implementation phases are complete; the milestone is ready for completion workflow.
 
 ## Performance Metrics
 
@@ -32,7 +32,7 @@ Progress: `v2.1` now has a repaired contract base, one deterministic decision ow
 | v1.2 completed milestone | 15 | phases 12-16 complete | n/a |
 | v1.3 completed milestone | 28 | phases 17-25 complete | n/a |
 | v2.0 completed milestone | 30 | phases 30-39 complete | n/a |
-| v2.1 in progress | 15 | phases 40, 40.5, 41, 43, 42 complete | n/a |
+| v2.1 in progress | 18 | phases 40, 40.5, 41, 43, 42, 44 complete | n/a |
 
 **Recent Trend:**
 - Credit Coach now carries one continuous stack from semantic action planning to pilot-facing package delivery.
@@ -43,6 +43,7 @@ Progress: `v2.1` now has a repaired contract base, one deterministic decision ow
 - Phase 41 now ships cohort semantics, funnel/readiness measurement, shadow calibration, and additive calibration packaging under the same collection run root.
 - Phase 43 now ships a derived operator-surface lane with per-customer packets, collection-level review briefing, and a strict business-safe versus appendix-detail split.
 - Phase 42 now ships explicit source truth, empty-contender removal, internal-vs-dice competitiveness metrics, and additive planner-quality summary signals.
+- Phase 44 now ships repeatable pilot refresh orchestration, separate artifact QA versus portfolio smoke lanes, thin institution overlays, institution-facing explanation packs, and bounded proof-surface docs.
 
 ## Accumulated Context
 
@@ -65,10 +66,10 @@ None yet.
 ### Blockers/Concerns
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
-- The next acceptance bar is production-grade pilot operation: rerun QA, policy-version packaging, institution overlays, and institution-facing explanation packs without leaking internal-only states.
+- The next workflow step is milestone completion / archival now that all v2.1 implementation phases are closed.
 
 ## Session Continuity
 
 Last session: 2026-03-23
-Stopped at: Phase 44 planned; next step is `$gsd-execute-phase 44`
+Stopped at: Phase 44 executed; next step is `$gsd-complete-milestone`
 Resume file: None

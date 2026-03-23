@@ -1,203 +1,99 @@
 # Credit Coach Website Pilot Readiness
 
-Bu dokuman, `credit-coach-website` icin minimum pilot-ready buyer handoff baseline'ini tanimlar.
+Bu dokuman website tarafinda hangi pilot story'nin guvenle anlatilabilecegini tanimlar.
 
-Amac:
+Phase 44 sonrasi dogru pilot story:
 
-- bugun neyin hazir oldugunu netlestirmek
-- ciddi bir pilot gorusmesinden once neyin tamamlanmasi gerektigini yazmak
-- bilincli olarak ertelenen alanlari durustce ayirmak
+- controlled
+- governed
+- repeatable
+- versioned
+- bounded
 
-Bu dokuman tam production maturity iddiasi degildir.
+Bu story su iddialari tasimaz:
 
-Engine-side pilot package referanslari:
+- live-integrated
+- self-serve
+- compliance automation
+- autonomous adjudication
 
-- [PILOT_EXECUTION_GUIDE.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/PILOT_EXECUTION_GUIDE.md)
-- [PILOT_PACKAGE_SCHEMA.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/PILOT_PACKAGE_SCHEMA.md)
+## 1. Website Ne Gosterebilir?
 
-## 1. Hazir Olan Baseline
+Proof surface su sinyalleri gosterebilir:
 
-Bugun repo seviyesinde hazir olanlar:
-
-- `npm run build`
-- `npm run start`
-- `GET /api/health`
-- `POST /api/contact`
-- `POST /api/demo-request`
-- `POST /api/investor-request`
-- `/contact` uzerinden yapilandirilmis demo ve pilot intake
-- `/demo` uzerinden buyer-safe product walkthrough
-- `/proof` uzerinden `safe to pilot` ve watchlist okuması
-- `DATABASE_URL` verilirse PostgreSQL + Drizzle persistence seami
-
-Bu baseline, ciddi bir buyer conversation ve operator-mediated demo handoff icin yeterli cekirdegi saglar.
-Gercek pilot execution ise artik engine tarafinda `run_pilot_integration` ve emitted `pilot package` ile okunur.
-
-## 2. Pilot Oncesi Zorunlu Minimumlar
-
-Asagidakiler tamamlanmadan akisi ciddi pilot-ready olarak sunma:
-
-1. `DATABASE_URL` tanimli olmali
-2. `npm run db:push` ile guncel schema veritabanina uygulanmali
-3. Uygulama production build ile ayaga kalkmali:
-   - `npm run build`
-   - `npm run start`
-4. `GET /api/health` basarili donmeli
-5. Demo ve pilot intake talepleri database modunda kalici olarak kaydedilmeli
-6. Bir operator sahibi net olmali:
-   - inbound talebi kim okuyacak
-   - demo track'i kim sececek
-   - follow-up'u kim planlayacak
-7. Gorusme oncesi curated track secilmeli:
-   - recovery baseline
-   - portfolio proof
-   - offer and learning
-8. Institution export'u engine-side pilot package'e gidecekse canonical pilot bundle hazir olmali
-
-## 3. Ortam ve Runtime Kontrati
-
-### Gerekli environment
-
-- `PORT`
-  - opsiyonel
-  - varsayilan `3000`
-- `DATABASE_URL`
-  - ciddi pilot handoff icin zorunlu
-  - PostgreSQL baglantisi beklenir
-
-### Runtime komutlari
-
-```bash
-npm install
-npm run build
-npm run db:push
-npm run start
-```
-
-### Health check
-
-```bash
-GET /api/health
-```
-
-Beklenen donus:
-
-- `ok: true`
-- `company: "Kuantitive"`
-- `product: "credit-coach"`
-- `service: "website"`
-
-## 4. Persistence Posture
-
-Website iki persistence modunda calisabilir:
-
-- `database`
-- `memory`
-
-### Database modu
-
-Bu, ciddi pilot handoff icin kabul edilen moddur.
-
-Beklenenler:
-
-- `DATABASE_URL` tanimli
-- schema push tamam
-- inbound request kayitlari kalici
-
-### Memory modu
-
-Bu mod yalnizca internal demo veya kisa sureli inceleme icin kabul edilebilir.
-
-Memory modu su nedenlerle pilot-ready sayilmaz:
-
-- kalici kayit garantisi vermez
-- operator devrinde iz kaybi riski vardir
-- buyer handoff icin guvenli bir temel saglamaz
+- pilot refresh completed
+- policy versioned baseline
+- artifact QA passed veya watchlist
+- portfolio smoke passed veya watchlist
+- artifact completeness
+- generation timestamp
+- institution overlay availability
 
 Kural:
 
-- `memory` modu demo-acceptable
-- `database` modu pilot-required
+- proof without leakage
 
-Website persistence posture ile engine pilot package farklidir:
+## 2. Website Ne Gostermez?
 
-- website -> buyer handoff ve curated walkthrough
-- engine pilot package -> validated institution export, portfolio validation, pilot_guardrails, product_confidence_snapshot
+Dis yuzeyde su alanlar yer almaz:
 
-## 5. Auth Posture
+- `NEEDS_REVIEW`
+- internal review queue state
+- raw candidate policy tables
+- debug metadata
+- raw gate trace
+- internal QA failure dump
 
-Bugunku website siniri icinde:
+## 3. Safe Vocabulary
 
-- uygulama ici login yok
-- user role modeli yok
-- admin panel yok
-- self-serve buyer access yok
+Website ve proof surface icin tercih edilen vocabulary:
 
-Bu nedenle mevcut pilot posture su sekilde tanimlanmali:
+- `pilot_refresh_completed`
+- `artifact_qa_passed`
+- `portfolio_smoke_passed`
+- `safe_to_pilot`
+- `pilot_watchlist`
 
-- operator-mediated
-- controlled access
-- gerekiyorsa infra veya network katmaninda korunmus
+Kural:
 
-Bu repo bugun auth-ready degil; controlled pilot conversation-ready seviyesindedir.
+- debug vocabulary dis yuzeye tasinmaz
 
-Canli kurum entegrasyonu, auth, CRM ve self-serve workspace hala deferred alanlardir.
+## 4. Engine Reference
 
-## 6. Operator Checklist
+Website artik parallel bir pilot story kurmaz.
+Engine tarafinda uretilen Phase 44 baseline'i referans alir.
 
-Pilot benzeri bir buyer handoff oncesi operator su listeyi gecmeli:
+Ana referanslar:
 
-- inbound request `demo` tipinde ve yapilandirilmis alanlari dolu mu
-- `institutionType`, `portfolioFocus`, `demoTrack`, `timeline`, `dataReadiness` net mi
-- persistence modu `database` mi
-- `/demo` ve `/proof` yuzeyleri guncel build ile aciliyor mu
-- hangi curated track ile gidilecegi secildi mi
-- follow-up next step net mi:
-  - walkthrough
-  - proof review
-  - pilot scoping call
-- engine-side pilot package gerekiyorsa `run_pilot_integration` icin bundle hazir mi
+- [PILOT_EXECUTION_GUIDE.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/PILOT_EXECUTION_GUIDE.md)
+- [PILOT_PACKAGE_SCHEMA.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/PILOT_PACKAGE_SCHEMA.md)
+- [DECISION_EXPLANATION_PACK.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/DECISION_EXPLANATION_PACK.md)
 
-## 7. Ready Now / Required / Deferred
+## 5. Honest Pilot Story
 
-### Ready now
+Website tarafinda kullanilabilecek ana vaat:
 
-- buyer-safe website and demo surfaces
-- structured demo intake
-- health endpoint
-- production build and server start seams
-- optional database-backed inbound capture
+- deterministic decisions
+- repeatable pilot refresh
+- QA-gated package
+- institution-configurable overlays
 
-### Required before pilot
+Acik sinirlar:
 
-- database-backed persistence
-- schema push
-- named operator ownership
-- curated demo track secimi
-- controlled access posture
-- engine-owned pilot package calistirilabilir olmali
-- `pilot_guardrails`, `portfolio_validation_summary`, `product_confidence_snapshot` okunabilir olmali
+- not live-integrated
+- not self-serve
+- not compliance automation
+- not institution policy replacement
 
-### Deferred beyond this milestone
+## 6. Scope Guardrail
 
-- application auth
-- admin console
-- CRM integration
-- institution-specific automated data ingestion
-- self-serve pilot workspace
+Dogru cumle:
 
-## 8. Scope Guardrail
+- "We provide a controlled pilot baseline."
 
-`OPS-02` bu repo icin minimum buyer handoff baseline'ini kapatir.
+Yanlis cumleler:
 
-Bu, su anlama gelmez:
-
-- "tam production deployment hazir"
-- "multi-user access control tamam"
-- "institution onboarding otomatik"
-
-Dogru okuma su:
-
-- ciddi buyer handoff icin minimum operasyonel cizgi artik acik
-- bundan sonraki genisleme auth, CRM, admin ve daha derin pilot tooling katmanlaridir
-- controlled pilot execution artik website icinde uydurulmaz; engine-owned pilot package ile desteklenir
+- "fully compliant"
+- "production-grade autonomous decisioning"
+- "real-time integrated"
+- "institution-ready at scale"

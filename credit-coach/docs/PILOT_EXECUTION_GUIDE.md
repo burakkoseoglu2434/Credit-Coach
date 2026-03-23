@@ -1,161 +1,202 @@
 # Pilot Execution Guide
 
-Bu runbook, operator'un validated pilot bundle'i alip engine-owned pilot package'e cevirmesi icindir.
+Bu runbook, Phase 44 sonrasi pilot baseline'in nasil tekrar calistirilacagini tanimlar.
 
-Bu guide live bank integration anlatmaz.
-Bu guide controlled pilot package execution anlatir.
+Bu guide'in anlattigi sey:
 
-## 1. Input
+- controlled
+- governed
+- repeatable
+- versioned
+- bounded
 
-Pilot run icin once bundle hazir olmalidir.
+pilot baseline'dir.
 
-Bkz:
+Bu guide su iddialari tasimaz:
 
-- [PILOT_DATA_CONTRACT.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/PILOT_DATA_CONTRACT.md)
+- live integration
+- self-serve pilot
+- compliance automation
+- autonomous adjudication
 
-Minimum giris:
+## 1. Canonical Command
 
-- institution context
-- source export path
-- target column
-- group feature column
-- feature mapping overrides gerekiyorsa onlar
-
-## 2. Command
-
-Canonical komut:
+Phase 44 sonrasi canonical refresh komutu:
 
 ```bash
 cd credit-coach
-python -m credit_coach.cli.run_pilot_integration \
+python -m credit_coach.cli.run_pilot_baseline_refresh \
   --pilot_bundle /absolute/path/to/pilot_bundle.json
 ```
 
-Ihtiyaca gore su config override'lari verilebilir:
+Ince overlay'ler gerekiyorsa:
 
-- `--base_config`
-- `--model_config`
-- `--recourse_config`
-- `--causality_config`
-- `--safety_config`
-- `--macro_config`
-- `--kpi_contract`
-- `--group_feature`
+- `--institution_policy`
+- `--institution_offer`
+- `--pilot_profile`
+
+Opsiyonel refresh posture override'lari:
+
+- `--cadence_mode`
+- `--cohort_policy`
 - `--n_customers`
 - `--sample_seed`
+- `--reference_run_id`
+- `--reference_label`
 
-## 3. Runtime Flow
+## 2. Cadence Contract
 
-Runner su sirayla calisir:
+Refresh scheduler zorunlu degildir.
+Ama cadence posture explicit olmalidir.
 
-1. bundle contract validate edilir
-2. institution export okunur
-3. data canonical engine kolonlarina normalize edilir
-4. `pilot_input_manifest.json` yazilir
-5. mevcut `run_batch_recourse_eval` planning core'u calistirilir
-6. batch artifact'leri pilot package altina mirror edilir
-7. `product_confidence_snapshot`, `pilot_guardrails`, `kpi_contract_snapshot`, `milestone_acceptance_summary` ve `pilot_package_manifest` uretilir
+Canonical mode'lar:
+
+- `pre_pilot`
+- `weekly_during_pilot`
+- `pre_readout`
 
 Kural:
 
-- engine produces
-- website and operators consume
+- refresh operator-triggered olabilir
+- ama cadence mode manifest ve summary'de acikca yazilmalidir
 
-## 4. Core Output Package
+## 3. Runtime Flow
 
-Pilot package altinda beklenen ana artifact'ler:
+`run_pilot_baseline_refresh` yeni karar mantigi yazmaz.
+Mevcut truth-owner runner'lari siraya koyar:
 
-- `pilot_package_manifest.json`
-- `pilot_input_manifest.json`
-- `batch_summary.json`
-- `portfolio_validation_summary.json`
-- `portfolio_validation_review.md`
-- `portfolio_calibration_validation_breakdown.csv`
-- `product_confidence_snapshot.json`
-- `pilot_guardrails.json`
-- `rollback_conditions.json`
-- `kpi_contract_snapshot.json`
-- `milestone_acceptance_summary.json`
-- `release_evidence_pack.json`
+1. pilot bundle normalize edilir
+2. `run_customer_artifact_collection` calisir
+3. collection raw/operator truth'unden `decision_explanation_pack` uretilir
+4. `run_pilot_integration` pilot package'i yeniler
+5. `run_production_smoke` portfolio smoke lane'ini calistirir
+6. `run_pilot_artifact_qa` artifact trust lane'ini degerlendirir
+7. reference run varsa version comparison yazilir
 
-## 5. How To Read The Package
+Kural:
 
-### First read
+- new orchestrator
+- no new engine
 
-1. `pilot_package_manifest.json`
-2. `milestone_acceptance_summary.json`
-3. `pilot_guardrails.json`
-4. `product_confidence_snapshot.json`
-5. `portfolio_validation_summary.json`
+## 4. Dual-Lane Reading
 
-### Why this order
+Phase 44 refresh output'u iki farkli gate tasir:
 
-- manifest -> provenance
-- acceptance summary -> overall posture
-- guardrails -> what must stay controlled
-- product confidence -> buyer-safe truth
-- portfolio validation -> deeper engine truth
+- `portfolio_smoke_status`
+- `artifact_qa_status`
 
-## 6. Acceptance Posture
+### Portfolio smoke
 
-Phase 39 pilot package broad rollout karari vermez.
+Su soruya cevap verir:
 
-Bu nedenle `acceptance_status` okuyusu:
+- is degeri ve release posture kabul edilebilir mi
 
-- `PILOT_ONLY`
-  - controlled pilot icin anlamli
-  - broad rollout demek degil
-- `REJECTED`
-  - pilot lane'e bile alinmamali
+### Artifact QA
 
-Tek bir pilot package green metrics verse bile limited evidence nedeniyle `PILOT_ONLY` kalabilir.
+Su soruya cevap verir:
 
-## 7. Guardrail Reading
+- paket eksiksiz, tutarli ve non-leaky mi
 
-`pilot_guardrails.json` operator icin su sorulari cevaplar:
+Kural:
 
-- pilot eligible mi
-- broad rollout allowed mi
-- max traffic ne kadar
-- fairness monitoring zorunlu mu
-- rollback guard gerekli mi
-- dominant fail segment nerede
+- smoke = business / release lane
+- artifact QA = trust / packaging lane
 
-Bu dosya curated website copy degil; engine-owned pilot control surface'tir.
+Ikisi tek statuye indirgenmez.
 
-## 8. Product Truth
+## 5. QA Outcome Vocabulary
 
-`product_confidence_snapshot.json` buyer/proof dili icin uretilir.
+Artifact QA sonucu yalnizca su setten gelir:
 
-Bu artifact:
+- `PASS`
+- `DEGRADED`
+- `FAIL`
 
-- proof verdict
-- proof confidence
-- headline metrics
-- supporting metrics
-- phase delta
-- trust layer
+Okuma:
 
-tasir.
+- `PASS`
+  - pilot paketi guvenle okunabilir
+- `DEGRADED`
+  - paket kullanilabilir ama watchlist notu vardir
+- `FAIL`
+  - pilot baseline acceptance bloklanir
 
-Pilot package'in buyer-safe kismina bakarken ana kaynak budur.
+## 6. Reference Run Comparison
 
-## 9. Next-Step Guidance
+Canonical comparison posture:
 
-Output `PILOT_ONLY` ise tipik next step:
+- current refresh
+- vs
+- same institution profile icin previous approved pilot baseline
 
-- controlled scoping review
-- segment-specific guardrail review
-- curated demo alignment
+Eger boyle bir run yoksa:
 
-Output `REJECTED` ise next step:
+- explicit `reference_run_id` kullanilabilir
+- ama comparison `non-canonical` olarak etiketlenir
 
-- mapping duzelt
-- missing mandatory fields'i tamamla
-- guardrail fail reason'larini gider
+Bu ayrim sessizce yanlis baseline secilmesini engeller.
 
-## 10. Related Docs
+## 7. Overlay Precedence
+
+Institution overlay precedence sabittir:
+
+1. base configs
+2. institution overlays
+3. pilot bundle context
+4. explicit CLI override
+
+Resolve edilmis runtime config refresh manifest icinde gorunur kalmalidir.
+
+## 8. Core Outputs
+
+Phase 44 refresh altinda minimum beklenen artifact'ler:
+
+- `tables/pilot_refresh_manifest.json`
+- `tables/pilot_refresh_summary.md`
+- `tables/policy_version_comparison.csv`
+- `tables/policy_version_comparison.md`
+- `tables/artifact_qa_summary.json`
+- `tables/release_smoke_summary.json`
+- `tables/refresh_context.json`
+- `tables/decision_explanation_packs/`
+
+## 9. First Read Order
+
+Bir refresh bittiğinde sirali okuma:
+
+1. `pilot_refresh_summary.md`
+2. `artifact_qa_summary.json`
+3. `release_smoke_summary.json`
+4. `pilot_refresh_manifest.json`
+5. `policy_version_comparison.md`
+
+Sonra gerekiyorsa:
+
+- collection run
+- pilot package
+- operator packets
+- explanation packs
+
+## 10. Institution-Facing Boundary
+
+Institution-facing artifact'ler su truth'leri kullanir:
+
+- external decision only
+- owned one-line reason
+- numeric drivers
+- upgrade condition
+- expected readiness
+
+Su truth'ler dis yuzeye cikmaz:
+
+- `NEEDS_REVIEW`
+- raw gate trace
+- candidate policy tables
+- debug dumps
+
+## 11. Related Docs
 
 - [PILOT_DATA_CONTRACT.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/PILOT_DATA_CONTRACT.md)
 - [PILOT_PACKAGE_SCHEMA.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/PILOT_PACKAGE_SCHEMA.md)
+- [DECISION_EXPLANATION_PACK.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/DECISION_EXPLANATION_PACK.md)
 - [PILOT_READINESS.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach-website/PILOT_READINESS.md)

@@ -32,8 +32,8 @@
 
 ### Production Pilot Baseline
 
-- [ ] **PROD-01**: Deterministic decision-policy runs can be versioned, compared, and rerun through artifact QA and pilot refresh workflows
-- [ ] **PROD-02**: Institution-facing pilot docs and explanation packs can package deterministic decision policy without leaking internal-only states
+- [x] **PROD-01**: Deterministic decision-policy runs can be versioned, compared, and rerun through artifact QA and pilot refresh workflows
+- [x] **PROD-02**: Institution-facing pilot docs and explanation packs can package deterministic decision policy without leaking internal-only states
 
 ## Future Requirements
 
@@ -71,8 +71,8 @@
 | OPS-01 | Phase 43 | Satisfied |
 | OPS-02 | Phase 43 | Satisfied |
 | PLAN-01 | Phase 42 | Satisfied |
-| PROD-01 | Phase 44 | Pending |
-| PROD-02 | Phase 44 | Pending |
+| PROD-01 | Phase 44 | Satisfied |
+| PROD-02 | Phase 44 | Satisfied |
 
 **Coverage:**
 - v2.1 requirements: 12 total
@@ -81,4 +81,4 @@
 
 ---
 *Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after Phase 42 completion*
+*Last updated: 2026-03-23 after Phase 44 completion*

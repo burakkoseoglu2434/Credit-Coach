@@ -183,7 +183,8 @@
 - Phase 41 shipped cohort semantics, funnel measurement, and shadow calibration under the collection run root
 - Phase 43 shipped per-customer operator packets and collection-level review briefings without creating a second truth source
 - Phase 42 shipped explicit source provenance, empty-contender removal, internal-vs-dice competitiveness metrics, recovery-lane honesty, and planner-quality anti-collapse signals
+- Phase 44 shipped repeatable pilot refresh orchestration, dedicated artifact QA, thin institution overlays, institution-facing explanation packs, and bounded pilot/proof documentation
 
-**What's next:** discuss Phase 44 `Production Pilot Baseline`
+**What's next:** complete the milestone with `$gsd-complete-milestone`
 
 ---

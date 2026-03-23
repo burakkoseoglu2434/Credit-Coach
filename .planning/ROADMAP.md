@@ -203,9 +203,9 @@ Historical archive: `.planning/milestones/v2.0-ROADMAP.md`
 2. Institution-facing docs never expose internal `NEEDS_REVIEW` while still explaining `APPROVED`, `CONDITIONAL`, and `REJECTED` outcomes.
 3. Pilot summaries show version-to-version changes in approve rate, conditional rate, and rejection composition.
 **Outputs/Artifacts:**
-- pilot decision QA and refresh workflow outputs
-- policy-version comparison report for `v2.0` versus `v2.1`
-- institution-facing pilot and explanation documentation
+- `pilot_refresh_manifest.json`, `pilot_refresh_summary.md`, and version-comparison outputs
+- dedicated pilot artifact QA outputs plus separate portfolio smoke summaries
+- institution-facing explanation-pack and bounded pilot/proof documentation
 
 ## Progress
 
@@ -251,4 +251,4 @@ Historical archive: `.planning/milestones/v2.0-ROADMAP.md`
 | 41. Cohort & Decision Calibration | v2.1 | 3/3 | Complete | 2026-03-23 |
 | 43. Operator Review Pack | v2.1 | 3/3 | Complete | 2026-03-23 |
 | 42. Planner Quality & Source Mix | v2.1 | 3/3 | Complete | 2026-03-23 |
-| 44. Production Pilot Baseline | v2.1 | 0/3 | Planned | — |
+| 44. Production Pilot Baseline | v2.1 | 3/3 | Complete | 2026-03-23 |

@@ -1,17 +1,28 @@
 # Pilot Package Schema
 
-Bu dokuman `run_pilot_integration` tarafindan emitted edilen pilot package'in contract'ini tanimlar.
+Bu dokuman Phase 44 sonrasi iki ana contract'i tanimlar:
 
-Canonical manifest:
+- `pilot_package_manifest.json`
+- `pilot_refresh_manifest.json`
+
+Ayrica institution-facing explanation-pack referansini da kapsar.
+
+## 1. Contract Versions
+
+Canonical version'lar:
+
+- pilot input: `phase39.input.v1`
+- pilot package: `phase39.package.v1`
+- pilot refresh: `phase44.refresh.v1`
+- decision explanation pack: `phase44.explanation.v1`
+
+## 2. Pilot Package Manifest
+
+Canonical path:
 
 - `tables/pilot_package_manifest.json`
 
-## 1. Package Truth
-
-Pilot package bir website snapshot'i degil.
-Engine-owned release and validation package'idir.
-
-Manifest minimum olarak su alanlari tasir:
+Minimum alanlar:
 
 - `contract_version`
 - `run_id`
@@ -32,91 +43,118 @@ Manifest minimum olarak su alanlari tasir:
 - `optional_artifacts`
 - `mapping_provenance`
 
-Beklenen package contract version:
+Phase 44 additive alanlar:
 
-- `phase39.package.v1`
+- `overlay_provenance`
+- `refresh_provenance`
+- `resolved_runtime_config`
+- `institution_profile_key`
+- `policy_version_evaluated`
+- `explanation_artifacts`
 
-## 2. Required Artifacts
+Kural:
 
-Phase 39 pilot package minimum olarak su artifact referanslarini tasir:
+- eski package okumalari kirilmaz
+- yeni Phase 44 alanlari additive kalir
 
-- `pilot_input_manifest_json`
-- `batch_summary_json`
-- `portfolio_validation_summary_json`
-- `portfolio_validation_review_md`
-- `product_confidence_snapshot_json`
-- `pilot_guardrails_json`
-- `kpi_contract_snapshot_json`
-- `milestone_acceptance_summary_json`
-- `release_evidence_pack_json`
+## 3. Pilot Refresh Manifest
 
-## 3. Optional Artifacts
+Canonical path:
 
-Opsiyonel ama beklenen destek artifact'leri:
+- `tables/pilot_refresh_manifest.json`
 
-- `portfolio_numeric_impact_breakdown_csv`
-- `portfolio_segment_breakdown_csv`
-- `portfolio_offer_diagnostics_csv`
-- `demo_representativeness_summary_json`
-- `portfolio_calibration_validation_breakdown_csv`
-- `rollback_conditions_json`
-- `pilot_calibration_summary_json`
+Minimum alanlar:
 
-## 4. Guardrail Fields
+- `contract_version`
+- `run_id`
+- `generated_at`
+- `cadence_mode`
+- `institution_profile_key`
+- `selection_policy_name`
+- `selection_fill_behavior`
+- `policy_version_evaluated`
+- `collection_run_id`
+- `collection_manifest_path`
+- `pilot_package_run_id`
+- `pilot_package_manifest_path`
+- `smoke_run_id`
+- `smoke_summary_path`
+- `artifact_qa_status`
+- `portfolio_smoke_status`
+- `reference_run_id`
+- `reference_label`
+- `comparison_is_canonical`
+- `refresh_context`
+- `resolved_runtime_config`
+- `overlay_provenance`
+- `comparison_summary`
+- `output_artifacts`
 
-Pilot package icinde `pilot_guardrails.json` su truth'leri tasir:
+Bu manifest refresh cadence, comparison ve dual-lane gate'leri tek yerde toplar.
 
-- `pilot_eligible`
-- `broad_rollout_allowed`
-- `max_traffic_pct`
-- `fairness_monitoring_required`
-- `rollback_guard_required`
-- `targeted_alerting_required`
-- `manual_approval_required`
-- `remediation_artifacts_required`
-- `dominant_fail_segment_key`
-- `dominant_fail_candidate_source`
+## 4. Required Output Artifacts
 
-## 5. Acceptance Fields
+Phase 44 refresh altinda minimum beklenen artifact'ler:
 
-Acceptance posture iki yerde gorunur:
+- `pilot_refresh_summary.md`
+- `policy_version_comparison.csv`
+- `policy_version_comparison.md`
+- `artifact_qa_summary.json`
+- `release_smoke_summary.json`
+- `refresh_context.json`
 
-- `milestone_acceptance_summary.json`
-- `release_evidence_pack.json`
+## 5. Explanation Artifacts
 
-Phase 39 icin en onemli alanlar:
+Pilot package ve refresh manifest su referansi tasiyabilir:
 
-- `release_decision`
-- `acceptance_status`
-- `acceptance_eligible`
-- `evidence_level`
-- `evidence_status`
-- `degraded_reason`
+- `decision_explanation_packs_root`
 
-Beklenen okuma:
+Bu root altinda her musteri icin:
 
-- `acceptance_status = PILOT_ONLY`
-  - controlled pilot icin savunulabilir
-  - broad rollout karari degil
+- `decision_explanation_pack.json`
+- `decision_explanation_pack.md`
 
-## 6. Provenance
+uretilir.
 
-Pilot package provenance su zinciri korur:
+## 6. QA Vocabulary
 
-1. raw institution export
-2. validated bundle
-3. normalized pilot parquet
-4. existing batch planning core
-5. mirrored portfolio artifacts
-6. pilot-specific manifest and guardrails
+Artifact QA yalnizca su vocabulary'yi kullanir:
 
-Package, website tarafinda yeni anlam uretilmeden tuketilmelidir.
+- `PASS`
+- `DEGRADED`
+- `FAIL`
 
-## 7. Website Handoff
+Kural:
 
-Website pilot handoff icin ana referanslar:
+- `portfolio_smoke_status` ile karistirilmaz
+- refresh summary'de ayri okunur
 
+## 7. Provenance Rules
+
+Thin overlay provenance gorunur olmalidir:
+
+- `institution_policy`
+- `institution_offer`
+- `pilot_profile`
+
+Resolve edilmis runtime config da ayrica yazilmalidir.
+
+Bu Phase 44'te live config sync anlamina gelmez.
+Sadece local, reproducible overlay provenance anlamina gelir.
+
+## 8. Non-Leakage Rule
+
+Institution-facing package referanslari su internal truth'leri disari tasimaz:
+
+- `NEEDS_REVIEW`
+- raw gate trace
+- debug-only QA detail dump
+- candidate policy tables
+
+Proof without leakage ana kuraldir.
+
+## 9. Related Docs
+
+- [PILOT_EXECUTION_GUIDE.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/PILOT_EXECUTION_GUIDE.md)
+- [DECISION_EXPLANATION_PACK.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/docs/DECISION_EXPLANATION_PACK.md)
 - [PILOT_READINESS.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach-website/PILOT_READINESS.md)
-- [CURATED_DEMO_HANDOFF.md](/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach-website/CURATED_DEMO_HANDOFF.md)
-
-Bu docs artik `pilot package` ve `product_confidence_snapshot` diliyle konusmalidir; parallel website-only pilot story olusturulmamali.
