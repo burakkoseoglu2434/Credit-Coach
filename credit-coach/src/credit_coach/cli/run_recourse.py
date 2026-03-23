@@ -20,6 +20,7 @@ from credit_coach.coaching.messaging import (
 from credit_coach.coaching.planner import choose_best_plan
 from credit_coach.data.ingest import load_feature_contract
 from credit_coach.data.schema import PlanAction, PlanRecord
+from credit_coach.decision.ownership import build_customer_decision_payload
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.macro.impact import dynamic_alpha
 from credit_coach.macro.sources import load_macro_snapshot_mock
@@ -112,6 +113,8 @@ _EXTERNAL_STATUS_BRIDGE = {
     "": "CONDITIONAL",
 }
 _INTERNAL_STATUS_ALLOWED = {"APPROVED", "CONDITIONAL", "REJECTED", "NEEDS_REVIEW"}
+_VALID_EXTERNAL_DECISIONS = {"APPROVED", "CONDITIONAL", "REJECTED"}
+_VALID_INTERNAL_DECISIONS = {"APPROVED", "CONDITIONAL", "REJECTED", "NEEDS_REVIEW"}
 
 
 @dataclass
@@ -262,6 +265,82 @@ def _build_contract_health_from_summary(summary: dict[str, Any]) -> dict[str, An
     }
 
 
+def _derive_nominal_pd_improvement(*, base_pd: float, plan: PlanRecord) -> float:
+    explicit = getattr(plan, "nominal_pd_improvement", None)
+    if explicit is not None:
+        return _safe_float(explicit, 0.0)
+    predicted_pd = getattr(plan, "predicted_pd", None)
+    if predicted_pd is None:
+        return 0.0
+    return float(base_pd - _safe_float(predicted_pd, base_pd))
+
+
+def _inject_decision_inputs_into_roadmap(
+    roadmap: dict[str, Any],
+    *,
+    best: PlanRecord,
+    base_pd: float,
+    local_reason_bundle: dict[str, Any] | None,
+) -> dict[str, Any]:
+    out = dict(roadmap or {})
+    summary = dict(out.get("summary", {}) or {})
+    nominal_pd_improvement = _derive_nominal_pd_improvement(base_pd=base_pd, plan=best)
+    plan_execution_probability = _safe_float(
+        summary.get("plan_execution_probability", getattr(best, "plan_execution_probability", 0.0)),
+        0.0,
+    )
+    summary.update(
+        {
+            "best_plan_id": _safe_text(summary.get("best_plan_id"), _safe_text(out.get("best_plan_id"), str(best.plan_id))),
+            "best_constraint_status": _safe_text(
+                summary.get("best_constraint_status"),
+                _safe_text(out.get("best_constraint_status"), str(getattr(best, "constraint_status", "valid") or "valid")),
+            ),
+            "plan_contract_pass": int(
+                bool(
+                    _safe_text(summary.get("best_plan_id"), _safe_text(out.get("best_plan_id"), str(best.plan_id)))
+                    and str(getattr(best, "constraint_status", "valid") or "valid").strip().lower() != "invalid"
+                )
+            ),
+            "offer_plan": int(bool(getattr(best, "offer_plan", False))),
+            "rankable_offer_count": int(_safe_int(getattr(best, "rankable_offer_count", 0), 0)),
+            "approval_pending_action_count": int(_safe_int(getattr(best, "approval_pending_action_count", 0), 0)),
+            "nominal_pd_improvement": _safe_float(summary.get("nominal_pd_improvement", nominal_pd_improvement), nominal_pd_improvement),
+            "expected_pd_improvement": _safe_float(
+                summary.get(
+                    "expected_pd_improvement",
+                    (
+                        getattr(best, "expected_pd_improvement", None)
+                        if getattr(best, "expected_pd_improvement", None) is not None
+                        else nominal_pd_improvement * plan_execution_probability
+                    ),
+                ),
+                nominal_pd_improvement * plan_execution_probability,
+            ),
+            "local_explainability_confidence": _safe_float(
+                summary.get("local_explainability_confidence", (local_reason_bundle or {}).get("meta", {}).get("explainability_confidence", 0.50)),
+                0.50,
+            ),
+        }
+    )
+    out["summary"] = summary
+    return out
+
+
+def _apply_decision_ownership_to_roadmap(
+    roadmap: dict[str, Any],
+    *,
+    debug_mode: bool = False,
+) -> dict[str, Any]:
+    out = dict(roadmap or {})
+    summary = dict(out.get("summary", {}) or {})
+    payload = build_customer_decision_payload(summary, debug_mode=debug_mode)
+    summary.update(payload)
+    out["summary"] = summary
+    out["contract_health"] = _build_contract_health_from_summary(summary)
+    return out
+
+
 def _normalize_customer_roadmap_contract(roadmap: dict[str, Any]) -> dict[str, Any]:
     out = dict(roadmap or {})
     summary = dict(out.get("summary", {}) or {})
@@ -326,22 +405,33 @@ def _normalize_customer_roadmap_contract(roadmap: dict[str, Any]) -> dict[str, A
         data_issue_codes.append("parity_mismatch")
         data_issue_codes = _dedupe_issue_codes(data_issue_codes)
     data_issue_flag = int(bool(data_issue_flag))
-
-    legacy_status = _safe_text(
-        summary.get("decision_status"),
-        _safe_text(out.get("best_status"), "CONDITIONAL"),
-    ).upper()
-    decision_status = _legacy_external_decision_status(legacy_status)
-    decision_status_internal = _legacy_internal_decision_status(legacy_status, decision_status)
-    if zero_step_flag:
-        decision_status = "REJECTED"
-        decision_status_internal = "REJECTED"
-    elif parity_pass == 0:
-        decision_status = "CONDITIONAL"
-        decision_status_internal = "NEEDS_REVIEW"
-    elif data_issue_flag:
-        decision_status = "CONDITIONAL"
-        decision_status_internal = decision_status
+    final_policy_present = bool(_safe_text(summary.get("decision_policy_version")))
+    if final_policy_present:
+        decision_status = _safe_text(summary.get("decision_status"), "CONDITIONAL").upper()
+        if decision_status not in _VALID_EXTERNAL_DECISIONS:
+            decision_status = "CONDITIONAL"
+        decision_status_internal = _safe_text(summary.get("decision_status_internal"), decision_status).upper()
+        if decision_status_internal not in _VALID_INTERNAL_DECISIONS:
+            decision_status_internal = "NEEDS_REVIEW"
+        if zero_step_flag:
+            decision_status = "REJECTED"
+            decision_status_internal = "REJECTED"
+    else:
+        legacy_status = _safe_text(
+            summary.get("decision_status"),
+            _safe_text(out.get("best_status"), "CONDITIONAL"),
+        ).upper()
+        decision_status = _legacy_external_decision_status(legacy_status)
+        decision_status_internal = _legacy_internal_decision_status(legacy_status, decision_status)
+        if zero_step_flag:
+            decision_status = "REJECTED"
+            decision_status_internal = "REJECTED"
+        elif parity_pass == 0:
+            decision_status = "CONDITIONAL"
+            decision_status_internal = "NEEDS_REVIEW"
+        elif data_issue_flag:
+            decision_status = "CONDITIONAL"
+            decision_status_internal = decision_status
 
     summary.update(
         {
@@ -383,6 +473,21 @@ def _sync_metrics_summary_with_roadmap_summary(
         {
             "decision_status": _safe_text(summary.get("decision_status"), "CONDITIONAL"),
             "decision_status_internal": _safe_text(summary.get("decision_status_internal"), "CONDITIONAL"),
+            "decision_policy_version": _safe_text(summary.get("decision_policy_version"), ""),
+            "decision_confidence": _safe_float(summary.get("decision_confidence", 0.0), 0.0),
+            "expected_readiness": _safe_text(summary.get("expected_readiness"), ""),
+            "decision_reason_summary": _safe_text(summary.get("decision_reason_summary"), ""),
+            "decision_reason_primary": _safe_text(summary.get("decision_reason_primary"), ""),
+            "decision_reason_drivers": list(summary.get("decision_reason_drivers", [])),
+            "decision_reason_drivers_json": json.dumps(summary.get("decision_reason_drivers", []), ensure_ascii=False),
+            "rejection_type": _safe_text(summary.get("rejection_type"), ""),
+            "conditional_type": _safe_text(summary.get("conditional_type"), ""),
+            "upgrade_condition": _safe_text(summary.get("upgrade_condition"), ""),
+            "realization_anchor": _safe_float(summary.get("realization_anchor", 0.0), 0.0),
+            "strong_execution_flag": int(bool(_safe_int(summary.get("strong_execution_flag", 0), 0))),
+            "offer_maturity": _safe_text(summary.get("offer_maturity"), ""),
+            "decision_gate_trace": dict(summary.get("decision_gate_trace", {}) or {}),
+            "decision_gate_trace_json": json.dumps(summary.get("decision_gate_trace", {}), ensure_ascii=False),
             "credit_readiness_stage": _safe_text(summary.get("credit_readiness_stage"), "not_ready_yet"),
             "plan_execution_probability": _safe_float(summary.get("plan_execution_probability", 0.0), 0.0),
             "approval_dependent_plan_probability": _safe_float(
@@ -729,6 +834,36 @@ def _decision_log_record(
     }
 
 
+def _sync_decision_log_with_roadmap_summary(
+    decision_log_record: dict[str, Any],
+    *,
+    roadmap: dict[str, Any],
+) -> dict[str, Any]:
+    out = dict(decision_log_record or {})
+    summary = dict(roadmap.get("summary", {}) or {})
+    out.update(
+        {
+            "decision_status": _safe_text(summary.get("decision_status"), _safe_text(out.get("decision_status"), "CONDITIONAL")),
+            "approved": bool(_safe_text(summary.get("decision_status"), "").upper() == "APPROVED"),
+            "plan_execution_probability": _safe_float(summary.get("plan_execution_probability", out.get("plan_execution_probability", 0.0)), 0.0),
+            "approval_dependent_plan_probability": _safe_float(
+                summary.get("approval_dependent_plan_probability", out.get("approval_dependent_plan_probability", 0.0)),
+                0.0,
+            ),
+            "offer_acceptance_probability": _safe_float(
+                summary.get("offer_acceptance_probability", out.get("offer_acceptance_probability", 0.0)),
+                0.0,
+            ),
+            "combined_plan_realization_probability": _safe_float(
+                summary.get("combined_plan_realization_probability", out.get("combined_plan_realization_probability", 0.0)),
+                0.0,
+            ),
+            "reason_codes": list(out.get("reason_codes", []) or []),
+        }
+    )
+    return out
+
+
 def _build_customer_roadmap(
     *,
     customer_id: str,
@@ -969,8 +1104,31 @@ def _build_customer_roadmap(
         ),
         "dominant_difficulty_label": str(getattr(best, "dominant_difficulty_label", "") or ""),
         "follow_through_readiness_label": str(getattr(best, "follow_through_readiness_label", "") or ""),
+        "best_plan_id": str(best.plan_id),
+        "best_constraint_status": str(getattr(best, "constraint_status", "valid") or "valid"),
+        "offer_plan": int(bool(getattr(best, "offer_plan", False))),
+        "rankable_offer_count": int(_safe_int(getattr(best, "rankable_offer_count", 0), 0)),
+        "approval_pending_action_count": int(_safe_int(getattr(best, "approval_pending_action_count", 0), 0)),
+        "nominal_pd_improvement": _derive_nominal_pd_improvement(base_pd=base_pd, plan=best),
+        "expected_pd_improvement": (
+            _safe_float(getattr(best, "expected_pd_improvement", 0.0), 0.0)
+            if getattr(best, "expected_pd_improvement", None) is not None
+            else _derive_nominal_pd_improvement(base_pd=base_pd, plan=best)
+            * _safe_float(getattr(best, "plan_execution_probability", 0.0), 0.0)
+        ),
+        "local_explainability_confidence": float((local_reason_bundle or {}).get("meta", {}).get("explainability_confidence", 0.50)),
+        "plan_contract_pass": int(
+            bool(str(best.plan_id).strip()) and str(getattr(best, "constraint_status", "valid") or "valid").strip().lower() != "invalid"
+        ),
     }
     roadmap = _normalize_customer_roadmap_contract(roadmap)
+    roadmap = _inject_decision_inputs_into_roadmap(
+        roadmap,
+        best=best,
+        base_pd=base_pd,
+        local_reason_bundle=local_reason_bundle,
+    )
+    roadmap = _apply_decision_ownership_to_roadmap(roadmap)
     normalized_summary = dict(roadmap.get("summary", {}) or {})
     roadmap["narrative"] = build_customer_roadmap_narrative(
         base_pd=base_pd,
@@ -2151,6 +2309,13 @@ def build_customer_artifact_bundle(
     decision_log_summary: dict[str, Any],
 ) -> CustomerArtifactBundle:
     roadmap = _normalize_customer_roadmap_contract(roadmap)
+    roadmap = _inject_decision_inputs_into_roadmap(
+        roadmap,
+        best=best,
+        base_pd=base_pd,
+        local_reason_bundle=local_reason_bundle,
+    )
+    roadmap = _apply_decision_ownership_to_roadmap(roadmap)
     plans_df = pd.DataFrame([_plan_to_row(p) for p in validated])
     roadmap_steps_df = _build_customer_roadmap_steps_df(
         customer_id=customer_id,
@@ -2193,6 +2358,8 @@ def build_customer_artifact_bundle(
 
 def write_customer_artifact_bundle(bundle: CustomerArtifactBundle, output_dir: Path) -> dict[str, Path]:
     bundle.roadmap = _normalize_customer_roadmap_contract(bundle.roadmap)
+    if _safe_text(bundle.roadmap.get("summary", {}).get("decision_policy_version")):
+        bundle.roadmap = _apply_decision_ownership_to_roadmap(bundle.roadmap)
     bundle.metrics_summary = _sync_metrics_summary_with_roadmap_summary(
         bundle.metrics_summary,
         roadmap=bundle.roadmap,
@@ -2571,6 +2738,11 @@ def generate_customer_recourse_artifacts(
         decision_log_record=decision_log_record,
         decision_log_summary=decision_log_summary,
     )
+    decision_log_record = _sync_decision_log_with_roadmap_summary(
+        decision_log_record,
+        roadmap=artifact_bundle.roadmap,
+    )
+    decision_log_summary = build_decision_logging_summary([decision_log_record])
     return CustomerRecourseRunResult(
         bundle=artifact_bundle,
         local_reason_bundle=local_reason_bundle,

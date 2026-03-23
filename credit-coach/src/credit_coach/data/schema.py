@@ -37,6 +37,11 @@ ReadinessLabel = Literal["low", "moderate", "high"]
 InstitutionalApprovalState = Literal["not_required", "approved", "pending", "unknown"]
 RoadmapDecisionStatus = Literal["APPROVED", "CONDITIONAL", "REJECTED"]
 RoadmapDecisionStatusInternal = Literal["APPROVED", "CONDITIONAL", "REJECTED", "NEEDS_REVIEW"]
+DecisionExpectedReadiness = Literal["now", "week_4", "week_12", "week_24", "not_ready", "unknown_review"]
+DecisionReasonPrimary = Literal["NO_PATH", "LOW_IMPACT", "LOW_EXECUTION", "OFFER_BLOCK", "TIME_BLOCK", "DATA_ISSUE"]
+DecisionRejectionType = Literal["NO_PATH", "LOW_IMPACT", "LOW_EXECUTION"]
+DecisionConditionalType = Literal["EXECUTION_GATED", "TIME_GATED", "OFFER_GATED", "DATA_ISSUE"]
+OfferMaturity = Literal["none", "inactive", "provisional", "active_rankable"]
 TrajectoryCheckpointStatus = Literal["on_track", "at_risk", "missed", "unknown"]
 ContractDataIssueCode = Literal[
     "missing_required_field",

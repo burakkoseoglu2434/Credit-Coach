@@ -760,6 +760,8 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
         },
     )
 
+    assert roadmap["summary"]["decision_status"] == "CONDITIONAL"
+    assert roadmap["summary"]["expected_readiness"] == "week_12"
     assert "narrative" in roadmap
     assert roadmap["narrative"]["executive_summary"]["decision_view"]["label"]["en"] == "Recovering"
     assert roadmap["narrative"]["steps"][0]["step_id"] == "limit_credit_usage:phase_1_stabilize"
@@ -889,7 +891,8 @@ def test_build_customer_artifact_bundle_normalizes_contract_safe_summary_fields(
 
     summary = bundle.roadmap["summary"]
     assert summary["decision_status"] == "CONDITIONAL"
-    assert summary["decision_status_internal"] == "CONDITIONAL"
+    assert summary["decision_status_internal"] == "NEEDS_REVIEW"
+    assert summary["decision_policy_version"] == "v2.1_phase_40_5"
     assert isclose(float(summary["approval_dependent_plan_probability"]), 0.64)
     assert isclose(float(summary["offer_acceptance_probability"]), 0.0)
     assert isclose(float(summary["combined_plan_realization_probability"]), 0.64)
@@ -899,6 +902,7 @@ def test_build_customer_artifact_bundle_normalizes_contract_safe_summary_fields(
     assert "missing_required_field" in summary["data_issue_codes"]
     assert "checkpoint_status_missing" in summary["data_issue_codes"]
     assert bundle.metrics_summary["decision_status"] == "CONDITIONAL"
+    assert bundle.metrics_summary["decision_status_internal"] == "NEEDS_REVIEW"
     assert bundle.metrics_summary["checkpoint_status_4w"] == "unknown"
 
 

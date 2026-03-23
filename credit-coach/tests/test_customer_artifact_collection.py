@@ -451,7 +451,9 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
                 "best_plan_id": f"{customer_id}-plan-a",
                 "best_plan_source": "internal",
                 "summary": {
-                    "decision_status": "NEEDS_REVIEW",
+                    "decision_status": "CONDITIONAL",
+                    "decision_status_internal": "NEEDS_REVIEW",
+                    "decision_policy_version": "v2.1_phase_40_5",
                     "credit_readiness_stage": "week_12",
                     "plan_execution_probability": 0.61,
                     "approval_dependent_plan_probability": None,
@@ -547,7 +549,8 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert (collection_root / "collection_manifest.json").exists()
     assert (collection_root / "collection_summary.md").exists()
     assert set(metrics_df["decision_status"]) == {"CONDITIONAL"}
-    assert set(metrics_df["decision_status_internal"]) == {"CONDITIONAL"}
+    assert set(metrics_df["decision_status_internal"]) == {"NEEDS_REVIEW"}
+    assert set(metrics_df["decision_policy_version"]) == {"v2.1_phase_40_5"}
     assert (metrics_df["best_action_count"] == 2).all()
     assert (metrics_df["parity_pass"] == 1).all()
     assert (metrics_df["raw_contract_pass"] == 0).all()
