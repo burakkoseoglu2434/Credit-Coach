@@ -146,6 +146,75 @@ def test_collection_parity_failure_marks_internal_review_and_external_conditiona
     assert "parity_mismatch" in summary["data_issue_codes"]
 
 
+def test_augment_plans_df_marks_best_dice_candidate_with_plan_stage() -> None:
+    bundle = CustomerArtifactBundle(
+        customer_id="cust-dice",
+        plans_df=pd.DataFrame(),
+        roadmap={
+            "customer_id": "cust-dice",
+            "best_plan_id": "plan-dice",
+            "best_plan_source": "dice",
+            "phases": [{"phase_id": "phase_1_stabilize", "steps": [{"step_id": "step-1"}]}],
+            "checkpoints": [
+                {"week": 4, "status": "at_risk"},
+                {"week": 12, "status": "on_track"},
+                {"week": 24, "status": "on_track"},
+            ],
+            "summary": {
+                "decision_status": "CONDITIONAL",
+                "decision_status_internal": "CONDITIONAL",
+                "decision_policy_version": "v2.1_phase_40_5",
+                "best_plan_id": "plan-dice",
+                "best_constraint_status": "valid",
+                "plan_contract_pass": 1,
+                "credit_readiness_stage": "week_12",
+                "plan_execution_probability": 0.61,
+                "approval_dependent_plan_probability": 0.61,
+                "offer_acceptance_probability": 0.0,
+                "combined_plan_realization_probability": 0.61,
+                "expected_pd_improvement": 0.03,
+                "nominal_pd_improvement": 0.05,
+                "local_explainability_confidence": 0.75,
+                "offer_plan": 0,
+                "rankable_offer_count": 0,
+                "approval_pending_action_count": 0,
+            },
+        },
+        roadmap_steps_df=pd.DataFrame(),
+        metrics_summary={"customer_id": "cust-dice", "best_plan_id": "plan-dice", "best_plan_source": "dice"},
+    )
+    selection_row = pd.Series(
+        {
+            "batch_index": 0,
+            "source_row_index": 11,
+            "customer_id": "cust-dice",
+            "selection_reason": "pilot_mixed",
+            "cohort_policy": "pilot_mixed",
+            "cohort_bucket": "near_threshold",
+            "selection_policy_name": "pilot_mixed",
+            "selection_fill_behavior": "quota_first_deterministic_soft_fill",
+        }
+    )
+    plans_df = pd.DataFrame(
+        [
+            {"plan_id": "plan-internal", "plan_source": "internal", "plan_stage": "validated", "action_count": 1},
+            {"plan_id": "plan-dice", "plan_source": "dice", "plan_stage": "candidate_only", "action_count": 1},
+        ]
+    )
+
+    augmented = collector._augment_plans_df(
+        collection_run_id="run-collection",
+        selection_row=selection_row,
+        plans_df=plans_df,
+        bundle=bundle,
+    )
+
+    best_row = augmented.loc[augmented["plan_id"] == "plan-dice"].iloc[0]
+    assert int(best_row["selected_best_flag"]) == 1
+    assert best_row["plan_source"] == "dice"
+    assert best_row["plan_stage"] == "candidate_only"
+
+
 def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Path) -> None:
     action = PlanAction(
         feature_name="revol_util",
@@ -305,7 +374,9 @@ def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Pa
         decision_log_summary={"decision_log_completeness": 1.0},
     )
 
-    assert bundle.plans_df.to_dict(orient="records")[0] == _plan_to_row(plan)
+    expected_plan_row = _plan_to_row(plan)
+    expected_plan_row["plan_stage"] = "validated"
+    assert bundle.plans_df.to_dict(orient="records")[0] == expected_plan_row
     assert bundle.roadmap_steps_df.iloc[0]["customer_id"] == "cust-bundle"
     assert bundle.metrics_summary["best_plan_id"] == "bundle-plan"
 
@@ -382,8 +453,8 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
         customer_id = str(kwargs["customer_id"])
         plans_df = pd.DataFrame(
             [
-                {"plan_id": f"{customer_id}-plan-a", "plan_score": 0.4},
-                {"plan_id": f"{customer_id}-plan-b", "plan_score": 0.3},
+                {"plan_id": f"{customer_id}-plan-a", "plan_score": 0.4, "plan_source": "internal", "plan_stage": "validated"},
+                {"plan_id": f"{customer_id}-plan-b", "plan_score": 0.3, "plan_source": "dice", "plan_stage": "candidate_only"},
             ]
         )
         steps_df = pd.DataFrame(
@@ -582,16 +653,16 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert (collection_root / "calibration" / "segment_breakdown.csv").exists()
     assert (collection_root / "calibration" / "calibration_review.md").exists()
     assert set(metrics_df["decision_status"]) == {"CONDITIONAL"}
-    assert set(metrics_df["decision_status_internal"]) == {"NEEDS_REVIEW"}
+    assert set(metrics_df["decision_status_internal"]) == {"CONDITIONAL"}
     assert set(metrics_df["decision_policy_version"]) == {"v2.1_phase_40_5"}
-    assert set(metrics_df["conditional_type"]) == {"DATA_ISSUE"}
+    assert set(metrics_df["conditional_type"]) == {"TIME_GATED"}
     assert (metrics_df["decision_confidence"] > 0).all()
     assert (metrics_df["expected_readiness"] == "week_12").all()
     assert metrics_df["upgrade_condition"].fillna("").astype(str).str.len().gt(0).all()
     assert (metrics_df["best_action_count"] == 2).all()
     assert (metrics_df["parity_pass"] == 1).all()
-    assert (metrics_df["raw_contract_pass"] == 0).all()
-    assert (metrics_df["data_issue_flag"] == 1).all()
+    assert (metrics_df["raw_contract_pass"] == 1).all()
+    assert (metrics_df["data_issue_flag"] == 0).all()
     assert (metrics_df["checkpoint_status_4w"] == "at_risk").all()
     assert "data_issue_codes_json" in metrics_df.columns
     assert "offer_needed_flag" in metrics_df.columns
@@ -615,6 +686,7 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "selected_best_flag" in plans_df.columns
     assert "plan_step_count" in plans_df.columns
     assert "plan_contract_pass" in plans_df.columns
+    assert "plan_stage" in plans_df.columns
     assert "cohort_bucket" in selection_df.columns
     assert "selection_policy_name" in selection_df.columns
     assert "selection_fill_behavior" in selection_df.columns

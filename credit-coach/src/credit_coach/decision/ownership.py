@@ -186,27 +186,34 @@ def _build_conditional_drivers(
     expected_readiness: str,
     critical_field_null_count: int,
     parity_pass: int,
+    parity_mismatch_count: int,
     rankable_offer_count: int,
 ) -> list[dict[str, Any]]:
     if conditional_type == "DATA_ISSUE":
-        return [
-            _build_driver(
-                driver_key="critical_field_null_count",
-                current_value=float(critical_field_null_count),
-                target_value=0.0,
-                unit="count",
-                source_field="critical_field_null_count",
-                comparison="eq",
-            ),
-            _build_driver(
-                driver_key="parity_pass",
-                current_value=float(parity_pass),
-                target_value=1.0,
-                unit="flag",
-                source_field="parity_pass",
-                comparison="eq",
-            ),
-        ]
+        drivers: list[dict[str, Any]] = []
+        if critical_field_null_count > 0:
+            drivers.append(
+                _build_driver(
+                    driver_key="critical_field_null_count",
+                    current_value=float(critical_field_null_count),
+                    target_value=0.0,
+                    unit="count",
+                    source_field="critical_field_null_count",
+                    comparison="eq",
+                )
+            )
+        if parity_pass == 0 or parity_mismatch_count > 0:
+            drivers.append(
+                _build_driver(
+                    driver_key="parity_mismatch_count",
+                    current_value=float(max(1, parity_mismatch_count)),
+                    target_value=0.0,
+                    unit="count",
+                    source_field="parity_mismatch_count",
+                    comparison="eq",
+                )
+            )
+        return drivers
     if conditional_type == "OFFER_GATED":
         return [
             _build_driver(
@@ -314,6 +321,7 @@ def build_customer_decision_payload(summary: Mapping[str, Any], *, debug_mode: b
 
     raw_contract_pass = int(bool(_safe_int(source.get("raw_contract_pass", 0), 0)))
     parity_pass = int(bool(_safe_int(source.get("parity_pass", 1), 1)))
+    parity_mismatch_count = int(_safe_int(source.get("parity_mismatch_count", 0), 0))
     critical_field_null_count = int(_safe_int(source.get("critical_field_null_count", 0), 0))
     data_issue_flag = int(bool(_safe_int(source.get("data_issue_flag", 0), 0)))
 
@@ -467,6 +475,12 @@ def build_customer_decision_payload(summary: Mapping[str, Any], *, debug_mode: b
         external_status = "CONDITIONAL"
     assert external_status != "NEEDS_REVIEW"
 
+    output_expected_readiness = expected_readiness
+    if internal_status == "NEEDS_REVIEW":
+        output_expected_readiness = "unknown_review"
+    elif external_status == "REJECTED":
+        output_expected_readiness = "not_ready"
+
     if external_status == "REJECTED":
         drivers = _build_rejected_drivers(
             rejection_type=rejection_type or "LOW_EXECUTION",
@@ -480,14 +494,22 @@ def build_customer_decision_payload(summary: Mapping[str, Any], *, debug_mode: b
             decision_confidence=decision_confidence,
             expected_pd_improvement=expected_pd_improvement,
             realization_anchor=realization_anchor,
-            expected_readiness=expected_readiness,
+            expected_readiness=output_expected_readiness,
             critical_field_null_count=critical_field_null_count,
             parity_pass=parity_pass,
+            parity_mismatch_count=parity_mismatch_count,
             rankable_offer_count=rankable_offer_count,
         )
     else:
         drivers = []
     drivers = drivers[:3]
+
+    data_issue_fallback_text: str | None = None
+    if conditional_type == "DATA_ISSUE":
+        if critical_field_null_count > 0:
+            data_issue_fallback_text = f"critical_field_null_count {critical_field_null_count} -> 0"
+        elif parity_mismatch_count > 0:
+            data_issue_fallback_text = f"parity_mismatch_count {parity_mismatch_count} -> 0"
 
     decision_reason_summary = _reason_summary(
         external_status=external_status,
@@ -497,11 +519,7 @@ def build_customer_decision_payload(summary: Mapping[str, Any], *, debug_mode: b
     upgrade_condition = _validated_upgrade_condition(
         external_status,
         drivers,
-        fallback_text=(
-            f"critical_field_null_count {critical_field_null_count} -> 0"
-            if conditional_type == "DATA_ISSUE"
-            else None
-        ),
+        fallback_text=data_issue_fallback_text,
     )
 
     gate_trace: dict[str, Any] = {
@@ -525,7 +543,7 @@ def build_customer_decision_payload(summary: Mapping[str, Any], *, debug_mode: b
         "decision_status": external_status,
         "decision_status_internal": internal_status,
         "decision_confidence": float(decision_confidence),
-        "expected_readiness": expected_readiness,
+        "expected_readiness": output_expected_readiness,
         "decision_reason_summary": decision_reason_summary,
         "decision_reason_primary": decision_reason_primary,
         "decision_reason_drivers": drivers,

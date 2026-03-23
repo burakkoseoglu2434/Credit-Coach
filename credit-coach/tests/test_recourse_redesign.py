@@ -9,6 +9,7 @@ import pandas as pd
 from credit_coach.cli.run_recourse import (
     _build_customer_roadmap,
     _effective_recourse_search,
+    _normalize_customer_roadmap_contract,
     _plan_to_row,
     build_customer_artifact_bundle,
 )
@@ -777,7 +778,7 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
     assert roadmap["phases"][0]["steps"][0]["primary_numeric_target"]["generation_notes"] == ["auto_populated_fallback"]
     assert roadmap["narrative"]["technical_reveal"]["feature_changes"][0]["feature_name"] == "revol_util"
     assert roadmap["narrative"]["technical_reveal"]["primary_numeric_targets"][0]["primary_numeric_target"]["metric_key"] == "credit_utilization_pct"
-    assert roadmap["narrative"]["technical_reveal"]["decision_details"]["decision_status_internal"] == "NEEDS_REVIEW"
+    assert roadmap["narrative"]["technical_reveal"]["decision_details"]["decision_status_internal"] == "CONDITIONAL"
     assert roadmap["narrative"]["technical_reveal"]["decision_details"]["expected_readiness"] == "week_12"
     assert "%" not in roadmap["narrative"]["executive_summary"]["follow_through_readiness"]["description"]["en"]
     assert action.business_view.action_family == "utilization"
@@ -899,14 +900,47 @@ def test_build_customer_artifact_bundle_normalizes_contract_safe_summary_fields(
     assert isclose(float(summary["approval_dependent_plan_probability"]), 0.64)
     assert isclose(float(summary["offer_acceptance_probability"]), 0.0)
     assert isclose(float(summary["combined_plan_realization_probability"]), 0.64)
+    assert int(summary["critical_field_null_count"]) == 0
     assert summary["checkpoint_status_4w"] == "unknown"
     assert int(summary["raw_contract_pass"]) == 0
     assert int(summary["data_issue_flag"]) == 1
-    assert "missing_required_field" in summary["data_issue_codes"]
+    assert "missing_required_field" not in summary["data_issue_codes"]
     assert "checkpoint_status_missing" in summary["data_issue_codes"]
     assert bundle.metrics_summary["decision_status"] == "CONDITIONAL"
     assert bundle.metrics_summary["decision_status_internal"] == "NEEDS_REVIEW"
     assert bundle.metrics_summary["checkpoint_status_4w"] == "unknown"
+
+
+def test_normalize_customer_roadmap_contract_recomputes_critical_fields_after_backfill() -> None:
+    normalized = _normalize_customer_roadmap_contract(
+        {
+            "customer_id": "cust-normalize",
+            "phases": [{"phase_id": "phase_1_stabilize", "steps": [{"step_id": "step-1"}]}],
+            "checkpoints": [
+                {"week": 4, "status": "at_risk"},
+                {"week": 12, "status": "on_track"},
+                {"week": 24, "status": "on_track"},
+            ],
+            "summary": {
+                "decision_status": "CONDITIONAL",
+                "credit_readiness_stage": "week_12",
+                "plan_execution_probability": 0.61,
+                "approval_dependent_plan_probability": None,
+                "offer_acceptance_probability": None,
+                "combined_plan_realization_probability": None,
+                "critical_field_null_count": 3,
+                "raw_contract_pass": 0,
+            },
+        }
+    )
+    summary = normalized["summary"]
+
+    assert isclose(float(summary["approval_dependent_plan_probability"]), 0.61)
+    assert isclose(float(summary["offer_acceptance_probability"]), 0.0)
+    assert isclose(float(summary["combined_plan_realization_probability"]), 0.61)
+    assert int(summary["critical_field_null_count"]) == 0
+    assert int(summary["raw_contract_pass"]) == 1
+    assert "missing_required_field" not in summary["data_issue_codes"]
 
 
 def test_build_customer_artifact_bundle_zero_step_always_rejects():
@@ -981,6 +1015,97 @@ def test_build_customer_artifact_bundle_zero_step_always_rejects():
     assert int(summary["best_action_count"]) == 0
     assert "zero_step_no_path" in summary["data_issue_codes"]
     assert bundle.metrics_summary["decision_status"] == "REJECTED"
+
+
+def test_build_customer_artifact_bundle_serializes_full_candidate_pool_with_plan_stage() -> None:
+    action = PlanAction(
+        feature_name="revol_util",
+        current_value=68.0,
+        target_value=52.0,
+        delta=-16.0,
+        time_months=1,
+        estimated_cost_usd=14.0,
+        action_key="limit_credit_usage",
+        action_class="behavioral",
+        action_title="Limit credit usage",
+        action_group_id="limit_credit_usage:phase_1_stabilize",
+        action_execution_probability=0.67,
+    )
+    internal_plan = PlanRecord(
+        plan_id="internal-plan",
+        customer_id="cust-source",
+        run_id="run-source",
+        horizon_months=6,
+        strategy="balanced",
+        actions=[action],
+        predicted_pd=0.33,
+        score=0.18,
+        robust_score=0.18,
+        status="APPROVED",
+        constraint_status="valid",
+        plan_source="internal",
+        plan_execution_probability=0.67,
+    )
+    dice_plan = PlanRecord(
+        plan_id="dice-plan",
+        customer_id="cust-source",
+        run_id="run-source",
+        horizon_months=6,
+        strategy="aggressive",
+        actions=[action],
+        predicted_pd=0.31,
+        score=0.19,
+        robust_score=0.19,
+        status="APPROVED",
+        constraint_status="valid",
+        plan_source="dice",
+        plan_execution_probability=0.69,
+    )
+    roadmap = _build_customer_roadmap(
+        customer_id="cust-source",
+        base_pd=0.44,
+        tau=0.35,
+        best=dice_plan,
+        best_source="dice",
+        row=pd.Series({"revol_util": 68.0}),
+        model=_DummyModel(),
+        calibrator=None,
+        feature_cols=["revol_util"],
+        local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.82}},
+    )
+
+    bundle = build_customer_artifact_bundle(
+        customer_id="cust-source",
+        model_version="model-001",
+        base_pd=0.44,
+        search_profile={"is_denied_target": False, "search_cfg": {"time_budget_ms": 0}},
+        segment_context={"income_band": "q2", "risk_band": "near", "segment_caps_applied": False},
+        validated=[internal_plan],
+        candidate_pool=[internal_plan, dice_plan],
+        best=dice_plan,
+        best_source="dice",
+        roadmap=roadmap,
+        msi=0.2,
+        alpha=0.05,
+        robust_objective="cvar",
+        robust_cvar_quantile=0.9,
+        local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.82}},
+        adverse_action_reasons=[],
+        dice_backend="dice_ml",
+        dice_records=[dice_plan],
+        dice_telemetry={"method_requested": "genetic", "method_used": "genetic", "fallback_reason": ""},
+        search_elapsed_ms=8.0,
+        fairness_penalty=0.0,
+        decision_log_record={"decision_id": "d-source", "selection_propensity": 1.0},
+        decision_log_summary={"decision_log_completeness": 1.0},
+    )
+
+    plans = bundle.plans_df.set_index("plan_id")
+    assert set(plans.index) == {"internal-plan", "dice-plan"}
+    assert set(plans["plan_source"]) == {"internal", "dice"}
+    assert plans.loc["internal-plan", "plan_stage"] == "validated"
+    assert plans.loc["dice-plan", "plan_stage"] == "candidate_only"
+    assert bundle.roadmap["summary"]["best_plan_source"] == "dice"
 
 
 def test_plan_to_row_serializes_nested_offer_contract_in_timeline():

@@ -21,7 +21,8 @@ Bu dokumani "repo'ya yeni katilan biri icin kisa ama tam bir yol haritasi" gibi 
 - Uygun olmayan musteri icin uygulanabilir aksiyon plani uretir.
 - Bu planin gercekciligini ve uygulanma ihtimalini olcer.
 - Kurum tekliflerini ayri bir katman olarak degerlendirir.
-- Tek musteri ve portfoy duzeyinde kanit uretir.
+- Tek musteri ve portfoy duzeyinde karar, kanit ve operator inceleme paketi uretir.
+- Business-visible son durumlari net tasir: `APPROVED | CONDITIONAL | REJECTED`.
 
 ---
 
@@ -37,7 +38,7 @@ Credit Coach, kredi basvurusu su an uygun gorunmeyen bir musteri icin:
 
 Kisa haliyle:
 
-`risk tahmini + yapilabilir aksiyon plani + urun anlatisi + portfoy kaniti`
+`risk tahmini + yapilabilir aksiyon plani + deterministic karar + urun anlatisi + portfoy kaniti`
 
 Bu proje sadece "puan tahmin eden bir model" degil.
 Bir karar destek sistemi.
@@ -127,14 +128,21 @@ Bu kisim, bugunku urunun somut olarak ne ciktigini hizlica gormek icin faydali.
 
 #### Tek musteri icin
 
+- deterministic decision summary
 - executive summary
 - action steps
 - checkpoints
 - kurum teklifi anlatisi
 - technical reveal
+- operator packet
+- institution-facing explanation pack
 
 #### Portfoy icin
 
+- decision funnel
+- readiness dagilimi
+- calibration review
+- operator briefing
 - numeric plan coverage
 - requested change burden
 - execution-aware payoff
@@ -269,6 +277,29 @@ Tum bu teknik dogrular daha okunabilir hale getirilir:
 - neden onemli
 - ne kadar gercekci
 - kurum ne destek verebilir
+
+### Adim 9.1: Final karar sahipligi uygulanir
+
+Bu proje artik sadece plan onermiyor.
+Ayni zamanda her musteri icin deterministic bir final karar da tasiyor.
+
+Business-visible karar seti:
+
+- `APPROVED`
+- `CONDITIONAL`
+- `REJECTED`
+
+Internal tarafta bir de istisna kovasi var:
+
+- `NEEDS_REVIEW`
+
+Ama cok onemli kural:
+
+- bu internal durum dis yuzeye sizmaz
+- website ve operator'un kisa yuzeyi sadece 3-state karar gorur
+
+Bu ayrim, sistemi "interesting prototype" olmaktan cikarip
+"karar sahibi fintech artefact" seviyesine tasiyan ana adimlardan biridir.
 
 ### Adim 10: Website ve demo yuzeyine tasinir
 
@@ -525,6 +556,23 @@ Ama su demek:
 
 Yani pilot hazirlik seviyesi var.
 Ama tam canli entegrasyon daha sonraki asama.
+
+### 5.8 Decision ownership ve contract trust
+
+Bu yeni katmanlarin amaci sudur:
+
+- ham output'lari null-free yapmak
+- raw ve flat artefact'leri ayni dogruyu tasir hale getirmek
+- final karari tek yerde sahiplenmek
+- operator ve proof yuzeylerinin ayni karar dilini kullanmasini saglamak
+
+Pratikte bunun anlami:
+
+- `customer_roadmap.json` artik sadece "plan dump" degil
+- `summary` bolumu final customer truth'u tasir
+- `customer_metrics.csv` ve `customer_plans.csv` bu truth'u mirror eder
+- parity bozuksa bu gizlenmez
+- ama artefact bug'i musteri karari gibi maskelenmez
 
 ---
 
@@ -1077,6 +1125,8 @@ Bu ayrimi bilmek cok onemli.
 - execution difficulty mantigi
 - kurum teklifi contract mantigi
 - checkpoint / trajectory mantigi
+- final decision ownership
+- raw/flat parity ve contract sagligi
 - urun anlatisi ve business-vs-technical ayrimi
 - portfoy review paketleme
 - pilot guardrail mantigi
@@ -1133,6 +1183,14 @@ Buraya bak:
 - `planner.py`
 - `loop.py`
 
+### `src/credit_coach/decision/`
+
+Final karar sahipligi burada yasar.
+
+Buraya bak:
+
+- `ownership.py`
+
 ### `src/credit_coach/evaluation/`
 
 Portfoy seviyesinde dogrulama ve kanit katmani.
@@ -1155,6 +1213,8 @@ En onemlileri:
 - `run_customer_artifact_collection.py`
 - `run_phase_experiment_suite.py`
 - `run_pilot_integration.py`
+- `run_pilot_baseline_refresh.py`
+- `run_pilot_artifact_qa.py`
 - `run_production_smoke.py`
 
 ### `src/credit_coach/causality/`
@@ -1286,6 +1346,43 @@ Kisaca:
 Bu milestone ile proje "sadece tavsiye motoru" olmaktan cikti,
 "kisisellestirilmis karar zekasi sistemi" haline geldi.
 
+### v2.1 - Decision Ownership & Pilot-Ready Trust
+
+Bu milestone ile proje bir adim daha ileri gitti.
+
+Burada:
+
+- final karar seti netlesti: `APPROVED | CONDITIONAL | REJECTED`
+- internal exception state `NEEDS_REVIEW` internal-only hale geldi
+- raw ve flat artefact contract'lari null-free ve parity-safe hale getirildi
+- collection run altina calibration, operator packet ve operator briefing geldi
+- planner source mix daha durust raporlanmaya baslandi
+- pilot refresh, artifact QA ve explanation pack katmani eklendi
+
+Bu milestone'un en kritik farki su:
+
+Sistem artik sadece "iyi gorunen planlar" ureten bir yapi degil.
+Ayni zamanda karar sahipligi, artefact guveni ve pilotta tekrar edilebilir isletim disiplini olan bir yapi.
+
+### v2.1 sonrasi output integrity duzeltmeleri
+
+Bu rehber acisindan son onemli gelisme, v2.1 sonrasinda yaptigimiz output integrity fix dalgasidir.
+
+Bu dalgada:
+
+- `critical_field_null_count` stale kalmayacak sekilde yeniden canonical hale getirildi
+- `raw_contract_pass` normalize edilmis summary uzerinden hesaplaniyor
+- `customer_plans.csv` validated subset degil, full candidate provenance tasiyor
+- `dice` best plan'lar artik flat artefact'lerde gorunur
+- sahte `DATA_ISSUE` conditionals temizlendi
+- `REJECTED` musteri artik `week_4` gibi approval-implying readiness ile dis yuzeye cikmiyor
+
+Yani bugunku output'lari okurken sunu varsayabilirsin:
+
+- contract health metriği artik daha guvenilir
+- data issue sayisi artik gercek issue'lara daha yakin
+- plan source audit'i artik flat artefact uzerinden yapilabilir
+
 ---
 
 ## 10. Bugun bu projede en onemli gucler neler?
@@ -1302,7 +1399,19 @@ Cunku kredi karari gibi zor alanlarda tek basina model yetmez.
 Website veya demo kendi anlamini uydurmuyor.
 Asil dogru Python motorundan geliyor.
 
-### 10.3 "More honest than impressive" yaklasimi
+### 10.3 Deterministic decision owner var
+
+Bu artik cok kritik bir guc.
+
+Sistem:
+
+- bir customer-level decision payload uretir
+- bunu raw, flat, operator packet ve proof surface boyunca ayni mantikla tasir
+- farkli yuzeyler kendi kararini icat etmez
+
+Bu, fintech benzeri urunlerde guven icin cok degerlidir.
+
+### 10.4 "More honest than impressive" yaklasimi
 
 Bu proje sadece parlatilmis uplift gostermiyor.
 Sunlari da gostermeye calisiyor:
@@ -1314,13 +1423,13 @@ Sunlari da gostermeye calisiyor:
 
 Bu urun guveni icin cok onemli.
 
-### 10.4 Pilot-ready dusunulmus
+### 10.5 Pilot-ready dusunulmus
 
 Canli entegrasyon yoksa bile,
 kuruma gidecek paket mantigi kurulmus.
 Bu, projeyi akademik demo olmaktan cikarip urun yoluna sokuyor.
 
-### 10.5 Portfolio inspection lane var
+### 10.6 Portfolio inspection lane var
 
 Sistem artik tek musteri artifact'iyle sinirli degil.
 50-100 musteri gibi toplu koleksiyonlarla:
@@ -1332,6 +1441,21 @@ Sistem artik tek musteri artifact'iyle sinirli degil.
 
 incelenebiliyor.
 
+### 10.7 Operator review lane var
+
+Artik ciktilar sadece ML gozlemi icin degil.
+Operator veya analist akisi icin de paketleniyor.
+
+Burada:
+
+- per-customer operator packet
+- collection-level operator briefing
+- calibration ve queue guidance
+
+gibi katmanlar var.
+
+Bu, "demo" ile "gercek kullanim provasi" arasindaki farki daraltiyor.
+
 ---
 
 ## 11. Hala hangi alanlar acik?
@@ -1341,9 +1465,10 @@ Proje guclu bir seviyede ama tamamlanmis degil.
 Acik tasinan ana alanlar:
 
 - dis kurum entegrasyonlari
-- regulatory / adverse action explanation pack'leri
-- proof refresh ve release review otomasyonu
-- kurum tarafli policy / kurum teklifi sync
+- daha derin institution deployment akislari
+- readiness semantiklerinin daha da rafine edilmesi
+- approval oranini yukseltecek planner / policy tuning
+- kurum tarafli policy / kurum teklifi sync'in daha ileri versiyonlari
 
 Yani sistem artik iyi bir "beyin" ve iyi bir "urun demosu" seviyesinde.
 Siradaki buyuk adim daha derin entegrasyon ve operasyonel otomasyon olur.
@@ -1357,17 +1482,21 @@ Cunku bu projeyi dogru anlatmanin en iyi yolu, hem guclu hem acik alanlari birli
 
 - semantic action planning
 - numeric targets
+- deterministic decision ownership
+- contract / parity trust
 - feasibility ve execution truth
 - kurum teklifi katmani
 - product surface
 - portfolio inspection lane
+- operator packet ve pilot baseline
 
 ### Henuz tam production-ready olmayan alanlar
 
 - canli kurum entegrasyonlari
-- surekli refresh ve monitoring otomasyonu
+- surekli refresh ve monitoring otomasyonunun daha ileri hali
 - institution-specific deployment flow'lari
-- regulatory explanation pack'leri
+- approval funnel tuning
+- readiness semantics'in daha ince is kurali seviyesine tasinmasi
 
 Bu ne demek?
 
@@ -1386,6 +1515,23 @@ Eger tek musteriye bakiyorsan:
 - `credit-coach/artifacts/runs/<run_id>/tables/plans.json`
 - `credit-coach/artifacts/runs/<run_id>/metrics.json`
 - `credit-coach/artifacts/runs/<run_id>/tables/customer_roadmap_steps.csv`
+- `credit-coach/artifacts/runs/<run_id>/tables/operator_packet.json`
+- `credit-coach/artifacts/runs/<run_id>/tables/operator_packet.md`
+
+Burada en kritik alan artik `customer_roadmap.json` icindeki `summary` bolumudur.
+
+Ozellikle bak:
+
+- `decision_status`
+- `decision_status_internal`
+- `decision_confidence`
+- `expected_readiness`
+- `decision_reason_summary`
+- `decision_reason_primary`
+- `upgrade_condition`
+- `best_plan_source`
+- `raw_contract_pass`
+- `parity_pass`
 
 ### 12.2 Batch / collection artifacts
 
@@ -1395,6 +1541,19 @@ Eger toplu inceleme yapiyorsan:
 - `credit-coach/artifacts/runs/<run_id>/tables/customer_artifact_collection/flat/customer_plans.csv`
 - `credit-coach/artifacts/runs/<run_id>/tables/customer_artifact_collection/flat/customer_roadmap_steps.csv`
 - `credit-coach/artifacts/runs/<run_id>/tables/customer_artifact_collection/collection_summary.md`
+- `credit-coach/artifacts/runs/<run_id>/tables/customer_artifact_collection/calibration/funnel_summary.json`
+- `credit-coach/artifacts/runs/<run_id>/tables/customer_artifact_collection/calibration/status_by_readiness.csv`
+- `credit-coach/artifacts/runs/<run_id>/tables/customer_artifact_collection/calibration/policy_comparison.csv`
+- `credit-coach/artifacts/runs/<run_id>/tables/customer_artifact_collection/operator_review_briefing.md`
+- `credit-coach/artifacts/runs/<run_id>/tables/customer_artifact_collection/operator_packets/`
+
+Burada yeni okuma mantigi su:
+
+- `collection_summary.md` = hizli genel tablo
+- `customer_metrics.csv` = customer-level truth
+- `customer_plans.csv` = plan source provenance ve candidate audit
+- `status_by_readiness.csv` = readiness ile karar uyumu
+- `operator_review_briefing.md` = operasyonel onceliklendirme
 
 ### 12.3 Website demo artifacts
 
@@ -1408,24 +1567,72 @@ Ama cok kritik not:
 Website snapshot'lari her zaman en guncel engine run'i olmayabilir.
 Gercek kaynak olarak engine artifact'lerini esas almak daha dogru olur.
 
-### 12.4 Ilk inceleme checklist'i
+### 12.4 Pilot / production baseline artifacts
+
+Pilot proof tarafina bakiyorsan su artefact'ler artik first-class:
+
+- `pilot_refresh_manifest.json`
+- `pilot_refresh_summary.md`
+- `artifact_qa_summary.json`
+- `release_smoke_summary.json`
+- `decision_explanation_pack.json`
+
+Bu dosyalar su sorulara cevap verir:
+
+- bu pilot refresh hangi version ile uretildi?
+- package QA temiz mi?
+- smoke sonucu ne?
+- kuruma gosterecegimiz explanation artefact'i ne durumda?
+
+### 12.5 Ilk inceleme checklist'i
 
 #### Tek musteri incelerken
 
-- `best_status` ne?
-- 4 haftalik checkpoint geciyor mu?
+- `decision_status` ne?
+- `decision_reason_summary` mantikli mi?
+- `expected_readiness` ile karar uyumlu mu?
+- `upgrade_condition` is diliyle anlamli mi?
+- `raw_contract_pass = 1` mi?
+- `parity_pass = 1` mi?
+- `best_plan_source` ne?
 - numeric target mantikli mi?
-- feasibility label ne diyor?
-- execution difficulty cok mu yuksek?
 - kurum teklifi var mi?
 
 #### Portfoy incelerken
 
-- coverage kac?
-- execution-aware payoff nasil?
-- realization gap yuksek mi?
-- en sik action ne?
-- en sik constraint ne?
+- `approved_share / conditional_share / rejected_share` nasil?
+- `approve_plus_conditional_share` ne durumda?
+- `critical_field_null_rate` ve `raw_contract_pass_rate` temiz mi?
+- `parity_mismatch_count` var mi?
+- `conditional hotspots` gercekten is nedeni mi, yoksa data issue mi?
+- `best_plan_source` dagilimi nasil?
+- `customer_plans.csv` ile `customer_metrics.csv` best source tarafinda uyumlu mu?
+- readiness dagilimi kararlarla tutarli mi?
+
+### 12.6 Son integrity fix'lerden sonra output'lari nasil okumali?
+
+Bu kisim ozellikle onemli.
+Cunku son yaptigimiz duzeltmeler output'larin anlamini degistirdi.
+
+Artik:
+
+- `critical_field_null_rate = 0` ise bunu daha guvenle okuyabilirsin
+- `raw_contract_pass_rate` gercekten contract health'i temsil eder
+- `DATA_ISSUE` sayisi, eskiye gore daha cok gercek contract/parity sorunu demektir
+- `customer_plans.csv` icindeki `plan_source` artik audit icin kullanilabilir
+
+Ama sunu da akilda tut:
+
+- approval funnel halen zayif olabilir
+- bu, her zaman contract bug'i anlamina gelmez
+- bazen gercekten planner quality veya policy threshold konusu olabilir
+
+Yani yeni dogru siralama su:
+
+1. once contract health'e bak
+2. sonra source provenance'a bak
+3. sonra readiness ve operator packet'e bak
+4. en son approval / conditional tuning'i yorumla
 
 ---
 
@@ -1439,19 +1646,21 @@ Eger sifirdan ogrenmek istiyorsan sana su sirayi oneririm:
 4. `.planning/MILESTONES.md` dosyasini oku.
 5. `credit-coach/src/credit_coach/cli/run_train.py` dosyasini oku.
 6. `credit-coach/src/credit_coach/cli/run_recourse.py` dosyasini oku.
-7. `credit-coach/src/credit_coach/recourse/` klasorunu gez.
-8. `credit-coach/src/credit_coach/coaching/messaging.py` dosyasina bak.
-9. `credit-coach/src/credit_coach/evaluation/portfolio_validation.py` dosyasina bak.
-10. En son `credit-coach-website/TECH_ARCHITECTURE.md` ile website tarafini oku.
+7. `credit-coach/src/credit_coach/decision/ownership.py` dosyasini oku.
+8. `credit-coach/src/credit_coach/recourse/` klasorunu gez.
+9. `credit-coach/src/credit_coach/coaching/messaging.py` dosyasina bak.
+10. `credit-coach/src/credit_coach/evaluation/portfolio_validation.py` dosyasina bak.
+11. `credit-coach/src/credit_coach/cli/run_pilot_baseline_refresh.py` dosyasina bak.
+12. En son `credit-coach-website/TECH_ARCHITECTURE.md` ile website tarafini oku.
 
 Bu sirayla gidersen once "ne"yi, sonra "nasil"i, sonra "neden"i anlarsin.
 
 ### 13.1 Kim ne okumali?
 
-- **urun yoneticisi** -> 1, 2, 3, 9, 10, 12
-- **ML / data science** -> 3, 4, 5, 7, 8
+- **urun yoneticisi** -> 1, 2, 3, 10, 11, 12
+- **ML / data science** -> 3, 4, 5, 7, 8, 10
 - **frontend / website** -> 4, 8.2, 10, 12
-- **yeni katilan herkes** -> 1, 2, 6, 13, 14
+- **yeni katilan herkes** -> 1, 2, 6, 7, 13, 14
 
 ---
 

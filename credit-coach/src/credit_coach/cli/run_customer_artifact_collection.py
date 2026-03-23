@@ -138,6 +138,7 @@ def _apply_collection_parity_classification(
 ) -> None:
     summary = _normalized_roadmap_summary(bundle)
     parity_pass = int(not mismatch_fields)
+    parity_mismatch_fields = sorted(set(str(field) for field in mismatch_fields if str(field)))
     data_issue_codes = list(summary.get("data_issue_codes", []))
     if mismatch_fields and "parity_mismatch" not in data_issue_codes:
         data_issue_codes.append("parity_mismatch")
@@ -147,6 +148,9 @@ def _apply_collection_parity_classification(
             "parity_pass": parity_pass,
             "data_issue_flag": data_issue_flag,
             "data_issue_codes": data_issue_codes,
+            "parity_mismatch_count": len(parity_mismatch_fields),
+            "parity_mismatch_fields": parity_mismatch_fields,
+            "parity_mismatch_fields_json": _json_dumps_compact(parity_mismatch_fields),
         }
     )
     bundle.roadmap = _normalize_customer_roadmap_contract(bundle.roadmap)
@@ -362,6 +366,8 @@ def _augment_plans_df(
         out["approval_shell_only_flag"] = 0
     if "offer_maturity" not in out.columns:
         out["offer_maturity"] = "none"
+    if "plan_stage" not in out.columns:
+        out["plan_stage"] = "validated"
     out.insert(0, "collection_run_id", str(collection_run_id))
     out.insert(1, "batch_index", int(selection_row["batch_index"]))
     out.insert(2, "source_row_index", int(selection_row["source_row_index"]))

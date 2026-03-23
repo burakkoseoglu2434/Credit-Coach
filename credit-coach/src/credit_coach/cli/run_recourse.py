@@ -368,26 +368,6 @@ def _normalize_customer_roadmap_contract(roadmap: dict[str, Any]) -> dict[str, A
         )
     )
     zero_step_flag = int(best_action_count == 0)
-    computed_critical_field_null_count = int(
-        sum(1 for field in _CRITICAL_SOURCE_SUMMARY_FIELDS if _is_missing_contract_value(summary.get(field)))
-    )
-    critical_field_null_count = max(
-        computed_critical_field_null_count,
-        int(_safe_int(summary.get("critical_field_null_count", 0), 0)),
-    )
-    missing_checkpoint_status_count = max(
-        missing_checkpoint_status_count,
-        int(_safe_int(summary.get("missing_checkpoint_status_count", 0), 0)),
-    )
-    data_issue_codes = _dedupe_issue_codes(summary.get("data_issue_codes", []))
-    if critical_field_null_count > 0:
-        data_issue_codes.append("missing_required_field")
-    if missing_checkpoint_status_count > 0:
-        data_issue_codes.append("checkpoint_status_missing")
-    if zero_step_flag:
-        data_issue_codes.append("zero_step_no_path")
-    data_issue_codes = _dedupe_issue_codes(data_issue_codes)
-
     plan_execution_probability = _safe_float(summary.get("plan_execution_probability", 0.0), 0.0)
     approval_dependent_plan_probability = (
         plan_execution_probability
@@ -404,6 +384,30 @@ def _normalize_customer_roadmap_contract(roadmap: dict[str, Any]) -> dict[str, A
         if _is_missing_contract_value(summary.get("combined_plan_realization_probability"))
         else _safe_float(summary.get("combined_plan_realization_probability", 0.0), plan_execution_probability)
     )
+    summary.update(
+        {
+            "plan_execution_probability": plan_execution_probability,
+            "approval_dependent_plan_probability": approval_dependent_plan_probability,
+            "offer_acceptance_probability": offer_acceptance_probability,
+            "combined_plan_realization_probability": combined_plan_realization_probability,
+        }
+    )
+
+    critical_field_null_count = int(
+        sum(1 for field in _CRITICAL_SOURCE_SUMMARY_FIELDS if _is_missing_contract_value(summary.get(field)))
+    )
+    missing_checkpoint_status_count = max(
+        missing_checkpoint_status_count,
+        int(_safe_int(summary.get("missing_checkpoint_status_count", 0), 0)),
+    )
+    data_issue_codes = _dedupe_issue_codes(summary.get("data_issue_codes", []))
+    if critical_field_null_count > 0:
+        data_issue_codes.append("missing_required_field")
+    if missing_checkpoint_status_count > 0:
+        data_issue_codes.append("checkpoint_status_missing")
+    if zero_step_flag:
+        data_issue_codes.append("zero_step_no_path")
+    data_issue_codes = _dedupe_issue_codes(data_issue_codes)
 
     raw_contract_pass = int(critical_field_null_count == 0 and missing_checkpoint_status_count == 0)
     parity_pass = int(bool(_safe_int(summary.get("parity_pass", 1), 1)))
@@ -1116,6 +1120,7 @@ def _build_customer_roadmap(
         "dominant_difficulty_label": str(getattr(best, "dominant_difficulty_label", "") or ""),
         "follow_through_readiness_label": str(getattr(best, "follow_through_readiness_label", "") or ""),
         "best_plan_id": str(best.plan_id),
+        "best_plan_source": str(best_source),
         "best_constraint_status": str(getattr(best, "constraint_status", "valid") or "valid"),
         "offer_plan": int(bool(getattr(best, "offer_plan", False))),
         "rankable_offer_count": int(_safe_int(getattr(best, "rankable_offer_count", 0), 0)),
@@ -1169,6 +1174,38 @@ def _build_customer_roadmap(
         offer_maturity=_safe_text(normalized_summary.get("offer_maturity"), ""),
     ).model_dump(mode="json")
     return roadmap
+
+
+def _build_bundle_plans_df(
+    *,
+    validated: list[PlanRecord],
+    candidate_pool: list[PlanRecord],
+) -> pd.DataFrame:
+    ordered_plan_ids: list[str] = []
+    rows_by_plan_id: dict[str, dict[str, Any]] = {}
+
+    def _upsert(plan: PlanRecord, *, plan_stage: str) -> None:
+        plan_id = str(getattr(plan, "plan_id", "") or "")
+        if not plan_id:
+            return
+        row = _plan_to_row(plan)
+        row["plan_stage"] = plan_stage
+        existing = rows_by_plan_id.get(plan_id)
+        if existing is None:
+            ordered_plan_ids.append(plan_id)
+            rows_by_plan_id[plan_id] = row
+            return
+        if existing.get("plan_stage") != "validated" or plan_stage == "validated":
+            rows_by_plan_id[plan_id] = row
+
+    for plan in candidate_pool:
+        _upsert(plan, plan_stage="candidate_only")
+    for plan in validated:
+        _upsert(plan, plan_stage="validated")
+
+    if not ordered_plan_ids:
+        return pd.DataFrame()
+    return pd.DataFrame([rows_by_plan_id[plan_id] for plan_id in ordered_plan_ids])
 
 
 def _plan_to_row(plan: PlanRecord) -> dict:
@@ -2374,7 +2411,7 @@ def build_customer_artifact_bundle(
         local_reason_bundle=local_reason_bundle,
     )
     roadmap = _apply_decision_ownership_to_roadmap(roadmap)
-    plans_df = pd.DataFrame([_plan_to_row(p) for p in validated])
+    plans_df = _build_bundle_plans_df(validated=validated, candidate_pool=candidate_pool)
     roadmap_steps_df = _build_customer_roadmap_steps_df(
         customer_id=customer_id,
         best_plan_id=str(best.plan_id),

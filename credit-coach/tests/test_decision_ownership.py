@@ -90,6 +90,39 @@ def test_decision_payload_data_issue_stays_internal_review_and_external_conditio
     assert payload["conditional_type"] == "DATA_ISSUE"
     assert payload["decision_reason_primary"] == "DATA_ISSUE"
     assert payload["upgrade_condition"] is not None
+    assert "critical_field_null_count" in payload["upgrade_condition"]
+    assert all(driver["driver_key"] != "parity_mismatch_count" for driver in payload["decision_reason_drivers"])
+
+
+def test_decision_payload_data_issue_uses_parity_mismatch_count_when_parity_fails() -> None:
+    payload = build_customer_decision_payload(
+        {
+            "best_plan_id": "plan-2b",
+            "best_action_count": 2,
+            "zero_step_flag": 0,
+            "plan_contract_pass": 1,
+            "best_constraint_status": "valid",
+            "raw_contract_pass": 1,
+            "parity_pass": 0,
+            "parity_mismatch_count": 2,
+            "data_issue_flag": 1,
+            "critical_field_null_count": 0,
+            "plan_execution_probability": 0.72,
+            "combined_plan_realization_probability": 0.72,
+            "expected_pd_improvement": 0.04,
+            "nominal_pd_improvement": 0.05,
+            "local_explainability_confidence": 0.90,
+            "credit_readiness_stage": "week_4",
+            "approval_ready_4w": 1,
+            "offer_plan": 0,
+        }
+    )
+
+    assert payload["decision_status_internal"] == "NEEDS_REVIEW"
+    assert payload["decision_status"] == "CONDITIONAL"
+    assert payload["conditional_type"] == "DATA_ISSUE"
+    assert [driver["driver_key"] for driver in payload["decision_reason_drivers"]] == ["parity_mismatch_count"]
+    assert payload["upgrade_condition"] == "parity_mismatch_count 2 -> 0"
 
 
 def test_decision_payload_week_12_is_time_gated_not_approved() -> None:
@@ -118,6 +151,32 @@ def test_decision_payload_week_12_is_time_gated_not_approved() -> None:
     assert payload["decision_status_internal"] == "CONDITIONAL"
     assert payload["conditional_type"] == "TIME_GATED"
     assert payload["expected_readiness"] == "week_12"
+
+
+def test_decision_payload_rejected_clamps_readiness_to_not_ready() -> None:
+    payload = build_customer_decision_payload(
+        {
+            "best_plan_id": "plan-3b",
+            "best_action_count": 2,
+            "zero_step_flag": 0,
+            "plan_contract_pass": 1,
+            "best_constraint_status": "valid",
+            "raw_contract_pass": 1,
+            "parity_pass": 1,
+            "data_issue_flag": 0,
+            "plan_execution_probability": 0.68,
+            "combined_plan_realization_probability": 0.68,
+            "expected_pd_improvement": 0.0,
+            "nominal_pd_improvement": 0.05,
+            "local_explainability_confidence": 0.82,
+            "credit_readiness_stage": "week_4",
+            "approval_ready_4w": 1,
+            "offer_plan": 0,
+        }
+    )
+
+    assert payload["decision_status"] == "REJECTED"
+    assert payload["expected_readiness"] == "not_ready"
 
 
 def test_decision_payload_provisional_offer_cannot_approve() -> None:
