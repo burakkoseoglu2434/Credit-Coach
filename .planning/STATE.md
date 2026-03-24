@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-23)
+See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** post-v2.1 carry-forward closeout complete
+**Current focus:** v2.2 milestone started; defining requirements
 
 ## Current Position
 
-Phase: post-v2.1 carry-forward
-Plan: phase 42.5 complete
-Status: Ready for next milestone definition
-Last activity: 2026-03-24 - Closed Phase `42.5 Recommendation Validity Layer`; code and regression validation passed, full processed-data artifact rerun validation deferred because `credit-coach/data/processed/test.parquet` is missing locally
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-24 - Started milestone `v2.2 Winner Integrity & Consumer Consistency` from the targeted invalid-winner failure analysis and large-sample rerun evidence
 
-Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipment Phase `42.5` now adds canonical numeric recommendation validity, hard-invalid winner filtering, warning penalties, operator manual-review badges, explanation-pack human-review propagation, and additive collection metrics without reopening decision ownership, calibration math, or operator packet semantics.
+Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipment Phase `42.5` added canonical numeric recommendation validity, and `v2.2` now opens to fix invalid selected winners and consumer-surface inconsistencies before any threshold widening.
 
 ## Performance Metrics
 
@@ -34,6 +34,7 @@ Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipme
 | v2.0 completed milestone | 30 | phases 30-39 complete | n/a |
 | v2.1 completed milestone | 18 | phases 40, 40.5, 41, 43, 42, 44 complete | n/a |
 | post-v2.1 carry-forward hardening | 3 | phase 42.5 complete | n/a |
+| v2.2 active milestone | 0 | milestone started | n/a |
 
 **Recent Trend:**
 - Credit Coach now carries one continuous stack from semantic action planning to pilot-facing package delivery.
@@ -47,6 +48,8 @@ Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipme
 - Phase 42.5 now hardens numeric recommendation trust with directional hard gates, economic warning penalties, contender filtering, operator warning badges, explanation-pack human-review propagation, and additive collection metrics.
 - Phase 44 now ships repeatable pilot refresh orchestration, separate artifact QA versus portfolio smoke lanes, thin institution overlays, institution-facing explanation packs, and bounded proof-surface docs.
 - Milestone `v2.1` audit passed with `12/12` requirements satisfied, `6/6` integrations, and `4/4` end-to-end flows.
+- Large-sample reruns now execute locally via deterministic sample-CSV fallback, so milestone work can validate selected-winner behavior without the old processed-dataset blocker.
+- The newest evidence shows the main remaining bottleneck is winner integrity and selected-surface consistency rather than recommendation language or threshold aggressiveness.
 
 ## Accumulated Context
 
@@ -59,6 +62,8 @@ Recent decisions affecting the shipped baseline:
 - `v2.0 Personalized Action & Decision Intelligence` turned feature-delta outputs into semantic, numeric, feasible, execution-aware, and institution-aware plans
 - `v2.1 Decision Ownership & Pilot-Ready Trust` turned those plans into deterministic decisions, reviewable funnels, operator packets, and repeatable pilot-refresh artifacts
 - Post-v2.1 Phase `42.5 Recommendation Validity Layer` now prevents directionally wrong or no-op numeric recommendations from winning and marks suspicious numeric recommendations for bounded manual review
+- Large-sample reruns and targeted failure analysis showed that invalid selected winners are dominated by a planner fallback bug in `choose_best_plan(...)`, not by annotation failure
+- All leaked selected invalid winners observed so far were `dice` winners, and consumer surfaces still have selected-plan coherence gaps
 - The website remains a typed consumer of engine artifacts rather than a source of decision logic
 - Portfolio proof now includes numeric impact and calibration honesty, not just product confidence
 - Pilot integration remains export-first and controlled instead of pretending live connectivity
@@ -72,11 +77,12 @@ None yet.
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
 - Some Phase 41-44 validation frontmatter still understates `wave_0_complete` despite shipped tests and successful audit coverage.
-- Full processed-data artifact rerun validation for Phase `42.5` is deferred locally until `credit-coach/data/processed/test.parquet` is restored.
-- The next workflow step is `$gsd-new-milestone` to define post-v2.1 work.
+- `choose_best_plan(...)` still needs a hard-stop fix so empty validity-filtered pools cannot fall back to invalid candidates.
+- `dice` lane winner enforcement and selected-surface coherence remain the main technical risks before any threshold work.
+- Operator packets still need coherence cleanup for invalid selected actions and approved fallback blockers.
 
 ## Session Continuity
 
 Last session: 2026-03-24
-Stopped at: Phase `42.5 Recommendation Validity Layer` closed; next step is `$gsd-new-milestone`
+Stopped at: Milestone `v2.2 Winner Integrity & Consumer Consistency` started; next step is defining requirements and roadmap
 Resume file: None

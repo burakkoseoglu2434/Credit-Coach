@@ -1,6 +1,38 @@
 # Project Milestones: Credit Coach
 
-**Current active milestone:** None - run `$gsd-new-milestone` to define the next milestone
+**Current active milestone:** `v2.2 Winner Integrity & Consumer Consistency`
+
+## v2.2 Winner Integrity & Consumer Consistency (Active: started 2026-03-24)
+
+**Goal:** Fix selected-winner integrity and consumer-surface consistency before any threshold widening or approval-rate optimization.
+
+**Why this milestone exists now:**
+- targeted failure analysis showed that selected invalid recommendation leakage is dominated by a planner filtering fallback bug in `choose_best_plan(...)`
+- all leaked selected invalid winners observed in large-sample reruns were `dice` winners
+- recommendation validity annotation appears to be working, so the remaining gap is winner enforcement and surface coherence
+- operator packet inconsistencies remain: invalid selected actions can still appear in short view, some external `CONDITIONAL` cases still point at selected `REJECTED` rows, and approved packets can still show fallback blockers
+
+**Planned phases:** 45-48
+
+**Workstreams:**
+- Phase 45: Winner Integrity Hard Stop
+- Phase 46: Dice Lane Validity Enforcement
+- Phase 47: Selected Surface Consistency
+- Phase 48: Operator Packet Coherence
+
+**Acceptance checks:**
+- `0` selected invalid winners across large-sample reruns
+- `0` external `CONDITIONAL` outputs pointing at selected `REJECTED` rows
+- `0` approved packets with fallback blockers when no active drivers exist
+- `0` operator short views rendering invalid selected actions as the chosen recommendation
+
+**Not in this milestone:**
+- threshold widening
+- approval-rate optimization
+- redesign of Phases `40`, `40.5`, `41`, `42`, `42.5`, or `43`
+- new borrower-facing channels, live institution integrations, or compliance automation
+
+**What's next:** `$gsd-discuss-phase 45`
 
 ## v1.0 Brownfield Baseline (Shipped: 2026-03-10)
 

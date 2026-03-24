@@ -18,14 +18,24 @@ Generate customer-specific credit action plans that are actionable, behaviorally
 - explicit planner provenance, empty-contender removal, source-mix honesty, diversity guardrails, and offer-maturity signals
 - repeatable pilot baseline refresh, dedicated artifact QA, thin institution overlays, and institution-facing explanation packs
 
-No active milestone is currently defined. The next planning step is to open a fresh milestone with `$gsd-new-milestone`.
+Post-shipment Phase `42.5 Recommendation Validity Layer` completed on `2026-03-24` and added canonical numeric recommendation validity, hard-invalid contender filtering, warning penalties, operator sanity badges, explanation-pack human-review propagation, and additive collection metrics. Large-sample reruns then exposed a narrower but more important remaining gap: selected invalid winners can still leak through planner fallback behavior and surface as contradictory operator guidance.
+
+## Current Milestone: v2.2 Winner Integrity & Consumer Consistency
+
+**Goal:** Fix selected-winner integrity and consumer-surface consistency before any threshold widening or approval-rate optimization.
+
+**Target features:**
+- hard-stop selected invalid winners even when preferred candidate pools collapse after validity filtering
+- enforce `dice` lane validity and fallback discipline with the same rigor as internal plans
+- align selected plan rows, external decisions, collection metrics, operator packets, and explanation packs around one coherent selected winner
+- remove contradictory operator packet blockers and invalid short-view actions without reopening decision ownership semantics
 
 ## Next Milestone Goals
 
-- move from pilot package handoff toward deeper institution-specific integration contracts without reopening deterministic decision ownership
-- expand compliance-adjacent explanation and governance workflows while keeping internal-only decision truth bounded
-- automate proof refresh, release review, and milestone health workflows that are still operator-triggered today
-- clean up milestone tooling and validation metadata debt so archive and audit flows no longer need manual fallback
+- no invalid recommendation can survive winner selection or appear as selected truth in raw, flat, or operator-facing artifacts
+- `dice` candidates must obey the same validity enforcement and no-valid-fallback discipline as internal candidates
+- selected surfaces must remain coherent across `best_plan_id`, `decision_status`, `customer_metrics.csv`, `customer_plans.csv`, operator packets, and explanation packs
+- operator packets must not show invalid selected actions, contradictory approved blockers, or `CONDITIONAL` packets that point to selected `REJECTED` rows
 
 <details>
 <summary>Archived Milestone Context: v2.1 Decision Ownership & Pilot-Ready Trust</summary>
@@ -83,17 +93,17 @@ No active milestone is currently defined. The next planning step is to open a fr
 
 ### Active
 
-- [ ] Institution-specific inbound and outbound integration contracts beyond export-first pilot packaging
-- [ ] Compliance-adjacent explanation and governance workflows beyond bounded pilot support artifacts
-- [ ] Recurring proof refresh, release review, and milestone health automation
-- [ ] Milestone tooling and planning metadata cleanup so archive and audit workflows can run without manual fallback
+- [ ] No plan with `recommendation_validity_status = invalid` can survive winner selection or appear as selected truth in raw, flat, or operator-facing artifacts
+- [ ] `dice` candidates obey the same validity enforcement and fallback discipline as internal candidates, with explicit diagnostics when no valid `dice` winner exists
+- [ ] Selected surfaces remain coherent across `best_plan_id`, `decision_status`, `customer_metrics.csv`, `customer_plans.csv`, operator packets, and explanation packs
+- [ ] Operator packets stay consumer-safe and self-consistent: no invalid selected actions in short view, no contradictory approved blockers, and no `CONDITIONAL` packets pointing at selected `REJECTED` rows
 
 ### Out of Scope
 
+- Threshold widening or approval-rate optimization before selected-winner integrity is proven end-to-end
+- Redesigns of Phases `40`, `40.5`, `41`, `42`, `42.5`, or `43` rather than consuming their shipped semantics as fixed baselines
 - Full borrower-facing self-serve or mobile experiences until a future milestone explicitly opens them
-- Fully autonomous online policy promotion before evidence-first controls are expanded
-- Legal or compliance opinion automation
-- Unscoped greenfield rewrites of the engine or website stacks
+- Legal or compliance opinion automation or live institution integration expansion beyond the shipped pilot baseline
 
 ## Context
 
@@ -102,6 +112,10 @@ No active milestone is currently defined. The next planning step is to open a fr
 - `v1.3 Portfolio Intelligence & Productization` remains the shipped baseline for full-portfolio proof, buyer-safe product surfaces, analyst validation, and pilot-baseline operations.
 - `v2.0 Personalized Action & Decision Intelligence` is now shipped and audited, adding personalized numeric planning contracts, execution and offer realism, richer narratives, stricter product-surface consumption, portfolio numeric proof, calibration review, and pilot packaging.
 - `v2.1 Decision Ownership & Pilot-Ready Trust` is now shipped and audited, adding repaired artifact trust, deterministic decision ownership, collection-root funnel and calibration evidence, operator review packs, planner-quality honesty, and repeatable pilot refresh infrastructure.
+- Phase `42.5 Recommendation Validity Layer` now annotates and penalizes invalid or suspicious numeric recommendations, but targeted failure analysis found that selected invalid winners are still leaking through planner fallback behavior.
+- The dominant failure is in `choose_best_plan(...)`: invalid candidates are filtered, but if the filtered preferred set becomes empty, the planner falls back to the original invalid pool.
+- All leaked selected invalid winners in large-sample reruns were `dice` winners, while validity annotation itself appeared correct.
+- Consumer-surface coherence also remains incomplete: invalid selected recommendations can still appear in operator short view, some external `CONDITIONAL` outputs still point at selected `REJECTED` rows, and approved packets can still show fallback blockers.
 - The next milestone should build forward from this decision-and-pilot baseline rather than casually reopening finished contract layers.
 
 ## Constraints
@@ -112,6 +126,8 @@ No active milestone is currently defined. The next planning step is to open a fr
 - **Proof Before Hype**: Demo, proof, and pilot claims should stay anchored to portfolio evidence and explicit trust cues
 - **Brownfield**: Existing CLI runners, artifacts, website stack, and review surfaces should be evolved rather than replaced
 - **Milestone Continuity**: Phase numbering continues across milestones rather than resetting
+- **No Threshold Widening Yet**: `v2.2` fixes winner integrity before any approval-rate or threshold tuning
+- **No Semantic Reopen**: Decision ownership, calibration math, planner-quality measurement, recommendation validity semantics, and operator packet semantics remain inherited baselines for this milestone
 
 ## Key Decisions
 
@@ -127,6 +143,7 @@ No active milestone is currently defined. The next planning step is to open a fr
 | Keep pilot integration export-first and controlled | The repo should not pretend to have live institution connectivity before the contract seam is genuinely ready | ✓ Good |
 | Separate business-visible decision truth from internal review diagnostics | The pilot story needed deterministic external decisions without leaking internal exception states | ✓ Good |
 | Treat calibration, operator review, planner quality, and pilot refresh as additive consumers of one decision owner | This preserved deterministic ownership while still making the system measurable, reviewable, and packageable | ✓ Good |
+| Open `v2.2 Winner Integrity & Consumer Consistency` before any threshold widening | Large-sample reruns showed that invalid selected winners and contradictory consumer surfaces are the real bottleneck, not approval aggressiveness | — Pending |
 
 ---
-*Last updated: 2026-03-23 after completing milestone v2.1*
+*Last updated: 2026-03-24 after starting milestone v2.2*
