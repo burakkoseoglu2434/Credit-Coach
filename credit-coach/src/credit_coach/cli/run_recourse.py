@@ -50,6 +50,10 @@ from credit_coach.recourse.execution_probability import annotate_plan_execution_
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.generator import generate_nine_plans
 from credit_coach.recourse.offer_optimization import annotate_offer_optimization, build_offer_contract
+from credit_coach.recourse.recommendation_validity import (
+    annotate_action_recommendation_validity,
+    annotate_plan_recommendation_validity,
+)
 from credit_coach.recourse.trajectory import (
     attach_canonical_trajectory,
     build_canonical_phases,
@@ -97,6 +101,9 @@ _ROADMAP_STEP_COLUMNS = [
     "repair_applied",
     "dependency_gate",
     "semantic_preserved",
+    "recommendation_validity_status",
+    "recommendation_validity_codes_json",
+    "recommendation_sanity_flag",
 ]
 
 FLOAT_PARITY_TOLERANCE = 1e-6
@@ -498,6 +505,12 @@ def _sync_metrics_summary_with_roadmap_summary(
             "rejection_type": _safe_text(summary.get("rejection_type"), ""),
             "conditional_type": _safe_text(summary.get("conditional_type"), ""),
             "upgrade_condition": _safe_text(summary.get("upgrade_condition"), ""),
+            "recommendation_validity_status": _safe_text(summary.get("recommendation_validity_status"), "valid"),
+            "recommendation_invalid_action_count": int(_safe_int(summary.get("recommendation_invalid_action_count", 0), 0)),
+            "recommendation_warning_action_count": int(_safe_int(summary.get("recommendation_warning_action_count", 0), 0)),
+            "recommendation_validity_codes": list(summary.get("recommendation_validity_codes", [])),
+            "recommendation_validity_codes_json": json.dumps(summary.get("recommendation_validity_codes", []), ensure_ascii=False),
+            "recommendation_sanity_flag": int(bool(_safe_int(summary.get("recommendation_sanity_flag", 0), 0))),
             "realization_anchor": _safe_float(summary.get("realization_anchor", 0.0), 0.0),
             "strong_execution_flag": int(bool(_safe_int(summary.get("strong_execution_flag", 0), 0))),
             "offer_maturity": _safe_text(summary.get("offer_maturity"), ""),
@@ -993,6 +1006,9 @@ def _build_customer_roadmap(
                         if getattr(action, "approval_friction", None) is not None
                         else None
                     ),
+                    "recommendation_validity_status": str(getattr(action, "recommendation_validity_status", "") or ""),
+                    "recommendation_validity_codes": list(getattr(action, "recommendation_validity_codes", []) or []),
+                    "recommendation_sanity_flag": int(bool(getattr(action, "recommendation_sanity_flag", False))),
                 }
             )
         phases.append(
@@ -1122,6 +1138,11 @@ def _build_customer_roadmap(
         "best_plan_id": str(best.plan_id),
         "best_plan_source": str(best_source),
         "best_constraint_status": str(getattr(best, "constraint_status", "valid") or "valid"),
+        "recommendation_validity_status": str(getattr(best, "recommendation_validity_status", "valid") or "valid"),
+        "recommendation_invalid_action_count": int(getattr(best, "recommendation_invalid_action_count", 0) or 0),
+        "recommendation_warning_action_count": int(getattr(best, "recommendation_warning_action_count", 0) or 0),
+        "recommendation_validity_codes": list(getattr(best, "recommendation_validity_codes", []) or []),
+        "recommendation_sanity_flag": int(bool(getattr(best, "recommendation_sanity_flag", False))),
         "offer_plan": int(bool(getattr(best, "offer_plan", False))),
         "rankable_offer_count": int(_safe_int(getattr(best, "rankable_offer_count", 0), 0)),
         "approval_pending_action_count": int(_safe_int(getattr(best, "approval_pending_action_count", 0), 0)),
@@ -1302,6 +1323,9 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                     if getattr(action, "approval_friction", None) is not None
                     else None
                 ),
+                "recommendation_validity_status": str(getattr(action, "recommendation_validity_status", "") or ""),
+                "recommendation_validity_codes": list(getattr(action, "recommendation_validity_codes", []) or []),
+                "recommendation_sanity_flag": int(bool(getattr(action, "recommendation_sanity_flag", False))),
             }
         )
     canonical_phases = list(getattr(plan, "phases", [])) or build_canonical_phases(
@@ -1323,6 +1347,14 @@ def _plan_to_row(plan: PlanRecord) -> dict:
         "empty_candidate_reason": str(getattr(plan, "empty_candidate_reason", "") or ""),
         "approval_shell_only_flag": int(bool(getattr(plan, "approval_shell_only_flag", False))),
         "offer_maturity": str(getattr(plan, "offer_maturity", "") or ""),
+        "recommendation_validity_status": str(getattr(plan, "recommendation_validity_status", "") or ""),
+        "recommendation_invalid_action_count": int(getattr(plan, "recommendation_invalid_action_count", 0) or 0),
+        "recommendation_warning_action_count": int(getattr(plan, "recommendation_warning_action_count", 0) or 0),
+        "recommendation_validity_codes_json": json.dumps(
+            list(getattr(plan, "recommendation_validity_codes", []) or []),
+            ensure_ascii=False,
+        ),
+        "recommendation_sanity_flag": int(bool(getattr(plan, "recommendation_sanity_flag", False))),
         "horizon": plan.horizon_months,
         "strategy": plan.strategy,
         "predicted_pd": plan.predicted_pd,
@@ -1439,6 +1471,7 @@ def _dice_plan_record(
     feasibility_profile: dict | None = None,
     segment_context: dict | None = None,
 ) -> PlanRecord:
+    customer_context = {str(k): row.get(k) for k in row.index}
     plan_actions: list[PlanAction] = []
 
     for a in actions:
@@ -1456,7 +1489,7 @@ def _dice_plan_record(
             profile=feasibility_profile,
             segment_context=segment_context,
             action_class=spec.action_class,
-            action_context={str(k): row.get(k) for k in row.index},
+            action_context=customer_context,
         )
         target = float(detail["target_value"])
         delta = float(target - current)
@@ -1469,7 +1502,7 @@ def _dice_plan_record(
             current_value=current,
             target_value=target,
             action_month=action_month,
-            action_context={str(k): row.get(k) for k in row.index},
+            action_context=customer_context,
         )
         plan_actions.append(
             PlanAction(
@@ -1507,9 +1540,12 @@ def _dice_plan_record(
 
     constraint_result = enforce_action_constraints(
         plan_actions,
-        action_context={str(k): row.get(k) for k in row.index},
+        action_context=customer_context,
     )
-    plan_actions = list(constraint_result.actions)
+    plan_actions = [
+        annotate_action_recommendation_validity(action, customer_context=customer_context)
+        for action in list(constraint_result.actions)
+    ]
     x_prime = row.copy()
     for action in plan_actions:
         x_prime[str(action.feature_name)] = float(action.target_value)
@@ -1541,7 +1577,7 @@ def _dice_plan_record(
     annotate_plan_execution_probability(
         plan,
         base_pd=base_pd,
-        customer_context={str(k): row.get(k) for k in row.index},
+        customer_context=customer_context,
         segment_context=segment_context,
     )
     attach_canonical_trajectory(
@@ -1555,10 +1591,10 @@ def _dice_plan_record(
     )
     annotate_offer_optimization(
         plan,
-        customer_context={str(k): row.get(k) for k in row.index},
+        customer_context=customer_context,
         segment_context=segment_context,
     )
-    return plan
+    return annotate_plan_recommendation_validity(plan, customer_context=customer_context)
 
 
 def _candidate_rank_tuple(plan: PlanRecord) -> tuple:
@@ -2220,6 +2256,12 @@ def _build_customer_roadmap_steps_df(
                     if step.get("semantic_preserved", None) is not None
                     else None
                 ),
+                "recommendation_validity_status": str(step.get("recommendation_validity_status", "") or ""),
+                "recommendation_validity_codes_json": json.dumps(
+                    list(step.get("recommendation_validity_codes", [])),
+                    ensure_ascii=False,
+                ),
+                "recommendation_sanity_flag": _safe_int(step.get("recommendation_sanity_flag", 0), 0),
             }
             roadmap_steps_rows.append(row_out)
     if not roadmap_steps_rows:
@@ -2362,6 +2404,37 @@ def _build_customer_metrics_summary(
             "candidate_non_empty_count": int(contender_counts["ACTIONABLE"] + contender_counts["APPROVAL_SHELL_ONLY"]),
             "candidate_approval_shell_only_count": int(contender_counts["APPROVAL_SHELL_ONLY"]),
             "candidate_empty_removed_count": int(contender_counts["EMPTY"]),
+            "hard_invalid_plan_rate": float(
+                sum(1 for plan in candidate_pool if str(getattr(plan, "recommendation_validity_status", "valid")) == "invalid")
+                / max(1, len(candidate_pool))
+            ),
+            "numeric_warning_rate": float(
+                sum(1 for plan in candidate_pool if str(getattr(plan, "recommendation_validity_status", "valid")) == "warning")
+                / max(1, len(candidate_pool))
+            ),
+            "best_plan_warning_rate": float(
+                1.0 if str(getattr(best, "recommendation_validity_status", "valid")) == "warning" else 0.0
+            ),
+            "directional_invalid_count": int(
+                sum(
+                    1
+                    for plan in candidate_pool
+                    if any(
+                        code in {"directional_worsens_risk", "no_effect_target", "customer_institution_mislabel"}
+                        for code in list(getattr(plan, "recommendation_validity_codes", []) or [])
+                    )
+                )
+            ),
+            "economic_warning_count": int(
+                sum(
+                    1
+                    for plan in candidate_pool
+                    if any(
+                        code in {"economic_delta_large", "economic_delta_implausible", "feasibility_band_exceeded"}
+                        for code in list(getattr(plan, "recommendation_validity_codes", []) or [])
+                    )
+                )
+            ),
             "offer_ready_contender_share": float(
                 sum(1 for plan in candidate_pool if str(getattr(plan, "offer_maturity", "none")) == "active_rankable")
                 / max(1, len(candidate_pool))

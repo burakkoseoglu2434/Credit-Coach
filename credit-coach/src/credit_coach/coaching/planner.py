@@ -4,6 +4,10 @@ import math
 from typing import Any
 
 from credit_coach.data.schema import PlanRecord
+from credit_coach.recourse.recommendation_validity import (
+    filter_invalid_numeric_plans,
+    recommendation_warning_penalty,
+)
 from credit_coach.recourse.trajectory import (
     TRAJECTORY_JUMP_THRESHOLD,
     TRAJECTORY_MINOR_DRIFT_TOLERANCE,
@@ -484,6 +488,10 @@ def _offer_maturity_penalty(plan: PlanRecord) -> int:
     return 2
 
 
+def _recommendation_warning_penalty(plan: PlanRecord) -> float:
+    return float(recommendation_warning_penalty(plan))
+
+
 def _source_tie_rank(plan: PlanRecord) -> int:
     return int(_SOURCE_TIE_PRIORITY.get(canonical_plan_source(plan), len(_SOURCE_TIE_PRIORITY)))
 
@@ -568,6 +576,7 @@ def _select_with_source_tiebreak(
     return sorted(
         tie_group,
         key=lambda plan: (
+            _recommendation_warning_penalty(plan),
             _source_tie_rank(plan),
             _offer_maturity_penalty(plan),
             _plan_cost(plan),
@@ -1003,6 +1012,7 @@ def _denied_sort_key(
         _constraint_priority(plan),
         _status_priority(plan.status),
         _contender_bucket_priority(plan),
+        _recommendation_warning_penalty(plan),
         _gate_total_violation(
             plan,
             tau=tau,
@@ -1089,6 +1099,7 @@ def _high_risk_sort_key(
         _constraint_priority(plan),
         _status_priority(plan.status),
         _contender_bucket_priority(plan),
+        _recommendation_warning_penalty(plan),
         float(high_violation),
         _execution_rank_penalty(
             plan,
@@ -1139,6 +1150,9 @@ def choose_best_plan(
             segment_context=segment_context,
         )
     candidates = _prefer_non_rejected(_prefer_constraint_eligible(plans))
+    filtered_validity_candidates, _removed_invalid_candidates = filter_invalid_numeric_plans(candidates)
+    if filtered_validity_candidates:
+        candidates = filtered_validity_candidates
     filtered_candidates, _removed_empty_candidates = filter_empty_contenders(candidates)
     if filtered_candidates:
         candidates = filtered_candidates
@@ -1204,6 +1218,7 @@ def choose_best_plan(
             _constraint_priority(p),
             _status_priority(p.status),
             _contender_bucket_priority(p),
+            _recommendation_warning_penalty(p),
             -_gate_pass_score(
                 p,
                 tau=tau,

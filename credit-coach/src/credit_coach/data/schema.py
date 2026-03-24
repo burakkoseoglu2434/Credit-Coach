@@ -45,6 +45,7 @@ DecisionReasonPrimary = Literal["NO_PATH", "LOW_IMPACT", "LOW_EXECUTION", "OFFER
 DecisionRejectionType = Literal["NO_PATH", "LOW_IMPACT", "LOW_EXECUTION"]
 DecisionConditionalType = Literal["EXECUTION_GATED", "TIME_GATED", "OFFER_GATED", "DATA_ISSUE"]
 OfferMaturity = Literal["none", "inactive", "provisional", "active_rankable"]
+RecommendationValidityStatus = Literal["valid", "warning", "invalid"]
 TrajectoryCheckpointStatus = Literal["on_track", "at_risk", "missed", "unknown"]
 ContractDataIssueCode = Literal[
     "missing_required_field",
@@ -336,6 +337,23 @@ class PlanAction(BaseModel):
     primary_numeric_target: PrimaryNumericTarget | None = Field(
         default=None,
         description="Business-readable canonical primary numeric target",
+    )
+    recommendation_validity_status: RecommendationValidityStatus | None = Field(
+        default=None,
+        description="Canonical numeric recommendation validity status",
+    )
+    recommendation_validity_codes: list[str] = Field(
+        default_factory=list,
+        description="Reason codes behind numeric recommendation validity",
+    )
+    recommendation_sanity_flag: bool = Field(
+        default=False,
+        description="Whether the numeric recommendation requires manual review",
+    )
+    recommendation_warning_penalty: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Planner-side warning penalty contributed by this action",
     )
     composite_action: bool = Field(
         default=False,
@@ -925,6 +943,14 @@ class OperatorPacketShortView(BaseModel):
         default=None,
         description="Business-readable interpretation of the readiness label",
     )
+    recommendation_sanity_flag: bool = Field(
+        default=False,
+        description="Whether the selected numeric recommendation carries a manual-review note",
+    )
+    recommendation_sanity_note: LocalizedText | None = Field(
+        default=None,
+        description="Low-prominence manual-review note for numeric recommendations",
+    )
     upgrade_condition: str | None = Field(
         default=None,
         description="What would move the decision upward",
@@ -967,6 +993,15 @@ class OperatorPacketTechnicalAppendix(BaseModel):
     decision_reason_drivers: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Owned numeric drivers behind the current decision",
+    )
+    recommendation_validity_codes: list[str] = Field(
+        default_factory=list,
+        description="Selected-plan numeric recommendation validity codes",
+    )
+    recommendation_warning_action_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of selected-plan actions carrying numeric warning status",
     )
     contract_health: dict[str, Any] = Field(
         default_factory=dict,
@@ -1057,6 +1092,33 @@ class PlanRecord(BaseModel):
     offer_maturity: OfferMaturity | None = Field(
         default=None,
         description="Planner-level offer maturity truth for candidate quality",
+    )
+    recommendation_validity_status: RecommendationValidityStatus | None = Field(
+        default=None,
+        description="Canonical plan-level numeric recommendation validity status",
+    )
+    recommendation_invalid_action_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of actions with hard-invalid numeric recommendation status",
+    )
+    recommendation_warning_action_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of actions with numeric warning status",
+    )
+    recommendation_validity_codes: list[str] = Field(
+        default_factory=list,
+        description="Union of numeric recommendation validity codes across actions",
+    )
+    recommendation_sanity_flag: bool = Field(
+        default=False,
+        description="Whether the selected numeric recommendation should surface a manual-review note",
+    )
+    recommendation_warning_penalty: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Total warning penalty derived from numeric recommendation validity",
     )
 
     # Risk metrikleri

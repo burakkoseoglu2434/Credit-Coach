@@ -27,6 +27,10 @@ from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.execution_probability import annotate_plan_execution_probability
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.offer_optimization import annotate_offer_optimization, build_offer_contract
+from credit_coach.recourse.recommendation_validity import (
+    annotate_action_recommendation_validity,
+    annotate_plan_recommendation_validity,
+)
 from credit_coach.recourse.region_targets import get_target_pd
 from credit_coach.recourse.trajectory import attach_canonical_trajectory, phase_id_for_month
 from credit_coach.safety.statistical import estimate_prediction_ci
@@ -1222,6 +1226,7 @@ def generate_plan_record(
     deadline_ts: float | None = None,
     runtime_diag: dict[str, Any] | None = None,
 ) -> PlanRecord:
+    customer_context = _build_action_context(row)
     actionable = get_actionable_features()
     selected = _normalize_candidate_features(
         candidate_features,
@@ -1318,9 +1323,12 @@ def generate_plan_record(
     )
     constraint_result = enforce_action_constraints(
         actions,
-        action_context=_build_action_context(row),
+        action_context=customer_context,
     )
-    actions = list(constraint_result.actions)
+    actions = [
+        annotate_action_recommendation_validity(action, customer_context=customer_context)
+        for action in list(constraint_result.actions)
+    ]
     if runtime_diag is not None and constraint_result.trace:
         runtime_diag.setdefault("action_constraint_events", []).extend(constraint_result.trace)
         runtime_diag["action_constraint_repair_applied_count"] = int(
@@ -1491,7 +1499,7 @@ def generate_plan_record(
     annotate_plan_execution_probability(
         plan,
         base_pd=row_base_pd,
-        customer_context=_build_action_context(row),
+        customer_context=customer_context,
         segment_context=segment_context,
     )
     attach_canonical_trajectory(
@@ -1505,10 +1513,10 @@ def generate_plan_record(
     )
     annotate_offer_optimization(
         plan,
-        customer_context=_build_action_context(row),
+        customer_context=customer_context,
         segment_context=segment_context,
     )
-    return plan
+    return annotate_plan_recommendation_validity(plan, customer_context=customer_context)
 
 
 def generate_nine_plans(

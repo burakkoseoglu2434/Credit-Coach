@@ -122,3 +122,15 @@ def test_write_decision_explanation_pack_emits_json_and_markdown(tmp_path: Path)
     assert payload["external_decision_only"] is True
     assert payload["qa_status"] == "DEGRADED"
     assert payload["recommended_customer_action"] == "Reduce credit utilization from %82 to below %50."
+
+
+def test_build_decision_explanation_pack_marks_warning_plan_for_human_review() -> None:
+    roadmap = _sample_roadmap()
+    roadmap["summary"]["recommendation_sanity_flag"] = 1
+
+    pack = build_decision_explanation_pack(
+        roadmap,
+        metrics_summary={"adverse_action_reasons": ["high_credit_utilization"]},
+    )
+
+    assert pack.human_review_required is True

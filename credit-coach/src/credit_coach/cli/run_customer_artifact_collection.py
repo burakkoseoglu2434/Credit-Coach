@@ -326,9 +326,18 @@ def _augment_metrics_row(
             "candidate_non_empty_count": non_empty_count,
             "candidate_approval_shell_only_count": approval_shell_only_count,
             "candidate_empty_removed_count": empty_removed_count,
+            "recommendation_validity_status": str(metrics.get("recommendation_validity_status", roadmap_summary.get("recommendation_validity_status", "valid"))),
+            "recommendation_invalid_action_count": int(_safe_int(metrics.get("recommendation_invalid_action_count", roadmap_summary.get("recommendation_invalid_action_count", 0)), 0)),
+            "recommendation_warning_action_count": int(_safe_int(metrics.get("recommendation_warning_action_count", roadmap_summary.get("recommendation_warning_action_count", 0)), 0)),
+            "recommendation_sanity_flag": int(_safe_int(metrics.get("recommendation_sanity_flag", roadmap_summary.get("recommendation_sanity_flag", 0)), 0)),
             "offer_ready_contender_share": _safe_float(metrics.get("offer_ready_contender_share", 0.0), 0.0),
             "provisional_offer_share": _safe_float(metrics.get("provisional_offer_share", 0.0), 0.0),
             "approval_shell_only_share": _safe_float(metrics.get("approval_shell_only_share", 0.0), 0.0),
+            "hard_invalid_plan_rate": _safe_float(metrics.get("hard_invalid_plan_rate", 0.0), 0.0),
+            "numeric_warning_rate": _safe_float(metrics.get("numeric_warning_rate", 0.0), 0.0),
+            "best_plan_warning_rate": _safe_float(metrics.get("best_plan_warning_rate", 0.0), 0.0),
+            "directional_invalid_count": int(_safe_int(metrics.get("directional_invalid_count", 0), 0)),
+            "economic_warning_count": int(_safe_int(metrics.get("economic_warning_count", 0), 0)),
             "data_issue_codes_json": _json_dumps_compact(list(roadmap_summary.get("data_issue_codes", []))),
             "offer_needed_flag": "offer_needed"
             if (
@@ -366,6 +375,12 @@ def _augment_plans_df(
         out["approval_shell_only_flag"] = 0
     if "offer_maturity" not in out.columns:
         out["offer_maturity"] = "none"
+    if "recommendation_validity_status" not in out.columns:
+        out["recommendation_validity_status"] = "valid"
+    if "recommendation_validity_codes_json" not in out.columns:
+        out["recommendation_validity_codes_json"] = "[]"
+    if "recommendation_sanity_flag" not in out.columns:
+        out["recommendation_sanity_flag"] = 0
     if "plan_stage" not in out.columns:
         out["plan_stage"] = "validated"
     out.insert(0, "collection_run_id", str(collection_run_id))
@@ -396,6 +411,12 @@ def _augment_steps_df(
     steps_df: pd.DataFrame,
 ) -> pd.DataFrame:
     out = steps_df.copy()
+    if "recommendation_validity_status" not in out.columns:
+        out["recommendation_validity_status"] = "valid"
+    if "recommendation_validity_codes_json" not in out.columns:
+        out["recommendation_validity_codes_json"] = "[]"
+    if "recommendation_sanity_flag" not in out.columns:
+        out["recommendation_sanity_flag"] = 0
     out.insert(0, "collection_run_id", str(collection_run_id))
     out.insert(1, "batch_index", int(selection_row["batch_index"]))
     out.insert(2, "source_row_index", int(selection_row["source_row_index"]))
@@ -508,6 +529,11 @@ def _collection_summary_markdown(
     offer_ready_share = _safe_float(metrics_df.get("offer_ready_contender_share", pd.Series(dtype=float)).mean(), 0.0)
     provisional_offer_share = _safe_float(metrics_df.get("provisional_offer_share", pd.Series(dtype=float)).mean(), 0.0)
     approval_shell_only_share = _safe_float(metrics_df.get("approval_shell_only_share", pd.Series(dtype=float)).mean(), 0.0)
+    hard_invalid_plan_rate = _safe_float(metrics_df.get("hard_invalid_plan_rate", pd.Series(dtype=float)).mean(), 0.0)
+    numeric_warning_rate = _safe_float(metrics_df.get("numeric_warning_rate", pd.Series(dtype=float)).mean(), 0.0)
+    best_plan_warning_rate = _safe_float(metrics_df.get("best_plan_warning_rate", pd.Series(dtype=float)).mean(), 0.0)
+    directional_invalid_count = int(pd.to_numeric(metrics_df.get("directional_invalid_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
+    economic_warning_count = int(pd.to_numeric(metrics_df.get("economic_warning_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
     best_action_class_dominance = 0.0
     best_action_family_dominance = 0.0
     if not steps_df.empty and "action_class" in steps_df.columns:
@@ -573,6 +599,11 @@ def _collection_summary_markdown(
             "",
             "## Planner Quality",
             f"- Non-empty contender share: {non_empty_share:.4f}",
+            f"- Hard-invalid plan rate: {hard_invalid_plan_rate:.4f}",
+            f"- Numeric warning rate: {numeric_warning_rate:.4f}",
+            f"- Best-plan warning rate: {best_plan_warning_rate:.4f}",
+            f"- Directional invalid count: {directional_invalid_count}",
+            f"- Economic warning count: {economic_warning_count}",
             f"- Offer-ready contender share: {offer_ready_share:.4f}",
             f"- Provisional offer share: {provisional_offer_share:.4f}",
             f"- Approval-shell-only share: {approval_shell_only_share:.4f}",
@@ -972,6 +1003,24 @@ def main(argv: Sequence[str] | None = None):
                     / pd.to_numeric(metrics_df.get("candidate_pool_count", pd.Series(dtype=float)), errors="coerce").replace(0, pd.NA)
                 ).fillna(0.0).mean(),
                 0.0,
+            ),
+            "hard_invalid_plan_rate": _safe_float(
+                metrics_df.get("hard_invalid_plan_rate", pd.Series(dtype=float)).mean(),
+                0.0,
+            ),
+            "numeric_warning_rate": _safe_float(
+                metrics_df.get("numeric_warning_rate", pd.Series(dtype=float)).mean(),
+                0.0,
+            ),
+            "best_plan_warning_rate": _safe_float(
+                metrics_df.get("best_plan_warning_rate", pd.Series(dtype=float)).mean(),
+                0.0,
+            ),
+            "directional_invalid_count": int(
+                pd.to_numeric(metrics_df.get("directional_invalid_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+            ),
+            "economic_warning_count": int(
+                pd.to_numeric(metrics_df.get("economic_warning_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
             ),
             "offer_ready_contender_share": _safe_float(
                 metrics_df.get("offer_ready_contender_share", pd.Series(dtype=float)).mean(),

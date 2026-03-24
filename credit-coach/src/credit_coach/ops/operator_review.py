@@ -251,6 +251,15 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
         next_best_actions=actions[:3],
         expected_readiness=_safe_text(summary.get("expected_readiness"), "unknown_review"),
         expected_readiness_note=build_operator_readiness_note(summary.get("expected_readiness")),
+        recommendation_sanity_flag=bool(_safe_int(summary.get("recommendation_sanity_flag", 0), 0)),
+        recommendation_sanity_note=(
+            _lt(
+                "Numeric oneride manuel kontrol notu var",
+                "Numeric recommendation has a manual-review note",
+            )
+            if bool(_safe_int(summary.get("recommendation_sanity_flag", 0), 0))
+            else None
+        ),
         upgrade_condition=_safe_text(summary.get("upgrade_condition")) or None,
         offer_state=offer_state,
         downside_risk=downside,
@@ -262,6 +271,8 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
         rejection_type=_safe_text(summary.get("rejection_type")) or None,
         conditional_type=_safe_text(summary.get("conditional_type")) or None,
         decision_reason_drivers=[dict(driver) for driver in summary.get("decision_reason_drivers", []) if isinstance(driver, Mapping)],
+        recommendation_validity_codes=[str(code) for code in list(summary.get("recommendation_validity_codes", [])) if str(code)],
+        recommendation_warning_action_count=_safe_int(summary.get("recommendation_warning_action_count", 0), 0),
         contract_health=dict(roadmap.get("contract_health", {}) or {}),
         decision_gate_trace=dict(summary.get("decision_gate_trace", {}) or {}),
     )
@@ -286,6 +297,7 @@ def render_operator_review_packet_markdown(packet: OperatorReviewPacket) -> str:
         f"- Decision policy version: {packet.decision_policy_version or 'n/a'}",
         f"- Decision: {short.decision_status}",
         f"- Decision confidence: {short.decision_confidence:.2f}" if short.decision_confidence is not None else "- Decision confidence: n/a",
+        f"- Recommendation note: {short.recommendation_sanity_note.en}" if short.recommendation_sanity_note is not None else "- Recommendation note: n/a",
         "",
         "## 1-line Summary",
         f"- {short.decision_reason_summary or 'n/a'}",
@@ -333,6 +345,10 @@ def render_operator_review_packet_markdown(packet: OperatorReviewPacket) -> str:
     if appendix.decision_reason_primary:
         lines.append(f"- Primary reason: {appendix.decision_reason_primary}")
     lines.append(f"- Driver count: {len(appendix.decision_reason_drivers)}")
+    lines.append(f"- Recommendation warning action count: {appendix.recommendation_warning_action_count}")
+    lines.append(
+        f"- Recommendation validity codes: {json.dumps(appendix.recommendation_validity_codes, ensure_ascii=False)}"
+    )
     lines.append(f"- Contract health: {json.dumps(appendix.contract_health, ensure_ascii=False)}")
     return "\n".join(lines) + "\n"
 
@@ -358,6 +374,12 @@ def operator_packet_metrics_fields(
         "operator_expected_readiness_note_en": (
             packet.short_view.expected_readiness_note.en
             if packet.short_view.expected_readiness_note is not None
+            else ""
+        ),
+        "operator_recommendation_sanity_flag": int(bool(packet.short_view.recommendation_sanity_flag)),
+        "operator_recommendation_sanity_note_en": (
+            packet.short_view.recommendation_sanity_note.en
+            if packet.short_view.recommendation_sanity_note is not None
             else ""
         ),
         "operator_offer_state_en": packet.short_view.offer_state.en if packet.short_view.offer_state is not None else "",

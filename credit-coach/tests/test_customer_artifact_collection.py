@@ -676,6 +676,15 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "offer_ready_contender_share" in metrics_df.columns
     assert "provisional_offer_share" in metrics_df.columns
     assert "approval_shell_only_share" in metrics_df.columns
+    assert "recommendation_validity_status" in metrics_df.columns
+    assert "recommendation_invalid_action_count" in metrics_df.columns
+    assert "recommendation_warning_action_count" in metrics_df.columns
+    assert "recommendation_sanity_flag" in metrics_df.columns
+    assert "hard_invalid_plan_rate" in metrics_df.columns
+    assert "numeric_warning_rate" in metrics_df.columns
+    assert "best_plan_warning_rate" in metrics_df.columns
+    assert "directional_invalid_count" in metrics_df.columns
+    assert "economic_warning_count" in metrics_df.columns
     assert "best_contender_bucket" in metrics_df.columns
     assert "best_offer_maturity" in metrics_df.columns
     assert "operator_packet_relpath" in metrics_df.columns
@@ -687,6 +696,12 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "plan_step_count" in plans_df.columns
     assert "plan_contract_pass" in plans_df.columns
     assert "plan_stage" in plans_df.columns
+    assert "recommendation_validity_status" in plans_df.columns
+    assert "recommendation_validity_codes_json" in plans_df.columns
+    assert "recommendation_sanity_flag" in plans_df.columns
+    assert "recommendation_validity_status" in steps_df.columns
+    assert "recommendation_validity_codes_json" in steps_df.columns
+    assert "recommendation_sanity_flag" in steps_df.columns
     assert "cohort_bucket" in selection_df.columns
     assert "selection_policy_name" in selection_df.columns
     assert "selection_fill_behavior" in selection_df.columns
@@ -707,6 +722,9 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert set(manifest["funnel_summary"]).issuperset(
         {"approved_share", "conditional_share", "rejected_share", "internal_needs_review_share"}
     )
+    assert set(manifest["plan_quality_summary"]).issuperset(
+        {"hard_invalid_plan_rate", "numeric_warning_rate", "best_plan_warning_rate"}
+    )
 
     summary_md = (collection_root / "collection_summary.md").read_text(encoding="utf-8")
     review_md = (collection_root / "calibration" / "calibration_review.md").read_text(encoding="utf-8")
@@ -717,6 +735,8 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "## Calibration" in summary_md
     assert "## Planner Source Mix" in summary_md
     assert "## Planner Quality" in summary_md
+    assert "Hard-invalid plan rate" in summary_md
+    assert "Numeric warning rate" in summary_md
     assert "## Operator Review" in summary_md
     assert "Likely-to-upgrade-soon queue" in summary_md
     assert "analysis-only" in review_md

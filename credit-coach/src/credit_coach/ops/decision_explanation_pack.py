@@ -225,7 +225,7 @@ def build_decision_explanation_pack(
         artifact_generated_at=artifact_generated_at or utc_now(),
         qa_status=_safe_text(qa_status, "PASS"),
         qa_stamp=_safe_text(qa_stamp),
-        human_review_required=bool(human_review_required),
+        human_review_required=bool(human_review_required or summary.get("recommendation_sanity_flag")),
     )
     if operator_packet is not None:
         _assert_packet_drift_guard(pack=pack, operator_packet=operator_packet)

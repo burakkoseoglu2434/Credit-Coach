@@ -155,6 +155,21 @@ def test_write_operator_review_packet_emits_json_and_markdown(tmp_path: Path) ->
     assert payload["technical_appendix"]["decision_status_internal"] == "NEEDS_REVIEW"
 
 
+def test_build_operator_review_packet_surfaces_recommendation_sanity_badge() -> None:
+    roadmap = _sample_roadmap()
+    roadmap["summary"]["recommendation_sanity_flag"] = 1
+    roadmap["summary"]["recommendation_warning_action_count"] = 1
+    roadmap["summary"]["recommendation_validity_codes"] = ["economic_delta_large"]
+
+    packet = build_operator_review_packet(roadmap)
+
+    assert packet.short_view.recommendation_sanity_flag is True
+    assert packet.short_view.recommendation_sanity_note is not None
+    assert "manual-review note" in packet.short_view.recommendation_sanity_note.en.lower()
+    assert packet.technical_appendix.recommendation_warning_action_count == 1
+    assert packet.technical_appendix.recommendation_validity_codes == ["economic_delta_large"]
+
+
 def test_build_collection_operator_briefing_prioritizes_upgrade_queue_and_health_note() -> None:
     metrics_df = pd.DataFrame(
         [
