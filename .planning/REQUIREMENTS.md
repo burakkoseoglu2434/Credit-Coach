@@ -1,6 +1,83 @@
-# Requirements Snapshot: Credit Coach
+# Requirements: Credit Coach
 
-No active milestone requirement set is currently open. This file captures the validated baseline and carry-forward requirement state between milestones.
+**Defined:** 2026-03-24
+**Core Value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
+
+## v2.2 Requirements
+
+Requirements for `v2.2 Winner Integrity & Consumer Consistency`. Each maps to exactly one roadmap phase.
+
+### Winner Integrity
+
+- [ ] **WINT-01**: Collection reruns never select a plan whose `recommendation_validity_status` is `invalid`
+- [ ] **WINT-02**: If validity filtering empties a preferred candidate subset, planner fallback widens only to other valid candidates or returns no valid winner
+- [ ] **WINT-03**: Selected customer truth records the winning plan's validity and provenance consistently across raw and flat artifacts
+
+### Dice Lane Enforcement
+
+- [ ] **DICE-01**: `dice` candidates carry the same action-level and plan-level validity fields into planner selection as internal candidates
+- [ ] **DICE-02**: Invalid `dice` candidates remain visible in diagnostics but can never be emitted as selected winners
+
+### Selected Surface Consistency
+
+- [ ] **CONS-01**: `best_plan_id`, selected plan rows, external decision summaries, and collection metrics remain mutually consistent for each customer
+- [ ] **CONS-02**: No external `CONDITIONAL` output points at a selected plan row whose plan status is `REJECTED`
+- [ ] **CONS-03**: Operator packets and explanation packs render recommendation text from the selected valid plan only, with no leakage from discarded invalid winners
+
+### Operator Packet Coherence
+
+- [ ] **OPER-01**: Operator short view never renders an invalid selected recommendation as a recommended next action
+- [ ] **OPER-02**: Approved packets with no active drivers render no fallback blockers
+- [ ] **OPER-03**: Warning badges and appendix diagnostics remain available without creating contradictory short-view guidance
+
+## v2 Requirements
+
+Deferred until winner integrity and consumer consistency are proven.
+
+### Threshold and Outcome Optimization
+
+- **THR-01**: Decision thresholds can be widened safely using validity-clean winner evidence
+- **APRV-01**: Approval and conditional rates can be optimized without degrading selected-surface trust
+
+### Offer and Readiness Expansion
+
+- **OFFR-01**: Offer-maturity lanes can improve business outcomes instead of remaining descriptive only
+- **READ-01**: Readiness semantics can be widened into a larger movable queue once selected truth is stable
+
+## Out of Scope
+
+Explicitly excluded from `v2.2` to keep the milestone focused.
+
+| Feature | Reason |
+|---------|--------|
+| Decision-threshold widening | Winner integrity must be fixed before approval aggressiveness is tuned |
+| Approval-rate optimization | Uplift tuning would hide the current selected-winner trust problem |
+| Redesign of Phases 40 / 40.5 / 41 / 42 / 42.5 / 43 | These remain fixed baselines for this milestone |
+| New borrower-facing self-serve surfaces | Consumer-surface consistency here means operator and explanation outputs, not new channels |
+| Live institution integrations or compliance automation | Not required to fix selected-winner integrity |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| WINT-01 | Phase 45 | Pending |
+| WINT-02 | Phase 45 | Pending |
+| WINT-03 | Phase 45 | Pending |
+| DICE-01 | Phase 46 | Pending |
+| DICE-02 | Phase 46 | Pending |
+| CONS-01 | Phase 47 | Pending |
+| CONS-02 | Phase 47 | Pending |
+| CONS-03 | Phase 47 | Pending |
+| OPER-01 | Phase 48 | Pending |
+| OPER-02 | Phase 48 | Pending |
+| OPER-03 | Phase 48 | Pending |
+
+**Coverage:**
+- v2.2 requirements: 11 total
+- Mapped to phases: 11
+- Unmapped: 0 ✓
 
 ## Validated
 
@@ -14,24 +91,6 @@ No active milestone requirement set is currently open. This file captures the va
 - ✓ Deterministic decision ownership, contract trust repair, cohort calibration, operator review packs, planner source-mix honesty, and repeatable pilot refresh now ship together as one audited baseline - v2.1
 - ✓ Post-v2.1 Phase `42.5 Recommendation Validity Layer` now hardens numeric recommendations with canonical validity evaluation, hard-invalid contender filtering, warning penalties, operator sanity badges, explanation-pack human-review propagation, and additive collection metrics
 
-## Deferred Validation
-
-- Phase `42.5 Recommendation Validity Layer` passed compile, focused pytest, broader regression, and diff-hygiene validation.
-- Full processed-data artifact rerun validation is deferred locally until `credit-coach/data/processed/test.parquet` is restored.
-
-## Active
-
-- [ ] Institution-specific inbound and outbound integration contracts beyond export-first pilot packaging
-- [ ] Compliance-adjacent explanation and governance workflows beyond bounded pilot support artifacts
-- [ ] Recurring proof refresh, release review, and milestone health automation
-- [ ] Milestone tooling and planning metadata cleanup so archive and audit workflows can run without manual fallback
-
-## Out of Scope
-
-- Full borrower-facing self-serve or mobile experiences until a future milestone explicitly opens them
-- Fully autonomous online policy promotion before evidence-first controls are expanded
-- Legal or compliance opinion automation
-- Unscoped greenfield rewrites of the engine or website stacks
-
 ---
-*Last updated: 2026-03-24 after closing Phase 42.5 Recommendation Validity Layer*
+*Requirements defined: 2026-03-24*
+*Last updated: 2026-03-24 after starting milestone v2.2*
