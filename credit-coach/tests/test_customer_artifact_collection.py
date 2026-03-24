@@ -740,3 +740,204 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "## Operator Review" in summary_md
     assert "Likely-to-upgrade-soon queue" in summary_md
     assert "analysis-only" in review_md
+
+
+def test_run_customer_artifact_collection_falls_back_to_sample_csv_when_processed_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    processed_root = tmp_path / "processed"
+    processed_root.mkdir(parents=True, exist_ok=True)
+
+    features_path = tmp_path / "features.yaml"
+    features_path.write_text(
+        yaml.safe_dump({"features": ["annual_inc", "revol_util"], "target": {"name": "loan_status"}}),
+        encoding="utf-8",
+    )
+    base_config = tmp_path / "base.yaml"
+    base_config.write_text(
+        yaml.safe_dump(
+            {
+                "features_config": str(features_path),
+                "paths": {"processed_data": str(processed_root)},
+                "prepare_data": {"test_size": 0.2, "random_state": 42, "out_of_time": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+    model_config = tmp_path / "model.yaml"
+    model_config.write_text(
+        yaml.safe_dump({"decision": {"tau_0": 0.35}, "registry": {"path": str(tmp_path / "models")}}),
+        encoding="utf-8",
+    )
+    recourse_config = tmp_path / "recourse.yaml"
+    recourse_config.write_text(yaml.safe_dump({"segment_caps": {}}), encoding="utf-8")
+    causality_config = tmp_path / "causality.yaml"
+    causality_config.write_text(yaml.safe_dump({"graph": {"output_path": str(tmp_path / "graph.json")}}), encoding="utf-8")
+    safety_config = tmp_path / "safety.yaml"
+    safety_config.write_text(yaml.safe_dump({}), encoding="utf-8")
+    macro_config = tmp_path / "macro.yaml"
+    macro_config.write_text(yaml.safe_dump({}), encoding="utf-8")
+
+    sample_csv = tmp_path / "sample.csv"
+    sample_df = pd.DataFrame(
+        [
+            {"annual_inc": 25000.0, "revol_util": 88.0, "loan_status": 1},
+            {"annual_inc": 32000.0, "revol_util": 74.0, "loan_status": 1},
+            {"annual_inc": 54000.0, "revol_util": 44.0, "loan_status": 0},
+            {"annual_inc": 90000.0, "revol_util": 18.0, "loan_status": 0},
+        ]
+    )
+    pd.concat([sample_df] * 10, ignore_index=True).to_csv(sample_csv, index=False)
+
+    monkeypatch.setattr(collector, "_default_collection_sample_csv_path", lambda **kwargs: sample_csv)
+    monkeypatch.setattr(
+        collector,
+        "load_model_bundle",
+        lambda **kwargs: (_DummyModel(), None, {"model_version": "model-001"}, None),
+    )
+    monkeypatch.setattr(
+        collector,
+        "predict_proba_pd",
+        lambda model, calibrator, frame: pd.to_numeric(frame["revol_util"], errors="coerce").fillna(0.0).div(100.0).to_numpy(),
+    )
+    monkeypatch.setattr(collector, "run_rex_adapter", lambda *args, **kwargs: {})
+
+    def _fake_customer_result(**kwargs):
+        customer_id = str(kwargs["customer_id"])
+        bundle = CustomerArtifactBundle(
+            customer_id=customer_id,
+            plans_df=pd.DataFrame(
+                [
+                    {"plan_id": f"{customer_id}-plan-a", "plan_score": 0.4, "plan_source": "internal", "plan_stage": "validated"},
+                ]
+            ),
+            roadmap={
+                "customer_id": customer_id,
+                "best_plan_id": f"{customer_id}-plan-a",
+                "best_plan_source": "internal",
+                "summary": {
+                    "decision_status": "CONDITIONAL",
+                    "decision_status_internal": "CONDITIONAL",
+                    "decision_policy_version": "v2.1_phase_40_5",
+                    "decision_confidence": 0.61,
+                    "decision_reason_summary": "Fallback sample cohort",
+                    "decision_reason_primary": "TIME_GATED",
+                    "best_plan_id": f"{customer_id}-plan-a",
+                    "best_plan_source": "internal",
+                    "best_constraint_status": "valid",
+                    "plan_contract_pass": 1,
+                    "credit_readiness_stage": "week_4",
+                    "expected_readiness": "week_4",
+                    "plan_execution_probability": 0.62,
+                    "approval_dependent_plan_probability": 0.62,
+                    "offer_acceptance_probability": 0.0,
+                    "combined_plan_realization_probability": 0.62,
+                    "expected_pd_improvement": 0.03,
+                    "nominal_pd_improvement": 0.05,
+                    "local_explainability_confidence": 0.8,
+                    "best_action_count": 1,
+                    "zero_step_flag": 0,
+                    "raw_contract_pass": 1,
+                    "parity_pass": 1,
+                    "data_issue_flag": 0,
+                    "offer_plan": 0,
+                    "rankable_offer_count": 0,
+                    "approval_pending_action_count": 0,
+                    "checkpoint_status_4w": "at_risk",
+                    "checkpoint_status_12w": "on_track",
+                    "checkpoint_status_24w": "on_track",
+                },
+                "phases": [{"phase_id": "phase_1_stabilize", "steps": [{"step_id": "step-1"}]}],
+                "checkpoints": [{"week": 4, "status": "at_risk"}],
+            },
+            roadmap_steps_df=pd.DataFrame(
+                [
+                    {
+                        "customer_id": customer_id,
+                        "best_plan_id": f"{customer_id}-plan-a",
+                        "phase_id": "phase_1_stabilize",
+                        "phase_title": "Stabilize",
+                        "target_window_weeks": "1-4",
+                        "action_key": "limit_credit_usage",
+                        "action_class": "behavioral",
+                        "action_title": "Limit credit usage",
+                        "action_group_id": f"{customer_id}:phase_1",
+                        "composite_action": 0,
+                        "feature_name": "revol_util",
+                        "metric_key": "credit_utilization_pct",
+                        "unit": "percentage_points",
+                        "current_value": 70.0,
+                        "target_value": 45.0,
+                        "delta": -25.0,
+                        "time_months": 1,
+                        "due_month": 1,
+                        "direction": "decrease",
+                        "generation_notes_json": "[]",
+                        "estimated_cost_usd": 25.0,
+                        "requires_institutional_approval": 0,
+                        "approval_pending_semantic_only": 0,
+                        "action_status": "valid",
+                        "constraint_family": "",
+                        "constraint_reason_codes_json": "[]",
+                        "was_clipped": 0,
+                        "repair_applied": 0,
+                        "dependency_gate": 0,
+                        "semantic_preserved": True,
+                    }
+                ]
+            ),
+            metrics_summary={
+                "customer_id": customer_id,
+                "best_plan_id": f"{customer_id}-plan-a",
+                "best_plan_source": "internal",
+                "decision_status": "CONDITIONAL",
+                "decision_status_internal": "CONDITIONAL",
+                "credit_readiness_stage": "week_4",
+                "raw_contract_pass": 1,
+                "parity_pass": 1,
+                "data_issue_flag": 0,
+            },
+        )
+        return CustomerRecourseRunResult(
+            bundle=bundle,
+            local_reason_bundle={"reasons": [], "meta": {}},
+            adverse_action_reasons=[],
+            dice_df=pd.DataFrame(),
+            dice_records=[],
+            dice_backend="skipped",
+            dice_telemetry={"method_requested": "random", "method_used": "skipped", "fallback_reason": "sample_fallback_test"},
+            candidate_pool_df=pd.DataFrame(),
+            decision_log_record={"decision_id": f"decision-{customer_id}", "selection_propensity": 1.0},
+            decision_log_summary={"decision_log_completeness": 1.0},
+        )
+
+    monkeypatch.setattr(collector, "generate_customer_recourse_artifacts", _fake_customer_result)
+
+    run_ctx = collector.main(
+        [
+            "--base_config",
+            str(base_config),
+            "--model_config",
+            str(model_config),
+            "--recourse_config",
+            str(recourse_config),
+            "--causality_config",
+            str(causality_config),
+            "--safety_config",
+            str(safety_config),
+            "--macro_config",
+            str(macro_config),
+            "--n_customers",
+            "6",
+            "--artifact_root",
+            str(tmp_path / "runs"),
+        ]
+    )
+
+    collection_root = run_ctx.tables_dir / "customer_artifact_collection"
+    metrics_df = pd.read_csv(collection_root / "flat" / "customer_metrics.csv")
+
+    assert len(metrics_df) == 6
+    assert metrics_df["customer_id"].astype(str).str.startswith("sample_test_").all()
+    assert (collection_root / "collection_summary.md").exists()

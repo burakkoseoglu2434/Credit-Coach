@@ -29,7 +29,9 @@ from credit_coach.cli.run_recourse import (
     generate_customer_recourse_artifacts,
     write_customer_artifact_bundle,
 )
-from credit_coach.data.ingest import load_feature_contract
+from credit_coach.data.ingest import load_feature_contract, validate_and_select_columns
+from credit_coach.data.preprocess import preprocess_dataframe
+from credit_coach.data.split import split_dataframe
 from credit_coach.evaluation.decision_calibration import (
     build_calibration_review_markdown,
     build_funnel_summary,
@@ -233,6 +235,92 @@ def _resolve_train_path(*, test_path: Path, processed_root: Path) -> Path:
         if candidate.exists():
             return candidate
     return candidates[0]
+
+
+def _default_collection_sample_csv_path(*, project_root: Path) -> Path:
+    return project_root / "data" / "sample" / "lending_club_sample_2000.csv"
+
+
+def _attach_deterministic_customer_ids(df: pd.DataFrame, *, prefix: str) -> pd.DataFrame:
+    out = df.reset_index(drop=True).copy()
+    generated = [f"{prefix}_{idx:06d}" for idx in range(len(out))]
+    if "customer_id" not in out.columns:
+        out.insert(0, "customer_id", generated)
+        return out
+    existing = out["customer_id"].fillna("").astype(str).str.strip()
+    out.loc[:, "customer_id"] = [value if value else generated[idx] for idx, value in enumerate(existing)]
+    return out
+
+
+def _build_sample_fallback_frames(
+    *,
+    sample_csv_path: Path,
+    contract: dict[str, Any],
+    base_cfg: dict[str, Any],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    raw_df = pd.read_csv(sample_csv_path)
+    min_rows = int(contract.get("rules", {}).get("min_rows", 1))
+    if len(raw_df) < min_rows:
+        raise ValueError(
+            f"Sample fallback dataset is too small: {len(raw_df)} < required minimum {min_rows}"
+        )
+
+    selected = validate_and_select_columns(
+        df=raw_df,
+        features=list(contract["features"]),
+        target=str(contract["target"]),
+        fail_on_missing=bool(contract.get("rules", {}).get("fail_on_missing", True)),
+        drop_extra_columns=bool(contract.get("rules", {}).get("drop_extra_columns", True)),
+    )
+    processed_df, _ = preprocess_dataframe(selected, list(contract["features"]))
+    prepare_cfg = base_cfg.get("prepare_data", {}) if isinstance(base_cfg.get("prepare_data", {}), dict) else {}
+    split_cfg = base_cfg.get("split_protocol", {}) if isinstance(base_cfg.get("split_protocol", {}), dict) else {}
+    split = split_dataframe(
+        processed_df,
+        target_col=str(contract["target"]),
+        test_size=float(prepare_cfg.get("test_size", 0.2)),
+        random_state=int(split_cfg.get("random_state", prepare_cfg.get("random_state", 42))),
+        time_column=str(split_cfg.get("time_column", base_cfg.get("time_column", "")) or "").strip() or None,
+        out_of_time=bool(split_cfg.get("out_of_time", prepare_cfg.get("out_of_time", False))),
+    )
+    train_df = _attach_deterministic_customer_ids(split.train_df, prefix="sample_train")
+    test_df = _attach_deterministic_customer_ids(split.test_df, prefix="sample_test")
+    return test_df, train_df
+
+
+def _load_collection_input_frames(
+    *,
+    test_path: Path,
+    train_path: Path,
+    data_format: str,
+    project_root: Path,
+    contract: dict[str, Any],
+    base_cfg: dict[str, Any],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if test_path.exists() and train_path.exists():
+        test_df = _load_batch_input_frame(test_path, data_format=str(data_format).strip() or test_path.suffix.lstrip(".") or "parquet")
+        train_df = _load_batch_input_frame(train_path, data_format=train_path.suffix.lstrip(".") or "parquet")
+        return test_df, train_df
+
+    sample_csv_path = _default_collection_sample_csv_path(project_root=project_root)
+    if not sample_csv_path.exists():
+        missing = [str(path) for path in (test_path, train_path) if not path.exists()]
+        raise FileNotFoundError(
+            "Processed dataset paths are missing and sample fallback dataset is unavailable. "
+            f"Missing: {missing}. Expected fallback: {sample_csv_path}"
+        )
+
+    logger.warning(
+        "Processed collection dataset missing (test=%s train=%s). Falling back to deterministic sample CSV at %s",
+        test_path,
+        train_path,
+        sample_csv_path,
+    )
+    return _build_sample_fallback_frames(
+        sample_csv_path=sample_csv_path,
+        contract=contract,
+        base_cfg=base_cfg,
+    )
 
 
 def _selection_frame(
@@ -676,8 +764,14 @@ def main(argv: Sequence[str] | None = None):
         processed_root = (base_config_path.parent.parent / processed_root).resolve()
     test_path = Path(str(args.input_data_path).strip()) if str(args.input_data_path).strip() else processed_root / "test.parquet"
     train_path = _resolve_train_path(test_path=test_path, processed_root=processed_root)
-    test_df = _load_batch_input_frame(test_path, data_format=str(args.input_data_format).strip() or "parquet")
-    train_df = _load_batch_input_frame(train_path, data_format=train_path.suffix.lstrip(".") or "parquet")
+    test_df, train_df = _load_collection_input_frames(
+        test_path=test_path,
+        train_path=train_path,
+        data_format=str(args.input_data_format).strip() or "parquet",
+        project_root=project_root,
+        contract=contract,
+        base_cfg=base_cfg,
+    )
 
     model, calibrator, manifest, _ = load_model_bundle(
         base_path=model_cfg.get("registry", {}).get("path", "artifacts/models"),
