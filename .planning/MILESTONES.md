@@ -175,6 +175,11 @@
 - Recurring proof refresh, release review, and milestone health automation remain future scope
 - Local `gsd-tools.cjs` milestone-op automation still requires manual fallback, and some validation frontmatter metadata needs cleanup
 
+**Post-shipment carry-forward completed on 2026-03-24:**
+- Phase `42.5 Recommendation Validity Layer` added canonical numeric recommendation validity, hard-invalid pre-selection filtering, warning penalties, operator manual-review badges, explanation-pack human-review propagation, and additive collection metrics.
+- Code and regression validation passed cleanly for the carry-forward phase.
+- Full processed-data 50-customer artifact rerun validation is still deferred locally because `credit-coach/data/processed/test.parquet` is not present in the current checkout.
+
 **What's next:** Define the next milestone with `$gsd-new-milestone`
 
 ---

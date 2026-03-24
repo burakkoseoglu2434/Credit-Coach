@@ -9,6 +9,10 @@
 - ✅ **v2.0 Personalized Action & Decision Intelligence** - Phases 30-39 (completed 2026-03-22)
 - ✅ **v2.1 Decision Ownership & Pilot-Ready Trust** - Phases 40-44 (completed 2026-03-23)
 
+## Inter-Milestone Carry-Forward
+
+- ✅ **Phase 42.5 Recommendation Validity Layer** - post-v2.1 carry-forward hardening (completed 2026-03-24; processed-data full rerun validation deferred locally because `credit-coach/data/processed/test.parquet` is missing)
+
 <details>
 <summary>✅ v1.0 Brownfield Baseline (Phases 1-7) - SHIPPED 2026-03-10</summary>
 
@@ -95,6 +99,7 @@ Historical archive: `.planning/milestones/v2.1-ROADMAP.md`
 - Phase 43: Operator Review Pack
 - Phase 42: Planner Quality & Source Mix
 - Phase 44: Production Pilot Baseline
+- Post-shipment carry-forward: Phase 42.5 Recommendation Validity Layer (completed 2026-03-24)
 
 </details>
 
@@ -146,4 +151,5 @@ No active milestone is defined. Start the next one with `$gsd-new-milestone`.
 | 41. Cohort & Decision Calibration | v2.1 | 3/3 | Complete | 2026-03-23 |
 | 43. Operator Review Pack | v2.1 | 3/3 | Complete | 2026-03-23 |
 | 42. Planner Quality & Source Mix | v2.1 | 3/3 | Complete | 2026-03-23 |
+| 42.5 Recommendation Validity Layer | carry-forward | 3/3 | Complete | 2026-03-24 |
 | 44. Production Pilot Baseline | v2.1 | 3/3 | Complete | 2026-03-23 |
