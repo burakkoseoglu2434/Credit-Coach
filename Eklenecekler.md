@@ -831,3 +831,350 @@ Bu milestone sonunda sistem:
 
 ** aksiyonların maliyet hesabı
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 22.03.2026
+Tam zamanı. Phase 45’i doğru kapattın, 46–48 ile integrity zinciri tamamlanacak. Şimdi bunun üstüne faz 48 sonrası planı net ve execution-ready kuralım.
+
+Aşağıya sana direkt uygulanabilir şekilde yazıyorum.
+
+⸻
+
+🚀 v2.3 — Recourse Capability Expansion & Action Semantics
+
+⸻
+
+1. Problem Statement
+
+Mevcut sistem:
+	•	doğru winner seçiyor ✔
+	•	invalid leakage yok ✔
+	•	surfaces tutarlı ✔
+	•	packet coherence sağlanıyor ✔
+
+Ama:
+	•	öneri uzayı dar ❌
+	•	öneriler büyük ölçüde:
+	•	utilization
+	•	basit burden reduction
+etrafında dönüyor
+
+Sonuç:
+
+sistem doğru karar veriyor ama yeterince zengin çözüm üretmiyor
+
+⸻
+
+2. North Star
+
+Sistem tek bir “borç azalt” önerisi yerine
+birden fazla finansal çözüm yolu (solution space) üretir.
+
+Net hedef:
+	•	aynı müşteri için:
+	•	customer-driven çözümler
+	•	institution-assisted çözümler
+	•	hybrid çözümler
+	•	tüm öneriler:
+	•	matematiksel olarak tutarlı
+	•	semantically anlamlı
+	•	actionable
+
+⸻
+
+3. Ana Workstreams / Fazlar
+
+⸻
+
+🔹 Phase 49 — Action Semantics Taxonomy
+
+Amaç:
+
+öneri uzayını formalize etmek
+
+Çıktı:
+
+Action categories:
+	•	burden reduction
+	•	utilization / capacity
+	•	delinquency cleanup
+	•	verification / trust
+	•	restructuring / consolidation
+	•	application flexing
+	•	institution relief
+
+Ek:
+	•	action_owner:
+	•	customer
+	•	institution
+	•	hybrid
+
+⸻
+
+🔹 Phase 50 — Feature → Action Mapping
+
+Amaç:
+
+48 feature → hangi aksiyonlara dönüşebilir?
+
+Çıktı:
+
+Örnek:
+
+Feature	Action
+revol_util	reduce balance / increase limit
+total_bc_limit	increase limit (institution)
+delinq_amnt	clear delinquency
+verification_status	verify income
+loan_amnt	reduce requested amount
+term	extend maturity
+
+Ek:
+	•	action_type
+	•	owner
+	•	dice_eligible
+	•	heuristic_only
+
+⸻
+
+🔹 Phase 51 — DICE Action Space Expansion
+
+Amaç:
+
+DICE’ın oynayabildiği feature set’i genişletmek
+
+Yapılacaklar:
+	•	numeric features:
+	•	loan_amnt
+	•	installment
+	•	term
+	•	bazı burden/delinquency
+	•	categorical (kontrollü):
+	•	verification_status
+
+Kurallar:
+	•	feasibility.yaml güncellenir
+	•	constraint + validity korunur
+	•	Phase 46 gate’leri aynen uygulanır
+
+⸻
+
+🔹 Phase 52 — Heuristic / Offer Lane Expansion
+
+Amaç:
+
+DICE’in yapamayacağı ama gerçek dünyada kritik olan öneriler
+
+Eklenir:
+	•	limit increase
+	•	debt consolidation
+	•	restructuring
+	•	settlement
+	•	institution-triggered offers
+
+Yeni alanlar:
+	•	institution_condition
+	•	offer_required_flag
+	•	offer_feasibility
+
+⸻
+
+🔹 Phase 53 — Multi-Path Recourse Generation
+
+Amaç:
+
+tek plan değil, alternatif yollar üretmek
+
+Her müşteri için:
+	•	Path A: customer-only
+	•	Path B: institution-assisted
+	•	Path C: hybrid
+
+Output:
+	•	birden fazla plan
+	•	farklı stratejiler
+	•	farklı trade-off’lar
+
+⸻
+
+🔹 Phase 54 — Action Semantics Rendering
+
+Amaç:
+
+matematik → insan dili
+
+Eklenir:
+	•	template system
+	•	metric-aware phrasing
+	•	consistency checks
+
+Örnek:
+	•	“%27 → %19 utilization”
+	•	“X TL → Y TL taksit”
+	•	“36 ay → 48 ay”
+
+⸻
+
+🔹 Phase 55 — Validation & Cohort Evaluation
+
+Amaç:
+
+yeni öneri havuzunun kalitesini ölçmek
+
+Metrikler:
+	•	plan diversity
+	•	semantic validity
+	•	actionable rate
+	•	dice vs heuristic contribution
+	•	selected plan distribution
+
+⸻
+
+4. Acceptance Criteria
+
+Milestone başarılı sayılması için:
+
+Core
+	•	her müşteri için:
+	•	≥ 2 farklı çözüm yolu (çoğu vakada)
+	•	selected plan:
+	•	valid
+	•	semantically correct
+	•	actionable
+
+⸻
+
+Diversity
+	•	plan category distribution:
+	•	utilization dışı kategoriler anlamlı paya sahip
+
+⸻
+
+Integrity (Phase 45–48 korunur)
+	•	selected_invalid_winner_count = 0
+	•	dice contender rules korunur
+	•	packet coherence bozulmaz
+
+⸻
+
+New Metrics
+	•	multi_path_rate
+	•	non_utilization_action_rate
+	•	institution_action_rate
+	•	action_diversity_index
+
+⸻
+
+5. Out of Scope
+
+Bu milestone:
+
+❌ yapmaz:
+	•	threshold tuning
+	•	approval uplift optimization
+	•	planner redesign
+	•	decision policy değişikliği
+	•	compliance / live integration
+
+⸻
+
+6. Recommended Implementation Order
+
+Net sıra:
+	1.	Phase 49 — taxonomy
+	2.	Phase 50 — feature mapping
+	3.	Phase 51 — DICE expansion
+	4.	Phase 52 — heuristic lane
+	5.	Phase 53 — multi-path generation
+	6.	Phase 54 — rendering
+	7.	Phase 55 — validation
+
+⸻
+
+🔥 Kritik Stratejik Not
+
+Bu milestone’un özü:
+
+Phase 45–48 = “yanlış karar verme” problemini çözdü
+Phase 49+ = “yeterince iyi çözüm üretememe” problemini çözecek
+
+⸻
+
+Son Net Cevap
+
+👉 Evet, bunu ayrı bir milestone olarak planlamak kesinlikle doğru
+👉 Bu milestone sistemin “zekasını” büyütecek
+👉 Ama Phase 46–48 tamamlandıktan sonra aktive edilmeli
+
+⸻
+
+İstersen bir sonraki adımda:
+
+👉 direkt Phase 49 (Action Taxonomy) dosyasını
+.planning formatında yazayım
+
+Bu milestone’un en kritik giriş noktası orası.
