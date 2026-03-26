@@ -9,9 +9,9 @@ Requirements for `v2.2 Winner Integrity & Consumer Consistency`. Each maps to ex
 
 ### Winner Integrity
 
-- [ ] **WINT-01**: Collection reruns never select a plan whose `recommendation_validity_status` is `invalid`
-- [ ] **WINT-02**: If validity filtering empties a preferred candidate subset, planner fallback widens only to other valid candidates or returns no valid winner
-- [ ] **WINT-03**: Selected customer truth records the winning plan's validity and provenance consistently across raw and flat artifacts
+- [x] **WINT-01**: Collection reruns never select a plan whose `recommendation_validity_status` is `invalid`
+- [x] **WINT-02**: If validity filtering empties a preferred candidate subset, planner fallback widens only to other valid candidates or returns no valid winner
+- [x] **WINT-03**: Selected customer truth records the winning plan's validity and provenance consistently across raw and flat artifacts
 
 ### Dice Lane Enforcement
 
@@ -62,9 +62,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| WINT-01 | Phase 45 | Pending |
-| WINT-02 | Phase 45 | Pending |
-| WINT-03 | Phase 45 | Pending |
+| WINT-01 | Phase 45 | Complete |
+| WINT-02 | Phase 45 | Complete |
+| WINT-03 | Phase 45 | Complete |
 | DICE-01 | Phase 46 | Pending |
 | DICE-02 | Phase 46 | Pending |
 | CONS-01 | Phase 47 | Pending |
@@ -93,4 +93,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-03-24 after starting milestone v2.2*
+*Last updated: 2026-03-26 after completing Phase 45*

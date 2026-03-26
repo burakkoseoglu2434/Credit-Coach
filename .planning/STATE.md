@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 45 planned; ready for execution
+**Current focus:** Phase 45 complete; ready to discuss Phase 46
 
 ## Current Position
 
-Phase: 45 Winner Integrity Hard Stop
-Plan: 3 execution plans ready
-Status: Ready for execution
-Last activity: 2026-03-26 - Planned Phase `45 Winner Integrity Hard Stop`; research, validation strategy, and three execution plans now cover chooser hard-stop, artifact integrity propagation, and large-sample rerun proof
+Phase: 46 Dice Lane Validity Enforcement
+Plan: Discussion not started
+Status: Ready for phase discovery
+Last activity: 2026-03-26 - Completed Phase `45 Winner Integrity Hard Stop`; chooser hard-stop, raw/flat no-valid-winner integrity, and three 250-customer rerun proofs now show zero selected invalid winners
 
 Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipment Phase `42.5` added canonical numeric recommendation validity, but `v2.2` now focuses on preventing invalid selected winners, enforcing `dice` lane validity, aligning selected surfaces, and removing operator packet contradictions without widening thresholds or reopening shipped decision semantics.
 
@@ -34,7 +34,7 @@ Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipme
 | v2.0 completed milestone | 30 | phases 30-39 complete | n/a |
 | v2.1 completed milestone | 18 | phases 40, 40.5, 41, 43, 42, 44 complete | n/a |
 | post-v2.1 carry-forward hardening | 3 | phase 42.5 complete | n/a |
-| v2.2 active milestone | 0 | phases 45-48 planned | n/a |
+| v2.2 active milestone | 3 | phase 45 complete; phases 46-48 planned | n/a |
 
 **Recent Trend:**
 - Credit Coach now carries one continuous stack from semantic action planning to pilot-facing package delivery.
@@ -49,7 +49,7 @@ Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipme
 - Phase 44 now ships repeatable pilot refresh orchestration, separate artifact QA versus portfolio smoke lanes, thin institution overlays, institution-facing explanation packs, and bounded proof-surface docs.
 - Milestone `v2.1` audit passed with `12/12` requirements satisfied, `6/6` integrations, and `4/4` end-to-end flows.
 - Large-sample reruns now execute locally via deterministic sample-CSV fallback, so milestone work can validate selected-winner behavior without the old processed-dataset blocker.
-- The newest evidence shows the main remaining bottleneck is winner integrity and selected-surface consistency rather than recommendation language or threshold aggressiveness.
+- The newest evidence shows winner hard-stop is now working; the main remaining bottleneck is selected-surface consistency and operator packet coherence rather than recommendation language or threshold aggressiveness.
 
 ## Accumulated Context
 
@@ -62,8 +62,10 @@ Recent decisions affecting the shipped baseline:
 - `v2.0 Personalized Action & Decision Intelligence` turned feature-delta outputs into semantic, numeric, feasible, execution-aware, and institution-aware plans
 - `v2.1 Decision Ownership & Pilot-Ready Trust` turned those plans into deterministic decisions, reviewable funnels, operator packets, and repeatable pilot-refresh artifacts
 - Post-v2.1 Phase `42.5 Recommendation Validity Layer` now prevents directionally wrong or no-op numeric recommendations from winning and marks suspicious numeric recommendations for bounded manual review
-- Large-sample reruns and targeted failure analysis showed that invalid selected winners are dominated by a planner fallback bug in `choose_best_plan(...)`, not by annotation failure
-- All leaked selected invalid winners observed so far were `dice` winners, and consumer surfaces still have selected-plan coherence gaps
+- Large-sample reruns and targeted failure analysis showed that invalid selected winners were dominated by a planner fallback bug in `choose_best_plan(...)`, not by annotation failure
+- Phase `45 Winner Integrity Hard Stop` now removes that fallback path, widens only to valid pools, and records explicit `no_valid_winner` outcomes when no valid contender remains
+- Selected invalid winner leakage is now zero on the three 250-customer rerun cohorts, including zero selected invalid `dice` winners
+- Consumer surfaces still have selected-plan coherence gaps that continue into later `v2.2` phases
 - The website remains a typed consumer of engine artifacts rather than a source of decision logic
 - Portfolio proof now includes numeric impact and calibration honesty, not just product confidence
 - Pilot integration remains export-first and controlled instead of pretending live connectivity
@@ -77,12 +79,11 @@ None yet.
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
 - Some Phase 41-44 validation frontmatter still understates `wave_0_complete` despite shipped tests and successful audit coverage.
-- `choose_best_plan(...)` still needs a hard-stop fix so empty validity-filtered pools cannot fall back to invalid candidates.
-- `dice` lane winner enforcement and selected-surface coherence remain the main technical risks before any threshold work.
+- `dice` lane enforcement and selected-surface coherence remain the main technical risks before any threshold work.
 - Operator packets still need coherence cleanup for invalid selected actions and approved fallback blockers.
 
 ## Session Continuity
 
 Last session: 2026-03-26
-Stopped at: Phase `45 Winner Integrity Hard Stop` planned; next step is `$gsd-execute-phase 45`
+Stopped at: Phase `45 Winner Integrity Hard Stop` complete; next step is `$gsd-discuss-phase 46`
 Resume file: None
