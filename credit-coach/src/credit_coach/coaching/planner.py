@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import math
-from typing import Any
+from typing import Any, Literal
 
 from credit_coach.data.schema import PlanRecord
 from credit_coach.recourse.recommendation_validity import (
@@ -34,6 +35,33 @@ _CONTENDER_BUCKET_PRIORITY = {
     "EMPTY": 2,
 }
 _VALID_OFFER_MATURITY = {"none", "inactive", "provisional", "active_rankable"}
+SelectionOutcome = Literal["selected_valid_winner", "no_valid_winner"]
+SelectionStage = Literal[
+    "preferred_valid",
+    "widened_constraint_valid",
+    "widened_non_rejected_valid",
+    "widened_any_valid",
+    "no_valid_winner",
+]
+
+
+@dataclass(frozen=True)
+class BestPlanSelectionResult:
+    best_plan: PlanRecord | None
+    selection_outcome: SelectionOutcome
+    selection_stage: SelectionStage
+    invalid_candidates_removed_count: int = 0
+    preferred_pool_invalid_exhausted: bool = False
+    no_valid_candidate_available: bool = False
+    selected_from_widened_valid_pool: bool = False
+
+    def require_best_plan(self) -> PlanRecord:
+        if self.best_plan is None:
+            raise AttributeError("Selection result has no best_plan")
+        return self.best_plan
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.require_best_plan(), name)
 
 
 def _safe_float(v, default: float = 0.0) -> float:
@@ -1138,7 +1166,7 @@ def choose_best_plan(
     denied_mode: bool = False,
     segment_context: dict[str, Any] | None = None,
     denied_objective_cfg: dict[str, Any] | None = None,
-) -> PlanRecord:
+) -> BestPlanSelectionResult:
     if not plans:
         raise ValueError("No plans provided")
     for plan in plans:
@@ -1149,38 +1177,103 @@ def choose_best_plan(
             tau=tau,
             segment_context=segment_context,
         )
-    candidates = _prefer_non_rejected(_prefer_constraint_eligible(plans))
-    filtered_validity_candidates, _removed_invalid_candidates = filter_invalid_numeric_plans(candidates)
-    if filtered_validity_candidates:
-        candidates = filtered_validity_candidates
-    filtered_candidates, _removed_empty_candidates = filter_empty_contenders(candidates)
-    if filtered_candidates:
-        candidates = filtered_candidates
-
-    # fairness_penalty remains part of generator scoring, but plan selection
-    # enforces a deterministic user-facing tie-break rule.
-    _ = max(0.0, _safe_float(fairness_penalty, 0.0))
-    denied_enabled = bool((denied_objective_cfg or {}).get("enabled", False))
-    high_risk_cfg = (
-        (denied_objective_cfg or {}).get("high_risk_objective", {})
-        if isinstance((denied_objective_cfg or {}).get("high_risk_objective", {}), dict)
-        else {}
+    all_valid_candidates, removed_invalid_candidates = filter_invalid_numeric_plans(plans)
+    invalid_candidates_removed_count = int(len(removed_invalid_candidates))
+    preferred_candidates = _prefer_non_rejected(_prefer_constraint_eligible(plans))
+    preferred_valid_candidates, removed_preferred_invalid_candidates = filter_invalid_numeric_plans(preferred_candidates)
+    preferred_pool_invalid_exhausted = bool(
+        preferred_candidates and removed_preferred_invalid_candidates and not preferred_valid_candidates
     )
-    high_risk_enabled = bool(high_risk_cfg.get("enabled", False))
-    risk_band = str((segment_context or {}).get("risk_band", "")).strip().lower()
-    is_denied_base = bool(base_pd is not None and tau is not None and float(base_pd) > float(tau))
-    if denied_enabled and high_risk_enabled and risk_band == "high" and is_denied_base:
-        ranked = sorted(
-            candidates,
-            key=lambda p: _high_risk_sort_key(
-                p,
+
+    def _rank_best_candidate(candidates: list[PlanRecord]) -> PlanRecord:
+        denied_enabled = bool((denied_objective_cfg or {}).get("enabled", False))
+        high_risk_cfg = (
+            (denied_objective_cfg or {}).get("high_risk_objective", {})
+            if isinstance((denied_objective_cfg or {}).get("high_risk_objective", {}), dict)
+            else {}
+        )
+        high_risk_enabled = bool(high_risk_cfg.get("enabled", False))
+        risk_band = str((segment_context or {}).get("risk_band", "")).strip().lower()
+        is_denied_base = bool(base_pd is not None and tau is not None and float(base_pd) > float(tau))
+        if denied_enabled and high_risk_enabled and risk_band == "high" and is_denied_base:
+            ranked = sorted(
+                candidates,
+                key=lambda p: _high_risk_sort_key(
+                    p,
+                    base_pd=base_pd,
+                    tau=tau,
+                    min_reliability=min_reliability,
+                    min_worst_risk_margin=min_worst_risk_margin,
+                    high_risk_objective_cfg=high_risk_cfg,
+                    fairness_penalty=float(fairness_penalty),
+                    denied_objective_cfg=denied_objective_cfg,
+                ),
+            )
+            return _select_with_source_tiebreak(
+                ranked,
                 base_pd=base_pd,
                 tau=tau,
                 min_reliability=min_reliability,
                 min_worst_risk_margin=min_worst_risk_margin,
-                high_risk_objective_cfg=high_risk_cfg,
-                fairness_penalty=float(fairness_penalty),
-                denied_objective_cfg=denied_objective_cfg,
+            )
+
+        if denied_mode and denied_enabled:
+            ranked = sorted(
+                candidates,
+                key=lambda p: _denied_sort_key(
+                    p,
+                    base_pd=base_pd,
+                    tau=tau,
+                    min_reliability=min_reliability,
+                    min_worst_risk_margin=min_worst_risk_margin,
+                    denied_objective_cfg=denied_objective_cfg,
+                    fairness_penalty=float(fairness_penalty),
+                ),
+            )
+            return _select_with_source_tiebreak(
+                ranked,
+                base_pd=base_pd,
+                tau=tau,
+                min_reliability=min_reliability,
+                min_worst_risk_margin=min_worst_risk_margin,
+            )
+
+        ranked = sorted(
+            candidates,
+            key=lambda p: (
+                _constraint_priority(p),
+                _status_priority(p.status),
+                _contender_bucket_priority(p),
+                _recommendation_warning_penalty(p),
+                -_gate_pass_score(
+                    p,
+                    tau=tau,
+                    min_reliability=min_reliability,
+                    min_worst_risk_margin=min_worst_risk_margin,
+                ),
+                _execution_rank_penalty(
+                    p,
+                    base_pd=base_pd,
+                    tau=tau,
+                    segment_context=segment_context,
+                    high_risk=False,
+                ),
+                -_execution_defensibility_score(
+                    p,
+                    base_pd=base_pd,
+                    tau=tau,
+                    segment_context=segment_context,
+                    high_risk=False,
+                ),
+                -_safe_float(getattr(p, "trajectory_policy_score", 0.0), 0.0),
+                -_expected_pd_improvement(p, base_pd=base_pd, tau=tau),
+                -_plan_execution_probability(p),
+                -_expected_recovery_proxy(p),
+                _offer_maturity_penalty(p),
+                int(len(p.actions)),
+                _plan_cost(p),
+                p.predicted_pd or 1.0,
+                -(p.robust_score if p.robust_score is not None else (p.score or -1e9)),
             ),
         )
         return _select_with_source_tiebreak(
@@ -1191,69 +1284,35 @@ def choose_best_plan(
             min_worst_risk_margin=min_worst_risk_margin,
         )
 
-    if denied_mode and denied_enabled:
-        ranked = sorted(
-            candidates,
-            key=lambda p: _denied_sort_key(
-                p,
-                base_pd=base_pd,
-                tau=tau,
-                min_reliability=min_reliability,
-                min_worst_risk_margin=min_worst_risk_margin,
-                denied_objective_cfg=denied_objective_cfg,
-                fairness_penalty=float(fairness_penalty),
-            ),
-        )
-        return _select_with_source_tiebreak(
-            ranked,
-            base_pd=base_pd,
-            tau=tau,
-            min_reliability=min_reliability,
-            min_worst_risk_margin=min_worst_risk_margin,
+    stage_candidates: list[tuple[SelectionStage, list[PlanRecord]]] = [
+        ("preferred_valid", preferred_valid_candidates),
+        ("widened_constraint_valid", filter_invalid_numeric_plans(_prefer_constraint_eligible(plans))[0]),
+        ("widened_non_rejected_valid", filter_invalid_numeric_plans(_prefer_non_rejected(plans))[0]),
+        ("widened_any_valid", all_valid_candidates),
+    ]
+    for selection_stage, raw_candidates in stage_candidates:
+        if not raw_candidates:
+            continue
+        filtered_candidates, _removed_empty_candidates = filter_empty_contenders(raw_candidates)
+        ranking_candidates = filtered_candidates if filtered_candidates else raw_candidates
+        if not ranking_candidates:
+            continue
+        return BestPlanSelectionResult(
+            best_plan=_rank_best_candidate(ranking_candidates),
+            selection_outcome="selected_valid_winner",
+            selection_stage=selection_stage,
+            invalid_candidates_removed_count=invalid_candidates_removed_count,
+            preferred_pool_invalid_exhausted=preferred_pool_invalid_exhausted,
+            no_valid_candidate_available=False,
+            selected_from_widened_valid_pool=selection_stage != "preferred_valid",
         )
 
-    ranked = sorted(
-        candidates,
-        key=lambda p: (
-            _constraint_priority(p),
-            _status_priority(p.status),
-            _contender_bucket_priority(p),
-            _recommendation_warning_penalty(p),
-            -_gate_pass_score(
-                p,
-                tau=tau,
-                min_reliability=min_reliability,
-                min_worst_risk_margin=min_worst_risk_margin,
-            ),
-            _execution_rank_penalty(
-                p,
-                base_pd=base_pd,
-                tau=tau,
-                segment_context=segment_context,
-                high_risk=False,
-            ),
-            -_execution_defensibility_score(
-                p,
-                base_pd=base_pd,
-                tau=tau,
-                segment_context=segment_context,
-                high_risk=False,
-            ),
-            -_safe_float(getattr(p, "trajectory_policy_score", 0.0), 0.0),
-            -_expected_pd_improvement(p, base_pd=base_pd, tau=tau),
-            -_plan_execution_probability(p),
-            -_expected_recovery_proxy(p),
-            _offer_maturity_penalty(p),
-            int(len(p.actions)),
-            _plan_cost(p),
-            p.predicted_pd or 1.0,
-            -(p.robust_score if p.robust_score is not None else (p.score or -1e9)),
-        ),
-    )
-    return _select_with_source_tiebreak(
-        ranked,
-        base_pd=base_pd,
-        tau=tau,
-        min_reliability=min_reliability,
-        min_worst_risk_margin=min_worst_risk_margin,
+    return BestPlanSelectionResult(
+        best_plan=None,
+        selection_outcome="no_valid_winner",
+        selection_stage="no_valid_winner",
+        invalid_candidates_removed_count=invalid_candidates_removed_count,
+        preferred_pool_invalid_exhausted=preferred_pool_invalid_exhausted,
+        no_valid_candidate_available=True,
+        selected_from_widened_valid_pool=False,
     )

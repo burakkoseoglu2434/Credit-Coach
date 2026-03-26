@@ -189,6 +189,12 @@ def _validate_customer_artifact_parity(
         "raw_contract_pass",
         "parity_pass",
         "data_issue_flag",
+        "selection_outcome",
+        "selection_stage",
+        "invalid_candidates_removed_count",
+        "preferred_pool_invalid_exhausted",
+        "no_valid_candidate_available",
+        "selected_from_widened_valid_pool",
     )
     source_pairs = {
         "customer_id": bundle.customer_id,
@@ -196,6 +202,8 @@ def _validate_customer_artifact_parity(
         "best_plan_source": _safe_text(bundle.roadmap.get("best_plan_source")),
         **{field: summary.get(field) for field in field_names if field in summary},
     }
+    source_pairs["best_plan_id"] = _safe_text(source_pairs.get("best_plan_id"))
+    source_pairs["best_plan_source"] = _safe_text(source_pairs.get("best_plan_source"))
     for field in field_names:
         expected = source_pairs.get(field, metrics_summary.get(field))
         actual = metrics_row.get(field)
@@ -204,8 +212,17 @@ def _validate_customer_artifact_parity(
     if int(_safe_int(summary.get("best_action_count", 0), 0)) != int(len(steps_df)):
         mismatch_fields.append("best_action_count_vs_steps")
     selected_best = plans_df.loc[plans_df.get("selected_best_flag", pd.Series(dtype=int)).fillna(0).astype(int) == 1]
-    if selected_best.empty:
+    selection_outcome = _safe_text(summary.get("selection_outcome"))
+    best_plan_id = _safe_text(summary.get("best_plan_id"))
+    if selection_outcome == "no_valid_winner" and not best_plan_id:
+        if not selected_best.empty:
+            mismatch_fields.append("selected_best_unexpected")
+    elif selected_best.empty:
         mismatch_fields.append("selected_best_plan")
+    elif len(selected_best) != 1:
+        mismatch_fields.append("selected_best_duplicate")
+    elif str(selected_best.iloc[0].get("recommendation_validity_status", "") or "").strip().lower() == "invalid":
+        mismatch_fields.append("selected_best_invalid")
     return {
         "parity_pass": int(not mismatch_fields),
         "parity_mismatch_count": len(mismatch_fields),
@@ -414,16 +431,23 @@ def _augment_metrics_row(
             "candidate_non_empty_count": non_empty_count,
             "candidate_approval_shell_only_count": approval_shell_only_count,
             "candidate_empty_removed_count": empty_removed_count,
-            "recommendation_validity_status": str(metrics.get("recommendation_validity_status", roadmap_summary.get("recommendation_validity_status", "valid"))),
+            "recommendation_validity_status": str(metrics.get("recommendation_validity_status", roadmap_summary.get("recommendation_validity_status", "")) or ""),
             "recommendation_invalid_action_count": int(_safe_int(metrics.get("recommendation_invalid_action_count", roadmap_summary.get("recommendation_invalid_action_count", 0)), 0)),
             "recommendation_warning_action_count": int(_safe_int(metrics.get("recommendation_warning_action_count", roadmap_summary.get("recommendation_warning_action_count", 0)), 0)),
             "recommendation_sanity_flag": int(_safe_int(metrics.get("recommendation_sanity_flag", roadmap_summary.get("recommendation_sanity_flag", 0)), 0)),
+            "selection_outcome": str(metrics.get("selection_outcome", roadmap_summary.get("selection_outcome", "")) or ""),
+            "selection_stage": str(metrics.get("selection_stage", roadmap_summary.get("selection_stage", "")) or ""),
+            "invalid_candidates_removed_count": int(_safe_int(metrics.get("invalid_candidates_removed_count", roadmap_summary.get("invalid_candidates_removed_count", 0)), 0)),
+            "preferred_pool_invalid_exhausted": int(_safe_int(metrics.get("preferred_pool_invalid_exhausted", roadmap_summary.get("preferred_pool_invalid_exhausted", 0)), 0)),
+            "no_valid_candidate_available": int(_safe_int(metrics.get("no_valid_candidate_available", roadmap_summary.get("no_valid_candidate_available", 0)), 0)),
+            "selected_from_widened_valid_pool": int(_safe_int(metrics.get("selected_from_widened_valid_pool", roadmap_summary.get("selected_from_widened_valid_pool", 0)), 0)),
             "offer_ready_contender_share": _safe_float(metrics.get("offer_ready_contender_share", 0.0), 0.0),
             "provisional_offer_share": _safe_float(metrics.get("provisional_offer_share", 0.0), 0.0),
             "approval_shell_only_share": _safe_float(metrics.get("approval_shell_only_share", 0.0), 0.0),
             "hard_invalid_plan_rate": _safe_float(metrics.get("hard_invalid_plan_rate", 0.0), 0.0),
             "numeric_warning_rate": _safe_float(metrics.get("numeric_warning_rate", 0.0), 0.0),
             "best_plan_warning_rate": _safe_float(metrics.get("best_plan_warning_rate", 0.0), 0.0),
+            "selected_invalid_winner_flag": int(_safe_int(metrics.get("selected_invalid_winner_flag", 0), 0)),
             "directional_invalid_count": int(_safe_int(metrics.get("directional_invalid_count", 0), 0)),
             "economic_warning_count": int(_safe_int(metrics.get("economic_warning_count", 0), 0)),
             "data_issue_codes_json": _json_dumps_compact(list(roadmap_summary.get("data_issue_codes", []))),
@@ -481,14 +505,16 @@ def _augment_plans_df(
     out.insert(7, "selection_policy_name", str(selection_row.get("selection_policy_name", selection_row["cohort_policy"])))
     out.insert(8, "selection_fill_behavior", str(selection_row.get("selection_fill_behavior", "")))
     out.insert(9, "selected_best_flag", (out.get("plan_id", pd.Series(dtype=object)).astype(str) == _safe_text(bundle.roadmap.get("best_plan_id"))).astype(int))
+    out.insert(10, "selection_outcome", _safe_text(summary.get("selection_outcome")))
+    out.insert(11, "selection_stage", _safe_text(summary.get("selection_stage")))
     if "action_count" in out.columns:
-        out.insert(10, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
+        out.insert(12, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
     else:
-        out.insert(10, "plan_step_count", 0)
+        out.insert(12, "plan_step_count", 0)
     plan_contract_pass = pd.Series([pd.NA] * len(out), index=out.index, dtype="object")
     selected_mask = out["selected_best_flag"].astype(int) == 1
     plan_contract_pass.loc[selected_mask] = int(_safe_int(summary.get("plan_contract_pass", 0), 0))
-    out.insert(11, "plan_contract_pass", plan_contract_pass)
+    out.insert(13, "plan_contract_pass", plan_contract_pass)
     return out
 
 
@@ -620,6 +646,24 @@ def _collection_summary_markdown(
     hard_invalid_plan_rate = _safe_float(metrics_df.get("hard_invalid_plan_rate", pd.Series(dtype=float)).mean(), 0.0)
     numeric_warning_rate = _safe_float(metrics_df.get("numeric_warning_rate", pd.Series(dtype=float)).mean(), 0.0)
     best_plan_warning_rate = _safe_float(metrics_df.get("best_plan_warning_rate", pd.Series(dtype=float)).mean(), 0.0)
+    selected_invalid_winner_count = int(
+        pd.to_numeric(metrics_df.get("selected_invalid_winner_flag", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+    )
+    selected_invalid_winner_rate = _safe_float(
+        pd.to_numeric(metrics_df.get("selected_invalid_winner_flag", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
+        0.0,
+    )
+    no_valid_winner_count = int(
+        (metrics_df.get("selection_outcome", pd.Series(dtype=object)).astype(str) == "no_valid_winner").sum()
+    )
+    widened_valid_selection_rate = _safe_float(
+        pd.to_numeric(metrics_df.get("selected_from_widened_valid_pool", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
+        0.0,
+    )
+    preferred_pool_invalid_exhaustion_rate = _safe_float(
+        pd.to_numeric(metrics_df.get("preferred_pool_invalid_exhausted", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
+        0.0,
+    )
     directional_invalid_count = int(pd.to_numeric(metrics_df.get("directional_invalid_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
     economic_warning_count = int(pd.to_numeric(metrics_df.get("economic_warning_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
     best_action_class_dominance = 0.0
@@ -690,6 +734,11 @@ def _collection_summary_markdown(
             f"- Hard-invalid plan rate: {hard_invalid_plan_rate:.4f}",
             f"- Numeric warning rate: {numeric_warning_rate:.4f}",
             f"- Best-plan warning rate: {best_plan_warning_rate:.4f}",
+            f"- Selected invalid winner count: {selected_invalid_winner_count}",
+            f"- Selected invalid winner rate: {selected_invalid_winner_rate:.4f}",
+            f"- No-valid-winner count: {no_valid_winner_count}",
+            f"- Widened-valid selection rate: {widened_valid_selection_rate:.4f}",
+            f"- Preferred-pool invalid exhaustion rate: {preferred_pool_invalid_exhaustion_rate:.4f}",
             f"- Directional invalid count: {directional_invalid_count}",
             f"- Economic warning count: {economic_warning_count}",
             f"- Offer-ready contender share: {offer_ready_share:.4f}",
@@ -1108,6 +1157,24 @@ def main(argv: Sequence[str] | None = None):
             ),
             "best_plan_warning_rate": _safe_float(
                 metrics_df.get("best_plan_warning_rate", pd.Series(dtype=float)).mean(),
+                0.0,
+            ),
+            "selected_invalid_winner_count": int(
+                pd.to_numeric(metrics_df.get("selected_invalid_winner_flag", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+            ),
+            "selected_invalid_winner_rate": _safe_float(
+                pd.to_numeric(metrics_df.get("selected_invalid_winner_flag", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
+                0.0,
+            ),
+            "no_valid_winner_count": int(
+                (metrics_df.get("selection_outcome", pd.Series(dtype=object)).astype(str) == "no_valid_winner").sum()
+            ),
+            "widened_valid_selection_rate": _safe_float(
+                pd.to_numeric(metrics_df.get("selected_from_widened_valid_pool", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
+                0.0,
+            ),
+            "preferred_pool_invalid_exhaustion_rate": _safe_float(
+                pd.to_numeric(metrics_df.get("preferred_pool_invalid_exhausted", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
                 0.0,
             ),
             "directional_invalid_count": int(

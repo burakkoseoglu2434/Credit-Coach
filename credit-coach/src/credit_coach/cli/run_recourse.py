@@ -18,6 +18,7 @@ from credit_coach.coaching.messaging import (
     build_customer_roadmap_narrative,
 )
 from credit_coach.coaching.planner import (
+    BestPlanSelectionResult,
     CANDIDATE_SOURCE_CATALOG,
     annotate_plan_planner_quality,
     candidate_pool_diversity_index,
@@ -283,6 +284,34 @@ def _build_contract_health_from_summary(summary: dict[str, Any]) -> dict[str, An
     }
 
 
+def _selection_meta_dict(selection_result: BestPlanSelectionResult | None) -> dict[str, Any]:
+    if selection_result is None:
+        return {
+            "selection_outcome": "",
+            "selection_stage": "",
+            "invalid_candidates_removed_count": 0,
+            "preferred_pool_invalid_exhausted": 0,
+            "no_valid_candidate_available": 0,
+            "selected_from_widened_valid_pool": 0,
+        }
+    return {
+        "selection_outcome": str(selection_result.selection_outcome),
+        "selection_stage": str(selection_result.selection_stage),
+        "invalid_candidates_removed_count": int(selection_result.invalid_candidates_removed_count),
+        "preferred_pool_invalid_exhausted": int(bool(selection_result.preferred_pool_invalid_exhausted)),
+        "no_valid_candidate_available": int(bool(selection_result.no_valid_candidate_available)),
+        "selected_from_widened_valid_pool": int(bool(selection_result.selected_from_widened_valid_pool)),
+    }
+
+
+def _selected_plan_id(best: PlanRecord | None) -> str:
+    return str(best.plan_id) if best is not None else ""
+
+
+def _selected_plan_source(best: PlanRecord | None) -> str:
+    return str(getattr(best, "plan_source", "") or "") if best is not None else ""
+
+
 def _derive_nominal_pd_improvement(*, base_pd: float, plan: PlanRecord) -> float:
     explicit = getattr(plan, "nominal_pd_improvement", None)
     if explicit is not None:
@@ -296,27 +325,28 @@ def _derive_nominal_pd_improvement(*, base_pd: float, plan: PlanRecord) -> float
 def _inject_decision_inputs_into_roadmap(
     roadmap: dict[str, Any],
     *,
-    best: PlanRecord,
+    best: PlanRecord | None,
     base_pd: float,
     local_reason_bundle: dict[str, Any] | None,
 ) -> dict[str, Any]:
     out = dict(roadmap or {})
     summary = dict(out.get("summary", {}) or {})
-    nominal_pd_improvement = _derive_nominal_pd_improvement(base_pd=base_pd, plan=best)
+    nominal_pd_improvement = _derive_nominal_pd_improvement(base_pd=base_pd, plan=best) if best is not None else 0.0
+    selected_plan_id = _safe_text(summary.get("best_plan_id"), _safe_text(out.get("best_plan_id"), _selected_plan_id(best)))
     plan_execution_probability = _safe_float(
         summary.get("plan_execution_probability", getattr(best, "plan_execution_probability", 0.0)),
         0.0,
     )
     summary.update(
         {
-            "best_plan_id": _safe_text(summary.get("best_plan_id"), _safe_text(out.get("best_plan_id"), str(best.plan_id))),
+            "best_plan_id": selected_plan_id or None,
             "best_constraint_status": _safe_text(
                 summary.get("best_constraint_status"),
-                _safe_text(out.get("best_constraint_status"), str(getattr(best, "constraint_status", "valid") or "valid")),
+                _safe_text(out.get("best_constraint_status"), str(getattr(best, "constraint_status", "") or "")),
             ),
             "plan_contract_pass": int(
                 bool(
-                    _safe_text(summary.get("best_plan_id"), _safe_text(out.get("best_plan_id"), str(best.plan_id)))
+                    selected_plan_id
                     and str(getattr(best, "constraint_status", "valid") or "valid").strip().lower() != "invalid"
                 )
             ),
@@ -505,12 +535,18 @@ def _sync_metrics_summary_with_roadmap_summary(
             "rejection_type": _safe_text(summary.get("rejection_type"), ""),
             "conditional_type": _safe_text(summary.get("conditional_type"), ""),
             "upgrade_condition": _safe_text(summary.get("upgrade_condition"), ""),
-            "recommendation_validity_status": _safe_text(summary.get("recommendation_validity_status"), "valid"),
+            "recommendation_validity_status": _safe_text(summary.get("recommendation_validity_status"), ""),
             "recommendation_invalid_action_count": int(_safe_int(summary.get("recommendation_invalid_action_count", 0), 0)),
             "recommendation_warning_action_count": int(_safe_int(summary.get("recommendation_warning_action_count", 0), 0)),
             "recommendation_validity_codes": list(summary.get("recommendation_validity_codes", [])),
             "recommendation_validity_codes_json": json.dumps(summary.get("recommendation_validity_codes", []), ensure_ascii=False),
             "recommendation_sanity_flag": int(bool(_safe_int(summary.get("recommendation_sanity_flag", 0), 0))),
+            "selection_outcome": _safe_text(summary.get("selection_outcome"), ""),
+            "selection_stage": _safe_text(summary.get("selection_stage"), ""),
+            "invalid_candidates_removed_count": int(_safe_int(summary.get("invalid_candidates_removed_count", 0), 0)),
+            "preferred_pool_invalid_exhausted": int(bool(_safe_int(summary.get("preferred_pool_invalid_exhausted", 0), 0))),
+            "no_valid_candidate_available": int(bool(_safe_int(summary.get("no_valid_candidate_available", 0), 0))),
+            "selected_from_widened_valid_pool": int(bool(_safe_int(summary.get("selected_from_widened_valid_pool", 0), 0))),
             "realization_anchor": _safe_float(summary.get("realization_anchor", 0.0), 0.0),
             "strong_execution_flag": int(bool(_safe_int(summary.get("strong_execution_flag", 0), 0))),
             "offer_maturity": _safe_text(summary.get("offer_maturity"), ""),
@@ -788,8 +824,40 @@ def _decision_log_record(
     *,
     run_id: str,
     customer_id: str,
-    plan: PlanRecord,
+    plan: PlanRecord | None,
 ) -> dict:
+    if plan is None:
+        return {
+            "decision_id": f"{run_id}_{customer_id}",
+            "run_id": str(run_id),
+            "customer_id": str(customer_id),
+            "policy_arm": "control",
+            "policy_arm_profile": {
+                "offer_family": "control",
+                "scoring_profile": "control",
+                "term_generation_rule": "",
+            },
+            "candidate_set_id": f"{run_id}:{customer_id}",
+            "selected_plan_id": "",
+            "selected_plan_status": "",
+            "selected_offer_type": "",
+            "selection_propensity": 0.0,
+            "propensity_source": "no_valid_winner",
+            "reason_codes": ["no_valid_winner"],
+            "recommended_plan_flag": False,
+            "selected_plan_policy_label": "",
+            "trajectory_status": "",
+            "decision_status": "REJECTED",
+            "approved": False,
+            "predicted_pd": 0.0,
+            "plan_execution_probability": None,
+            "mean_group_difficulty_score": None,
+            "peak_group_difficulty_score": None,
+            "follow_through_readiness_label": "",
+            "approval_dependent_plan_probability": None,
+            "offer_acceptance_probability": None,
+            "combined_plan_realization_probability": None,
+        }
     policy_arm = str(getattr(plan, "offer_policy_arm", "") or "control")
     if policy_arm == "control":
         policy_arm_profile = {
@@ -897,22 +965,23 @@ def _build_customer_roadmap(
     customer_id: str,
     base_pd: float,
     tau: float,
-    best: PlanRecord,
+    best: PlanRecord | None,
     best_source: str,
+    selection_result: BestPlanSelectionResult,
     row: pd.Series,
     model,
     calibrator,
     feature_cols: list[str],
     local_reason_bundle: dict | None = None,
 ) -> dict:
-    if not list(getattr(best, "phases", [])):
+    if best is not None and not list(getattr(best, "phases", [])):
         best.phases = build_canonical_phases(
             best.actions,
             base_pd=base_pd,
             predicted_pd=getattr(best, "predicted_pd", None),
             tau=tau,
         )
-    if not list(getattr(best, "trajectory_checkpoints", [])):
+    if best is not None and not list(getattr(best, "trajectory_checkpoints", [])):
         best.trajectory_checkpoints = build_nominal_trajectory_checkpoints(
             row=row,
             plan=best,
@@ -1054,17 +1123,19 @@ def _build_customer_roadmap(
             }
         )
 
+    selection_meta = _selection_meta_dict(selection_result)
+    selected_plan_id = _selected_plan_id(best)
     roadmap = {
         "customer_id": str(customer_id),
         "base_pd": float(base_pd),
         "tau": float(tau),
-        "best_plan_id": str(best.plan_id),
-        "best_plan_source": str(best_source),
-        "best_status": str(best.status),
-        "best_constraint_status": str(getattr(best, "constraint_status", "valid") or "valid"),
-        "trajectory_status": str(getattr(best, "trajectory_status", "on_track") or "on_track"),
-        "current_phase": str(getattr(best, "current_phase", "phase_1_stabilize") or "phase_1_stabilize"),
-        "phase_transition_reason": str(getattr(best, "phase_transition_reason", "initial_plan") or "initial_plan"),
+        "best_plan_id": selected_plan_id or None,
+        "best_plan_source": str(best_source or "") or None,
+        "best_status": str(best.status) if best is not None else "",
+        "best_constraint_status": str(getattr(best, "constraint_status", "") or ""),
+        "trajectory_status": str(getattr(best, "trajectory_status", "unknown") or "unknown"),
+        "current_phase": str(getattr(best, "current_phase", "") or ""),
+        "phase_transition_reason": str(getattr(best, "phase_transition_reason", "") or ""),
         "replanned_from_phase": str(getattr(best, "replanned_from_phase", "") or ""),
         "phases": phases,
         "checkpoints": checkpoints,
@@ -1082,7 +1153,7 @@ def _build_customer_roadmap(
     approval_ready_12w = bool(_safe_int(checkpoint_12w.get("gate_pass_estimate", 0), 0))
     approval_ready_24w = bool(_safe_int(checkpoint_24w.get("gate_pass_estimate", 0), 0))
     credit_readiness_stage = "not_ready_yet"
-    if str(best.status) == "APPROVED":
+    if str(getattr(best, "status", "") or "") == "APPROVED":
         if approval_ready_4w:
             credit_readiness_stage = "week_4"
         elif approval_ready_12w:
@@ -1096,49 +1167,25 @@ def _build_customer_roadmap(
         "target_pd_4w": _safe_float(checkpoint_4w.get("predicted_pd", base_pd), base_pd),
         "target_pd_12w": _safe_float(checkpoint_12w.get("predicted_pd", base_pd), base_pd),
         "target_pd_24w": _safe_float(checkpoint_24w.get("predicted_pd", base_pd), base_pd),
-        "plan_execution_probability": (
-            _safe_float(getattr(best, "plan_execution_probability", 0.0), 0.0)
-            if getattr(best, "plan_execution_probability", None) is not None
-            else None
-        ),
-        "approval_dependent_plan_probability": (
-            _safe_float(getattr(best, "approval_dependent_plan_probability", 0.0), 0.0)
-            if getattr(best, "approval_dependent_plan_probability", None) is not None
-            else None
-        ),
-        "offer_acceptance_probability": (
-            _safe_float(getattr(best, "offer_acceptance_probability", 0.0), 0.0)
-            if getattr(best, "offer_acceptance_probability", None) is not None
-            else None
-        ),
-        "combined_plan_realization_probability": (
-            _safe_float(getattr(best, "combined_plan_realization_probability", 0.0), 0.0)
-            if getattr(best, "combined_plan_realization_probability", None) is not None
-            else None
-        ),
-        "trajectory_status": str(getattr(best, "trajectory_status", "on_track") or "on_track"),
-        "decision_status": str(best.status),
-        "approval_ready_now": bool(str(best.status) == "APPROVED" and approval_ready_4w),
+        "plan_execution_probability": _safe_float(getattr(best, "plan_execution_probability", 0.0), 0.0),
+        "approval_dependent_plan_probability": _safe_float(getattr(best, "approval_dependent_plan_probability", 0.0), 0.0),
+        "offer_acceptance_probability": _safe_float(getattr(best, "offer_acceptance_probability", 0.0), 0.0),
+        "combined_plan_realization_probability": _safe_float(getattr(best, "combined_plan_realization_probability", 0.0), 0.0),
+        "trajectory_status": str(getattr(best, "trajectory_status", "unknown") or "unknown"),
+        "decision_status": str(getattr(best, "status", "") or "REJECTED"),
+        "approval_ready_now": bool(str(getattr(best, "status", "") or "") == "APPROVED" and approval_ready_4w),
         "approval_ready_4w": approval_ready_4w,
         "approval_ready_12w": approval_ready_12w,
         "approval_ready_24w": approval_ready_24w,
         "credit_readiness_stage": credit_readiness_stage,
-        "mean_group_difficulty_score": (
-            _safe_float(getattr(best, "mean_group_difficulty_score", 0.0), 0.0)
-            if getattr(best, "mean_group_difficulty_score", None) is not None
-            else None
-        ),
-        "peak_group_difficulty_score": (
-            _safe_float(getattr(best, "peak_group_difficulty_score", 0.0), 0.0)
-            if getattr(best, "peak_group_difficulty_score", None) is not None
-            else None
-        ),
+        "mean_group_difficulty_score": getattr(best, "mean_group_difficulty_score", None),
+        "peak_group_difficulty_score": getattr(best, "peak_group_difficulty_score", None),
         "dominant_difficulty_label": str(getattr(best, "dominant_difficulty_label", "") or ""),
         "follow_through_readiness_label": str(getattr(best, "follow_through_readiness_label", "") or ""),
-        "best_plan_id": str(best.plan_id),
-        "best_plan_source": str(best_source),
-        "best_constraint_status": str(getattr(best, "constraint_status", "valid") or "valid"),
-        "recommendation_validity_status": str(getattr(best, "recommendation_validity_status", "valid") or "valid"),
+        "best_plan_id": selected_plan_id or None,
+        "best_plan_source": str(best_source or "") or None,
+        "best_constraint_status": str(getattr(best, "constraint_status", "") or ""),
+        "recommendation_validity_status": str(getattr(best, "recommendation_validity_status", "") or "") or None,
         "recommendation_invalid_action_count": int(getattr(best, "recommendation_invalid_action_count", 0) or 0),
         "recommendation_warning_action_count": int(getattr(best, "recommendation_warning_action_count", 0) or 0),
         "recommendation_validity_codes": list(getattr(best, "recommendation_validity_codes", []) or []),
@@ -1146,17 +1193,18 @@ def _build_customer_roadmap(
         "offer_plan": int(bool(getattr(best, "offer_plan", False))),
         "rankable_offer_count": int(_safe_int(getattr(best, "rankable_offer_count", 0), 0)),
         "approval_pending_action_count": int(_safe_int(getattr(best, "approval_pending_action_count", 0), 0)),
-        "nominal_pd_improvement": _derive_nominal_pd_improvement(base_pd=base_pd, plan=best),
+        "nominal_pd_improvement": _derive_nominal_pd_improvement(base_pd=base_pd, plan=best) if best is not None else 0.0,
         "expected_pd_improvement": (
             _safe_float(getattr(best, "expected_pd_improvement", 0.0), 0.0)
             if getattr(best, "expected_pd_improvement", None) is not None
-            else _derive_nominal_pd_improvement(base_pd=base_pd, plan=best)
+            else (_derive_nominal_pd_improvement(base_pd=base_pd, plan=best) if best is not None else 0.0)
             * _safe_float(getattr(best, "plan_execution_probability", 0.0), 0.0)
         ),
         "local_explainability_confidence": float((local_reason_bundle or {}).get("meta", {}).get("explainability_confidence", 0.50)),
         "plan_contract_pass": int(
-            bool(str(best.plan_id).strip()) and str(getattr(best, "constraint_status", "valid") or "valid").strip().lower() != "invalid"
+            bool(selected_plan_id.strip()) and str(getattr(best, "constraint_status", "valid") or "valid").strip().lower() != "invalid"
         ),
+        **selection_meta,
     }
     roadmap = _normalize_customer_roadmap_contract(roadmap)
     roadmap = _inject_decision_inputs_into_roadmap(
@@ -1172,7 +1220,7 @@ def _build_customer_roadmap(
         tau=tau,
         phases=roadmap.get("phases", []),
         checkpoints=roadmap.get("checkpoints", []),
-        status=_safe_text(normalized_summary.get("decision_status"), str(best.status)),
+        status=_safe_text(normalized_summary.get("decision_status"), str(getattr(best, "status", "") or "REJECTED")),
         local_reason_bundle=local_reason_bundle or {},
         constraint_trace=list(getattr(best, "constraint_trace", [])),
         plan_execution_probability=normalized_summary.get("plan_execution_probability", None),
@@ -1258,6 +1306,11 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                 "phase_id": phase_id,
                 "phase_title": _phase_title(phase_id),
                 "time_months": int(m),
+                "action_key": str(getattr(action, "action_key", "") or ""),
+                "action_class": str(getattr(action, "action_class", "") or ""),
+                "action_title": str(getattr(action, "action_title", "") or ""),
+                "action_group_id": str(getattr(action, "action_group_id", "") or ""),
+                "feature_name": str(getattr(action, "feature_name", "") or ""),
                 "business_view": dict(getattr(action, "business_view").model_dump(mode="json")),
                 "technical_view": dict(getattr(action, "technical_view").model_dump(mode="json")),
                 "primary_numeric_target": (
@@ -2090,7 +2143,7 @@ def main(argv: Sequence[str] | None = None):
     if not candidate_pool_for_best:
         candidate_pool_for_best = candidate_pool
 
-    best = choose_best_plan(
+    selection_result = choose_best_plan(
         candidate_pool_for_best,
         base_pd=base_pd,
         tau=tau,
@@ -2101,13 +2154,15 @@ def main(argv: Sequence[str] | None = None):
         segment_context=segment_context,
         denied_objective_cfg=robust_cfg.get("denied_objective", {}),
     )
-    best_source = str(getattr(best, "plan_source", "") or "")
+    best = selection_result.best_plan
+    best_source = _selected_plan_source(best)
     roadmap = _build_customer_roadmap(
         customer_id=args.customer_id,
         base_pd=base_pd,
         tau=tau,
         best=best,
         best_source=best_source,
+        selection_result=selection_result,
         row=row,
         model=model,
         calibrator=calibrator,
@@ -2129,7 +2184,7 @@ def main(argv: Sequence[str] | None = None):
                 primary_numeric_target = {}
             row_out = {
                 "customer_id": str(args.customer_id),
-                "best_plan_id": str(best.plan_id),
+                "best_plan_id": _selected_plan_id(best),
                 "phase_id": phase_id,
                 "phase_title": phase_title,
                 "target_window_weeks": str(phase.get("target_window_weeks", "")),
@@ -2278,8 +2333,9 @@ def _build_customer_metrics_summary(
     segment_context: dict[str, Any],
     validated: list[PlanRecord],
     candidate_pool: list[PlanRecord],
-    best: PlanRecord,
+    best: PlanRecord | None,
     best_source: str,
+    selection_result: BestPlanSelectionResult,
     roadmap: dict[str, Any],
     msi: float,
     alpha: float,
@@ -2297,7 +2353,9 @@ def _build_customer_metrics_summary(
 ) -> dict[str, Any]:
     roadmap = _normalize_customer_roadmap_contract(roadmap)
     candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
-    best = annotate_plan_planner_quality(best)
+    if best is not None:
+        best = annotate_plan_planner_quality(best)
+    selection_meta = _selection_meta_dict(selection_result)
     roadmap_tau = roadmap.get("tau", None)
     cp_week4 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 4), {})
     cp_week12 = next((c for c in roadmap.get("checkpoints", []) if int(c.get("week", 0)) == 12), {})
@@ -2337,12 +2395,16 @@ def _build_customer_metrics_summary(
         "candidate_pool_approved_count": int(sum(1 for p in candidate_pool if p.status == "APPROVED")),
         "candidate_pool_diversity_index": candidate_pool_diversity_index(candidate_pool),
         "candidate_source_entropy": candidate_source_entropy(candidate_pool),
-        "best_plan_id": best.plan_id,
-        "best_plan_source": best_source,
+        "best_plan_id": _selected_plan_id(best),
+        "best_plan_source": str(best_source or ""),
         "best_contender_bucket": str(getattr(best, "contender_bucket", "") or ""),
         "best_offer_maturity": str(getattr(best, "offer_maturity", "none") or "none"),
-        "best_execution_aware_value": execution_aware_value(best, base_pd=base_pd, tau=_safe_float(roadmap_tau, 0.0) if roadmap_tau is not None else None),
-        "best_status": best.status,
+        "best_execution_aware_value": (
+            execution_aware_value(best, base_pd=base_pd, tau=_safe_float(roadmap_tau, 0.0) if roadmap_tau is not None else None)
+            if best is not None
+            else 0.0
+        ),
+        "best_status": str(getattr(best, "status", "") or ""),
         "trajectory_pd_4w": _safe_float(cp_week4.get("predicted_pd", base_pd), base_pd),
         "trajectory_pd_12w": _safe_float(cp_week12.get("predicted_pd", base_pd), base_pd),
         "trajectory_pd_24w": _safe_float(cp_week24.get("predicted_pd", base_pd), base_pd),
@@ -2395,6 +2457,7 @@ def _build_customer_metrics_summary(
         "decision_id": str(decision_log_record["decision_id"]),
         "selection_propensity": float(decision_log_record["selection_propensity"]),
         "decision_log_completeness": float(decision_log_summary.get("decision_log_completeness", 0.0)),
+        **selection_meta,
     }
     for source in CANDIDATE_SOURCE_CATALOG:
         metrics_summary[f"candidate_source_{source}_count"] = int(source_counts.get(source, 0))
@@ -2414,6 +2477,10 @@ def _build_customer_metrics_summary(
             ),
             "best_plan_warning_rate": float(
                 1.0 if str(getattr(best, "recommendation_validity_status", "valid")) == "warning" else 0.0
+            ),
+            "selected_invalid_winner_flag": int(
+                selection_result.selection_outcome == "selected_valid_winner"
+                and str(getattr(best, "recommendation_validity_status", "") or "") == "invalid"
             ),
             "directional_invalid_count": int(
                 sum(
@@ -2460,8 +2527,9 @@ def build_customer_artifact_bundle(
     segment_context: dict[str, Any],
     validated: list[PlanRecord],
     candidate_pool: list[PlanRecord],
-    best: PlanRecord,
+    best: PlanRecord | None,
     best_source: str,
+    selection_result: BestPlanSelectionResult,
     roadmap: dict[str, Any],
     msi: float,
     alpha: float,
@@ -2488,7 +2556,7 @@ def build_customer_artifact_bundle(
     plans_df = _build_bundle_plans_df(validated=validated, candidate_pool=candidate_pool)
     roadmap_steps_df = _build_customer_roadmap_steps_df(
         customer_id=customer_id,
-        best_plan_id=str(best.plan_id),
+        best_plan_id=_selected_plan_id(best),
         roadmap=roadmap,
     )
     metrics_summary = _build_customer_metrics_summary(
@@ -2501,6 +2569,7 @@ def build_customer_artifact_bundle(
         candidate_pool=candidate_pool,
         best=best,
         best_source=best_source,
+        selection_result=selection_result,
         roadmap=roadmap,
         msi=msi,
         alpha=alpha,
@@ -2849,7 +2918,7 @@ def generate_customer_recourse_artifacts(
     if not candidate_pool_for_best:
         candidate_pool_for_best = candidate_pool
 
-    best = choose_best_plan(
+    selection_result = choose_best_plan(
         candidate_pool_for_best,
         base_pd=base_pd,
         tau=tau,
@@ -2860,13 +2929,15 @@ def generate_customer_recourse_artifacts(
         segment_context=segment_context,
         denied_objective_cfg=robust_cfg.get("denied_objective", {}),
     )
-    best_source = str(getattr(best, "plan_source", "") or "")
+    best = selection_result.best_plan
+    best_source = _selected_plan_source(best)
     roadmap = _build_customer_roadmap(
         customer_id=customer_id,
         base_pd=base_pd,
         tau=tau,
         best=best,
         best_source=best_source,
+        selection_result=selection_result,
         row=row,
         model=model,
         calibrator=calibrator,
@@ -2889,6 +2960,7 @@ def generate_customer_recourse_artifacts(
         candidate_pool=candidate_pool,
         best=best,
         best_source=best_source,
+        selection_result=selection_result,
         roadmap=roadmap,
         msi=msi,
         alpha=alpha,

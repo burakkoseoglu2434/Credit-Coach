@@ -4822,7 +4822,7 @@ def main(argv: Sequence[str] | None = None):
                 int(len(removed_empty_candidates)),
             )
 
-            best = choose_best_plan(
+            selection_result = choose_best_plan(
                 candidate_pool_for_best,
                 base_pd=base_pd_i,
                 tau=tau,
@@ -4833,181 +4833,252 @@ def main(argv: Sequence[str] | None = None):
                 segment_context=segment_context,
                 denied_objective_cfg=robust_cfg.get("denied_objective", {}),
             )
-            out["best_status"] = str(best.status)
-            out["best_status_reason"] = str(best.status_reason or "")
-            out["best_constraint_status"] = str(getattr(best, "constraint_status", "valid") or "valid")
-            out["best_source"] = _plan_source(best)
-            out["best_contender_bucket"] = str(getattr(best, "contender_bucket", "") or "")
-            out["best_offer_maturity"] = str(getattr(best, "offer_maturity", "none") or "none")
-            out["best_plan_id"] = str(best.plan_id)
-            out["best_horizon_months"] = int(best.horizon_months)
-            out["best_strategy"] = str(best.strategy)
-            out["best_action_count"] = int(len(best.actions))
-            out["best_cost_usd"] = _plan_cost(best)
-            out["best_proximity_l1"] = _plan_proximity_l1(best)
-            out["best_robust_score"] = float(best.robust_score if best.robust_score is not None else (best.score or 0.0))
-            out["best_plan_execution_probability"] = _safe_float(
-                getattr(best, "plan_execution_probability", 0.0),
-                0.0,
-            )
-            out["best_execution_aware_value"] = execution_aware_value(best, base_pd=base_pd_i, tau=tau)
-            out["best_mean_action_execution_probability"] = _safe_float(
-                getattr(best, "mean_action_execution_probability", 0.0),
-                0.0,
-            )
-            out["best_mean_group_difficulty_score"] = _safe_float(
-                getattr(best, "mean_group_difficulty_score", 0.0),
-                0.0,
-            )
-            out["best_peak_group_difficulty_score"] = _safe_float(
-                getattr(best, "peak_group_difficulty_score", 0.0),
-                0.0,
-            )
-            out["best_dominant_difficulty_label"] = _safe_str(
-                getattr(best, "dominant_difficulty_label", ""),
-            )
-            out["best_follow_through_readiness_label"] = _safe_str(
-                getattr(best, "follow_through_readiness_label", ""),
-            )
-            out["best_nominal_pd_improvement"] = _safe_float(
-                getattr(best, "nominal_pd_improvement", 0.0),
-                0.0,
-            )
-            out["best_expected_pd_improvement"] = _safe_float(
-                getattr(best, "expected_pd_improvement", 0.0),
-                0.0,
-            )
-            out["best_offer_plan"] = int(bool(getattr(best, "offer_plan", False)))
-            out["best_rankable_offer_count"] = int(getattr(best, "rankable_offer_count", 0) or 0)
-            out["best_rankable_offer"] = int(int(out["best_rankable_offer_count"]) > 0)
-            out["best_offer_type"] = _safe_str(getattr(best, "dominant_offer_type", ""))
-            out["best_offer_policy_arm"] = _safe_str(getattr(best, "offer_policy_arm", ""))
-            out["best_offer_family"] = _safe_str(getattr(best, "offer_family", ""))
-            out["best_offer_scoring_profile"] = _safe_str(getattr(best, "offer_scoring_profile", ""))
-            out["best_term_generation_rule"] = _safe_str(getattr(best, "term_generation_rule", ""))
-            out["best_offer_acceptance_probability"] = _safe_float(
-                getattr(best, "offer_acceptance_probability", 0.0),
-                0.0,
-            )
-            out["best_combined_plan_realization_probability"] = _safe_float(
-                getattr(best, "combined_plan_realization_probability", 0.0),
-                0.0,
-            )
-            out["best_expected_recovery_proxy"] = _safe_float(
-                getattr(best, "expected_recovery_proxy", 0.0),
-                0.0,
-            )
-            out["best_approval_rate_proxy_delta"] = _safe_float(
-                getattr(best, "approval_rate_proxy_delta", 0.0),
-                0.0,
-            )
-            out["best_default_rate_90d_proxy_delta"] = _safe_float(
-                getattr(best, "default_rate_90d_proxy_delta", 0.0),
-                0.0,
-            )
-            out["best_avg_margin_90d_proxy_delta"] = _safe_float(
-                getattr(best, "avg_margin_90d_proxy_delta", 0.0),
-                0.0,
-            )
-            out["best_governance_safe_offer"] = int(bool(getattr(best, "governance_safe_offer", False)))
-            out["best_ci_high"] = float(best.ci_high) if best.ci_high is not None else np.nan
-            out["best_reliability"] = float(best.reliability) if best.reliability is not None else np.nan
-            out["best_worst_risk_margin"] = (
-                float(best.robust_worst_risk_margin) if best.robust_worst_risk_margin is not None else np.nan
-            )
-            best_pd = float(best.predicted_pd if best.predicted_pd is not None else base_pd_i)
-            out["best_candidate_pd"] = best_pd
-            out["candidate_pd_delta"] = float(base_pd_i - best_pd)
-            out["best_pd"] = best_pd if best.status == "APPROVED" else base_pd_i
-            out["pd_delta"] = float(base_pd_i - out["best_pd"])
-            out["best_timeline_steps_json"] = json.dumps(
-                _plan_trajectory_steps(best),
-                ensure_ascii=False,
-            )
-            out["best_phases_json"] = json.dumps(
-                [phase.model_dump(mode="json") for phase in list(getattr(best, "phases", []))],
-                ensure_ascii=False,
-            )
-            out["best_trajectory_checkpoints_json"] = json.dumps(
-                [checkpoint.model_dump(mode="json") for checkpoint in list(getattr(best, "trajectory_checkpoints", []))],
-                ensure_ascii=False,
-            )
-            out["trajectory_policy_label"] = str(getattr(best, "trajectory_policy_label", "") or "")
-            out["trajectory_policy_score"] = _safe_float(getattr(best, "trajectory_policy_score", 0.0), 0.0)
-            behavior_metrics = _simulate_plan_execution_behavior(
-                row=row,
-                plan=best,
-                base_pd=base_pd_i,
-                tau=tau,
-                model=model,
-                calibrator=calibrator,
-                feature_cols=feature_cols,
-                random_state=int(args.sample_seed) + int(i),
-                partial_progress_min_pd_delta=trajectory_partial_progress_min_pd_delta,
-                max_weekly_actions=int(
-                    (
-                        search_profile.get("search_cfg", {})
-                        if isinstance(search_profile.get("search_cfg", {}), dict)
-                        else {}
-                    ).get("weekly_optimizer", {})
-                    .get("max_weekly_actions", 3)
-                    if isinstance(
+            best = selection_result.best_plan
+            out["selection_outcome"] = str(selection_result.selection_outcome)
+            out["selection_stage"] = str(selection_result.selection_stage)
+            out["invalid_candidates_removed_count"] = int(selection_result.invalid_candidates_removed_count)
+            out["preferred_pool_invalid_exhausted"] = int(bool(selection_result.preferred_pool_invalid_exhausted))
+            out["no_valid_candidate_available"] = int(bool(selection_result.no_valid_candidate_available))
+            out["selected_from_widened_valid_pool"] = int(bool(selection_result.selected_from_widened_valid_pool))
+            if best is None:
+                out["best_status"] = ""
+                out["best_status_reason"] = ""
+                out["best_constraint_status"] = ""
+                out["best_source"] = ""
+                out["best_contender_bucket"] = ""
+                out["best_offer_maturity"] = ""
+                out["best_plan_id"] = ""
+                out["best_horizon_months"] = 0
+                out["best_strategy"] = ""
+                out["best_action_count"] = 0
+                out["best_cost_usd"] = 0.0
+                out["best_proximity_l1"] = 0.0
+                out["best_robust_score"] = 0.0
+                out["best_plan_execution_probability"] = 0.0
+                out["best_execution_aware_value"] = 0.0
+                out["best_mean_action_execution_probability"] = 0.0
+                out["best_mean_group_difficulty_score"] = 0.0
+                out["best_peak_group_difficulty_score"] = 0.0
+                out["best_dominant_difficulty_label"] = ""
+                out["best_follow_through_readiness_label"] = ""
+                out["best_nominal_pd_improvement"] = 0.0
+                out["best_expected_pd_improvement"] = 0.0
+                out["best_offer_plan"] = 0
+                out["best_rankable_offer_count"] = 0
+                out["best_rankable_offer"] = 0
+                out["best_offer_type"] = ""
+                out["best_offer_policy_arm"] = ""
+                out["best_offer_family"] = ""
+                out["best_offer_scoring_profile"] = ""
+                out["best_term_generation_rule"] = ""
+                out["best_offer_acceptance_probability"] = 0.0
+                out["best_combined_plan_realization_probability"] = 0.0
+                out["best_expected_recovery_proxy"] = 0.0
+                out["best_approval_rate_proxy_delta"] = 0.0
+                out["best_default_rate_90d_proxy_delta"] = 0.0
+                out["best_avg_margin_90d_proxy_delta"] = 0.0
+                out["best_governance_safe_offer"] = 0
+                out["best_ci_high"] = np.nan
+                out["best_reliability"] = np.nan
+                out["best_worst_risk_margin"] = np.nan
+                out["best_candidate_pd"] = base_pd_i
+                out["candidate_pd_delta"] = 0.0
+                out["best_pd"] = base_pd_i
+                out["pd_delta"] = 0.0
+                out["best_timeline_steps_json"] = "[]"
+                out["best_phases_json"] = "[]"
+                out["best_trajectory_checkpoints_json"] = "[]"
+                out["trajectory_policy_label"] = ""
+                out["trajectory_policy_score"] = 0.0
+                out["best_execution_scenario"] = "no_valid_winner"
+                out["best_execution_rate"] = 0.0
+                out["best_partial_execution"] = 0
+                out["best_mixed_execution"] = 0
+                out["best_failed_execution"] = 0
+                out["best_expected_partial_progress"] = 0
+                out["best_missed_action"] = 0
+                out["best_missed_actions_streak"] = 0
+                out["trajectory_status"] = "no_valid_winner"
+                out["trajectory_current_phase"] = ""
+                out["trajectory_next_review_week"] = 4
+                out["trajectory_phase_transition_reason"] = "no_valid_winner"
+                out["trajectory_replanned_from_phase"] = ""
+            else:
+                out["best_status"] = str(best.status)
+                out["best_status_reason"] = str(best.status_reason or "")
+                out["best_constraint_status"] = str(getattr(best, "constraint_status", "valid") or "valid")
+                out["best_source"] = _plan_source(best)
+                out["best_contender_bucket"] = str(getattr(best, "contender_bucket", "") or "")
+                out["best_offer_maturity"] = str(getattr(best, "offer_maturity", "none") or "none")
+                out["best_plan_id"] = str(best.plan_id)
+                out["best_horizon_months"] = int(best.horizon_months)
+                out["best_strategy"] = str(best.strategy)
+                out["best_action_count"] = int(len(best.actions))
+                out["best_cost_usd"] = _plan_cost(best)
+                out["best_proximity_l1"] = _plan_proximity_l1(best)
+                out["best_robust_score"] = float(best.robust_score if best.robust_score is not None else (best.score or 0.0))
+                out["best_plan_execution_probability"] = _safe_float(
+                    getattr(best, "plan_execution_probability", 0.0),
+                    0.0,
+                )
+                out["best_execution_aware_value"] = execution_aware_value(best, base_pd=base_pd_i, tau=tau)
+                out["best_mean_action_execution_probability"] = _safe_float(
+                    getattr(best, "mean_action_execution_probability", 0.0),
+                    0.0,
+                )
+                out["best_mean_group_difficulty_score"] = _safe_float(
+                    getattr(best, "mean_group_difficulty_score", 0.0),
+                    0.0,
+                )
+                out["best_peak_group_difficulty_score"] = _safe_float(
+                    getattr(best, "peak_group_difficulty_score", 0.0),
+                    0.0,
+                )
+                out["best_dominant_difficulty_label"] = _safe_str(
+                    getattr(best, "dominant_difficulty_label", ""),
+                )
+                out["best_follow_through_readiness_label"] = _safe_str(
+                    getattr(best, "follow_through_readiness_label", ""),
+                )
+                out["best_nominal_pd_improvement"] = _safe_float(
+                    getattr(best, "nominal_pd_improvement", 0.0),
+                    0.0,
+                )
+                out["best_expected_pd_improvement"] = _safe_float(
+                    getattr(best, "expected_pd_improvement", 0.0),
+                    0.0,
+                )
+                out["best_offer_plan"] = int(bool(getattr(best, "offer_plan", False)))
+                out["best_rankable_offer_count"] = int(getattr(best, "rankable_offer_count", 0) or 0)
+                out["best_rankable_offer"] = int(int(out["best_rankable_offer_count"]) > 0)
+                out["best_offer_type"] = _safe_str(getattr(best, "dominant_offer_type", ""))
+                out["best_offer_policy_arm"] = _safe_str(getattr(best, "offer_policy_arm", ""))
+                out["best_offer_family"] = _safe_str(getattr(best, "offer_family", ""))
+                out["best_offer_scoring_profile"] = _safe_str(getattr(best, "offer_scoring_profile", ""))
+                out["best_term_generation_rule"] = _safe_str(getattr(best, "term_generation_rule", ""))
+                out["best_offer_acceptance_probability"] = _safe_float(
+                    getattr(best, "offer_acceptance_probability", 0.0),
+                    0.0,
+                )
+                out["best_combined_plan_realization_probability"] = _safe_float(
+                    getattr(best, "combined_plan_realization_probability", 0.0),
+                    0.0,
+                )
+                out["best_expected_recovery_proxy"] = _safe_float(
+                    getattr(best, "expected_recovery_proxy", 0.0),
+                    0.0,
+                )
+                out["best_approval_rate_proxy_delta"] = _safe_float(
+                    getattr(best, "approval_rate_proxy_delta", 0.0),
+                    0.0,
+                )
+                out["best_default_rate_90d_proxy_delta"] = _safe_float(
+                    getattr(best, "default_rate_90d_proxy_delta", 0.0),
+                    0.0,
+                )
+                out["best_avg_margin_90d_proxy_delta"] = _safe_float(
+                    getattr(best, "avg_margin_90d_proxy_delta", 0.0),
+                    0.0,
+                )
+                out["best_governance_safe_offer"] = int(bool(getattr(best, "governance_safe_offer", False)))
+                out["best_ci_high"] = float(best.ci_high) if best.ci_high is not None else np.nan
+                out["best_reliability"] = float(best.reliability) if best.reliability is not None else np.nan
+                out["best_worst_risk_margin"] = (
+                    float(best.robust_worst_risk_margin) if best.robust_worst_risk_margin is not None else np.nan
+                )
+                best_pd = float(best.predicted_pd if best.predicted_pd is not None else base_pd_i)
+                out["best_candidate_pd"] = best_pd
+                out["candidate_pd_delta"] = float(base_pd_i - best_pd)
+                out["best_pd"] = best_pd if best.status == "APPROVED" else base_pd_i
+                out["pd_delta"] = float(base_pd_i - out["best_pd"])
+                out["best_timeline_steps_json"] = json.dumps(
+                    _plan_trajectory_steps(best),
+                    ensure_ascii=False,
+                )
+                out["best_phases_json"] = json.dumps(
+                    [phase.model_dump(mode="json") for phase in list(getattr(best, "phases", []))],
+                    ensure_ascii=False,
+                )
+                out["best_trajectory_checkpoints_json"] = json.dumps(
+                    [checkpoint.model_dump(mode="json") for checkpoint in list(getattr(best, "trajectory_checkpoints", []))],
+                    ensure_ascii=False,
+                )
+                out["trajectory_policy_label"] = str(getattr(best, "trajectory_policy_label", "") or "")
+                out["trajectory_policy_score"] = _safe_float(getattr(best, "trajectory_policy_score", 0.0), 0.0)
+                behavior_metrics = _simulate_plan_execution_behavior(
+                    row=row,
+                    plan=best,
+                    base_pd=base_pd_i,
+                    tau=tau,
+                    model=model,
+                    calibrator=calibrator,
+                    feature_cols=feature_cols,
+                    random_state=int(args.sample_seed) + int(i),
+                    partial_progress_min_pd_delta=trajectory_partial_progress_min_pd_delta,
+                    max_weekly_actions=int(
                         (
                             search_profile.get("search_cfg", {})
                             if isinstance(search_profile.get("search_cfg", {}), dict)
                             else {}
-                        ).get("weekly_optimizer", {}),
-                        dict,
-                    )
-                    else 3
-                ),
-                min_robust_margin=min_worst_margin_f,
-            )
-            out["best_execution_scenario"] = str(behavior_metrics["execution_scenario"])
-            out["best_execution_rate"] = float(behavior_metrics["execution_rate"])
-            out["best_partial_execution"] = int(behavior_metrics["partial_execution"])
-            out["best_mixed_execution"] = int(behavior_metrics["mixed_execution"])
-            out["best_failed_execution"] = int(behavior_metrics["failed_execution"])
-            out["best_expected_partial_progress"] = int(behavior_metrics["expected_partial_progress"])
-            out["best_missed_action"] = int(behavior_metrics["missed_action"])
-            out["best_missed_actions_streak"] = int(behavior_metrics["missed_actions_streak"])
-            out["trajectory_status"] = str(behavior_metrics["trajectory_status"])
-            out["trajectory_current_phase"] = str(behavior_metrics["current_phase"])
-            out["trajectory_next_review_week"] = int(behavior_metrics["next_review_week"])
-            out["trajectory_phase_transition_reason"] = str(behavior_metrics["phase_transition_reason"])
-            out["trajectory_replanned_from_phase"] = str(behavior_metrics["replanned_from_phase"])
-            if trajectory_enabled:
-                out.update(
-                    _plan_trajectory_metrics(
-                        row=row,
-                        plan=best,
-                        base_pd=base_pd_i,
-                        tau=tau,
-                        model=model,
-                        calibrator=calibrator,
-                        feature_cols=feature_cols,
-                        partial_progress_min_pd_delta=trajectory_partial_progress_min_pd_delta,
-                        random_state=int(args.sample_seed) + int(i),
-                        max_weekly_actions=int(
+                        ).get("weekly_optimizer", {})
+                        .get("max_weekly_actions", 3)
+                        if isinstance(
                             (
                                 search_profile.get("search_cfg", {})
                                 if isinstance(search_profile.get("search_cfg", {}), dict)
                                 else {}
-                            ).get("weekly_optimizer", {})
-                            .get("max_weekly_actions", 3)
-                            if isinstance(
+                            ).get("weekly_optimizer", {}),
+                            dict,
+                        )
+                        else 3
+                    ),
+                    min_robust_margin=min_worst_margin_f,
+                )
+                out["best_execution_scenario"] = str(behavior_metrics["execution_scenario"])
+                out["best_execution_rate"] = float(behavior_metrics["execution_rate"])
+                out["best_partial_execution"] = int(behavior_metrics["partial_execution"])
+                out["best_mixed_execution"] = int(behavior_metrics["mixed_execution"])
+                out["best_failed_execution"] = int(behavior_metrics["failed_execution"])
+                out["best_expected_partial_progress"] = int(behavior_metrics["expected_partial_progress"])
+                out["best_missed_action"] = int(behavior_metrics["missed_action"])
+                out["best_missed_actions_streak"] = int(behavior_metrics["missed_actions_streak"])
+                out["trajectory_status"] = str(behavior_metrics["trajectory_status"])
+                out["trajectory_current_phase"] = str(behavior_metrics["current_phase"])
+                out["trajectory_next_review_week"] = int(behavior_metrics["next_review_week"])
+                out["trajectory_phase_transition_reason"] = str(behavior_metrics["phase_transition_reason"])
+                out["trajectory_replanned_from_phase"] = str(behavior_metrics["replanned_from_phase"])
+                if trajectory_enabled:
+                    out.update(
+                        _plan_trajectory_metrics(
+                            row=row,
+                            plan=best,
+                            base_pd=base_pd_i,
+                            tau=tau,
+                            model=model,
+                            calibrator=calibrator,
+                            feature_cols=feature_cols,
+                            partial_progress_min_pd_delta=trajectory_partial_progress_min_pd_delta,
+                            random_state=int(args.sample_seed) + int(i),
+                            max_weekly_actions=int(
                                 (
                                     search_profile.get("search_cfg", {})
                                     if isinstance(search_profile.get("search_cfg", {}), dict)
                                     else {}
-                                ).get("weekly_optimizer", {}),
-                                dict,
-                            )
-                            else 3
-                        ),
-                        min_robust_margin=min_worst_margin_f,
+                                ).get("weekly_optimizer", {})
+                                .get("max_weekly_actions", 3)
+                                if isinstance(
+                                    (
+                                        search_profile.get("search_cfg", {})
+                                        if isinstance(search_profile.get("search_cfg", {}), dict)
+                                        else {}
+                                    ).get("weekly_optimizer", {}),
+                                    dict,
+                                )
+                                else 3
+                            ),
+                            min_robust_margin=min_worst_margin_f,
+                        )
                     )
-                )
             out["high_risk_bridge_hit"] = int(
                 int(out["denied_base"]) == 1
                 and str(out.get("risk_band", "")).lower() == "high"
@@ -5026,7 +5097,11 @@ def main(argv: Sequence[str] | None = None):
             out["dice_fallback_reason"] = str(dice_tel.get("fallback_reason") or "")
             out["dice_attempted_method_count"] = int(dice_tel.get("attempted_method_count", 0))
             if int(out["denied_base"]) == 1 and out["best_status"] != "APPROVED":
-                out["denied_not_approved_root_cause"] = _root_cause_from_status_reasons(str(best.status_reason or ""))
+                out["denied_not_approved_root_cause"] = (
+                    "no_valid_winner"
+                    if best is None
+                    else _root_cause_from_status_reasons(str(best.status_reason or ""))
+                )
         except Exception as exc:
             out["error_type"] = exc.__class__.__name__
             out["error_message"] = str(exc)

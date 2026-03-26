@@ -16,6 +16,7 @@ from credit_coach.cli.run_recourse import (
     build_customer_artifact_bundle,
     write_customer_artifact_bundle,
 )
+from credit_coach.coaching.planner import BestPlanSelectionResult
 from credit_coach.data.schema import PlanAction, PlanRecord, TrajectoryCheckpoint, TrajectoryPhase
 
 
@@ -26,6 +27,28 @@ class _DummyModel:
         util = pd.to_numeric(frame.get("revol_util", pd.Series([50.0] * len(frame))), errors="coerce").fillna(50.0)
         pd_values = (0.72 - (income / 250000.0) + (util / 500.0)).clip(0.05, 0.99).to_numpy()
         return pd.DataFrame({"good": 1.0 - pd_values, "bad": pd_values}).to_numpy()
+
+
+def _selection_result(plan: PlanRecord | None) -> BestPlanSelectionResult:
+    if plan is None:
+        return BestPlanSelectionResult(
+            best_plan=None,
+            selection_outcome="no_valid_winner",
+            selection_stage="no_valid_winner",
+            invalid_candidates_removed_count=2,
+            preferred_pool_invalid_exhausted=True,
+            no_valid_candidate_available=True,
+            selected_from_widened_valid_pool=False,
+        )
+    return BestPlanSelectionResult(
+        best_plan=plan,
+        selection_outcome="selected_valid_winner",
+        selection_stage="preferred_valid",
+        invalid_candidates_removed_count=0,
+        preferred_pool_invalid_exhausted=False,
+        no_valid_candidate_available=False,
+        selected_from_widened_valid_pool=False,
+    )
 
 
 def test_selection_frame_denied_first_near_prioritizes_denied_then_fills_near() -> None:
@@ -215,6 +238,80 @@ def test_augment_plans_df_marks_best_dice_candidate_with_plan_stage() -> None:
     assert best_row["plan_stage"] == "candidate_only"
 
 
+def test_validate_customer_artifact_parity_accepts_no_valid_winner_without_selected_row() -> None:
+    bundle = CustomerArtifactBundle(
+        customer_id="cust-none",
+        plans_df=pd.DataFrame([{"plan_id": "plan-a", "action_count": 1}]),
+        roadmap={
+            "customer_id": "cust-none",
+            "best_plan_id": None,
+            "best_plan_source": None,
+            "phases": [],
+            "checkpoints": [
+                {"week": 4, "status": "unknown"},
+                {"week": 12, "status": "unknown"},
+                {"week": 24, "status": "unknown"},
+            ],
+            "summary": {
+                "decision_status": "REJECTED",
+                "decision_status_internal": "REJECTED",
+                "decision_policy_version": "v2.1_phase_40_5",
+                "best_plan_id": None,
+                "best_constraint_status": "",
+                "plan_contract_pass": 0,
+                "credit_readiness_stage": "not_ready_yet",
+                "plan_execution_probability": 0.0,
+                "approval_dependent_plan_probability": 0.0,
+                "offer_acceptance_probability": 0.0,
+                "combined_plan_realization_probability": 0.0,
+                "selection_outcome": "no_valid_winner",
+                "selection_stage": "no_valid_winner",
+                "invalid_candidates_removed_count": 2,
+                "preferred_pool_invalid_exhausted": 1,
+                "no_valid_candidate_available": 1,
+                "selected_from_widened_valid_pool": 0,
+            },
+        },
+        roadmap_steps_df=pd.DataFrame(columns=["customer_id", "best_plan_id", "action_key"]),
+        metrics_summary={"customer_id": "cust-none", "best_plan_id": "", "best_plan_source": ""},
+    )
+    metrics_row = {
+        "customer_id": "cust-none",
+        "best_plan_id": "",
+        "best_plan_source": "",
+        "decision_status": "REJECTED",
+        "decision_status_internal": "REJECTED",
+        "credit_readiness_stage": "not_ready_yet",
+        "plan_execution_probability": 0.0,
+        "approval_dependent_plan_probability": 0.0,
+        "offer_acceptance_probability": 0.0,
+        "combined_plan_realization_probability": 0.0,
+        "best_action_count": 0,
+        "zero_step_flag": 1,
+        "checkpoint_status_4w": "unknown",
+        "checkpoint_status_12w": "unknown",
+        "checkpoint_status_24w": "unknown",
+        "raw_contract_pass": 1,
+        "parity_pass": 1,
+        "data_issue_flag": 0,
+        "selection_outcome": "no_valid_winner",
+        "selection_stage": "no_valid_winner",
+        "invalid_candidates_removed_count": 2,
+        "preferred_pool_invalid_exhausted": 1,
+        "no_valid_candidate_available": 1,
+        "selected_from_widened_valid_pool": 0,
+    }
+    parity = collector._validate_customer_artifact_parity(
+        bundle=bundle,
+        metrics_row=metrics_row,
+        plans_df=pd.DataFrame([{"plan_id": "plan-a", "selected_best_flag": 0}]),
+        steps_df=bundle.roadmap_steps_df,
+    )
+
+    assert parity["parity_pass"] == 1
+    assert parity["parity_mismatch_fields"] == []
+
+
 def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Path) -> None:
     action = PlanAction(
         feature_name="revol_util",
@@ -336,6 +433,7 @@ def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Pa
         tau=0.35,
         best=plan,
         best_source="internal",
+        selection_result=_selection_result(plan),
         row=pd.Series({"revol_util": 71.0}),
         model=_DummyModel(),
         calibrator=None,
@@ -355,6 +453,7 @@ def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Pa
         candidate_pool=[plan],
         best=plan,
         best_source="internal",
+        selection_result=_selection_result(plan),
         roadmap=roadmap,
         msi=0.2,
         alpha=0.05,

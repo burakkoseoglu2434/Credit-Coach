@@ -13,6 +13,7 @@ from credit_coach.cli.run_recourse import (
     _plan_to_row,
     build_customer_artifact_bundle,
 )
+from credit_coach.coaching.planner import BestPlanSelectionResult
 from credit_coach.data.schema import OfferContract, PlanAction, PlanRecord, TrajectoryCheckpoint, TrajectoryPhase
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.recourse.generator import PlanGenConfig, generate_plan_record
@@ -31,6 +32,28 @@ class _DummyModel:
         util = pd.to_numeric(df.get("revol_util", pd.Series([50.0] * len(df))), errors="coerce").fillna(50.0)
         p = (0.75 - (inc / 250000.0) + (util / 500.0)).clip(0.05, 0.99).to_numpy()
         return np.column_stack([1.0 - p, p])
+
+
+def _selection_result(plan: PlanRecord | None) -> BestPlanSelectionResult:
+    if plan is None:
+        return BestPlanSelectionResult(
+            best_plan=None,
+            selection_outcome="no_valid_winner",
+            selection_stage="no_valid_winner",
+            invalid_candidates_removed_count=1,
+            preferred_pool_invalid_exhausted=True,
+            no_valid_candidate_available=True,
+            selected_from_widened_valid_pool=False,
+        )
+    return BestPlanSelectionResult(
+        best_plan=plan,
+        selection_outcome="selected_valid_winner",
+        selection_stage="preferred_valid",
+        invalid_candidates_removed_count=0,
+        preferred_pool_invalid_exhausted=False,
+        no_valid_candidate_available=False,
+        selected_from_widened_valid_pool=False,
+    )
 
 
 def test_effective_recourse_search_denied_target_profile():
@@ -745,6 +768,7 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
         tau=0.35,
         best=plan,
         best_source="internal",
+        selection_result=_selection_result(plan),
         row=pd.Series({"revol_util": 71.0, "revol_bal": 7100.0, "total_rev_hi_lim": 10000.0}),
         model=_DummyModel(),
         calibrator=None,
@@ -857,6 +881,7 @@ def test_build_customer_artifact_bundle_normalizes_contract_safe_summary_fields(
         tau=0.35,
         best=plan,
         best_source="internal",
+        selection_result=_selection_result(plan),
         row=pd.Series({"revol_util": 71.0}),
         model=_DummyModel(),
         calibrator=None,
@@ -878,6 +903,7 @@ def test_build_customer_artifact_bundle_normalizes_contract_safe_summary_fields(
         candidate_pool=[plan],
         best=plan,
         best_source="internal",
+        selection_result=_selection_result(plan),
         roadmap=roadmap,
         msi=0.2,
         alpha=0.05,
@@ -993,6 +1019,7 @@ def test_build_customer_artifact_bundle_zero_step_always_rejects():
         candidate_pool=[plan],
         best=plan,
         best_source="internal",
+        selection_result=_selection_result(plan),
         roadmap=roadmap,
         msi=0.2,
         alpha=0.05,
@@ -1068,6 +1095,7 @@ def test_build_customer_artifact_bundle_serializes_full_candidate_pool_with_plan
         tau=0.35,
         best=dice_plan,
         best_source="dice",
+        selection_result=_selection_result(dice_plan),
         row=pd.Series({"revol_util": 68.0}),
         model=_DummyModel(),
         calibrator=None,
@@ -1085,6 +1113,7 @@ def test_build_customer_artifact_bundle_serializes_full_candidate_pool_with_plan
         candidate_pool=[internal_plan, dice_plan],
         best=dice_plan,
         best_source="dice",
+        selection_result=_selection_result(dice_plan),
         roadmap=roadmap,
         msi=0.2,
         alpha=0.05,
