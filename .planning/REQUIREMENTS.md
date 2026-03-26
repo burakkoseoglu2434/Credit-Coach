@@ -15,8 +15,8 @@ Requirements for `v2.2 Winner Integrity & Consumer Consistency`. Each maps to ex
 
 ### Dice Lane Enforcement
 
-- [ ] **DICE-01**: `dice` candidates carry the same action-level and plan-level validity fields into planner selection as internal candidates
-- [ ] **DICE-02**: Invalid `dice` candidates remain visible in diagnostics but can never be emitted as selected winners
+- [x] **DICE-01**: `dice` candidates carry the same action-level and plan-level validity fields into planner selection as internal candidates
+- [x] **DICE-02**: Invalid `dice` candidates remain visible in diagnostics but can never be emitted as selected winners
 
 ### Selected Surface Consistency
 
@@ -65,8 +65,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WINT-01 | Phase 45 | Complete |
 | WINT-02 | Phase 45 | Complete |
 | WINT-03 | Phase 45 | Complete |
-| DICE-01 | Phase 46 | Pending |
-| DICE-02 | Phase 46 | Pending |
+| DICE-01 | Phase 46 | Complete |
+| DICE-02 | Phase 46 | Complete |
 | CONS-01 | Phase 47 | Pending |
 | CONS-02 | Phase 47 | Pending |
 | CONS-03 | Phase 47 | Pending |
@@ -90,7 +90,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 - ✓ Personalized action intelligence is now semantic, numeric, feasible, execution-aware, institution-aware, portfolio-validated, and pilot-package-ready - v2.0
 - ✓ Deterministic decision ownership, contract trust repair, cohort calibration, operator review packs, planner source-mix honesty, and repeatable pilot refresh now ship together as one audited baseline - v2.1
 - ✓ Post-v2.1 Phase `42.5 Recommendation Validity Layer` now hardens numeric recommendations with canonical validity evaluation, hard-invalid contender filtering, warning penalties, operator sanity badges, explanation-pack human-review propagation, and additive collection metrics
+- ✓ Phase `46 Dice Lane Validity Enforcement` now converges DICE onto the shared typed-action contract, adds lane-specific completeness and semantic-quality truth, keeps diagnostics visible while gating planner contention on DICE eligibility, and proves selected DICE cleanliness with `selected_dice_valid_rate = 1.0` across three 250-customer reruns
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-03-26 after completing Phase 45*
+*Last updated: 2026-03-26 after completing Phase 46*

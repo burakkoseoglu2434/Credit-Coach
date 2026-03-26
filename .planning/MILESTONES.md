@@ -32,9 +32,9 @@
 - redesign of Phases `40`, `40.5`, `41`, `42`, `42.5`, or `43`
 - new borrower-facing channels, live institution integrations, or compliance automation
 
-**Current progress:** Phase `45 Winner Integrity Hard Stop` completed on 2026-03-26. Three 250-customer reruns now show `0` selected invalid winners, `0` selected invalid `dice` winners, and explicit `no_valid_winner` artifact states where no valid contender remained.
+**Current progress:** Phases `45 Winner Integrity Hard Stop` and `46 Dice Lane Validity Enforcement` completed on 2026-03-26. Three new 250-customer reruns now show `0` selected invalid winners, `0` selected invalid `dice` winners, and `selected_dice_valid_rate = 1.0` across `pilot_mixed`, `risk_band_balanced`, and `offer_needed_balanced`.
 
-**What's next:** `$gsd-discuss-phase 46`
+**What's next:** `$gsd-discuss-phase 47`
 
 ## v1.0 Brownfield Baseline (Shipped: 2026-03-10)
 

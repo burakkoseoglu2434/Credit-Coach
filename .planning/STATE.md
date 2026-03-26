@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 46 planned; ready for execution
+**Current focus:** Phase 46 completed; ready to discuss Phase 47
 
 ## Current Position
 
 Phase: 46 Dice Lane Validity Enforcement
-Plan: 3 execution plans ready
-Status: Ready for execution
-Last activity: 2026-03-26 - Planned Phase `46 Dice Lane Validity Enforcement`; research, validation strategy, and three execution plans now cover shared DICE normalization, contender-eligibility enforcement, and three-cohort rerun proof
+Plan: 3 execution plans complete
+Status: Complete
+Last activity: 2026-03-26 - Completed Phase `46 Dice Lane Validity Enforcement`; DICE now shares the canonical action contract, visible-vs-eligible DICE contender splits are enforced before planner selection, and three 250-customer reruns proved `selected_dice_valid_rate = 1.0`
 
 Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipment Phase `42.5` added canonical numeric recommendation validity, but `v2.2` now focuses on preventing invalid selected winners, enforcing `dice` lane validity, aligning selected surfaces, and removing operator packet contradictions without widening thresholds or reopening shipped decision semantics.
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 126 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5)
+- Total plans completed: 129 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-46)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -34,7 +34,7 @@ Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipme
 | v2.0 completed milestone | 30 | phases 30-39 complete | n/a |
 | v2.1 completed milestone | 18 | phases 40, 40.5, 41, 43, 42, 44 complete | n/a |
 | post-v2.1 carry-forward hardening | 3 | phase 42.5 complete | n/a |
-| v2.2 active milestone | 3 | phase 45 complete; phases 46-48 planned | n/a |
+| v2.2 active milestone | 6 | phases 45-46 complete; phases 47-48 planned | n/a |
 
 **Recent Trend:**
 - Credit Coach now carries one continuous stack from semantic action planning to pilot-facing package delivery.
@@ -50,6 +50,7 @@ Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipme
 - Milestone `v2.1` audit passed with `12/12` requirements satisfied, `6/6` integrations, and `4/4` end-to-end flows.
 - Large-sample reruns now execute locally via deterministic sample-CSV fallback, so milestone work can validate selected-winner behavior without the old processed-dataset blocker.
 - The newest evidence shows winner hard-stop is now working; the immediate next bottleneck is DICE lane enforcement before selected-surface consistency and operator packet coherence work.
+- Phase 46 now proves DICE lane cleanliness separately from general winner integrity, with explicit DICE eligibility, invalid, warning, fallback, and selected-cleanliness metrics in collection artifacts.
 
 ## Accumulated Context
 
@@ -65,7 +66,7 @@ Recent decisions affecting the shipped baseline:
 - Large-sample reruns and targeted failure analysis showed that invalid selected winners were dominated by a planner fallback bug in `choose_best_plan(...)`, not by annotation failure
 - Phase `45 Winner Integrity Hard Stop` now removes that fallback path, widens only to valid pools, and records explicit `no_valid_winner` outcomes when no valid contender remains
 - Selected invalid winner leakage is now zero on the three 250-customer rerun cohorts, including zero selected invalid `dice` winners
-- Phase `46 Dice Lane Validity Enforcement` is now scoped to converge DICE onto the shared action contract, add lane-specific semantic quality truth, split visible diagnostics from planner-eligible DICE contenders, and prove DICE cleanliness in rerun artifacts
+- Phase `46 Dice Lane Validity Enforcement` now converges DICE onto the shared action contract, adds lane-specific semantic quality truth, splits visible diagnostics from planner-eligible DICE contenders, and proves DICE cleanliness in rerun artifacts with `selected_dice_valid_rate = 1.0` across all three 250-customer cohorts
 - Consumer surfaces still have selected-plan coherence gaps that continue into later `v2.2` phases
 - The website remains a typed consumer of engine artifacts rather than a source of decision logic
 - Portfolio proof now includes numeric impact and calibration honesty, not just product confidence
@@ -80,11 +81,11 @@ None yet.
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
 - Some Phase 41-44 validation frontmatter still understates `wave_0_complete` despite shipped tests and successful audit coverage.
-- `dice` lane enforcement remains the main technical risk before selected-surface coherence or threshold work.
+- Selected-surface consistency is now the main technical risk before operator-packet coherence or threshold work.
 - Operator packets still need coherence cleanup for invalid selected actions and approved fallback blockers.
 
 ## Session Continuity
 
 Last session: 2026-03-26
-Stopped at: Phase `46 Dice Lane Validity Enforcement` planned; next step is `$gsd-execute-phase 46`
+Stopped at: Phase `46 Dice Lane Validity Enforcement` complete; next step is `$gsd-discuss-phase 47`
 Resume file: None

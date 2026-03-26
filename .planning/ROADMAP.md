@@ -123,7 +123,7 @@ No invalid recommendation can ever become the selected winner or leak into selec
 | Phase | Workstream | Goal | Requirements | Success Criteria |
 |-------|------------|------|--------------|------------------|
 | 45 | Winner Integrity Hard Stop | Remove the planner fallback path that revives invalid candidates and make selected validity truth explicit | WINT-01, WINT-02, WINT-03 | 3 |
-| 46 | Dice Lane Validity Enforcement | Enforce recommendation validity and no-valid-winner fallback discipline inside the `dice` lane | DICE-01, DICE-02 | 3 |
+| 46 | Dice Lane Validity Enforcement | Enforce typed parity, lane-quality eligibility, and DICE-specific proof before planner selection | DICE-01, DICE-02 | 3 |
 | 47 | Selected Surface Consistency | Align selected plan rows, decision summaries, collection metrics, and explanation outputs around one selected winner | CONS-01, CONS-02, CONS-03 | 3 |
 | 48 | Operator Packet Coherence | Remove contradictory blockers and invalid short-view actions while preserving diagnostics | OPER-01, OPER-02, OPER-03 | 3 |
 
@@ -229,6 +229,6 @@ Success criteria:
 | 42.5 Recommendation Validity Layer | carry-forward | 3/3 | Complete | 2026-03-24 |
 | 44. Production Pilot Baseline | v2.1 | 3/3 | Complete | 2026-03-23 |
 | 45. Winner Integrity Hard Stop | v2.2 | 3/3 | Complete | 2026-03-26 |
-| 46. Dice Lane Validity Enforcement | v2.2 | 3/3 | Planned | — |
+| 46. Dice Lane Validity Enforcement | v2.2 | 3/3 | Complete | 2026-03-26 |
 | 47. Selected Surface Consistency | v2.2 | 0/3 | Planned | — |
 | 48. Operator Packet Coherence | v2.2 | 0/3 | Planned | — |
