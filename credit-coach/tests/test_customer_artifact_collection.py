@@ -312,6 +312,173 @@ def test_validate_customer_artifact_parity_accepts_no_valid_winner_without_selec
     assert parity["parity_mismatch_fields"] == []
 
 
+def test_validate_customer_artifact_parity_rejects_selected_dice_winner_that_is_not_eligible() -> None:
+    bundle = CustomerArtifactBundle(
+        customer_id="cust-dice-invalid",
+        plans_df=pd.DataFrame([{"plan_id": "dice-plan", "action_count": 1}]),
+        roadmap={
+            "customer_id": "cust-dice-invalid",
+            "best_plan_id": "dice-plan",
+            "best_plan_source": "dice",
+            "phases": [{"phase_id": "phase_1_stabilize", "steps": [{"step_id": "step-1"}]}],
+            "checkpoints": [
+                {"week": 4, "status": "at_risk"},
+                {"week": 12, "status": "on_track"},
+                {"week": 24, "status": "on_track"},
+            ],
+            "summary": {
+                "decision_status": "CONDITIONAL",
+                "decision_status_internal": "CONDITIONAL",
+                "decision_policy_version": "v2.2_phase_46",
+                "best_plan_id": "dice-plan",
+                "best_constraint_status": "valid",
+                "plan_contract_pass": 1,
+                "credit_readiness_stage": "week_12",
+                "plan_execution_probability": 0.58,
+                "approval_dependent_plan_probability": 0.58,
+                "offer_acceptance_probability": 0.0,
+                "combined_plan_realization_probability": 0.58,
+                "best_action_count": 1,
+                "zero_step_flag": 0,
+            },
+        },
+        roadmap_steps_df=pd.DataFrame([{"customer_id": "cust-dice-invalid", "best_plan_id": "dice-plan", "action_key": "limit_credit_usage"}]),
+        metrics_summary={"customer_id": "cust-dice-invalid", "best_plan_id": "dice-plan", "best_plan_source": "dice"},
+    )
+    metrics_row = {
+        "customer_id": "cust-dice-invalid",
+        "best_plan_id": "dice-plan",
+        "best_plan_source": "dice",
+        "decision_status": "CONDITIONAL",
+        "decision_status_internal": "CONDITIONAL",
+        "credit_readiness_stage": "week_12",
+        "plan_execution_probability": 0.58,
+        "approval_dependent_plan_probability": 0.58,
+        "offer_acceptance_probability": 0.0,
+        "combined_plan_realization_probability": 0.58,
+        "best_action_count": 1,
+        "zero_step_flag": 0,
+        "checkpoint_status_4w": "at_risk",
+        "checkpoint_status_12w": "on_track",
+        "checkpoint_status_24w": "on_track",
+        "raw_contract_pass": 1,
+        "parity_pass": 1,
+        "data_issue_flag": 0,
+        "selection_outcome": "selected_valid_winner",
+        "selection_stage": "preferred_valid",
+        "invalid_candidates_removed_count": 0,
+        "preferred_pool_invalid_exhausted": 0,
+        "no_valid_candidate_available": 0,
+        "selected_from_widened_valid_pool": 0,
+    }
+    plans_df = pd.DataFrame(
+        [
+            {
+                "plan_id": "dice-plan",
+                "plan_source": "dice",
+                "selected_best_flag": 1,
+                "recommendation_validity_status": "valid",
+                "dice_contender_eligible": 0,
+                "dice_annotation_complete": 0,
+                "dice_semantic_quality_status": "invalid",
+            }
+        ]
+    )
+
+    parity = collector._validate_customer_artifact_parity(
+        bundle=bundle,
+        metrics_row=metrics_row,
+        plans_df=plans_df,
+        steps_df=bundle.roadmap_steps_df,
+    )
+
+    assert parity["parity_pass"] == 0
+    assert "selected_best_dice_ineligible" in parity["parity_mismatch_fields"]
+    assert "selected_best_dice_annotation_incomplete" in parity["parity_mismatch_fields"]
+    assert "selected_best_dice_semantic_invalid" in parity["parity_mismatch_fields"]
+
+
+def test_collection_summary_markdown_reports_dice_lane_rates() -> None:
+    selection_df = pd.DataFrame(
+        [
+            {
+                "customer_id": "cust-1",
+                "selection_reason": "pilot",
+                "denied_base": 1,
+                "risk_band": "near",
+            }
+        ]
+    )
+    metrics_df = pd.DataFrame(
+        [
+            {
+                "decision_status": "CONDITIONAL",
+                "best_action_count": 1,
+                "best_cost_usd": 12.0,
+                "best_plan_execution_probability": 0.61,
+                "candidate_source_entropy": 0.2,
+                "candidate_pool_diversity_index": 0.3,
+                "candidate_non_empty_count": 2,
+                "candidate_pool_count": 3,
+                "best_plan_source": "dice",
+                "offer_ready_contender_share": 0.0,
+                "provisional_offer_share": 0.0,
+                "approval_shell_only_share": 0.0,
+                "hard_invalid_plan_rate": 0.0,
+                "numeric_warning_rate": 0.1,
+                "best_plan_warning_rate": 1.0,
+                "selected_invalid_winner_flag": 0,
+                "selection_outcome": "selected_valid_winner",
+                "selected_from_widened_valid_pool": 0,
+                "preferred_pool_invalid_exhausted": 0,
+                "directional_invalid_count": 0,
+                "economic_warning_count": 1,
+                "critical_field_null_count": 0,
+                "missing_checkpoint_status_count": 0,
+                "raw_contract_pass": 1,
+                "parity_pass": 1,
+                "data_issue_flag": 0,
+                "dice_candidate_count": 2,
+                "dice_contender_eligible_count": 1,
+                "dice_invalid_candidate_count": 1,
+                "dice_warning_candidate_count": 1,
+                "dice_all_candidates_ineligible": 0,
+                "dice_fallback_flag": 1,
+                "selected_dice_flag": 1,
+                "selected_dice_valid_flag": 1,
+            }
+        ]
+    )
+    steps_df = pd.DataFrame([{"action_key": "limit_credit_usage", "action_class": "behavioral"}])
+
+    markdown = collector._collection_summary_markdown(
+        selection_df=selection_df,
+        metrics_df=metrics_df,
+        steps_df=steps_df,
+        manifest_rel_root="tables/customer_artifact_collection",
+        selection_metadata={
+            "selection_policy_name": "pilot_mixed",
+            "selection_fill_behavior": "quota",
+            "cohort_purpose": "test",
+        },
+        funnel_summary={
+            "approved_share": 0.0,
+            "conditional_share": 1.0,
+            "rejected_share": 0.0,
+            "internal_needs_review_share": 0.0,
+            "approve_plus_conditional_share": 1.0,
+            "conditional_to_approved_potential": 0.0,
+        },
+        readiness_summary={"distribution": {"week_12": {"count": 1}}},
+        calibration_summary={"policy_version_evaluated": "v2.2", "candidate_policy_versions_compared": [], "baseline_policy_metrics": {}},
+        operator_briefing={"priority_queues": [], "dominant_blockers": [], "conditional_hotspots": [], "offer_hotspots": [], "review_guidance": [], "health_note": ""},
+    )
+
+    assert "## DICE Lane" in markdown
+    assert "DICE candidate count: 2" in markdown
+    assert "Selected DICE valid rate: 1.0000" in markdown
+
+
 def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Path) -> None:
     action = PlanAction(
         feature_name="revol_util",

@@ -161,6 +161,43 @@ def _make_plan_action(
     )
 
 
+def build_canonical_plan_action(
+    *,
+    feature_name: str,
+    current_value: float,
+    target_value: float,
+    requested_target_value: float | None = None,
+    action_month: int,
+    action_context: dict[str, Any] | None = None,
+    action_status: str = "valid",
+    action_status_reason: str | None = None,
+    constraint_family: str | None = None,
+    constraint_reason_codes: list[str] | None = None,
+    was_clipped: bool = False,
+    repair_applied: bool = False,
+    dependency_gate: bool = False,
+    semantic_preserved: bool | None = None,
+    diagnostic_flags: list[str] | None = None,
+) -> PlanAction:
+    return _make_plan_action(
+        feature_name=feature_name,
+        current_value=current_value,
+        target_value=target_value,
+        requested_target_value=requested_target_value,
+        action_month=action_month,
+        action_context=action_context,
+        action_status=action_status,
+        action_status_reason=action_status_reason,
+        constraint_family=constraint_family,
+        constraint_reason_codes=constraint_reason_codes,
+        was_clipped=was_clipped,
+        repair_applied=repair_applied,
+        dependency_gate=dependency_gate,
+        semantic_preserved=semantic_preserved,
+        diagnostic_flags=diagnostic_flags,
+    )
+
+
 def _sanitize_numeric_target_value(
     *,
     feature_name: str,

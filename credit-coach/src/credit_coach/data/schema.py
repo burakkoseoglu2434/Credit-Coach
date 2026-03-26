@@ -46,6 +46,7 @@ DecisionRejectionType = Literal["NO_PATH", "LOW_IMPACT", "LOW_EXECUTION"]
 DecisionConditionalType = Literal["EXECUTION_GATED", "TIME_GATED", "OFFER_GATED", "DATA_ISSUE"]
 OfferMaturity = Literal["none", "inactive", "provisional", "active_rankable"]
 RecommendationValidityStatus = Literal["valid", "warning", "invalid"]
+DiceBackendClass = Literal["native", "heuristic_fallback", "skipped"]
 TrajectoryCheckpointStatus = Literal["on_track", "at_risk", "missed", "unknown"]
 ContractDataIssueCode = Literal[
     "missing_required_field",
@@ -1119,6 +1120,35 @@ class PlanRecord(BaseModel):
         default=0.0,
         ge=0.0,
         description="Total warning penalty derived from numeric recommendation validity",
+    )
+    dice_backend_class: DiceBackendClass | None = Field(
+        default=None,
+        description="DICE backend provenance class: native | heuristic_fallback | skipped",
+    )
+    dice_annotation_complete: bool = Field(
+        default=False,
+        description="DICE typed-action annotation completeness gate",
+    )
+    dice_semantic_quality_status: RecommendationValidityStatus | None = Field(
+        default=None,
+        description="Lane-specific DICE semantic contender-worthiness status",
+    )
+    dice_semantic_quality_codes: list[str] = Field(
+        default_factory=list,
+        description="Lane-specific DICE semantic quality and completeness codes",
+    )
+    dice_contender_eligible: bool = Field(
+        default=False,
+        description="Whether the DICE candidate may enter planner contention",
+    )
+    dice_semantic_warning_penalty: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Bounded additive planner penalty for DICE semantic warnings",
+    )
+    dice_quality_gate_version: str | None = Field(
+        default=None,
+        description="Version string for the DICE quality gate contract",
     )
 
     # Risk metrikleri

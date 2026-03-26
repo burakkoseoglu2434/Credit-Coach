@@ -223,6 +223,13 @@ def _validate_customer_artifact_parity(
         mismatch_fields.append("selected_best_duplicate")
     elif str(selected_best.iloc[0].get("recommendation_validity_status", "") or "").strip().lower() == "invalid":
         mismatch_fields.append("selected_best_invalid")
+    elif str(selected_best.iloc[0].get("plan_source", "") or "").strip().lower() == "dice":
+        if int(_safe_int(selected_best.iloc[0].get("dice_contender_eligible", 0), 0)) != 1:
+            mismatch_fields.append("selected_best_dice_ineligible")
+        if int(_safe_int(selected_best.iloc[0].get("dice_annotation_complete", 0), 0)) != 1:
+            mismatch_fields.append("selected_best_dice_annotation_incomplete")
+        if str(selected_best.iloc[0].get("dice_semantic_quality_status", "") or "").strip().lower() == "invalid":
+            mismatch_fields.append("selected_best_dice_semantic_invalid")
     return {
         "parity_pass": int(not mismatch_fields),
         "parity_mismatch_count": len(mismatch_fields),
@@ -441,6 +448,42 @@ def _augment_metrics_row(
             "preferred_pool_invalid_exhausted": int(_safe_int(metrics.get("preferred_pool_invalid_exhausted", roadmap_summary.get("preferred_pool_invalid_exhausted", 0)), 0)),
             "no_valid_candidate_available": int(_safe_int(metrics.get("no_valid_candidate_available", roadmap_summary.get("no_valid_candidate_available", 0)), 0)),
             "selected_from_widened_valid_pool": int(_safe_int(metrics.get("selected_from_widened_valid_pool", roadmap_summary.get("selected_from_widened_valid_pool", 0)), 0)),
+            "dice_backend_class": str(metrics.get("dice_backend_class", roadmap_summary.get("dice_backend_class", "")) or ""),
+            "dice_annotation_complete": int(
+                _safe_int(metrics.get("dice_annotation_complete", roadmap_summary.get("dice_annotation_complete", 0)), 0)
+            ),
+            "dice_semantic_quality_status": str(
+                metrics.get("dice_semantic_quality_status", roadmap_summary.get("dice_semantic_quality_status", "")) or ""
+            ),
+            "dice_semantic_quality_codes_json": _json_dumps_compact(
+                list(metrics.get("dice_semantic_quality_codes", roadmap_summary.get("dice_semantic_quality_codes", [])) or [])
+            ),
+            "dice_contender_eligible": int(
+                _safe_int(metrics.get("dice_contender_eligible", roadmap_summary.get("dice_contender_eligible", 0)), 0)
+            ),
+            "dice_semantic_warning_penalty": _safe_float(
+                metrics.get("dice_semantic_warning_penalty", roadmap_summary.get("dice_semantic_warning_penalty", 0.0)),
+                0.0,
+            ),
+            "dice_candidate_count": int(_safe_int(metrics.get("dice_candidate_count", 0), 0)),
+            "dice_contender_eligible_count": int(_safe_int(metrics.get("dice_contender_eligible_count", 0), 0)),
+            "dice_invalid_candidate_count": int(_safe_int(metrics.get("dice_invalid_candidate_count", 0), 0)),
+            "dice_warning_candidate_count": int(_safe_int(metrics.get("dice_warning_candidate_count", 0), 0)),
+            "dice_all_candidates_ineligible": int(_safe_int(metrics.get("dice_all_candidates_ineligible", 0), 0)),
+            "dice_fallback_flag": int(_safe_int(metrics.get("dice_fallback_flag", 0), 0)),
+            "dice_eligible_rate": _safe_float(metrics.get("dice_eligible_rate", 0.0), 0.0),
+            "dice_invalid_rate": _safe_float(metrics.get("dice_invalid_rate", 0.0), 0.0),
+            "dice_warning_rate": _safe_float(metrics.get("dice_warning_rate", 0.0), 0.0),
+            "dice_fallback_rate": _safe_float(metrics.get("dice_fallback_rate", 0.0), 0.0),
+            "selected_dice_flag": int(_safe_int(metrics.get("selected_dice_flag", 0), 0)),
+            "selected_dice_valid_flag": int(_safe_int(metrics.get("selected_dice_valid_flag", 0), 0)),
+            "selected_dice_annotation_complete_flag": int(
+                _safe_int(metrics.get("selected_dice_annotation_complete_flag", 0), 0)
+            ),
+            "selected_dice_semantic_invalid_flag": int(
+                _safe_int(metrics.get("selected_dice_semantic_invalid_flag", 0), 0)
+            ),
+            "selected_dice_valid_rate": _safe_float(metrics.get("selected_dice_valid_rate", 0.0), 0.0),
             "offer_ready_contender_share": _safe_float(metrics.get("offer_ready_contender_share", 0.0), 0.0),
             "provisional_offer_share": _safe_float(metrics.get("provisional_offer_share", 0.0), 0.0),
             "approval_shell_only_share": _safe_float(metrics.get("approval_shell_only_share", 0.0), 0.0),
@@ -493,6 +536,20 @@ def _augment_plans_df(
         out["recommendation_validity_codes_json"] = "[]"
     if "recommendation_sanity_flag" not in out.columns:
         out["recommendation_sanity_flag"] = 0
+    if "dice_backend_class" not in out.columns:
+        out["dice_backend_class"] = ""
+    if "dice_annotation_complete" not in out.columns:
+        out["dice_annotation_complete"] = 0
+    if "dice_semantic_quality_status" not in out.columns:
+        out["dice_semantic_quality_status"] = ""
+    if "dice_semantic_quality_codes_json" not in out.columns:
+        out["dice_semantic_quality_codes_json"] = "[]"
+    if "dice_contender_eligible" not in out.columns:
+        out["dice_contender_eligible"] = 0
+    if "dice_semantic_warning_penalty" not in out.columns:
+        out["dice_semantic_warning_penalty"] = 0.0
+    if "dice_quality_gate_version" not in out.columns:
+        out["dice_quality_gate_version"] = ""
     if "plan_stage" not in out.columns:
         out["plan_stage"] = "validated"
     out.insert(0, "collection_run_id", str(collection_run_id))
@@ -527,6 +584,12 @@ def _augment_steps_df(
     out = steps_df.copy()
     if "recommendation_validity_status" not in out.columns:
         out["recommendation_validity_status"] = "valid"
+    if "dice_annotation_complete" not in out.columns:
+        out["dice_annotation_complete"] = 0
+    if "dice_semantic_quality_status" not in out.columns:
+        out["dice_semantic_quality_status"] = ""
+    if "dice_contender_eligible" not in out.columns:
+        out["dice_contender_eligible"] = 0
     if "recommendation_validity_codes_json" not in out.columns:
         out["recommendation_validity_codes_json"] = "[]"
     if "recommendation_sanity_flag" not in out.columns:
@@ -666,6 +729,22 @@ def _collection_summary_markdown(
     )
     directional_invalid_count = int(pd.to_numeric(metrics_df.get("directional_invalid_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
     economic_warning_count = int(pd.to_numeric(metrics_df.get("economic_warning_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
+    dice_candidate_total = int(pd.to_numeric(metrics_df.get("dice_candidate_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
+    dice_eligible_total = int(pd.to_numeric(metrics_df.get("dice_contender_eligible_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
+    dice_invalid_total = int(pd.to_numeric(metrics_df.get("dice_invalid_candidate_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
+    dice_warning_total = int(pd.to_numeric(metrics_df.get("dice_warning_candidate_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
+    dice_fallback_total = int(pd.to_numeric(metrics_df.get("dice_fallback_flag", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
+    dice_selected_total = int(pd.to_numeric(metrics_df.get("selected_dice_flag", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
+    dice_selected_valid_total = int(pd.to_numeric(metrics_df.get("selected_dice_valid_flag", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
+    dice_eligible_rate = float(dice_eligible_total / max(1, dice_candidate_total))
+    dice_invalid_rate = float(dice_invalid_total / max(1, dice_candidate_total))
+    dice_warning_rate = float(dice_warning_total / max(1, dice_candidate_total))
+    dice_fallback_rate = float(dice_fallback_total / max(1, len(metrics_df)))
+    dice_all_ineligible_customer_rate = _safe_float(
+        pd.to_numeric(metrics_df.get("dice_all_candidates_ineligible", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
+        0.0,
+    )
+    selected_dice_valid_rate = 1.0 if dice_selected_total == 0 else float(dice_selected_valid_total / dice_selected_total)
     best_action_class_dominance = 0.0
     best_action_family_dominance = 0.0
     if not steps_df.empty and "action_class" in steps_df.columns:
@@ -746,6 +825,17 @@ def _collection_summary_markdown(
             f"- Approval-shell-only share: {approval_shell_only_share:.4f}",
             f"- Best action-class dominance: {best_action_class_dominance:.4f}",
             f"- Best action-family dominance: {best_action_family_dominance:.4f}",
+            "",
+            "## DICE Lane",
+            f"- DICE candidate count: {dice_candidate_total}",
+            f"- DICE contender-eligible count: {dice_eligible_total}",
+            f"- DICE invalid rate: {dice_invalid_rate:.4f}",
+            f"- DICE warning rate: {dice_warning_rate:.4f}",
+            f"- DICE eligible rate: {dice_eligible_rate:.4f}",
+            f"- DICE fallback rate: {dice_fallback_rate:.4f}",
+            f"- DICE all-ineligible customer rate: {dice_all_ineligible_customer_rate:.4f}",
+            f"- Selected DICE winner count: {dice_selected_total}",
+            f"- Selected DICE valid rate: {selected_dice_valid_rate:.4f}",
             "",
             "## Operator Review",
             f"- Likely-to-upgrade-soon queue: {int(next((queue.get('count', 0) for queue in priority_queues if str(queue.get('queue_key')) == 'likely_to_upgrade_soon'), 0))}",
@@ -1193,6 +1283,84 @@ def main(argv: Sequence[str] | None = None):
             ),
             "approval_shell_only_share": _safe_float(
                 metrics_df.get("approval_shell_only_share", pd.Series(dtype=float)).mean(),
+                0.0,
+            ),
+        },
+        "dice_lane_summary": {
+            "dice_candidate_count": int(
+                pd.to_numeric(metrics_df.get("dice_candidate_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+            ),
+            "dice_contender_eligible_count": int(
+                pd.to_numeric(metrics_df.get("dice_contender_eligible_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+            ),
+            "dice_invalid_candidate_count": int(
+                pd.to_numeric(metrics_df.get("dice_invalid_candidate_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+            ),
+            "dice_warning_candidate_count": int(
+                pd.to_numeric(metrics_df.get("dice_warning_candidate_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+            ),
+            "dice_eligible_rate": _safe_float(
+                pd.to_numeric(metrics_df.get("dice_contender_eligible_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+                / max(
+                    1.0,
+                    float(
+                        pd.to_numeric(metrics_df.get("dice_candidate_count", pd.Series(dtype=float)), errors="coerce")
+                        .fillna(0.0)
+                        .sum()
+                    ),
+                ),
+                0.0,
+            ),
+            "dice_invalid_rate": _safe_float(
+                pd.to_numeric(metrics_df.get("dice_invalid_candidate_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+                / max(
+                    1.0,
+                    float(
+                        pd.to_numeric(metrics_df.get("dice_candidate_count", pd.Series(dtype=float)), errors="coerce")
+                        .fillna(0.0)
+                        .sum()
+                    ),
+                ),
+                0.0,
+            ),
+            "dice_warning_rate": _safe_float(
+                pd.to_numeric(metrics_df.get("dice_warning_candidate_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+                / max(
+                    1.0,
+                    float(
+                        pd.to_numeric(metrics_df.get("dice_candidate_count", pd.Series(dtype=float)), errors="coerce")
+                        .fillna(0.0)
+                        .sum()
+                    ),
+                ),
+                0.0,
+            ),
+            "dice_fallback_rate": _safe_float(
+                pd.to_numeric(metrics_df.get("dice_fallback_flag", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
+                0.0,
+            ),
+            "dice_all_ineligible_customer_rate": _safe_float(
+                pd.to_numeric(metrics_df.get("dice_all_candidates_ineligible", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
+                0.0,
+            ),
+            "selected_dice_valid_rate": _safe_float(
+                1.0
+                if float(
+                    pd.to_numeric(metrics_df.get("selected_dice_flag", pd.Series(dtype=float)), errors="coerce")
+                    .fillna(0.0)
+                    .sum()
+                )
+                == 0.0
+                else (
+                    pd.to_numeric(metrics_df.get("selected_dice_valid_flag", pd.Series(dtype=float)), errors="coerce")
+                    .fillna(0.0)
+                    .sum()
+                    / float(
+                        pd.to_numeric(metrics_df.get("selected_dice_flag", pd.Series(dtype=float)), errors="coerce")
+                        .fillna(0.0)
+                        .sum()
+                    )
+                ),
                 0.0,
             ),
         },

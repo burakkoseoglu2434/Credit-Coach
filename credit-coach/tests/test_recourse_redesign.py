@@ -21,6 +21,7 @@ from credit_coach.recourse.execution_probability import (
     estimate_action_execution_probability,
     estimate_plan_execution_probability,
 )
+from credit_coach.recourse.dice_quality import annotate_dice_candidate_quality
 from credit_coach.recourse.offer_optimization import annotate_offer_optimization
 from credit_coach.safety.statistical import estimate_prediction_ci
 
@@ -1136,6 +1137,121 @@ def test_build_customer_artifact_bundle_serializes_full_candidate_pool_with_plan
     assert plans.loc["internal-plan", "plan_stage"] == "validated"
     assert plans.loc["dice-plan", "plan_stage"] == "candidate_only"
     assert bundle.roadmap["summary"]["best_plan_source"] == "dice"
+
+
+def test_build_customer_artifact_bundle_captures_dice_lane_metrics() -> None:
+    internal_action = PlanAction(
+        feature_name="annual_inc",
+        current_value=55_000.0,
+        target_value=58_000.0,
+        delta=3_000.0,
+        time_months=3,
+        estimated_cost_usd=0.0,
+        action_key="increase_income",
+        action_class="behavioral",
+        action_family="income_growth",
+        action_title="Increase income",
+        action_group_id="increase_income:phase_2_build",
+        checkpoint_metric="annual_inc -> 58000.000000",
+        recommendation_validity_status="valid",
+    )
+    dice_action = PlanAction(
+        feature_name="revol_util",
+        current_value=64.0,
+        target_value=46.0,
+        delta=-18.0,
+        time_months=1,
+        estimated_cost_usd=16.0,
+        action_key="limit_credit_usage",
+        action_class="behavioral",
+        action_family="credit_utilization",
+        action_title="Limit credit usage",
+        action_group_id="limit_credit_usage:phase_1_stabilize",
+        checkpoint_metric="revol_util -> 46.000000",
+        recommendation_validity_status="valid",
+    )
+    internal_plan = PlanRecord(
+        plan_id="internal-best",
+        customer_id="cust-dice-metrics",
+        run_id="run-dice-metrics",
+        horizon_months=6,
+        strategy="balanced",
+        actions=[internal_action],
+        predicted_pd=0.31,
+        score=0.14,
+        robust_score=0.14,
+        status="APPROVED",
+        constraint_status="valid",
+        plan_source="internal",
+        recommendation_validity_status="valid",
+        plan_execution_probability=0.61,
+    )
+    dice_plan = annotate_dice_candidate_quality(
+        PlanRecord(
+            plan_id="dice-visible",
+            customer_id="cust-dice-metrics",
+            run_id="run-dice-metrics",
+            horizon_months=6,
+            strategy="balanced",
+            actions=[dice_action],
+            predicted_pd=0.29,
+            score=0.16,
+            robust_score=0.16,
+            status="APPROVED",
+            constraint_status="valid",
+            plan_source="dice",
+            recommendation_validity_status="valid",
+            plan_execution_probability=0.66,
+        ),
+        backend_class="heuristic_fallback_timeout",
+    )
+    roadmap = _build_customer_roadmap(
+        customer_id="cust-dice-metrics",
+        base_pd=0.44,
+        tau=0.35,
+        best=internal_plan,
+        best_source="internal",
+        selection_result=_selection_result(internal_plan),
+        row=pd.Series({"annual_inc": 55_000.0, "revol_util": 64.0}),
+        model=_DummyModel(),
+        calibrator=None,
+        feature_cols=["annual_inc", "revol_util"],
+        local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.82}},
+    )
+
+    bundle = build_customer_artifact_bundle(
+        customer_id="cust-dice-metrics",
+        model_version="model-001",
+        base_pd=0.44,
+        search_profile={"is_denied_target": False, "search_cfg": {"time_budget_ms": 0}},
+        segment_context={"income_band": "q2", "risk_band": "near", "segment_caps_applied": False},
+        validated=[internal_plan],
+        candidate_pool=[internal_plan, dice_plan],
+        best=internal_plan,
+        best_source="internal",
+        selection_result=_selection_result(internal_plan),
+        roadmap=roadmap,
+        msi=0.2,
+        alpha=0.05,
+        robust_objective="cvar",
+        robust_cvar_quantile=0.9,
+        local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.82}},
+        adverse_action_reasons=[],
+        dice_backend="heuristic_fallback_timeout",
+        dice_records=[dice_plan],
+        dice_telemetry={"method_requested": "genetic", "method_used": "genetic", "fallback_reason": "timeout"},
+        search_elapsed_ms=8.0,
+        fairness_penalty=0.0,
+        decision_log_record={"decision_id": "d-source", "selection_propensity": 1.0},
+        decision_log_summary={"decision_log_completeness": 1.0},
+    )
+
+    assert bundle.metrics_summary["dice_candidate_count"] == 1
+    assert bundle.metrics_summary["dice_contender_eligible_count"] == 1
+    assert bundle.metrics_summary["dice_warning_candidate_count"] == 1
+    assert bundle.metrics_summary["dice_fallback_flag"] == 1
+    assert bundle.metrics_summary["selected_dice_flag"] == 0
+    assert bundle.metrics_summary["selected_dice_valid_rate"] == 1.0
 
 
 def test_plan_to_row_serializes_nested_offer_contract_in_timeline():

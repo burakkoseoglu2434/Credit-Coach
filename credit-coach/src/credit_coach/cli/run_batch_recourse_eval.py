@@ -53,15 +53,31 @@ from credit_coach.recourse.action_space import (
 )
 from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions, generate_dice_like_baseline
+from credit_coach.recourse.dice_quality import (
+    annotate_dice_candidate_quality,
+    classify_dice_backend_class,
+    split_dice_planner_eligible,
+    summarize_dice_candidate_metrics,
+)
 from credit_coach.recourse.execution_probability import (
     annotate_plan_execution_probability,
     classify_execution_scenario,
 )
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
-from credit_coach.recourse.generator import PlanGenConfig, generate_nine_plans, generate_plan_record
-from credit_coach.recourse.offer_optimization import build_offer_contract
+from credit_coach.recourse.generator import (
+    PlanGenConfig,
+    build_canonical_plan_action,
+    generate_nine_plans,
+    generate_plan_record,
+)
+from credit_coach.recourse.offer_optimization import annotate_offer_optimization
+from credit_coach.recourse.recommendation_validity import (
+    annotate_action_recommendation_validity,
+    annotate_plan_recommendation_validity,
+)
 from credit_coach.recourse.trajectory import (
     apply_plan_until_month,
+    attach_canonical_trajectory,
     phase_id_for_month,
     phase_title,
     predict_plan_pd_at_month,
@@ -3621,11 +3637,11 @@ def _dice_plan_record(
     source_tag: str = "dice",
 ) -> PlanRecord:
     plan_actions: list[PlanAction] = []
+    action_context = {str(k): row.get(k) for k in row.index}
 
     for a in actions:
         feature = str(a["feature_name"])
         spec = get_action_spec(feature)
-        action_meta = get_action_metadata(feature, action_month=max(1, int(spec.time_months)))
         current = float(a["current_value"])
         detail = apply_target_feasibility_with_details(
             feature_name=feature,
@@ -3635,46 +3651,20 @@ def _dice_plan_record(
             profile=feasibility_profile,
             segment_context=segment_context,
             action_class=spec.action_class,
-            action_context={str(k): row.get(k) for k in row.index},
+            action_context=action_context,
         )
         target = float(detail["target_value"])
-        delta = float(target - current)
         if str(detail["status"]) == "invalid":
             continue
         action_month = max(1, int(spec.time_months))
-        week_start = int(((action_month - 1) * 4) + 1)
-        week_end = int(action_month * 4)
-        offer_contract = build_offer_contract(
-            action_meta,
-            current_value=current,
-            target_value=target,
-            action_month=action_month,
-            action_context={str(k): row.get(k) for k in row.index},
-        )
         plan_actions.append(
-            PlanAction(
+            build_canonical_plan_action(
                 feature_name=feature,
                 current_value=current,
                 target_value=target,
-                delta=delta,
-                time_months=action_month,
-                estimated_cost_usd=estimate_action_cost_usd(current, target, spec),
-                phase_id=_phase_id_for_month(action_month),
-                week_start=week_start,
-                week_end=week_end,
-                checkpoint_metric=f"{feature} -> {float(target):.6f}",
-                action_key=str(action_meta.get("action_key") or ""),
-                action_class=action_meta.get("action_class"),
-                action_family=str(action_meta.get("action_family") or "") or None,
-                action_title=str(action_meta.get("action_title") or ""),
-                action_description=str(action_meta.get("action_description") or ""),
-                action_group_id=str(action_meta.get("action_group_id") or ""),
-                composite_action=bool(action_meta.get("composite_action", False)),
-                requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
-                approval_pending_semantic_only=bool(action_meta.get("approval_pending_semantic_only", False)),
-                offer_contract=offer_contract,
-                prerequisite_tags=list(action_meta.get("prerequisite_tags", [])),
-                conflict_tags=list(action_meta.get("conflict_tags", [])),
+                requested_target_value=float(a["target_value"]),
+                action_month=action_month,
+                action_context=action_context,
                 action_status=str(detail["status"]),
                 action_status_reason=detail.get("status_reason"),
                 constraint_family=detail.get("constraint_family"),
@@ -3689,7 +3679,10 @@ def _dice_plan_record(
         plan_actions,
         action_context={str(k): row.get(k) for k in row.index},
     )
-    plan_actions = list(constraint_result.actions)
+    plan_actions = [
+        annotate_action_recommendation_validity(action, customer_context=action_context)
+        for action in list(constraint_result.actions)
+    ]
     x_prime = row.copy()
     for action in plan_actions:
         x_prime[str(action.feature_name)] = float(action.target_value)
@@ -3718,12 +3711,27 @@ def _dice_plan_record(
         constraint_trace=list(constraint_result.trace),
         status="PENDING",
     )
-    return annotate_plan_execution_probability(
+    plan = annotate_plan_execution_probability(
         plan,
         base_pd=base_pd,
-        customer_context={str(k): row.get(k) for k in row.index},
+        customer_context=action_context,
         segment_context=segment_context,
     )
+    attach_canonical_trajectory(
+        plan,
+        row=row,
+        base_pd=base_pd,
+        tau=tau,
+        model=model,
+        calibrator=calibrator,
+        feature_cols=feature_cols,
+    )
+    annotate_offer_optimization(
+        plan,
+        customer_context=action_context,
+        segment_context=segment_context,
+    )
+    return annotate_plan_recommendation_validity(plan, customer_context=action_context)
 
 
 def _load_batch_input_frame(path: Path, *, data_format: str) -> pd.DataFrame:
@@ -4603,11 +4611,22 @@ def main(argv: Sequence[str] | None = None):
                         uncertainty_cfg=uncertainty_cfg,
                         segment_context=segment_context,
                     )
+                    p = annotate_dice_candidate_quality(
+                        p,
+                        backend_class=classify_dice_backend_class(dice_backend),
+                    )
                     dice_records.append(p)
 
+            dice_quality = summarize_dice_candidate_metrics(dice_records)
             out["dice_plan_count"] = int(len(dice_records))
             out["dice_approved_plan_count"] = int(sum(1 for p in dice_records if p.status == "APPROVED"))
             out["dice_gate_pass_any"] = int(out["dice_approved_plan_count"] > 0)
+            out["dice_candidate_count"] = int(dice_quality["dice_candidate_count"])
+            out["dice_contender_eligible_count"] = int(dice_quality["dice_contender_eligible_count"])
+            out["dice_invalid_candidate_count"] = int(dice_quality["dice_invalid_candidate_count"])
+            out["dice_warning_candidate_count"] = int(dice_quality["dice_warning_candidate_count"])
+            out["dice_all_candidates_ineligible"] = int(dice_quality["dice_all_candidates_ineligible"])
+            out["dice_fallback_flag"] = int(dice_quality["dice_fallback_flag"])
             rule_records: list[PlanRecord] = []
             out["rule_skipped_reason"] = ""
             rule_cfg = rec_cfg.get("rule_generator", {}) if isinstance(rec_cfg.get("rule_generator", {}), dict) else {}
@@ -4687,12 +4706,13 @@ def main(argv: Sequence[str] | None = None):
             out["rule_gate_pass_any"] = int(out["rule_approved_plan_count"] > 0)
 
             candidate_pool = validated + dice_records + rule_records
+            planner_candidate_pool, _ineligible_dice_candidates = split_dice_planner_eligible(candidate_pool)
             candidate_pool_max_size = int(search_cfg.get("candidate_pool_max_size", 0))
             stage1_filter_multiplier = max(1.0, float(search_cfg.get("stage1_filter_multiplier", 1.0)))
             stage1_per_source_cap = int(search_cfg.get("stage1_per_source_cap", 0))
             if candidate_pool_max_size > 0:
-                candidate_pool = _stage1_filter_candidate_pool(
-                    candidate_pool,
+                planner_candidate_pool = _stage1_filter_candidate_pool(
+                    planner_candidate_pool,
                     max_size=candidate_pool_max_size,
                     tau=tau,
                     min_reliability=min_reliability_f,
@@ -4700,8 +4720,8 @@ def main(argv: Sequence[str] | None = None):
                     multiplier=stage1_filter_multiplier,
                     per_source_cap=stage1_per_source_cap,
                 )
-            candidate_pool = _prune_candidate_pool(
-                candidate_pool,
+            planner_candidate_pool = _prune_candidate_pool(
+                planner_candidate_pool,
                 candidate_pool_max_size,
                 novelty_weight=max(0.0, float(search_cfg.get("novelty_weight", 0.0))),
                 tau=tau,
@@ -4709,6 +4729,7 @@ def main(argv: Sequence[str] | None = None):
                 min_worst_risk_margin=min_worst_margin_f,
             )
             candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
+            planner_candidate_pool = [annotate_plan_planner_quality(plan) for plan in planner_candidate_pool]
             contender_counts = contender_bucket_counts(candidate_pool)
             source_counts = candidate_source_counts(candidate_pool)
             out["candidate_pool_count"] = int(len(candidate_pool))
@@ -4729,6 +4750,18 @@ def main(argv: Sequence[str] | None = None):
             out["candidate_approval_shell_only_share"] = float(
                 contender_counts["APPROVAL_SHELL_ONLY"] / max(1, len(candidate_pool))
             )
+            out["dice_eligible_rate"] = float(
+                out["dice_contender_eligible_count"] / max(1, out["dice_candidate_count"])
+            )
+            out["dice_invalid_rate"] = float(
+                out["dice_invalid_candidate_count"] / max(1, out["dice_candidate_count"])
+            )
+            out["dice_warning_rate"] = float(
+                out["dice_warning_candidate_count"] / max(1, out["dice_candidate_count"])
+            )
+            out["dice_fallback_rate"] = float(
+                int(dice_quality["dice_fallback_candidate_count"]) / max(1, out["dice_candidate_count"])
+            )
             for source in _CANDIDATE_SOURCE_CATALOG:
                 out[f"candidate_source_{source}_count"] = int(source_counts.get(source, 0))
             elapsed_after_pool_ms = float((time.perf_counter() - t0) * 1000.0)
@@ -4747,6 +4780,7 @@ def main(argv: Sequence[str] | None = None):
                     ),
                 )[: max(1, min(hard_cap_keep, len(validated)))]
                 candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
+                planner_candidate_pool = list(candidate_pool)
                 contender_counts = contender_bucket_counts(candidate_pool)
                 out["candidate_pool_count"] = int(len(candidate_pool))
                 out["candidate_pool_approved_count"] = int(sum(1 for p in candidate_pool if p.status == "APPROVED"))
@@ -4797,6 +4831,7 @@ def main(argv: Sequence[str] | None = None):
                     )
                     candidate_pool = [fp]
                     candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
+                    planner_candidate_pool = list(candidate_pool)
                     out["candidate_pool_count"] = 1
                     out["candidate_pool_approved_count"] = int(fp.status == "APPROVED")
                     out["candidate_pool_diversity_index"] = 0.0
@@ -4813,7 +4848,7 @@ def main(argv: Sequence[str] | None = None):
             out["approved_plan_count"] = int(out["candidate_pool_approved_count"])
             out["had_any_candidate"] = int(out["candidate_pool_count"] > 0)
             out["gate_pass_any_candidate"] = int(out["candidate_pool_approved_count"] > 0)
-            candidate_pool_for_best = _prefer_non_rejected_candidates(candidate_pool)
+            candidate_pool_for_best = _prefer_non_rejected_candidates(planner_candidate_pool)
             filtered_candidate_pool, removed_empty_candidates = filter_empty_contenders(candidate_pool_for_best)
             if filtered_candidate_pool:
                 candidate_pool_for_best = filtered_candidate_pool
@@ -4840,6 +4875,20 @@ def main(argv: Sequence[str] | None = None):
             out["preferred_pool_invalid_exhausted"] = int(bool(selection_result.preferred_pool_invalid_exhausted))
             out["no_valid_candidate_available"] = int(bool(selection_result.no_valid_candidate_available))
             out["selected_from_widened_valid_pool"] = int(bool(selection_result.selected_from_widened_valid_pool))
+            selected_dice_quality = summarize_dice_candidate_metrics(dice_records, selected_plan=best)
+            out["selected_dice_flag"] = int(selected_dice_quality["selected_dice_flag"])
+            out["selected_dice_valid_flag"] = int(selected_dice_quality["selected_dice_valid_flag"])
+            out["selected_dice_annotation_complete_flag"] = int(
+                selected_dice_quality["selected_dice_annotation_complete_flag"]
+            )
+            out["selected_dice_semantic_invalid_flag"] = int(
+                selected_dice_quality["selected_dice_semantic_invalid_flag"]
+            )
+            out["selected_dice_valid_rate"] = float(
+                1.0
+                if int(out["selected_dice_flag"]) == 0
+                else (out["selected_dice_valid_flag"] / out["selected_dice_flag"])
+            )
             if best is None:
                 out["best_status"] = ""
                 out["best_status_reason"] = ""

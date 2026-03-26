@@ -47,9 +47,18 @@ from credit_coach.recourse.action_space import (
 )
 from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions
+from credit_coach.recourse.dice_quality import (
+    annotate_dice_candidate_quality,
+    classify_dice_backend_class,
+    dice_candidate_is_invalid,
+    dice_candidate_is_warning,
+    selected_dice_is_clean,
+    split_dice_planner_eligible,
+    summarize_dice_candidate_metrics,
+)
 from credit_coach.recourse.execution_probability import annotate_plan_execution_probability
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
-from credit_coach.recourse.generator import generate_nine_plans
+from credit_coach.recourse.generator import build_canonical_plan_action, generate_nine_plans
 from credit_coach.recourse.offer_optimization import annotate_offer_optimization, build_offer_contract
 from credit_coach.recourse.recommendation_validity import (
     annotate_action_recommendation_validity,
@@ -541,6 +550,16 @@ def _sync_metrics_summary_with_roadmap_summary(
             "recommendation_validity_codes": list(summary.get("recommendation_validity_codes", [])),
             "recommendation_validity_codes_json": json.dumps(summary.get("recommendation_validity_codes", []), ensure_ascii=False),
             "recommendation_sanity_flag": int(bool(_safe_int(summary.get("recommendation_sanity_flag", 0), 0))),
+            "dice_backend_class": _safe_text(summary.get("dice_backend_class"), ""),
+            "dice_annotation_complete": int(bool(_safe_int(summary.get("dice_annotation_complete", 0), 0))),
+            "dice_semantic_quality_status": _safe_text(summary.get("dice_semantic_quality_status"), ""),
+            "dice_semantic_quality_codes": list(summary.get("dice_semantic_quality_codes", [])),
+            "dice_semantic_quality_codes_json": json.dumps(
+                summary.get("dice_semantic_quality_codes", []),
+                ensure_ascii=False,
+            ),
+            "dice_contender_eligible": int(bool(_safe_int(summary.get("dice_contender_eligible", 0), 0))),
+            "dice_semantic_warning_penalty": _safe_float(summary.get("dice_semantic_warning_penalty", 0.0), 0.0),
             "selection_outcome": _safe_text(summary.get("selection_outcome"), ""),
             "selection_stage": _safe_text(summary.get("selection_stage"), ""),
             "invalid_candidates_removed_count": int(_safe_int(summary.get("invalid_candidates_removed_count", 0), 0)),
@@ -1190,6 +1209,26 @@ def _build_customer_roadmap(
         "recommendation_warning_action_count": int(getattr(best, "recommendation_warning_action_count", 0) or 0),
         "recommendation_validity_codes": list(getattr(best, "recommendation_validity_codes", []) or []),
         "recommendation_sanity_flag": int(bool(getattr(best, "recommendation_sanity_flag", False))),
+        "dice_backend_class": (
+            str(getattr(best, "dice_backend_class", "") or "") if _selected_plan_source(best) == "dice" else None
+        ),
+        "dice_annotation_complete": int(
+            bool(getattr(best, "dice_annotation_complete", False)) if _selected_plan_source(best) == "dice" else 0
+        ),
+        "dice_semantic_quality_status": (
+            str(getattr(best, "dice_semantic_quality_status", "") or "") if _selected_plan_source(best) == "dice" else None
+        ),
+        "dice_semantic_quality_codes": (
+            list(getattr(best, "dice_semantic_quality_codes", []) or []) if _selected_plan_source(best) == "dice" else []
+        ),
+        "dice_contender_eligible": int(
+            bool(getattr(best, "dice_contender_eligible", False)) if _selected_plan_source(best) == "dice" else 0
+        ),
+        "dice_semantic_warning_penalty": (
+            _safe_float(getattr(best, "dice_semantic_warning_penalty", 0.0), 0.0)
+            if _selected_plan_source(best) == "dice"
+            else 0.0
+        ),
         "offer_plan": int(bool(getattr(best, "offer_plan", False))),
         "rankable_offer_count": int(_safe_int(getattr(best, "rankable_offer_count", 0), 0)),
         "approval_pending_action_count": int(_safe_int(getattr(best, "approval_pending_action_count", 0), 0)),
@@ -1408,6 +1447,16 @@ def _plan_to_row(plan: PlanRecord) -> dict:
             ensure_ascii=False,
         ),
         "recommendation_sanity_flag": int(bool(getattr(plan, "recommendation_sanity_flag", False))),
+        "dice_backend_class": str(getattr(plan, "dice_backend_class", "") or ""),
+        "dice_annotation_complete": int(bool(getattr(plan, "dice_annotation_complete", False))),
+        "dice_semantic_quality_status": str(getattr(plan, "dice_semantic_quality_status", "") or ""),
+        "dice_semantic_quality_codes_json": json.dumps(
+            list(getattr(plan, "dice_semantic_quality_codes", []) or []),
+            ensure_ascii=False,
+        ),
+        "dice_contender_eligible": int(bool(getattr(plan, "dice_contender_eligible", False))),
+        "dice_semantic_warning_penalty": _safe_float(getattr(plan, "dice_semantic_warning_penalty", 0.0), 0.0),
+        "dice_quality_gate_version": str(getattr(plan, "dice_quality_gate_version", "") or ""),
         "horizon": plan.horizon_months,
         "strategy": plan.strategy,
         "predicted_pd": plan.predicted_pd,
@@ -1531,8 +1580,6 @@ def _dice_plan_record(
         feature = str(a["feature_name"])
         spec = get_action_spec(feature)
         action_month = max(1, int(spec.time_months))
-        phase_id = _phase_id_for_month(action_month)
-        action_meta = get_action_metadata(feature, action_month=action_month, action_phase=phase_id)
         current = float(a["current_value"])
         detail = apply_target_feasibility_with_details(
             feature_name=feature,
@@ -1545,42 +1592,16 @@ def _dice_plan_record(
             action_context=customer_context,
         )
         target = float(detail["target_value"])
-        delta = float(target - current)
         if str(detail["status"]) == "invalid":
             continue
-        week_start = int(((action_month - 1) * 4) + 1)
-        week_end = int(action_month * 4)
-        offer_contract = build_offer_contract(
-            action_meta,
-            current_value=current,
-            target_value=target,
-            action_month=action_month,
-            action_context=customer_context,
-        )
         plan_actions.append(
-            PlanAction(
+            build_canonical_plan_action(
                 feature_name=feature,
                 current_value=current,
                 target_value=target,
-                delta=delta,
-                time_months=action_month,
-                estimated_cost_usd=estimate_action_cost_usd(current, target, spec),
-                phase_id=_phase_id_for_month(action_month),
-                week_start=week_start,
-                week_end=week_end,
-                checkpoint_metric=f"{feature} -> {float(target):.6f}",
-                action_key=str(action_meta.get("action_key") or ""),
-                action_class=action_meta.get("action_class"),
-                action_family=str(action_meta.get("action_family") or "") or None,
-                action_title=str(action_meta.get("action_title") or ""),
-                action_description=str(action_meta.get("action_description") or ""),
-                action_group_id=str(action_meta.get("action_group_id") or ""),
-                composite_action=bool(action_meta.get("composite_action", False)),
-                requires_institutional_approval=bool(action_meta.get("requires_institutional_approval", False)),
-                approval_pending_semantic_only=bool(action_meta.get("approval_pending_semantic_only", False)),
-                offer_contract=offer_contract,
-                prerequisite_tags=list(action_meta.get("prerequisite_tags", [])),
-                conflict_tags=list(action_meta.get("conflict_tags", [])),
+                requested_target_value=float(a["target_value"]),
+                action_month=action_month,
+                action_context=customer_context,
                 action_status=str(detail["status"]),
                 action_status_reason=detail.get("status_reason"),
                 constraint_family=detail.get("constraint_family"),
@@ -2118,6 +2139,10 @@ def main(argv: Sequence[str] | None = None):
                 uncertainty_cfg=uncertainty_cfg,
                 segment_context=segment_context,
             )
+            p = annotate_dice_candidate_quality(
+                p,
+                backend_class=classify_dice_backend_class(dice_backend),
+            )
             dice_records.append(p)
             save_plan(p)
 
@@ -2130,18 +2155,20 @@ def main(argv: Sequence[str] | None = None):
     dice_tel_json.write_text(json.dumps(dice_telemetry, indent=2, ensure_ascii=False), encoding="utf-8")
 
     candidate_pool = validated + dice_records
+    planner_candidate_pool, _ineligible_dice_candidates = split_dice_planner_eligible(candidate_pool)
     candidate_pool_max_size = int(search_cfg.get("candidate_pool_max_size", 0))
-    candidate_pool = _prune_candidate_pool(candidate_pool, candidate_pool_max_size)
     candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
+    planner_candidate_pool = _prune_candidate_pool(planner_candidate_pool, candidate_pool_max_size)
+    planner_candidate_pool = [annotate_plan_planner_quality(plan) for plan in planner_candidate_pool]
     pool_df = pd.DataFrame([_plan_to_row(plan) for plan in candidate_pool])
     pool_csv = run_ctx.tables_dir / "candidate_pool.csv"
     pool_json = run_ctx.tables_dir / "candidate_pool.json"
     pool_df.to_csv(pool_csv, index=False)
     pool_json.write_text(pool_df.to_json(orient="records", indent=2), encoding="utf-8")
 
-    candidate_pool_for_best, _removed_empty_candidates = filter_empty_contenders(candidate_pool)
+    candidate_pool_for_best, _removed_empty_candidates = filter_empty_contenders(planner_candidate_pool)
     if not candidate_pool_for_best:
-        candidate_pool_for_best = candidate_pool
+        candidate_pool_for_best = planner_candidate_pool
 
     selection_result = choose_best_plan(
         candidate_pool_for_best,
@@ -2378,6 +2405,9 @@ def _build_customer_metrics_summary(
     source_counts = candidate_source_counts(candidate_pool)
     source_presence = candidate_source_presence_flags(candidate_pool)
     contender_counts = contender_bucket_counts(candidate_pool)
+    dice_quality = summarize_dice_candidate_metrics(dice_records, selected_plan=best)
+    selected_dice_flag = int(dice_quality["selected_dice_flag"])
+    selected_dice_valid_flag = int(dice_quality["selected_dice_valid_flag"])
     metrics_summary = {
         "model_version": model_version,
         "customer_id": customer_id,
@@ -2438,6 +2468,7 @@ def _build_customer_metrics_summary(
         "local_shap_baseline_drift_l1": float(local_reason_bundle.get("meta", {}).get("baseline_drift_l1", 0.0)),
         "adverse_action_reasons": adverse_action_reasons,
         "dice_backend": dice_backend,
+        "dice_backend_class": classify_dice_backend_class(dice_backend),
         "dice_plan_count": len(dice_records),
         "dice_method_requested": dice_telemetry.get("method_requested"),
         "dice_method_used": dice_telemetry.get("method_used"),
@@ -2457,7 +2488,17 @@ def _build_customer_metrics_summary(
         "decision_id": str(decision_log_record["decision_id"]),
         "selection_propensity": float(decision_log_record["selection_propensity"]),
         "decision_log_completeness": float(decision_log_summary.get("decision_log_completeness", 0.0)),
+        "selected_dice_flag": selected_dice_flag,
+        "selected_dice_valid_flag": selected_dice_valid_flag,
+        "selected_dice_annotation_complete_flag": int(
+            selected_dice_flag == 1 and bool(getattr(best, "dice_annotation_complete", False))
+        ),
+        "selected_dice_semantic_invalid_flag": int(
+            selected_dice_flag == 1
+            and str(getattr(best, "dice_semantic_quality_status", "") or "").strip().lower() == "invalid"
+        ),
         **selection_meta,
+        **dice_quality,
     }
     for source in CANDIDATE_SOURCE_CATALOG:
         metrics_summary[f"candidate_source_{source}_count"] = int(source_counts.get(source, 0))
@@ -2512,6 +2553,21 @@ def _build_customer_metrics_summary(
             ),
             "approval_shell_only_share": float(
                 contender_counts["APPROVAL_SHELL_ONLY"] / max(1, len(candidate_pool))
+            ),
+            "dice_eligible_rate": float(
+                dice_quality["dice_contender_eligible_count"] / max(1, dice_quality["dice_candidate_count"])
+            ),
+            "dice_invalid_rate": float(
+                dice_quality["dice_invalid_candidate_count"] / max(1, dice_quality["dice_candidate_count"])
+            ),
+            "dice_warning_rate": float(
+                dice_quality["dice_warning_candidate_count"] / max(1, dice_quality["dice_candidate_count"])
+            ),
+            "dice_fallback_rate": float(
+                dice_quality["dice_fallback_candidate_count"] / max(1, dice_quality["dice_candidate_count"])
+            ),
+            "selected_dice_valid_rate": float(
+                1.0 if selected_dice_flag == 0 else (selected_dice_valid_flag / selected_dice_flag)
             ),
         }
     )
@@ -2903,20 +2959,26 @@ def generate_customer_recourse_artifacts(
                 uncertainty_cfg=uncertainty_cfg,
                 segment_context=segment_context,
             )
+            plan = annotate_dice_candidate_quality(
+                plan,
+                backend_class=classify_dice_backend_class(dice_backend),
+            )
             dice_records.append(plan)
             if persist_repository_records:
                 save_plan(plan)
 
     dice_df = pd.DataFrame([_plan_to_row(annotate_plan_planner_quality(plan)) for plan in dice_records])
     candidate_pool = validated + dice_records
+    planner_candidate_pool, _ineligible_dice_candidates = split_dice_planner_eligible(candidate_pool)
     candidate_pool_max_size = int(search_cfg.get("candidate_pool_max_size", 0))
-    candidate_pool = _prune_candidate_pool(candidate_pool, candidate_pool_max_size)
     candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
+    planner_candidate_pool = _prune_candidate_pool(planner_candidate_pool, candidate_pool_max_size)
+    planner_candidate_pool = [annotate_plan_planner_quality(plan) for plan in planner_candidate_pool]
     candidate_pool_df = pd.DataFrame([_plan_to_row(plan) for plan in candidate_pool])
 
-    candidate_pool_for_best, _removed_empty_candidates = filter_empty_contenders(candidate_pool)
+    candidate_pool_for_best, _removed_empty_candidates = filter_empty_contenders(planner_candidate_pool)
     if not candidate_pool_for_best:
-        candidate_pool_for_best = candidate_pool
+        candidate_pool_for_best = planner_candidate_pool
 
     selection_result = choose_best_plan(
         candidate_pool_for_best,

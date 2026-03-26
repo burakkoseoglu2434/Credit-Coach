@@ -517,7 +517,10 @@ def _offer_maturity_penalty(plan: PlanRecord) -> int:
 
 
 def _recommendation_warning_penalty(plan: PlanRecord) -> float:
-    return float(recommendation_warning_penalty(plan))
+    combined = float(recommendation_warning_penalty(plan)) + float(
+        getattr(plan, "dice_semantic_warning_penalty", 0.0) or 0.0
+    )
+    return float(min(30.0, combined))
 
 
 def _source_tie_rank(plan: PlanRecord) -> int:
