@@ -1012,6 +1012,31 @@ class OperatorPacketTechnicalAppendix(BaseModel):
         default_factory=dict,
         description="Compact gate trace for debugging and analyst review",
     )
+    selection_outcome: str | None = Field(
+        default=None,
+        description="Selected-surface outcome trace for winner-vs-empty-state rendering",
+    )
+    selection_stage: str | None = Field(
+        default=None,
+        description="Selected-surface stage trace for integrity debugging",
+    )
+    selected_plan_status_internal: RoadmapDecisionStatusInternal | None = Field(
+        default=None,
+        description="Technical selected-plan status kept separate from consumer decision status",
+    )
+    selected_recommendation_source: str | None = Field(
+        default=None,
+        description="Projection owner source for the selected recommendation surface",
+    )
+    selected_recommendation_projection_version: str | None = Field(
+        default=None,
+        description="Projection version used to derive selected recommendation text",
+    )
+    selected_action_count: int = Field(
+        default=0,
+        ge=0,
+        description="Selected-plan action count carried into the consumer-safe overlay",
+    )
 
 
 class OperatorReviewPacket(BaseModel):

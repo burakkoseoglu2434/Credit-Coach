@@ -128,6 +128,12 @@ def test_collection_parity_failure_marks_internal_review_and_external_conditiona
         "best_plan_source": "internal",
         "decision_status": "APPROVED",
         "decision_status_internal": "APPROVED",
+        "selected_decision_status": "APPROVED",
+        "selected_plan_status_internal": "",
+        "selected_recommendation_text": "",
+        "selected_recommendation_source": "selected_plan",
+        "selected_action_count": 1,
+        "selected_recommendation_projection_version": "v2.2_phase_47",
         "credit_readiness_stage": "week_4",
         "plan_execution_probability": 0.62,
         "approval_dependent_plan_probability": 0.62,
@@ -236,6 +242,9 @@ def test_augment_plans_df_marks_best_dice_candidate_with_plan_stage() -> None:
     assert int(best_row["selected_best_flag"]) == 1
     assert best_row["plan_source"] == "dice"
     assert best_row["plan_stage"] == "candidate_only"
+    assert best_row["selected_decision_status"] == "CONDITIONAL"
+    assert best_row["selected_recommendation_source"] == "selected_plan"
+    assert int(best_row["selected_action_count"]) == 1
 
 
 def test_validate_customer_artifact_parity_accepts_no_valid_winner_without_selected_row() -> None:
@@ -281,6 +290,12 @@ def test_validate_customer_artifact_parity_accepts_no_valid_winner_without_selec
         "best_plan_source": "",
         "decision_status": "REJECTED",
         "decision_status_internal": "REJECTED",
+        "selected_decision_status": "REJECTED",
+        "selected_plan_status_internal": "",
+        "selected_recommendation_text": "",
+        "selected_recommendation_source": "empty_state",
+        "selected_action_count": 0,
+        "selected_recommendation_projection_version": "v2.2_phase_47",
         "credit_readiness_stage": "not_ready_yet",
         "plan_execution_probability": 0.0,
         "approval_dependent_plan_probability": 0.0,
@@ -351,6 +366,12 @@ def test_validate_customer_artifact_parity_rejects_selected_dice_winner_that_is_
         "best_plan_source": "dice",
         "decision_status": "CONDITIONAL",
         "decision_status_internal": "CONDITIONAL",
+        "selected_decision_status": "CONDITIONAL",
+        "selected_plan_status_internal": "",
+        "selected_recommendation_text": "",
+        "selected_recommendation_source": "selected_plan",
+        "selected_action_count": 1,
+        "selected_recommendation_projection_version": "v2.2_phase_47",
         "credit_readiness_stage": "week_12",
         "plan_execution_probability": 0.58,
         "approval_dependent_plan_probability": 0.58,

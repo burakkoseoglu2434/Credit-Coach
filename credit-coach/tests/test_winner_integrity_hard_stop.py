@@ -219,6 +219,10 @@ def test_build_customer_artifact_bundle_preserves_no_valid_winner_integrity() ->
     assert bundle.roadmap["summary"]["selection_stage"] == "no_valid_winner"
     assert bundle.roadmap["summary"]["best_plan_id"] is None
     assert bundle.roadmap["summary"]["plan_contract_pass"] == 0
+    assert bundle.roadmap["summary"]["selected_recommendation_text"] is None
+    assert bundle.roadmap["summary"]["selected_recommendation_source"] == "empty_state"
+    assert bundle.roadmap["summary"]["selected_action_count"] == 0
     assert bundle.roadmap_steps_df.empty
     assert bundle.metrics_summary["selection_outcome"] == "no_valid_winner"
     assert bundle.metrics_summary["best_plan_id"] == ""
+    assert bundle.metrics_summary["selected_recommendation_source"] == "empty_state"

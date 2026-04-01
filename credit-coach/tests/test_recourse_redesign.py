@@ -1137,6 +1137,10 @@ def test_build_customer_artifact_bundle_serializes_full_candidate_pool_with_plan
     assert plans.loc["internal-plan", "plan_stage"] == "validated"
     assert plans.loc["dice-plan", "plan_stage"] == "candidate_only"
     assert bundle.roadmap["summary"]["best_plan_source"] == "dice"
+    assert bundle.roadmap["summary"]["selected_decision_status"] == bundle.roadmap["summary"]["decision_status"]
+    assert bundle.roadmap["summary"]["selected_plan_status_internal"] == "APPROVED"
+    assert bundle.roadmap["summary"]["selected_recommendation_source"] == "selected_plan"
+    assert bundle.roadmap["summary"]["selected_action_count"] == 1
 
 
 def test_build_customer_artifact_bundle_captures_dice_lane_metrics() -> None:

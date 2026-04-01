@@ -22,6 +22,7 @@ from credit_coach.cli.run_recourse import (
     CustomerRecourseRunResult,
     FLOAT_PARITY_TOLERANCE,
     _apply_decision_ownership_to_roadmap,
+    _build_selected_surface_projection,
     _merge_dict,
     _normalize_customer_roadmap_contract,
     _safe_text,
@@ -116,6 +117,7 @@ def _json_dumps_compact(value: Any) -> str:
 def _normalized_roadmap_summary(bundle: CustomerArtifactBundle) -> dict[str, Any]:
     bundle.roadmap = _normalize_customer_roadmap_contract(bundle.roadmap)
     bundle.roadmap = _apply_decision_ownership_to_roadmap(bundle.roadmap)
+    bundle.roadmap = _build_selected_surface_projection(bundle.roadmap)
     bundle.metrics_summary = _sync_metrics_summary_with_roadmap_summary(bundle.metrics_summary, roadmap=bundle.roadmap)
     return dict(bundle.roadmap.get("summary", {}) or {})
 
@@ -157,6 +159,7 @@ def _apply_collection_parity_classification(
     )
     bundle.roadmap = _normalize_customer_roadmap_contract(bundle.roadmap)
     bundle.roadmap = _apply_decision_ownership_to_roadmap(bundle.roadmap)
+    bundle.roadmap = _build_selected_surface_projection(bundle.roadmap)
     bundle.metrics_summary = _sync_metrics_summary_with_roadmap_summary(bundle.metrics_summary, roadmap=bundle.roadmap)
 
 
@@ -176,6 +179,12 @@ def _validate_customer_artifact_parity(
         "best_plan_source",
         "decision_status",
         "decision_status_internal",
+        "selected_decision_status",
+        "selected_plan_status_internal",
+        "selected_recommendation_text",
+        "selected_recommendation_source",
+        "selected_action_count",
+        "selected_recommendation_projection_version",
         "credit_readiness_stage",
         "plan_execution_probability",
         "approval_dependent_plan_probability",
@@ -204,6 +213,18 @@ def _validate_customer_artifact_parity(
     }
     source_pairs["best_plan_id"] = _safe_text(source_pairs.get("best_plan_id"))
     source_pairs["best_plan_source"] = _safe_text(source_pairs.get("best_plan_source"))
+    for field in (
+        "decision_status",
+        "decision_status_internal",
+        "selected_decision_status",
+        "selected_plan_status_internal",
+        "selected_recommendation_text",
+        "selected_recommendation_source",
+        "selected_recommendation_projection_version",
+        "selection_outcome",
+        "selection_stage",
+    ):
+        source_pairs[field] = _safe_text(source_pairs.get(field))
     for field in field_names:
         expected = source_pairs.get(field, metrics_summary.get(field))
         actual = metrics_row.get(field)
@@ -217,6 +238,12 @@ def _validate_customer_artifact_parity(
     if selection_outcome == "no_valid_winner" and not best_plan_id:
         if not selected_best.empty:
             mismatch_fields.append("selected_best_unexpected")
+        if _safe_text(metrics_row.get("selected_recommendation_source")) != "empty_state":
+            mismatch_fields.append("selected_recommendation_source")
+        if _safe_text(metrics_row.get("selected_recommendation_text")):
+            mismatch_fields.append("selected_recommendation_text")
+        if int(_safe_int(metrics_row.get("selected_action_count", 0), 0)) != 0:
+            mismatch_fields.append("selected_action_count")
     elif selected_best.empty:
         mismatch_fields.append("selected_best_plan")
     elif len(selected_best) != 1:
@@ -230,6 +257,8 @@ def _validate_customer_artifact_parity(
             mismatch_fields.append("selected_best_dice_annotation_incomplete")
         if str(selected_best.iloc[0].get("dice_semantic_quality_status", "") or "").strip().lower() == "invalid":
             mismatch_fields.append("selected_best_dice_semantic_invalid")
+    elif _safe_text(selected_best.iloc[0].get("status")) != _safe_text(summary.get("selected_plan_status_internal")):
+        mismatch_fields.append("selected_plan_status_internal")
     return {
         "parity_pass": int(not mismatch_fields),
         "parity_mismatch_count": len(mismatch_fields),
@@ -442,6 +471,43 @@ def _augment_metrics_row(
             "recommendation_invalid_action_count": int(_safe_int(metrics.get("recommendation_invalid_action_count", roadmap_summary.get("recommendation_invalid_action_count", 0)), 0)),
             "recommendation_warning_action_count": int(_safe_int(metrics.get("recommendation_warning_action_count", roadmap_summary.get("recommendation_warning_action_count", 0)), 0)),
             "recommendation_sanity_flag": int(_safe_int(metrics.get("recommendation_sanity_flag", roadmap_summary.get("recommendation_sanity_flag", 0)), 0)),
+            "selected_decision_status": str(
+                metrics.get("selected_decision_status", roadmap_summary.get("selected_decision_status", "")) or ""
+            ),
+            "selected_plan_status_internal": str(
+                metrics.get(
+                    "selected_plan_status_internal",
+                    roadmap_summary.get("selected_plan_status_internal", ""),
+                )
+                or ""
+            ),
+            "selected_recommendation_text": str(
+                metrics.get(
+                    "selected_recommendation_text",
+                    roadmap_summary.get("selected_recommendation_text", ""),
+                )
+                or ""
+            ),
+            "selected_recommendation_source": str(
+                metrics.get(
+                    "selected_recommendation_source",
+                    roadmap_summary.get("selected_recommendation_source", ""),
+                )
+                or ""
+            ),
+            "selected_action_count": int(
+                _safe_int(
+                    metrics.get("selected_action_count", roadmap_summary.get("selected_action_count", 0)),
+                    0,
+                )
+            ),
+            "selected_recommendation_projection_version": str(
+                metrics.get(
+                    "selected_recommendation_projection_version",
+                    roadmap_summary.get("selected_recommendation_projection_version", ""),
+                )
+                or ""
+            ),
             "selection_outcome": str(metrics.get("selection_outcome", roadmap_summary.get("selection_outcome", "")) or ""),
             "selection_stage": str(metrics.get("selection_stage", roadmap_summary.get("selection_stage", "")) or ""),
             "invalid_candidates_removed_count": int(_safe_int(metrics.get("invalid_candidates_removed_count", roadmap_summary.get("invalid_candidates_removed_count", 0)), 0)),
@@ -564,14 +630,24 @@ def _augment_plans_df(
     out.insert(9, "selected_best_flag", (out.get("plan_id", pd.Series(dtype=object)).astype(str) == _safe_text(bundle.roadmap.get("best_plan_id"))).astype(int))
     out.insert(10, "selection_outcome", _safe_text(summary.get("selection_outcome")))
     out.insert(11, "selection_stage", _safe_text(summary.get("selection_stage")))
+    out.insert(12, "selected_decision_status", _safe_text(summary.get("selected_decision_status")))
+    out.insert(13, "selected_plan_status_internal", _safe_text(summary.get("selected_plan_status_internal")))
+    out.insert(14, "selected_recommendation_text", _safe_text(summary.get("selected_recommendation_text")))
+    out.insert(15, "selected_recommendation_source", _safe_text(summary.get("selected_recommendation_source")))
+    out.insert(
+        16,
+        "selected_recommendation_projection_version",
+        _safe_text(summary.get("selected_recommendation_projection_version")),
+    )
+    out.insert(17, "selected_action_count", int(_safe_int(summary.get("selected_action_count", 0), 0)))
     if "action_count" in out.columns:
-        out.insert(12, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
+        out.insert(18, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
     else:
-        out.insert(12, "plan_step_count", 0)
+        out.insert(18, "plan_step_count", 0)
     plan_contract_pass = pd.Series([pd.NA] * len(out), index=out.index, dtype="object")
     selected_mask = out["selected_best_flag"].astype(int) == 1
     plan_contract_pass.loc[selected_mask] = int(_safe_int(summary.get("plan_contract_pass", 0), 0))
-    out.insert(13, "plan_contract_pass", plan_contract_pass)
+    out.insert(19, "plan_contract_pass", plan_contract_pass)
     return out
 
 
@@ -719,6 +795,26 @@ def _collection_summary_markdown(
     no_valid_winner_count = int(
         (metrics_df.get("selection_outcome", pd.Series(dtype=object)).astype(str) == "no_valid_winner").sum()
     )
+    selected_empty_state_count = int(
+        (metrics_df.get("selected_recommendation_source", pd.Series(dtype=object)).astype(str) == "empty_state").sum()
+    )
+    selected_decision_status_mismatch_count = int(
+        (
+            metrics_df.get("decision_status", pd.Series(dtype=object)).astype(str)
+            != metrics_df.get("selected_decision_status", pd.Series(dtype=object)).astype(str)
+        ).sum()
+    )
+    mean_selected_action_count = _safe_float(
+        pd.to_numeric(metrics_df.get("selected_action_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
+        0.0,
+    )
+    selected_projection_versions = (
+        metrics_df.get("selected_recommendation_projection_version", pd.Series(dtype=object))
+        .astype(str)
+        .value_counts()
+        .sort_index()
+        .to_dict()
+    )
     widened_valid_selection_rate = _safe_float(
         pd.to_numeric(metrics_df.get("selected_from_widened_valid_pool", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
         0.0,
@@ -836,6 +932,12 @@ def _collection_summary_markdown(
             f"- DICE all-ineligible customer rate: {dice_all_ineligible_customer_rate:.4f}",
             f"- Selected DICE winner count: {dice_selected_total}",
             f"- Selected DICE valid rate: {selected_dice_valid_rate:.4f}",
+            "",
+            "## Selected Surface",
+            f"- Selected decision mismatch count: {selected_decision_status_mismatch_count}",
+            f"- Selected empty-state count: {selected_empty_state_count}",
+            f"- Mean selected action count: {mean_selected_action_count:.2f}",
+            f"- Selected recommendation projection versions: {selected_projection_versions or '{}'}",
             "",
             "## Operator Review",
             f"- Likely-to-upgrade-soon queue: {int(next((queue.get('count', 0) for queue in priority_queues if str(queue.get('queue_key')) == 'likely_to_upgrade_soon'), 0))}",
@@ -1284,6 +1386,28 @@ def main(argv: Sequence[str] | None = None):
             "approval_shell_only_share": _safe_float(
                 metrics_df.get("approval_shell_only_share", pd.Series(dtype=float)).mean(),
                 0.0,
+            ),
+        },
+        "selected_surface_summary": {
+            "selected_decision_status_mismatch_count": int(
+                (
+                    metrics_df.get("decision_status", pd.Series(dtype=object)).astype(str)
+                    != metrics_df.get("selected_decision_status", pd.Series(dtype=object)).astype(str)
+                ).sum()
+            ),
+            "selected_empty_state_count": int(
+                (metrics_df.get("selected_recommendation_source", pd.Series(dtype=object)).astype(str) == "empty_state").sum()
+            ),
+            "mean_selected_action_count": _safe_float(
+                pd.to_numeric(metrics_df.get("selected_action_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
+                0.0,
+            ),
+            "selected_recommendation_projection_versions": (
+                metrics_df.get("selected_recommendation_projection_version", pd.Series(dtype=object))
+                .astype(str)
+                .value_counts()
+                .sort_index()
+                .to_dict()
             ),
         },
         "dice_lane_summary": {

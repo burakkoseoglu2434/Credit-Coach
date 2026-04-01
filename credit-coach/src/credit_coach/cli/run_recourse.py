@@ -143,6 +143,9 @@ _EXTERNAL_STATUS_BRIDGE = {
 _INTERNAL_STATUS_ALLOWED = {"APPROVED", "CONDITIONAL", "REJECTED", "NEEDS_REVIEW"}
 _VALID_EXTERNAL_DECISIONS = {"APPROVED", "CONDITIONAL", "REJECTED"}
 _VALID_INTERNAL_DECISIONS = {"APPROVED", "CONDITIONAL", "REJECTED", "NEEDS_REVIEW"}
+_SELECTED_RECOMMENDATION_EMPTY_STATE_EN = "No valid recommendation path is currently available."
+_SELECTED_RECOMMENDATION_EMPTY_STATE_TR = "Su an icin gecerli bir oneri yolu yok."
+_SELECTED_RECOMMENDATION_PROJECTION_VERSION = "v2.2_phase_47"
 
 
 @dataclass
@@ -329,6 +332,93 @@ def _derive_nominal_pd_improvement(*, base_pd: float, plan: PlanRecord) -> float
     if predicted_pd is None:
         return 0.0
     return float(base_pd - _safe_float(predicted_pd, base_pd))
+
+
+def _localized_projection_payload(payload: Any) -> dict[str, str] | None:
+    if isinstance(payload, dict):
+        tr = _safe_text(payload.get("tr"))
+        en = _safe_text(payload.get("en"))
+        if tr or en:
+            return {
+                "tr": tr or en,
+                "en": en or tr,
+            }
+    text = _safe_text(payload)
+    if text:
+        return {"tr": text, "en": text}
+    return None
+
+
+def _localized_projection_text(payload: Any, *, locale: str = "en") -> str | None:
+    normalized = _localized_projection_payload(payload)
+    if not normalized:
+        return None
+    primary = _safe_text(normalized.get(locale))
+    if primary:
+        return primary
+    secondary = "tr" if locale == "en" else "en"
+    return _safe_text(normalized.get(secondary)) or None
+
+
+def _build_selected_surface_projection(roadmap: dict[str, Any]) -> dict[str, Any]:
+    out = dict(roadmap or {})
+    summary = dict(out.get("summary", {}) or {})
+    narrative = dict(out.get("narrative", {}) or {})
+    raw_steps = narrative.get("steps", [])
+    steps = [step for step in raw_steps if isinstance(step, dict)] if isinstance(raw_steps, list) else []
+
+    selection_outcome = _safe_text(summary.get("selection_outcome"))
+    selected_decision_status = _safe_text(summary.get("decision_status"), "CONDITIONAL")
+    selected_plan_status_internal = _safe_text(summary.get("selected_plan_status_internal"), _safe_text(out.get("best_status")))
+    selected_action_count = int(_safe_int(summary.get("best_action_count", len(steps)), len(steps)))
+
+    if selection_outcome == "no_valid_winner" or not _safe_text(summary.get("best_plan_id")):
+        summary.update(
+            {
+                "selected_decision_status": selected_decision_status,
+                "selected_plan_status_internal": None,
+                "selected_recommendation_text": None,
+                "selected_recommendation_text_localized": None,
+                "selected_institution_condition": None,
+                "selected_institution_condition_localized": None,
+                "selected_recommendation_source": "empty_state",
+                "selected_action_count": 0,
+                "selected_recommendation_projection_version": _SELECTED_RECOMMENDATION_PROJECTION_VERSION,
+            }
+        )
+        out["summary"] = summary
+        return out
+
+    selected_recommendation_payload = None
+    selected_institution_condition_payload = None
+    for raw_step in steps:
+        if selected_recommendation_payload is None:
+            selected_recommendation_payload = _localized_projection_payload(raw_step.get("primary_recommendation"))
+            if selected_recommendation_payload is None:
+                selected_recommendation_payload = _localized_projection_payload(raw_step.get("action_summary"))
+        if selected_institution_condition_payload is None:
+            selected_institution_condition_payload = _localized_projection_payload(raw_step.get("institution_condition"))
+        if selected_recommendation_payload is not None and selected_institution_condition_payload is not None:
+            break
+
+    summary.update(
+        {
+            "selected_decision_status": selected_decision_status,
+            "selected_plan_status_internal": selected_plan_status_internal or None,
+            "selected_recommendation_text": _localized_projection_text(selected_recommendation_payload, locale="en"),
+            "selected_recommendation_text_localized": selected_recommendation_payload,
+            "selected_institution_condition": _localized_projection_text(
+                selected_institution_condition_payload,
+                locale="en",
+            ),
+            "selected_institution_condition_localized": selected_institution_condition_payload,
+            "selected_recommendation_source": "selected_plan",
+            "selected_action_count": max(0, selected_action_count),
+            "selected_recommendation_projection_version": _SELECTED_RECOMMENDATION_PROJECTION_VERSION,
+        }
+    )
+    out["summary"] = summary
+    return out
 
 
 def _inject_decision_inputs_into_roadmap(
@@ -534,6 +624,15 @@ def _sync_metrics_summary_with_roadmap_summary(
         {
             "decision_status": _safe_text(summary.get("decision_status"), "CONDITIONAL"),
             "decision_status_internal": _safe_text(summary.get("decision_status_internal"), "CONDITIONAL"),
+            "selected_decision_status": _safe_text(summary.get("selected_decision_status"), _safe_text(summary.get("decision_status"), "CONDITIONAL")),
+            "selected_plan_status_internal": _safe_text(summary.get("selected_plan_status_internal"), ""),
+            "selected_recommendation_text": _safe_text(summary.get("selected_recommendation_text"), ""),
+            "selected_recommendation_source": _safe_text(summary.get("selected_recommendation_source"), ""),
+            "selected_action_count": int(_safe_int(summary.get("selected_action_count", 0), 0)),
+            "selected_recommendation_projection_version": _safe_text(
+                summary.get("selected_recommendation_projection_version"),
+                "",
+            ),
             "decision_policy_version": _safe_text(summary.get("decision_policy_version"), ""),
             "decision_confidence": _safe_float(summary.get("decision_confidence", 0.0), 0.0),
             "expected_readiness": _safe_text(summary.get("expected_readiness"), ""),
@@ -1282,6 +1381,7 @@ def _build_customer_roadmap(
         offer_maturity=_safe_text(normalized_summary.get("offer_maturity"), ""),
         customer_context={str(k): row.get(k) for k in row.index},
     ).model_dump(mode="json")
+    roadmap = _build_selected_surface_projection(roadmap)
     return roadmap
 
 
@@ -2609,6 +2709,7 @@ def build_customer_artifact_bundle(
         local_reason_bundle=local_reason_bundle,
     )
     roadmap = _apply_decision_ownership_to_roadmap(roadmap)
+    roadmap = _build_selected_surface_projection(roadmap)
     plans_df = _build_bundle_plans_df(validated=validated, candidate_pool=candidate_pool)
     roadmap_steps_df = _build_customer_roadmap_steps_df(
         customer_id=customer_id,
@@ -2654,6 +2755,7 @@ def write_customer_artifact_bundle(bundle: CustomerArtifactBundle, output_dir: P
     bundle.roadmap = _normalize_customer_roadmap_contract(bundle.roadmap)
     if _safe_text(bundle.roadmap.get("summary", {}).get("decision_policy_version")):
         bundle.roadmap = _apply_decision_ownership_to_roadmap(bundle.roadmap)
+    bundle.roadmap = _build_selected_surface_projection(bundle.roadmap)
     bundle.metrics_summary = _sync_metrics_summary_with_roadmap_summary(
         bundle.metrics_summary,
         roadmap=bundle.roadmap,

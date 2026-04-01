@@ -22,7 +22,9 @@ def _sample_roadmap() -> dict:
             "decision_id": "decision-cust-operator",
             "decision_policy_version": "v2.1_phase_40_5",
             "decision_status": "CONDITIONAL",
+            "selected_decision_status": "CONDITIONAL",
             "decision_status_internal": "NEEDS_REVIEW",
+            "selected_plan_status_internal": "REJECTED",
             "decision_reason_summary": "The plan is viable, but execution confidence is not strong enough yet.",
             "decision_reason_primary": "LOW_EXECUTION",
             "decision_reason_drivers": [
@@ -51,6 +53,21 @@ def _sample_roadmap() -> dict:
             "offer_plan": 0,
             "offer_acceptance_probability": 0.0,
             "decision_gate_trace": {"reject": False, "approve": False, "conditional": True, "confidence": 0.41},
+            "selection_outcome": "selected_valid_winner",
+            "selection_stage": "preferred_valid",
+            "selected_recommendation_text": "Reduce monthly debt pressure by about 600 units and move debt-to-income from %28 to %24.",
+            "selected_recommendation_text_localized": {
+                "tr": "Aylik borc/harcama baskisini yaklasik 600 birim azalt ve borc/gelir oranini %28'den %24 seviyesine indir.",
+                "en": "Reduce monthly debt pressure by about 600 units and move debt-to-income from %28 to %24.",
+            },
+            "selected_institution_condition": "The profile needs about 1,500 units of additional total credit capacity to strengthen.",
+            "selected_institution_condition_localized": {
+                "tr": "Profilin guclenmesi icin toplam limit tarafinda yaklasik 1,500 birim ek kapasite gerekiyor.",
+                "en": "The profile needs about 1,500 units of additional total credit capacity to strengthen.",
+            },
+            "selected_recommendation_source": "selected_plan",
+            "selected_action_count": 2,
+            "selected_recommendation_projection_version": "v2.2_phase_47",
         },
         "contract_health": {"raw_contract_pass": 1, "parity_pass": 1, "data_issue_flag": 0},
         "narrative": {
@@ -129,6 +146,8 @@ def test_build_operator_review_packet_keeps_owned_summary_and_action_traces() ->
     assert packet.decision_id == "decision-cust-operator"
     assert packet.decision_policy_version == "v2.1_phase_40_5"
     assert packet.technical_appendix.decision_status_internal == "NEEDS_REVIEW"
+    assert packet.technical_appendix.selected_plan_status_internal == "REJECTED"
+    assert packet.technical_appendix.selected_recommendation_source == "selected_plan"
     assert len(packet.short_view.top_blockers) == 2
     assert len(packet.short_view.next_best_actions) == 2
     assert all(action.blocker_codes for action in packet.short_view.next_best_actions)
@@ -168,6 +187,34 @@ def test_build_operator_review_packet_surfaces_recommendation_sanity_badge() -> 
     assert "manual-review note" in packet.short_view.recommendation_sanity_note.en.lower()
     assert packet.technical_appendix.recommendation_warning_action_count == 1
     assert packet.technical_appendix.recommendation_validity_codes == ["economic_delta_large"]
+
+
+def test_build_operator_review_packet_renders_empty_state_for_no_valid_winner() -> None:
+    roadmap = _sample_roadmap()
+    roadmap["best_plan_id"] = None
+    roadmap["summary"].update(
+        {
+            "decision_status": "REJECTED",
+            "selected_decision_status": "REJECTED",
+            "selected_plan_status_internal": None,
+            "selection_outcome": "no_valid_winner",
+            "selection_stage": "no_valid_winner",
+            "selected_recommendation_text": None,
+            "selected_recommendation_text_localized": None,
+            "selected_institution_condition": None,
+            "selected_institution_condition_localized": None,
+            "selected_recommendation_source": "empty_state",
+            "selected_action_count": 0,
+        }
+    )
+
+    packet = build_operator_review_packet(roadmap)
+
+    assert packet.short_view.decision_status == "REJECTED"
+    assert packet.short_view.next_best_actions == []
+    assert packet.technical_appendix.selected_recommendation_source == "empty_state"
+    markdown = render_operator_review_packet_markdown(packet)
+    assert "No valid recommendation path is currently available." in markdown
 
 
 def test_build_collection_operator_briefing_prioritizes_upgrade_queue_and_health_note() -> None:

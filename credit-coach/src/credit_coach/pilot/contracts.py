@@ -188,6 +188,19 @@ class DecisionExplanationPack(BaseModel):
         default=None,
         description="Institution-side condition or dependency kept separate from customer action",
     )
+    selected_recommendation_source: str | None = Field(
+        default=None,
+        description="Projection source for the selected recommendation surface",
+    )
+    selected_recommendation_projection_version: str | None = Field(
+        default=None,
+        description="Projection version used to derive selected recommendation output",
+    )
+    selected_action_count: int = Field(
+        default=0,
+        ge=0,
+        description="Selected-plan action count carried into the consumer-safe overlay",
+    )
     driver_methodology_note: str = Field(
         default="Drivers are derived from the owned decision payload and exposed only as institution-safe numeric summaries.",
         description="Short methodology note for the driver list",

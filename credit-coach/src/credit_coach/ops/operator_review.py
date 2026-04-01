@@ -97,6 +97,13 @@ def _localized_text_from_payload(payload: Any, *, fallback_en: str = "", fallbac
     return _lt(fallback_tr or text, fallback_en or text)
 
 
+def _selected_surface_empty_state() -> LocalizedText:
+    return _lt(
+        "Su an icin gecerli bir oneri yolu yok.",
+        "No valid recommendation path is currently available.",
+    )
+
+
 def _narrative_steps(roadmap: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     narrative = roadmap.get("narrative", {})
     if isinstance(narrative, Mapping):
@@ -180,10 +187,38 @@ def _step_related_to_blocker(step: Mapping[str, Any], blocker: OperatorPacketBlo
 
 
 def _actions_from_narrative(
+    summary: Mapping[str, Any],
     steps: Sequence[Mapping[str, Any]],
     blockers: Sequence[OperatorPacketBlocker],
 ) -> list[OperatorPacketAction]:
     selected: list[OperatorPacketAction] = []
+    selected_projection_source = _safe_text(summary.get("selected_recommendation_source"))
+    if selected_projection_source == "empty_state":
+        return []
+    selected_projection_text = _localized_text_from_payload(
+        summary.get("selected_recommendation_text_localized"),
+        fallback_en=_safe_text(summary.get("selected_recommendation_text")),
+        fallback_tr=_safe_text(summary.get("selected_recommendation_text")),
+    )
+    selected_institution_condition = _localized_text_from_payload(
+        summary.get("selected_institution_condition_localized"),
+        fallback_en=_safe_text(summary.get("selected_institution_condition")),
+        fallback_tr=_safe_text(summary.get("selected_institution_condition")),
+    )
+    if selected_projection_source == "selected_plan" and selected_projection_text is not None:
+        first_step = steps[0] if steps else {}
+        timing_hint = _localized_text_from_payload(first_step.get("action_timing_hint")) if isinstance(first_step, Mapping) else None
+        blocker_codes = [blocker.blocker_code for blocker in blockers[:3]]
+        selected.append(
+            OperatorPacketAction(
+                step_id=_safe_text((first_step or {}).get("step_id"), "selected_projection"),
+                action_key=_safe_text((first_step or {}).get("action_key")) or None,
+                action_summary=selected_projection_text,
+                institution_condition=selected_institution_condition,
+                timing_hint=timing_hint,
+                blocker_codes=blocker_codes,
+            )
+        )
     for raw_step in steps:
         blocker_codes = [
             blocker.blocker_code
@@ -196,6 +231,12 @@ def _actions_from_narrative(
         if action_summary is None:
             action_summary = _localized_text_from_payload(raw_step.get("action_summary"))
         if action_summary is None:
+            continue
+        if (
+            selected
+            and selected[0].action_summary.en == action_summary.en
+            and (selected[0].action_key or "") == (_safe_text(raw_step.get("action_key")) or "")
+        ):
             continue
         institution_condition = _localized_text_from_payload(raw_step.get("institution_condition"))
         timing_hint = _localized_text_from_payload(raw_step.get("action_timing_hint"))
@@ -218,7 +259,7 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
     summary = _roadmap_summary(roadmap)
     steps = _narrative_steps(roadmap)
     blockers = _blockers_from_summary(summary)
-    actions = _actions_from_narrative(steps, blockers)
+    actions = _actions_from_narrative(summary, steps, blockers)
     narrative = roadmap.get("narrative", {}) if isinstance(roadmap.get("narrative", {}), Mapping) else {}
     executive_summary = narrative.get("executive_summary", {}) if isinstance(narrative, Mapping) else {}
     offer_state = None
@@ -244,7 +285,7 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
         )
 
     short_view = OperatorPacketShortView(
-        decision_status=_safe_text(summary.get("decision_status"), "CONDITIONAL"),
+        decision_status=_safe_text(summary.get("selected_decision_status"), _safe_text(summary.get("decision_status"), "CONDITIONAL")),
         decision_reason_summary=build_operator_summary_line(summary.get("decision_reason_summary")),
         decision_confidence=_safe_float(summary.get("decision_confidence"), 0.0),
         top_blockers=blockers[:3],
@@ -275,6 +316,14 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
         recommendation_warning_action_count=_safe_int(summary.get("recommendation_warning_action_count", 0), 0),
         contract_health=dict(roadmap.get("contract_health", {}) or {}),
         decision_gate_trace=dict(summary.get("decision_gate_trace", {}) or {}),
+        selection_outcome=_safe_text(summary.get("selection_outcome")) or None,
+        selection_stage=_safe_text(summary.get("selection_stage")) or None,
+        selected_plan_status_internal=_safe_text(summary.get("selected_plan_status_internal")) or None,
+        selected_recommendation_source=_safe_text(summary.get("selected_recommendation_source")) or None,
+        selected_recommendation_projection_version=(
+            _safe_text(summary.get("selected_recommendation_projection_version")) or None
+        ),
+        selected_action_count=_safe_int(summary.get("selected_action_count", 0), 0),
     )
     return OperatorReviewPacket(
         decision_id=_safe_text(summary.get("decision_id"), f"{_safe_text(roadmap.get('customer_id'), _safe_text(summary.get('customer_id'), 'customer'))}_decision"),
@@ -316,6 +365,8 @@ def render_operator_review_packet_markdown(packet: OperatorReviewPacket) -> str:
             lines.append(f"- {action.action_summary.en}{timing}")
             if action.institution_condition is not None:
                 lines.append(f"- Institution condition: {action.institution_condition.en}")
+    elif appendix.selected_recommendation_source == "empty_state":
+        lines.append(f"- {_selected_surface_empty_state().en}")
     else:
         lines.append("- n/a")
     lines.extend(
@@ -349,6 +400,12 @@ def render_operator_review_packet_markdown(packet: OperatorReviewPacket) -> str:
     lines.append(
         f"- Recommendation validity codes: {json.dumps(appendix.recommendation_validity_codes, ensure_ascii=False)}"
     )
+    lines.append(f"- Selection outcome: {appendix.selection_outcome or 'n/a'}")
+    lines.append(f"- Selection stage: {appendix.selection_stage or 'n/a'}")
+    lines.append(f"- Selected plan status (technical): {appendix.selected_plan_status_internal or 'n/a'}")
+    lines.append(f"- Selected recommendation source: {appendix.selected_recommendation_source or 'n/a'}")
+    lines.append(f"- Selected recommendation projection version: {appendix.selected_recommendation_projection_version or 'n/a'}")
+    lines.append(f"- Selected action count: {appendix.selected_action_count}")
     lines.append(f"- Contract health: {json.dumps(appendix.contract_health, ensure_ascii=False)}")
     return "\n".join(lines) + "\n"
 
@@ -382,6 +439,13 @@ def operator_packet_metrics_fields(
             if packet.short_view.recommendation_sanity_note is not None
             else ""
         ),
+        "operator_selected_decision_status": str(packet.short_view.decision_status),
+        "operator_selected_recommendation_text": (
+            packet.short_view.next_best_actions[0].action_summary.en
+            if packet.short_view.next_best_actions
+            else ""
+        ),
+        "operator_selected_action_count": int(packet.technical_appendix.selected_action_count),
         "operator_offer_state_en": packet.short_view.offer_state.en if packet.short_view.offer_state is not None else "",
         "operator_downside_risk_en": packet.short_view.downside_risk.en if packet.short_view.downside_risk is not None else "",
         "operator_technical_detail_available": int(bool(packet.short_view.technical_detail_available)),

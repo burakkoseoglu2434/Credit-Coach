@@ -25,6 +25,13 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return float(default)
 
 
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return int(default)
+
+
 def _summary(roadmap: Mapping[str, Any]) -> dict[str, Any]:
     payload = roadmap.get("summary", {})
     return dict(payload) if isinstance(payload, Mapping) else {}
@@ -117,27 +124,8 @@ def _extract_reason_codes(summary: Mapping[str, Any], metrics_summary: Mapping[s
     return []
 
 
-def _narrative_action_projection(roadmap: Mapping[str, Any]) -> tuple[str | None, str | None]:
-    narrative = roadmap.get("narrative", {})
-    if not isinstance(narrative, Mapping):
-        return None, None
-    raw_steps = narrative.get("steps", [])
-    if not isinstance(raw_steps, Sequence):
-        return None, None
-    recommended_customer_action = None
-    institution_condition = None
-    for raw_step in raw_steps:
-        if not isinstance(raw_step, Mapping):
-            continue
-        if recommended_customer_action is None:
-            recommended_customer_action = _localized_text_value(raw_step.get("primary_recommendation"), locale="en")
-            if not recommended_customer_action:
-                recommended_customer_action = _localized_text_value(raw_step.get("action_summary"), locale="en")
-        if institution_condition is None:
-            institution_condition = _localized_text_value(raw_step.get("institution_condition"), locale="en")
-        if recommended_customer_action and institution_condition:
-            break
-    return recommended_customer_action or None, institution_condition or None
+def _selected_surface_empty_state() -> str:
+    return "No valid recommendation path is currently available."
 
 
 def _operator_packet_action_projection(short_view: Mapping[str, Any]) -> tuple[str | None, str | None]:
@@ -174,6 +162,11 @@ def _assert_packet_drift_guard(
     packet_readiness = _safe_text(short_view.get("expected_readiness"))
     packet_upgrade = _safe_text(short_view.get("upgrade_condition"))
     packet_recommended_action, packet_institution_condition = _operator_packet_action_projection(short_view)
+    appendix = packet.get("technical_appendix", {})
+    if not isinstance(appendix, Mapping):
+        appendix = {}
+    packet_selected_recommendation_source = _safe_text(appendix.get("selected_recommendation_source"))
+    packet_selected_projection_version = _safe_text(appendix.get("selected_recommendation_projection_version"))
 
     if packet_decision_id and packet_decision_id != pack.decision_id:
         raise ValueError("Explanation pack drift: decision_id mismatch")
@@ -191,6 +184,14 @@ def _assert_packet_drift_guard(
         raise ValueError("Explanation pack drift: recommended customer action mismatch")
     if packet_institution_condition and packet_institution_condition != _safe_text(pack.institution_condition):
         raise ValueError("Explanation pack drift: institution condition mismatch")
+    if packet_selected_recommendation_source and packet_selected_recommendation_source != _safe_text(
+        pack.selected_recommendation_source
+    ):
+        raise ValueError("Explanation pack drift: selected recommendation source mismatch")
+    if packet_selected_projection_version and packet_selected_projection_version != _safe_text(
+        pack.selected_recommendation_projection_version
+    ):
+        raise ValueError("Explanation pack drift: selected recommendation projection version mismatch")
 
 
 def build_decision_explanation_pack(
@@ -208,15 +209,24 @@ def build_decision_explanation_pack(
     customer_id = _safe_text(roadmap.get("customer_id"), _safe_text(summary.get("customer_id"), "customer"))
     decision_id = _safe_text(summary.get("decision_id"), f"{customer_id}_decision")
     policy_version = _safe_text(summary.get("decision_policy_version"), "")
-    recommended_customer_action, institution_condition = _narrative_action_projection(roadmap)
+    selected_recommendation_source = _safe_text(summary.get("selected_recommendation_source"))
+    recommended_customer_action = _safe_text(summary.get("selected_recommendation_text")) or None
+    institution_condition = _safe_text(summary.get("selected_institution_condition")) or None
     pack = DecisionExplanationPack(
         decision_id=decision_id,
         customer_id=customer_id,
-        decision_outcome=_require_external_decision(summary.get("decision_status")),
+        decision_outcome=_require_external_decision(
+            summary.get("selected_decision_status", summary.get("decision_status"))
+        ),
         one_line_decision_reason=_safe_text(summary.get("decision_reason_summary"), "Decision explanation unavailable."),
         structured_numeric_drivers=_build_driver_rows(summary),
         recommended_customer_action=recommended_customer_action,
         institution_condition=institution_condition,
+        selected_recommendation_source=selected_recommendation_source or None,
+        selected_recommendation_projection_version=(
+            _safe_text(summary.get("selected_recommendation_projection_version")) or None
+        ),
+        selected_action_count=_safe_int(summary.get("selected_action_count", 0), 0),
         upgrade_condition=_safe_text(summary.get("upgrade_condition")) or None,
         expected_readiness=_safe_text(summary.get("expected_readiness"), "unknown_review"),
         adverse_action_friendly_reasons=_build_reason_rows(_extract_reason_codes(summary, metrics_summary)),
@@ -233,6 +243,9 @@ def build_decision_explanation_pack(
 
 
 def render_decision_explanation_pack_markdown(pack: DecisionExplanationPack) -> str:
+    action_line = pack.recommended_customer_action or (
+        _selected_surface_empty_state() if _safe_text(pack.selected_recommendation_source) == "empty_state" else "n/a"
+    )
     lines = [
         f"# Decision Explanation Pack — {pack.customer_id}",
         "",
@@ -243,7 +256,7 @@ def render_decision_explanation_pack_markdown(pack: DecisionExplanationPack) -> 
         f"- Reason: {pack.one_line_decision_reason}",
         "",
         "## Improvement Path",
-        f"- Recommended customer action: {pack.recommended_customer_action or 'n/a'}",
+        f"- Recommended customer action: {action_line}",
         f"- Institution condition: {pack.institution_condition or 'n/a'}",
         f"- Upgrade condition: {pack.upgrade_condition or 'n/a'}",
         f"- Expected readiness: {pack.expected_readiness}",

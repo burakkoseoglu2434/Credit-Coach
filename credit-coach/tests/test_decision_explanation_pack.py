@@ -20,7 +20,9 @@ def _sample_roadmap() -> dict:
             "decision_id": "decision-cust-explain",
             "decision_policy_version": "v2.1_phase_40_5",
             "decision_status": "CONDITIONAL",
+            "selected_decision_status": "CONDITIONAL",
             "decision_status_internal": "NEEDS_REVIEW",
+            "selected_plan_status_internal": "REJECTED",
             "decision_reason_summary": "The file can improve, but utilization is still above the target range.",
             "decision_reason_primary": "TIME_BLOCK",
             "decision_reason_drivers": [
@@ -40,6 +42,13 @@ def _sample_roadmap() -> dict:
             "offer_maturity": "none",
             "offer_plan": 0,
             "offer_acceptance_probability": 0.0,
+            "selection_outcome": "selected_valid_winner",
+            "selection_stage": "preferred_valid",
+            "selected_recommendation_text": "Reduce credit utilization from %82 to below %50.",
+            "selected_institution_condition": "The profile needs about 1,200 units of additional total credit capacity to strengthen.",
+            "selected_recommendation_source": "selected_plan",
+            "selected_action_count": 1,
+            "selected_recommendation_projection_version": "v2.2_phase_47",
         },
         "contract_health": {"raw_contract_pass": 1, "parity_pass": 1, "data_issue_flag": 0},
         "narrative": {
@@ -83,6 +92,8 @@ def test_build_decision_explanation_pack_is_external_only_and_matches_operator_p
     assert pack.upgrade_condition == "Utilization 82% -> below 50%"
     assert pack.recommended_customer_action == "Reduce credit utilization from %82 to below %50."
     assert pack.institution_condition == "The profile needs about 1,200 units of additional total credit capacity to strengthen."
+    assert pack.selected_recommendation_source == "selected_plan"
+    assert pack.selected_action_count == 1
     assert len(pack.structured_numeric_drivers) == 1
     assert pack.structured_numeric_drivers[0].driver_key == "utilization"
     assert [reason.reason_code for reason in pack.adverse_action_friendly_reasons] == [
@@ -134,3 +145,32 @@ def test_build_decision_explanation_pack_marks_warning_plan_for_human_review() -
     )
 
     assert pack.human_review_required is True
+
+
+def test_build_decision_explanation_pack_renders_empty_state_without_fake_recommendation() -> None:
+    roadmap = _sample_roadmap()
+    roadmap["best_plan_id"] = None
+    roadmap["summary"].update(
+        {
+            "decision_status": "REJECTED",
+            "selected_decision_status": "REJECTED",
+            "selected_plan_status_internal": None,
+            "selection_outcome": "no_valid_winner",
+            "selection_stage": "no_valid_winner",
+            "selected_recommendation_text": None,
+            "selected_institution_condition": None,
+            "selected_recommendation_source": "empty_state",
+            "selected_action_count": 0,
+            "selected_recommendation_projection_version": "v2.2_phase_47",
+        }
+    )
+
+    pack = build_decision_explanation_pack(
+        roadmap,
+        metrics_summary={"adverse_action_reasons": ["high_credit_utilization"]},
+    )
+
+    assert pack.decision_outcome == "REJECTED"
+    assert pack.recommended_customer_action is None
+    assert pack.selected_recommendation_source == "empty_state"
+    assert pack.selected_action_count == 0
