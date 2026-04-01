@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 47 discussed; ready for planning
+**Current focus:** Phase 47 planned; ready for execution
 
 ## Current Position
 
 Phase: 47 Selected Surface Consistency
-Plan: Context locked
-Status: Ready for planning
-Last activity: 2026-04-01 - Discussed and locked Phase `47 Selected Surface Consistency`; selected-plan technical truth versus consumer-safe overlay, selected recommendation ownership, `no_valid_winner` empty-state contract, and canonical drift-guard fields are now explicit
+Plan: 3 execution plans ready
+Status: Ready for execution
+Last activity: 2026-04-01 - Planned Phase `47 Selected Surface Consistency`; research, validation strategy, and three execution plans now cover selected overlay truth, empty-state semantics, shared recommendation projection, and rerun-level drift-proof
 
 Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipment Phase `42.5` added canonical numeric recommendation validity, but `v2.2` now focuses on preventing invalid selected winners, enforcing `dice` lane validity, aligning selected surfaces, and removing operator packet contradictions without widening thresholds or reopening shipped decision semantics.
 
@@ -82,11 +82,11 @@ None yet.
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
 - Some Phase 41-44 validation frontmatter still understates `wave_0_complete` despite shipped tests and successful audit coverage.
-- Selected-surface consistency implementation is now the main technical risk before operator-packet coherence or threshold work.
+- Selected-surface consistency execution is now the main technical risk before operator-packet coherence or threshold work.
 - Operator packets still need coherence cleanup for invalid selected actions and approved fallback blockers.
 
 ## Session Continuity
 
 Last session: 2026-04-01
-Stopped at: Phase `47 Selected Surface Consistency` discussed and locked; next step is `$gsd-plan-phase 47 --research`
+Stopped at: Phase `47 Selected Surface Consistency` planned; next step is `$gsd-execute-phase 47`
 Resume file: None
