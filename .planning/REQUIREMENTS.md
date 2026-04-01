@@ -20,9 +20,9 @@ Requirements for `v2.2 Winner Integrity & Consumer Consistency`. Each maps to ex
 
 ### Selected Surface Consistency
 
-- [ ] **CONS-01**: `best_plan_id`, selected plan rows, external decision summaries, and collection metrics remain mutually consistent for each customer
-- [ ] **CONS-02**: No external `CONDITIONAL` output points at a selected plan row whose plan status is `REJECTED`
-- [ ] **CONS-03**: Operator packets and explanation packs render recommendation text from the selected valid plan only, with no leakage from discarded invalid winners
+- [x] **CONS-01**: `best_plan_id`, selected plan rows, external decision summaries, and collection metrics remain mutually consistent for each customer
+- [x] **CONS-02**: No external `CONDITIONAL` output points at a selected plan row whose plan status is `REJECTED`
+- [x] **CONS-03**: Operator packets and explanation packs render recommendation text from the selected valid plan only, with no leakage from discarded invalid winners
 
 ### Operator Packet Coherence
 
@@ -67,9 +67,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WINT-03 | Phase 45 | Complete |
 | DICE-01 | Phase 46 | Complete |
 | DICE-02 | Phase 46 | Complete |
-| CONS-01 | Phase 47 | Pending |
-| CONS-02 | Phase 47 | Pending |
-| CONS-03 | Phase 47 | Pending |
+| CONS-01 | Phase 47 | Complete |
+| CONS-02 | Phase 47 | Complete |
+| CONS-03 | Phase 47 | Complete |
 | OPER-01 | Phase 48 | Pending |
 | OPER-02 | Phase 48 | Pending |
 | OPER-03 | Phase 48 | Pending |
@@ -91,7 +91,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 - ✓ Deterministic decision ownership, contract trust repair, cohort calibration, operator review packs, planner source-mix honesty, and repeatable pilot refresh now ship together as one audited baseline - v2.1
 - ✓ Post-v2.1 Phase `42.5 Recommendation Validity Layer` now hardens numeric recommendations with canonical validity evaluation, hard-invalid contender filtering, warning penalties, operator sanity badges, explanation-pack human-review propagation, and additive collection metrics
 - ✓ Phase `46 Dice Lane Validity Enforcement` now converges DICE onto the shared typed-action contract, adds lane-specific completeness and semantic-quality truth, keeps diagnostics visible while gating planner contention on DICE eligibility, and proves selected DICE cleanliness with `selected_dice_valid_rate = 1.0` across three 250-customer reruns
+- ✓ Phase `47 Selected Surface Consistency` now aligns selected overlays, `best_plan_id` and selected-row integrity, operator and explanation recommendation projection, and explicit `no_valid_winner` empty-state semantics; three 250-customer reruns show zero tracked selected-surface drift, while empty-state rendering is proven by targeted automated tests because those cohorts contained zero `no_valid_winner` cases
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-03-26 after completing Phase 46*
+*Last updated: 2026-04-01 after completing Phase 47*

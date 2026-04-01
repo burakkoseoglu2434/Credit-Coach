@@ -230,6 +230,5 @@ Success criteria:
 | 44. Production Pilot Baseline | v2.1 | 3/3 | Complete | 2026-03-23 |
 | 45. Winner Integrity Hard Stop | v2.2 | 3/3 | Complete | 2026-03-26 |
 | 46. Dice Lane Validity Enforcement | v2.2 | 3/3 | Complete | 2026-03-26 |
-| 47. Selected Surface Consistency | v2.2 | 0/3 | Planned | — |
+| 47. Selected Surface Consistency | v2.2 | 3/3 | Complete | 2026-04-01 |
 | 48. Operator Packet Coherence | v2.2 | 0/3 | Planned | — |
- 
