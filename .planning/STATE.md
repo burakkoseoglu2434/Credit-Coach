@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 47 completed; preparing Phase 48 operator packet coherence
+**Current focus:** Phase 48 discussed; ready for planning
 
 ## Current Position
 
-Phase: 47 Selected Surface Consistency
-Plan: 3 execution plans completed
-Status: Complete
-Last activity: 2026-04-01 - Completed Phase `47 Selected Surface Consistency`; selected overlay truth, empty-state semantics, shared recommendation projection, and rerun-level drift-proof now pass targeted regression coverage and three 250-customer rerun checks
+Phase: 48 Operator Packet Coherence
+Plan: context locked; planning next
+Status: Ready for planning
+Last activity: 2026-04-01 - Discussed Phase `48 Operator Packet Coherence`; status-specific packet contract, blocker/action suppression rules, readiness interpretation modes, and packet coherence diagnostics are now locked for planning
 
 Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipment Phase `42.5` added canonical numeric recommendation validity, but `v2.2` now focuses on preventing invalid selected winners, enforcing `dice` lane validity, aligning selected surfaces, and removing operator packet contradictions without widening thresholds or reopening shipped decision semantics.
 
@@ -49,9 +49,10 @@ Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipme
 - Phase 44 now ships repeatable pilot refresh orchestration, separate artifact QA versus portfolio smoke lanes, thin institution overlays, institution-facing explanation packs, and bounded proof-surface docs.
 - Milestone `v2.1` audit passed with `12/12` requirements satisfied, `6/6` integrations, and `4/4` end-to-end flows.
 - Large-sample reruns now execute locally via deterministic sample-CSV fallback, so milestone work can validate selected-winner behavior without the old processed-dataset blocker.
-- The newest evidence shows winner hard-stop and DICE lane cleanliness are working; the immediate next bottleneck is selected-surface consistency before operator packet coherence work.
+- The newest evidence shows winner hard-stop, DICE lane cleanliness, and selected-surface consistency are working; the remaining v2.2 bottleneck is operator packet coherence.
 - Phase 46 now proves DICE lane cleanliness separately from general winner integrity, with explicit DICE eligibility, invalid, warning, fallback, and selected-cleanliness metrics in collection artifacts.
 - Phase 47 now aligns raw summaries, flat metrics, operator packets, and explanation packs on one selected-surface projection, with explicit `no_valid_winner` empty-state semantics and rerun-level drift proof across the three 250-customer cohorts.
+- Phase 48 is now locked around status-aware blocker and action suppression, packet-specific readiness interpretation, and first-class operator coherence diagnostics without reopening selected truth or threshold semantics.
 
 ## Accumulated Context
 
@@ -83,11 +84,11 @@ None yet.
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
 - Some Phase 41-44 validation frontmatter still understates `wave_0_complete` despite shipped tests and successful audit coverage.
-- Operator packet coherence is now the main technical risk before any threshold or approval-rate work.
-- Approved fallback blockers and short-view contradiction cleanup remain Phase 48 scope.
+- Operator packet coherence is now the last open v2.2 technical risk before any threshold or approval-rate work.
+- Approved fallback blockers, short-view contradiction cleanup, and readiness-vs-decision render mismatches are the explicit Phase 48 targets.
 
 ## Session Continuity
 
 Last session: 2026-04-01
-Stopped at: Phase `47 Selected Surface Consistency` complete; next step is `$gsd-discuss-phase 48`
+Stopped at: Phase `48 Operator Packet Coherence` discussed; next step is `$gsd-plan-phase 48 --research`
 Resume file: None
