@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 46 completed; ready to discuss Phase 47
+**Current focus:** Phase 47 discussed; ready for planning
 
 ## Current Position
 
-Phase: 46 Dice Lane Validity Enforcement
-Plan: 3 execution plans complete
-Status: Complete
-Last activity: 2026-03-26 - Completed Phase `46 Dice Lane Validity Enforcement`; DICE now shares the canonical action contract, visible-vs-eligible DICE contender splits are enforced before planner selection, and three 250-customer reruns proved `selected_dice_valid_rate = 1.0`
+Phase: 47 Selected Surface Consistency
+Plan: Context locked
+Status: Ready for planning
+Last activity: 2026-04-01 - Discussed and locked Phase `47 Selected Surface Consistency`; selected-plan technical truth versus consumer-safe overlay, selected recommendation ownership, `no_valid_winner` empty-state contract, and canonical drift-guard fields are now explicit
 
 Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipment Phase `42.5` added canonical numeric recommendation validity, but `v2.2` now focuses on preventing invalid selected winners, enforcing `dice` lane validity, aligning selected surfaces, and removing operator packet contradictions without widening thresholds or reopening shipped decision semantics.
 
@@ -49,7 +49,7 @@ Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipme
 - Phase 44 now ships repeatable pilot refresh orchestration, separate artifact QA versus portfolio smoke lanes, thin institution overlays, institution-facing explanation packs, and bounded proof-surface docs.
 - Milestone `v2.1` audit passed with `12/12` requirements satisfied, `6/6` integrations, and `4/4` end-to-end flows.
 - Large-sample reruns now execute locally via deterministic sample-CSV fallback, so milestone work can validate selected-winner behavior without the old processed-dataset blocker.
-- The newest evidence shows winner hard-stop is now working; the immediate next bottleneck is DICE lane enforcement before selected-surface consistency and operator packet coherence work.
+- The newest evidence shows winner hard-stop and DICE lane cleanliness are working; the immediate next bottleneck is selected-surface consistency before operator packet coherence work.
 - Phase 46 now proves DICE lane cleanliness separately from general winner integrity, with explicit DICE eligibility, invalid, warning, fallback, and selected-cleanliness metrics in collection artifacts.
 
 ## Accumulated Context
@@ -67,6 +67,7 @@ Recent decisions affecting the shipped baseline:
 - Phase `45 Winner Integrity Hard Stop` now removes that fallback path, widens only to valid pools, and records explicit `no_valid_winner` outcomes when no valid contender remains
 - Selected invalid winner leakage is now zero on the three 250-customer rerun cohorts, including zero selected invalid `dice` winners
 - Phase `46 Dice Lane Validity Enforcement` now converges DICE onto the shared action contract, adds lane-specific semantic quality truth, splits visible diagnostics from planner-eligible DICE contenders, and proves DICE cleanliness in rerun artifacts with `selected_dice_valid_rate = 1.0` across all three 250-customer cohorts
+- Phase `47 Selected Surface Consistency` is now locked around a consumer-safe selected overlay, one owner for selected recommendation text, explicit `no_valid_winner` empty-state rendering, and a canonical drift-guard field set spanning raw, flat, operator, and explanation surfaces
 - Consumer surfaces still have selected-plan coherence gaps that continue into later `v2.2` phases
 - The website remains a typed consumer of engine artifacts rather than a source of decision logic
 - Portfolio proof now includes numeric impact and calibration honesty, not just product confidence
@@ -81,11 +82,11 @@ None yet.
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
 - Some Phase 41-44 validation frontmatter still understates `wave_0_complete` despite shipped tests and successful audit coverage.
-- Selected-surface consistency is now the main technical risk before operator-packet coherence or threshold work.
+- Selected-surface consistency implementation is now the main technical risk before operator-packet coherence or threshold work.
 - Operator packets still need coherence cleanup for invalid selected actions and approved fallback blockers.
 
 ## Session Continuity
 
-Last session: 2026-03-26
-Stopped at: Phase `46 Dice Lane Validity Enforcement` complete; next step is `$gsd-discuss-phase 47`
+Last session: 2026-04-01
+Stopped at: Phase `47 Selected Surface Consistency` discussed and locked; next step is `$gsd-plan-phase 47 --research`
 Resume file: None
