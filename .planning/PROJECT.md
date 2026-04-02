@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Credit Coach is a credit-risk, recourse, and decision-intelligence platform for financial institutions. It now turns model-native recourse outputs into customer-specific, numeric, feasible, execution-aware, and institution-aware action plans, then carries those plans through product-safe narratives, typed buyer and analyst surfaces, portfolio proof, calibration review, and pilot-facing package delivery.
+Credit Coach is a credit-risk, recourse, and decision-intelligence platform for financial institutions. It now turns model-native recourse outputs into customer-specific, numeric, feasible, execution-aware, and institution-aware action plans, then carries those plans through product-safe narratives, typed buyer and analyst surfaces, portfolio proof, calibration review, pilot-facing package delivery, and winner-safe consumer surfaces.
 
 ## Core Value
 
@@ -10,32 +10,21 @@ Generate customer-specific credit action plans that are actionable, behaviorally
 
 ## Current State
 
-`v2.1 Decision Ownership & Pilot-Ready Trust` shipped on `2026-03-23` and passed milestone audit. Credit Coach now supports:
-- null-free, parity-safe raw and flat artifact contracts that carry decision-critical truth safely
-- one deterministic decision owner with external `APPROVED | CONDITIONAL | REJECTED` outcomes and internal diagnostic review state
-- cohort-aware funnel, readiness, and shadow calibration outputs under the same collection run root
-- per-customer operator packets and collection-level review briefings derived from the owned decision payload
-- explicit planner provenance, empty-contender removal, source-mix honesty, diversity guardrails, and offer-maturity signals
-- repeatable pilot baseline refresh, dedicated artifact QA, thin institution overlays, and institution-facing explanation packs
+`v2.2 Winner Integrity & Consumer Consistency` shipped on `2026-04-02` and passed milestone audit. Credit Coach now supports:
+- fail-closed winner selection that never revives invalid candidates after validity filtering
+- DICE lane contender enforcement with shared typed-action parity, semantic-quality gates, and selected-DICE cleanliness proof
+- one selected consumer-truth projection aligned across raw summary, flat metrics, operator packets, and explanation packs
+- decision-aware operator packets that suppress approved contradictions and export coherence diagnostics into collection artifacts
+- repeatable three-cohort rerun proof for winner integrity, selected-surface consistency, and operator packet coherence
 
-Post-shipment Phase `42.5 Recommendation Validity Layer` completed on `2026-03-24` and added canonical numeric recommendation validity, hard-invalid contender filtering, warning penalties, operator sanity badges, explanation-pack human-review propagation, and additive collection metrics. Large-sample reruns then exposed a narrower but more important remaining gap: selected invalid winners can still leak through planner fallback behavior and surface as contradictory operator guidance.
-
-## Current Milestone: v2.2 Winner Integrity & Consumer Consistency
-
-**Goal:** Fix selected-winner integrity and consumer-surface consistency before any threshold widening or approval-rate optimization.
-
-**Target features:**
-- hard-stop selected invalid winners even when preferred candidate pools collapse after validity filtering
-- enforce `dice` lane validity and fallback discipline with the same rigor as internal plans
-- align selected plan rows, external decisions, collection metrics, operator packets, and explanation packs around one coherent selected winner
-- remove contradictory operator packet blockers and invalid short-view actions without reopening decision ownership semantics
+The system is now strong enough for pilot-facing demos on winner and consumer-truth integrity. The next milestone can optimize thresholds and business outcomes from this cleaner baseline instead of continuing trust repair.
 
 ## Next Milestone Goals
 
-- no invalid recommendation can survive winner selection or appear as selected truth in raw, flat, or operator-facing artifacts
-- `dice` candidates must obey the same validity enforcement and no-valid-fallback discipline as internal candidates
-- selected surfaces must remain coherent across `best_plan_id`, `decision_status`, `customer_metrics.csv`, `customer_plans.csv`, operator packets, and explanation packs
-- operator packets must not show invalid selected actions, contradictory approved blockers, or `CONDITIONAL` packets that point to selected `REJECTED` rows
+- safely widen thresholds using validity-clean winner evidence
+- improve approval and conditional yield without degrading selected-surface trust
+- make offer-maturity and readiness signals produce business outcome instead of remaining mostly descriptive
+- validate empty-state behavior on naturally occurring `no_valid_winner` customers once a future milestone broadens the operating envelope
 
 <details>
 <summary>Archived Milestone Context: v2.1 Decision Ownership & Pilot-Ready Trust</summary>
@@ -90,18 +79,18 @@ Post-shipment Phase `42.5 Recommendation Validity Layer` completed on `2026-03-2
 - ✓ Portfolio proof, business-first product surfaces, analyst validation, and pilot-baseline demo ops are now shipped and audited - v1.3
 - ✓ Personalized action intelligence is now semantic, numeric, feasible, execution-aware, institution-aware, portfolio-validated, and pilot-package-ready - v2.0
 - ✓ Deterministic decision ownership, contract trust repair, cohort calibration, operator review packs, planner source-mix honesty, and repeatable pilot refresh now ship together as one audited baseline - v2.1
+- ✓ Winner selection is now fail-closed, DICE contenders obey shared validity standards, selected consumer truth is aligned across raw and derived surfaces, and operator packets are coherence-safe on the tracked invariants - v2.2
 
 ### Active
 
-- [ ] No plan with `recommendation_validity_status = invalid` can survive winner selection or appear as selected truth in raw, flat, or operator-facing artifacts
-- [ ] `dice` candidates obey the same validity enforcement and fallback discipline as internal candidates, with explicit diagnostics when no valid `dice` winner exists
-- [ ] Selected surfaces remain coherent across `best_plan_id`, `decision_status`, `customer_metrics.csv`, `customer_plans.csv`, operator packets, and explanation packs
-- [ ] Operator packets stay consumer-safe and self-consistent: no invalid selected actions in short view, no contradictory approved blockers, and no `CONDITIONAL` packets pointing at selected `REJECTED` rows
+- [ ] Safely widen thresholds using validity-clean winner evidence
+- [ ] Improve approval and conditional yield without degrading selected-surface trust
+- [ ] Turn offer maturity and readiness into outcome-producing signals rather than mostly descriptive diagnostics
+- [ ] Validate broadened operating-envelope behavior with naturally occurring `no_valid_winner` and edge-case cohorts
 
 ### Out of Scope
 
-- Threshold widening or approval-rate optimization before selected-winner integrity is proven end-to-end
-- Redesigns of Phases `40`, `40.5`, `41`, `42`, `42.5`, or `43` rather than consuming their shipped semantics as fixed baselines
+- Redesigns of Phases `40`, `40.5`, `41`, `42`, `42.5`, `43`, `45`, `46`, `47`, or `48` rather than consuming their shipped semantics as fixed baselines
 - Full borrower-facing self-serve or mobile experiences until a future milestone explicitly opens them
 - Legal or compliance opinion automation or live institution integration expansion beyond the shipped pilot baseline
 
@@ -112,11 +101,12 @@ Post-shipment Phase `42.5 Recommendation Validity Layer` completed on `2026-03-2
 - `v1.3 Portfolio Intelligence & Productization` remains the shipped baseline for full-portfolio proof, buyer-safe product surfaces, analyst validation, and pilot-baseline operations.
 - `v2.0 Personalized Action & Decision Intelligence` is now shipped and audited, adding personalized numeric planning contracts, execution and offer realism, richer narratives, stricter product-surface consumption, portfolio numeric proof, calibration review, and pilot packaging.
 - `v2.1 Decision Ownership & Pilot-Ready Trust` is now shipped and audited, adding repaired artifact trust, deterministic decision ownership, collection-root funnel and calibration evidence, operator review packs, planner-quality honesty, and repeatable pilot refresh infrastructure.
-- Phase `42.5 Recommendation Validity Layer` now annotates and penalizes invalid or suspicious numeric recommendations, but targeted failure analysis found that selected invalid winners are still leaking through planner fallback behavior.
-- The dominant failure is in `choose_best_plan(...)`: invalid candidates are filtered, but if the filtered preferred set becomes empty, the planner falls back to the original invalid pool.
-- All leaked selected invalid winners in large-sample reruns were `dice` winners, while validity annotation itself appeared correct.
-- Consumer-surface coherence also remains incomplete: invalid selected recommendations can still appear in operator short view, some external `CONDITIONAL` outputs still point at selected `REJECTED` rows, and approved packets can still show fallback blockers.
-- The next milestone should build forward from this decision-and-pilot baseline rather than casually reopening finished contract layers.
+- Phase `42.5 Recommendation Validity Layer` remains the numeric-recommendation baseline, and `v2.2` proved that its validity truth can now govern selection and consumer surfaces cleanly.
+- Phase `45` removed invalid winner leakage by making chooser fallback fail closed.
+- Phase `46` proved DICE contender cleanliness separately from general winner integrity.
+- Phase `47` aligned selected overlays across raw, flat, operator, and explanation outputs.
+- Phase `48` proved operator packet coherence on the tracked blocker/action/readiness invariants across three large-sample reruns.
+- The next milestone should build forward from this shipped trust baseline rather than reopening winner-integrity layers.
 
 ## Constraints
 
@@ -126,7 +116,7 @@ Post-shipment Phase `42.5 Recommendation Validity Layer` completed on `2026-03-2
 - **Proof Before Hype**: Demo, proof, and pilot claims should stay anchored to portfolio evidence and explicit trust cues
 - **Brownfield**: Existing CLI runners, artifacts, website stack, and review surfaces should be evolved rather than replaced
 - **Milestone Continuity**: Phase numbering continues across milestones rather than resetting
-- **No Threshold Widening Yet**: `v2.2` fixes winner integrity before any approval-rate or threshold tuning
+- **Threshold Tuning Deferred**: Approval-rate and threshold optimization belong to the next milestone, not this shipped trust baseline
 - **No Semantic Reopen**: Decision ownership, calibration math, planner-quality measurement, recommendation validity semantics, and operator packet semantics remain inherited baselines for this milestone
 
 ## Key Decisions
@@ -143,7 +133,20 @@ Post-shipment Phase `42.5 Recommendation Validity Layer` completed on `2026-03-2
 | Keep pilot integration export-first and controlled | The repo should not pretend to have live institution connectivity before the contract seam is genuinely ready | ✓ Good |
 | Separate business-visible decision truth from internal review diagnostics | The pilot story needed deterministic external decisions without leaking internal exception states | ✓ Good |
 | Treat calibration, operator review, planner quality, and pilot refresh as additive consumers of one decision owner | This preserved deterministic ownership while still making the system measurable, reviewable, and packageable | ✓ Good |
-| Open `v2.2 Winner Integrity & Consumer Consistency` before any threshold widening | Large-sample reruns showed that invalid selected winners and contradictory consumer surfaces are the real bottleneck, not approval aggressiveness | — Pending |
+| Open `v2.2 Winner Integrity & Consumer Consistency` before any threshold widening | Large-sample reruns showed that invalid selected winners and contradictory consumer surfaces were the real bottleneck, not approval aggressiveness | ✓ Good |
+
+<details>
+<summary>Archived Milestone Context: v2.2 Winner Integrity & Consumer Consistency</summary>
+
+**Goal:** Fix selected-winner integrity and consumer-surface consistency before any threshold widening or approval-rate optimization.
+
+**Target outcomes:**
+- invalid recommendations cannot survive winner selection
+- `dice` contenders obey the same validity and contender-quality gates as internal plans
+- selected surfaces stay coherent across raw, flat, operator, and explanation artifacts
+- operator packets remain internally coherent without reopening decision ownership semantics
+
+</details>
 
 ---
-*Last updated: 2026-03-24 after starting milestone v2.2*
+*Last updated: 2026-04-02 after shipping v2.2*

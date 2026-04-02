@@ -1,8 +1,8 @@
 # Project Milestones: Credit Coach
 
-**Current active milestone:** `v2.2 Winner Integrity & Consumer Consistency`
+**Current active milestone:** none - ready for `$gsd-new-milestone`
 
-## v2.2 Winner Integrity & Consumer Consistency (Active: started 2026-03-24)
+## v2.2 Winner Integrity & Consumer Consistency (Shipped: 2026-04-02)
 
 **Goal:** Fix selected-winner integrity and consumer-surface consistency before any threshold widening or approval-rate optimization.
 
@@ -32,9 +32,29 @@
 - redesign of Phases `40`, `40.5`, `41`, `42`, `42.5`, or `43`
 - new borrower-facing channels, live institution integrations, or compliance automation
 
-**Current progress:** Phases `45 Winner Integrity Hard Stop` and `46 Dice Lane Validity Enforcement` completed on 2026-03-26, Phase `47 Selected Surface Consistency` completed on 2026-04-01, and Phase `48 Operator Packet Coherence` completed on 2026-04-02. Three new 250-customer reruns now show `0` selected invalid winners, `0` selected invalid `dice` winners, `0` selected decision-status mismatches, `0` approved packets with blockers, `0` approved packets with actions, `0` approved packets with upgrade conditions, `0` action-blocker mismatches, and `0` readiness-decision mismatches across `pilot_mixed`, `risk_band_balanced`, and `offer_needed_balanced`. The rerun cohorts again contained `0` `no_valid_winner` cases, so explicit empty-state packet behavior is proven by targeted automated tests rather than cohort evidence.
+**Delivered:** A trust-repair milestone that made winner selection fail closed, enforced DICE contender quality before planner contention, aligned selected consumer truth across raw and derived surfaces, and removed tracked operator packet contradictions without widening thresholds or reopening shipped decision semantics.
 
-**What's next:** `$gsd-audit-milestone`
+**Phases completed:** 45-48 (12 plans total)
+
+**Key accomplishments:**
+- Hard-stopped invalid selected winners with deterministic valid-only widening and explicit `no_valid_winner` behavior.
+- Converged DICE onto the shared typed-action contract and added lane-specific contender-quality gates with rerun-proven selected DICE cleanliness.
+- Aligned raw summary, flat metrics, operator packets, and explanation packs on one selected projection and explicit empty-state contract.
+- Made operator packets decision-aware and proved zero approved blocker/action contradictions and zero tracked packet-coherence mismatches on large-sample reruns.
+
+**Stats:**
+- 4 GSD phases completed with 12 executed plans and 66 planned tasks
+- Milestone audit passed with 11/11 requirements satisfied
+- Nyquist compliance: 4/4 phases compliant
+- 78 files changed in the shipped milestone range with 8,600 insertions and 502 deletions
+- Timeline: 2026-03-24 through 2026-04-02
+
+**Known gaps carried forward:**
+- Large-sample reruns still surfaced zero natural `no_valid_winner` cases, so empty-state selected-surface and packet behavior remain proven by automated tests rather than cohort evidence.
+- Collection reruns still emit pandas `FutureWarning` messages from empty/all-NA frame concatenation.
+- Local `gsd-tools.cjs` milestone-op helper still requires manual fallback.
+
+**What's next:** Define the next milestone with `$gsd-new-milestone`
 
 ## v1.0 Brownfield Baseline (Shipped: 2026-03-10)
 

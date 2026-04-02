@@ -8,7 +8,7 @@
 - ✅ **v1.3 Portfolio Intelligence & Productization** - Phases 17-25 (completed 2026-03-20)
 - ✅ **v2.0 Personalized Action & Decision Intelligence** - Phases 30-39 (completed 2026-03-22)
 - ✅ **v2.1 Decision Ownership & Pilot-Ready Trust** - Phases 40-44 (completed 2026-03-23)
-- 🟡 **v2.2 Winner Integrity & Consumer Consistency** - Phases 45-48 (all phases complete; ready for audit; started 2026-03-24)
+- ✅ **v2.2 Winner Integrity & Consumer Consistency** - Phases 45-48 (shipped 2026-04-02; archive: `.planning/milestones/v2.2-ROADMAP.md`)
 
 ## Inter-Milestone Carry-Forward
 
@@ -104,83 +104,17 @@ Historical archive: `.planning/milestones/v2.1-ROADMAP.md`
 
 </details>
 
-## Active Milestone: v2.2 Winner Integrity & Consumer Consistency
+<details>
+<summary>✅ v2.2 Winner Integrity & Consumer Consistency (Phases 45-48) - SHIPPED 2026-04-02</summary>
 
-**Problem statement**
+Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 
-Large-sample reruns and targeted failure analysis showed that selected invalid recommendation leakage is now the dominant trust gap:
-- invalid candidates are filtered in `choose_best_plan(...)`, but if the filtered preferred set becomes empty the planner falls back to the original invalid pool
-- all leaked selected invalid winners were `dice` winners
-- validity annotation itself appears correct
-- consumer surfaces remain inconsistent in several cases: invalid selected actions can still appear in operator short view, some external `CONDITIONAL` cases still point at selected `REJECTED` rows, and approved packets can still show fallback blockers
+- Phase 45: Winner Integrity Hard Stop
+- Phase 46: Dice Lane Validity Enforcement
+- Phase 47: Selected Surface Consistency
+- Phase 48: Operator Packet Coherence
 
-**North star**
-
-No invalid recommendation can ever become the selected winner or leak into selected consumer surfaces. `dice` and internal lanes must obey the same validity rules, and selected plan rows, decision summaries, operator packets, and explanation packs must tell one coherent story.
-
-**Main phases / workstreams**
-
-| Phase | Workstream | Goal | Requirements | Success Criteria |
-|-------|------------|------|--------------|------------------|
-| 45 | Winner Integrity Hard Stop | Remove the planner fallback path that revives invalid candidates and make selected validity truth explicit | WINT-01, WINT-02, WINT-03 | 3 |
-| 46 | Dice Lane Validity Enforcement | Enforce typed parity, lane-quality eligibility, and DICE-specific proof before planner selection | DICE-01, DICE-02 | 3 |
-| 47 | Selected Surface Consistency | Align selected plan rows, decision summaries, collection metrics, and explanation outputs around one selected winner | CONS-01, CONS-02, CONS-03 | 3 |
-| 48 | Operator Packet Coherence | Remove contradictory blockers and invalid short-view actions while preserving diagnostics | OPER-01, OPER-02, OPER-03 | 3 |
-
-### Phase Details
-
-**Phase 45: Winner Integrity Hard Stop**
-Goal: remove the planner fallback path that resurrects invalid candidates after validity filtering and make selected validity truth explicit in raw and flat artifacts.
-Requirements: `WINT-01`, `WINT-02`, `WINT-03`
-Success criteria:
-1. Validity filtering can collapse a preferred candidate subset without reviving the original invalid pool.
-2. Large-sample reruns show zero selected winners with `recommendation_validity_status = invalid`.
-3. Selected raw and flat artifacts carry winning-plan validity and provenance consistently.
-
-**Phase 46: Dice Lane Validity Enforcement**
-Goal: make `dice` candidates obey the same validity gates and fallback discipline as internal plans.
-Requirements: `DICE-01`, `DICE-02`
-Success criteria:
-1. `dice` candidates carry action-level and plan-level validity fields before ranking and winner selection.
-2. Invalid `dice` candidates remain visible in diagnostics but cannot be emitted as selected winners.
-3. Rerun diagnostics distinguish invalid `dice` leakage from valid-but-unselected `dice` alternatives cleanly.
-
-**Phase 47: Selected Surface Consistency**
-Goal: align selected plan rows, external decision summaries, collection metrics, and explanation surfaces around one selected winner.
-Requirements: `CONS-01`, `CONS-02`, `CONS-03`
-Success criteria:
-1. No external `CONDITIONAL` output points at a selected plan row whose plan status is `REJECTED`.
-2. `best_plan_id`, selected plan rows, and collection metrics agree for every sampled customer in rerun audits.
-3. Operator and explanation surfaces render recommendation text from the selected valid winner only.
-
-**Phase 48: Operator Packet Coherence**
-Goal: remove contradictory blockers and invalid short-view actions from operator packets without hiding legitimate warning diagnostics.
-Requirements: `OPER-01`, `OPER-02`, `OPER-03`
-Success criteria:
-1. Operator short view never renders invalid selected actions as recommended next actions.
-2. Approved packets with zero active drivers render no fallback blockers.
-3. Warning badges and appendix diagnostics stay available without contradicting short-view guidance.
-
-**Acceptance criteria**
-
-- `pilot_mixed`, `risk_band_balanced`, and `offer_needed_balanced` reruns show `0` selected winners with `recommendation_validity_status = invalid`.
-- All selected `dice` winners satisfy the same hard validity gate as internal winners.
-- `0` external `CONDITIONAL` outputs point at selected `REJECTED` plan rows.
-- `0` approved packets with zero active drivers show fallback blockers.
-- `0` operator short views render invalid selected actions as the chosen recommendation.
-
-**Out of scope**
-
-- threshold widening or approval-rate optimization
-- redesign of Phases `40`, `40.5`, `41`, `42`, `42.5`, or `43`
-- new borrower-facing channels, live institution integrations, or compliance automation
-
-**Recommended implementation order**
-
-1. Phase `45` — stop invalid winner leakage at the planner boundary
-2. Phase `46` — make the `dice` lane obey the same validity contract end-to-end
-3. Phase `47` — align selected-surface truth across raw, flat, and explanation outputs
-4. Phase `48` — clean up operator packet coherence once selected truth is stable
+</details>
 
 ## Progress
 

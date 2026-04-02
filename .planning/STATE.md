@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-24)
+See: .planning/PROJECT.md (updated 2026-04-02)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 48 complete; v2.2 ready for milestone audit
+**Current focus:** v2.2 archived; ready to define the next milestone
 
 ## Current Position
 
-Phase: 48 Operator Packet Coherence
-Plan: 3/3 plans complete
-Status: Complete; milestone ready for audit
-Last activity: 2026-04-02 - Completed Phase `48 Operator Packet Coherence`; status-aware packet rendering, collection-level coherence diagnostics, and three-cohort rerun proof now show zero approved blocker/action contradictions and zero tracked packet-coherence mismatches
+Phase: none
+Plan: n/a
+Status: Milestone archived; no active phase
+Last activity: 2026-04-02 - Archived milestone `v2.2 Winner Integrity & Consumer Consistency`, created milestone archives, and prepared the repo for a fresh next-milestone definition
 
-Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipment Phase `42.5` added canonical numeric recommendation validity, but `v2.2` now focuses on preventing invalid selected winners, enforcing `dice` lane validity, aligning selected surfaces, and removing operator packet contradictions without widening thresholds or reopening shipped decision semantics.
+Progress: `v2.2` is now the shipped and audited milestone baseline for winner integrity and consumer consistency. Post-shipment work should build on fail-closed winner selection, DICE contender enforcement, aligned selected surfaces, and coherent operator packets instead of reopening those trust repairs.
 
 ## Performance Metrics
 
@@ -34,7 +34,7 @@ Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipme
 | v2.0 completed milestone | 30 | phases 30-39 complete | n/a |
 | v2.1 completed milestone | 18 | phases 40, 40.5, 41, 43, 42, 44 complete | n/a |
 | post-v2.1 carry-forward hardening | 3 | phase 42.5 complete | n/a |
-| v2.2 active milestone | 12 | phases 45-48 complete; ready for audit | n/a |
+| v2.2 completed milestone | 12 | phases 45-48 complete; archived | n/a |
 
 **Recent Trend:**
 - Credit Coach now carries one continuous stack from semantic action planning to pilot-facing package delivery.
@@ -53,6 +53,7 @@ Progress: `v2.1` remains the shipped and audited milestone baseline. Post-shipme
 - Phase 46 now proves DICE lane cleanliness separately from general winner integrity, with explicit DICE eligibility, invalid, warning, fallback, and selected-cleanliness metrics in collection artifacts.
 - Phase 47 now aligns raw summaries, flat metrics, operator packets, and explanation packs on one selected-surface projection, with explicit `no_valid_winner` empty-state semantics and rerun-level drift proof across the three 250-customer cohorts.
 - Phase 48 now suppresses incoherent approved blockers/actions, prevents fake empty-state recommendations, exports first-class packet coherence diagnostics, and proves zero tracked packet contradictions across `pilot_mixed`, `risk_band_balanced`, and `offer_needed_balanced`.
+- Milestone `v2.2` is now archived as a shipped baseline and the repo is back to milestone-definition mode instead of phase-execution mode.
 
 ## Accumulated Context
 
@@ -84,11 +85,11 @@ None yet.
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
 - Some Phase 41-44 validation frontmatter still understates `wave_0_complete` despite shipped tests and successful audit coverage.
-- `v2.2` technical workstreams are complete; the next decision is milestone audit rather than more threshold or approval-rate work.
-- Large-sample reruns for Phase 48 produced zero `no_valid_winner` cases, so empty-state packet behavior remains proven by targeted automated tests rather than cohort evidence.
+- There is no active milestone yet; the next step is defining one rather than continuing phase execution.
+- Large-sample reruns for v2.2 still produced zero `no_valid_winner` cases, so empty-state packet behavior remains proven by targeted automated tests rather than cohort evidence.
 
 ## Session Continuity
 
 Last session: 2026-04-02
-Stopped at: Phase `48 Operator Packet Coherence` completed; next step is `$gsd-audit-milestone`
+Stopped at: Milestone `v2.2` archived; next step is `$gsd-new-milestone`
 Resume file: None
