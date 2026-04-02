@@ -1037,6 +1037,31 @@ class OperatorPacketTechnicalAppendix(BaseModel):
         ge=0,
         description="Selected-plan action count carried into the consumer-safe overlay",
     )
+    active_driver_count: int = Field(
+        default=0,
+        ge=0,
+        description="Rendered packet icin aktif structured driver sayisi",
+    )
+    blocker_render_source: str | None = Field(
+        default=None,
+        description="Blocker rendering source: driver | primary_reason | empty_state | suppressed",
+    )
+    action_render_source: str | None = Field(
+        default=None,
+        description="Action rendering source: selected_projection | empty_state | suppressed",
+    )
+    readiness_render_mode: str | None = Field(
+        default=None,
+        description="Readiness note rendering mode for packet coherence debugging",
+    )
+    fallback_blocker_suppressed: bool = Field(
+        default=False,
+        description="Whether a fallback blocker candidate was intentionally suppressed",
+    )
+    packet_coherence_codes: list[str] = Field(
+        default_factory=list,
+        description="Additive packet coherence diagnostics",
+    )
 
 
 class OperatorReviewPacket(BaseModel):

@@ -148,6 +148,10 @@ def test_build_operator_review_packet_keeps_owned_summary_and_action_traces() ->
     assert packet.technical_appendix.decision_status_internal == "NEEDS_REVIEW"
     assert packet.technical_appendix.selected_plan_status_internal == "REJECTED"
     assert packet.technical_appendix.selected_recommendation_source == "selected_plan"
+    assert packet.technical_appendix.blocker_render_source == "driver"
+    assert packet.technical_appendix.action_render_source == "selected_projection"
+    assert packet.technical_appendix.readiness_render_mode == "conditional_time_gate"
+    assert packet.technical_appendix.active_driver_count == 2
     assert len(packet.short_view.top_blockers) == 2
     assert len(packet.short_view.next_best_actions) == 2
     assert all(action.blocker_codes for action in packet.short_view.next_best_actions)
@@ -197,6 +201,8 @@ def test_build_operator_review_packet_renders_empty_state_for_no_valid_winner() 
             "decision_status": "REJECTED",
             "selected_decision_status": "REJECTED",
             "selected_plan_status_internal": None,
+            "decision_reason_primary": "",
+            "decision_reason_drivers": [],
             "selection_outcome": "no_valid_winner",
             "selection_stage": "no_valid_winner",
             "selected_recommendation_text": None,
@@ -213,6 +219,9 @@ def test_build_operator_review_packet_renders_empty_state_for_no_valid_winner() 
     assert packet.short_view.decision_status == "REJECTED"
     assert packet.short_view.next_best_actions == []
     assert packet.technical_appendix.selected_recommendation_source == "empty_state"
+    assert packet.technical_appendix.blocker_render_source == "empty_state"
+    assert packet.technical_appendix.action_render_source == "empty_state"
+    assert packet.technical_appendix.readiness_render_mode == "empty_state_context"
     markdown = render_operator_review_packet_markdown(packet)
     assert "No valid recommendation path is currently available." in markdown
 

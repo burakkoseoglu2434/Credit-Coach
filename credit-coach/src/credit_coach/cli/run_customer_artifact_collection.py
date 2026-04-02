@@ -114,6 +114,30 @@ def _json_dumps_compact(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+def _json_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item)]
+    try:
+        parsed = json.loads(str(value or "[]"))
+    except Exception:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(item) for item in parsed if str(item)]
+
+
+def _aligned_series(
+    frame: pd.DataFrame,
+    column: str,
+    *,
+    fill_value: Any,
+    dtype: str | type | None = None,
+) -> pd.Series:
+    if column in frame.columns:
+        return frame[column].reindex(frame.index)
+    return pd.Series([fill_value] * len(frame), index=frame.index, dtype=dtype)
+
+
 def _normalized_roadmap_summary(bundle: CustomerArtifactBundle) -> dict[str, Any]:
     bundle.roadmap = _normalize_customer_roadmap_contract(bundle.roadmap)
     bundle.roadmap = _apply_decision_ownership_to_roadmap(bundle.roadmap)
@@ -792,16 +816,14 @@ def _collection_summary_markdown(
         pd.to_numeric(metrics_df.get("selected_invalid_winner_flag", pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean(),
         0.0,
     )
-    no_valid_winner_count = int(
-        (metrics_df.get("selection_outcome", pd.Series(dtype=object)).astype(str) == "no_valid_winner").sum()
-    )
+    no_valid_winner_count = int((_aligned_series(metrics_df, "selection_outcome", fill_value="", dtype=object).astype(str) == "no_valid_winner").sum())
     selected_empty_state_count = int(
-        (metrics_df.get("selected_recommendation_source", pd.Series(dtype=object)).astype(str) == "empty_state").sum()
+        (_aligned_series(metrics_df, "selected_recommendation_source", fill_value="", dtype=object).astype(str) == "empty_state").sum()
     )
     selected_decision_status_mismatch_count = int(
         (
-            metrics_df.get("decision_status", pd.Series(dtype=object)).astype(str)
-            != metrics_df.get("selected_decision_status", pd.Series(dtype=object)).astype(str)
+            _aligned_series(metrics_df, "decision_status", fill_value="", dtype=object).astype(str)
+            != _aligned_series(metrics_df, "selected_decision_status", fill_value="", dtype=object).astype(str)
         ).sum()
     )
     mean_selected_action_count = _safe_float(
@@ -851,6 +873,60 @@ def _collection_summary_markdown(
         family_counts = steps_df["action_key"].astype(str).value_counts()
         if not family_counts.empty:
             best_action_family_dominance = float(family_counts.iloc[0] / max(1, int(family_counts.sum())))
+    operator_decision_status = _aligned_series(metrics_df, "operator_selected_decision_status", fill_value="", dtype=object).astype(str)
+    operator_rendered_blocker_count = pd.to_numeric(
+        _aligned_series(metrics_df, "operator_rendered_blocker_count", fill_value=0.0, dtype=float),
+        errors="coerce",
+    ).fillna(0.0)
+    operator_rendered_action_count = pd.to_numeric(
+        _aligned_series(metrics_df, "operator_rendered_action_count", fill_value=0.0, dtype=float),
+        errors="coerce",
+    ).fillna(0.0)
+    operator_upgrade_condition_text = _aligned_series(metrics_df, "operator_upgrade_condition_text", fill_value="", dtype=object).fillna("").astype(str)
+    operator_readiness_render_mode = _aligned_series(metrics_df, "operator_readiness_render_mode", fill_value="", dtype=object).fillna("").astype(str)
+    selected_recommendation_source = _aligned_series(metrics_df, "selected_recommendation_source", fill_value="", dtype=object).fillna("").astype(str)
+    selection_outcome_series = _aligned_series(metrics_df, "selection_outcome", fill_value="", dtype=object).fillna("").astype(str)
+    approved_with_blocker_count = int(((operator_decision_status == "APPROVED") & (operator_rendered_blocker_count > 0)).sum())
+    approved_with_action_count = int(((operator_decision_status == "APPROVED") & (operator_rendered_action_count > 0)).sum())
+    approved_with_upgrade_condition_count = int(
+        ((operator_decision_status == "APPROVED") & (operator_upgrade_condition_text.str.strip() != "")).sum()
+    )
+    empty_state_with_action_count = int(
+        (((selection_outcome_series == "no_valid_winner") | (selected_recommendation_source == "empty_state")) & (operator_rendered_action_count > 0)).sum()
+    )
+    action_blocker_mismatch_count = 0
+    for _, row in metrics_df.iterrows():
+        rendered_actions = _safe_int(row.get("operator_rendered_action_count", 0), 0)
+        rendered_blockers = _safe_int(row.get("operator_rendered_blocker_count", 0), 0)
+        if rendered_actions <= 0 or rendered_blockers <= 0:
+            continue
+        blocker_codes = set(_json_list(row.get("operator_top_blocker_codes_json", "[]")))
+        first_action_codes = set(_json_list(row.get("operator_first_action_blocker_codes_json", "[]")))
+        if blocker_codes and not blocker_codes.intersection(first_action_codes):
+            action_blocker_mismatch_count += 1
+    readiness_decision_mismatch_count = int(
+        (
+            ((selection_outcome_series == "no_valid_winner") & (operator_readiness_render_mode != "empty_state_context"))
+            | (
+                (selection_outcome_series != "no_valid_winner")
+                & (operator_decision_status == "APPROVED")
+                & (operator_readiness_render_mode != "approved_info")
+            )
+            | (
+                (selection_outcome_series != "no_valid_winner")
+                & (operator_decision_status == "CONDITIONAL")
+                & (~operator_readiness_render_mode.isin(["conditional_time_gate", "conditional_manual_review"]))
+            )
+            | (
+                (selection_outcome_series != "no_valid_winner")
+                & (operator_decision_status == "REJECTED")
+                & (~operator_readiness_render_mode.isin(["rejected_not_ready", "rejected_manual_review"]))
+            )
+        ).sum()
+    )
+    fallback_blocker_suppressed_count = int(
+        pd.to_numeric(metrics_df.get("operator_fallback_blocker_suppressed", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+    )
     return "\n".join(
         [
             "# Customer Artifact Collection",
@@ -938,6 +1014,15 @@ def _collection_summary_markdown(
             f"- Selected empty-state count: {selected_empty_state_count}",
             f"- Mean selected action count: {mean_selected_action_count:.2f}",
             f"- Selected recommendation projection versions: {selected_projection_versions or '{}'}",
+            "",
+            "## Operator Packet Coherence",
+            f"- Approved with blocker count: {approved_with_blocker_count}",
+            f"- Approved with action count: {approved_with_action_count}",
+            f"- Approved with upgrade condition count: {approved_with_upgrade_condition_count}",
+            f"- Empty-state with action count: {empty_state_with_action_count}",
+            f"- Action-blocker mismatch count: {action_blocker_mismatch_count}",
+            f"- Readiness-decision mismatch count: {readiness_decision_mismatch_count}",
+            f"- Fallback blocker suppressed count: {fallback_blocker_suppressed_count}",
             "",
             "## Operator Review",
             f"- Likely-to-upgrade-soon queue: {int(next((queue.get('count', 0) for queue in priority_queues if str(queue.get('queue_key')) == 'likely_to_upgrade_soon'), 0))}",
@@ -1408,6 +1493,101 @@ def main(argv: Sequence[str] | None = None):
                 .value_counts()
                 .sort_index()
                 .to_dict()
+            ),
+        },
+        "operator_packet_coherence_summary": {
+            "approved_with_blocker_count": int(
+                (
+                    (metrics_df.get("operator_selected_decision_status", pd.Series(dtype=object)).astype(str) == "APPROVED")
+                    & (
+                        pd.to_numeric(
+                            metrics_df.get("operator_rendered_blocker_count", pd.Series(dtype=float)),
+                            errors="coerce",
+                        ).fillna(0.0)
+                        > 0
+                    )
+                ).sum()
+            ),
+            "approved_with_action_count": int(
+                (
+                    (metrics_df.get("operator_selected_decision_status", pd.Series(dtype=object)).astype(str) == "APPROVED")
+                    & (
+                        pd.to_numeric(
+                            metrics_df.get("operator_rendered_action_count", pd.Series(dtype=float)),
+                            errors="coerce",
+                        ).fillna(0.0)
+                        > 0
+                    )
+                ).sum()
+            ),
+            "approved_with_upgrade_condition_count": int(
+                (
+                    (metrics_df.get("operator_selected_decision_status", pd.Series(dtype=object)).astype(str) == "APPROVED")
+                    & (metrics_df.get("operator_upgrade_condition_text", pd.Series(dtype=object)).fillna("").astype(str).str.strip() != "")
+                ).sum()
+            ),
+            "empty_state_with_action_count": int(
+                (
+                    (
+                        (metrics_df.get("selection_outcome", pd.Series(dtype=object)).fillna("").astype(str) == "no_valid_winner")
+                        | (metrics_df.get("selected_recommendation_source", pd.Series(dtype=object)).fillna("").astype(str) == "empty_state")
+                    )
+                    & (
+                        pd.to_numeric(
+                            metrics_df.get("operator_rendered_action_count", pd.Series(dtype=float)),
+                            errors="coerce",
+                        ).fillna(0.0)
+                        > 0
+                    )
+                ).sum()
+            ),
+            "action_blocker_mismatch_count": int(
+                sum(
+                    1
+                    for _, row in metrics_df.iterrows()
+                    if _safe_int(row.get("operator_rendered_action_count", 0), 0) > 0
+                    and _safe_int(row.get("operator_rendered_blocker_count", 0), 0) > 0
+                    and set(_json_list(row.get("operator_top_blocker_codes_json", "[]")))
+                    and not set(_json_list(row.get("operator_top_blocker_codes_json", "[]"))).intersection(
+                        set(_json_list(row.get("operator_first_action_blocker_codes_json", "[]")))
+                    )
+                )
+            ),
+            "readiness_decision_mismatch_count": int(
+                (
+                    (
+                        (metrics_df.get("selection_outcome", pd.Series(dtype=object)).fillna("").astype(str) == "no_valid_winner")
+                        & (metrics_df.get("operator_readiness_render_mode", pd.Series(dtype=object)).fillna("").astype(str) != "empty_state_context")
+                    )
+                    | (
+                        (metrics_df.get("selection_outcome", pd.Series(dtype=object)).fillna("").astype(str) != "no_valid_winner")
+                        & (metrics_df.get("operator_selected_decision_status", pd.Series(dtype=object)).fillna("").astype(str) == "APPROVED")
+                        & (metrics_df.get("operator_readiness_render_mode", pd.Series(dtype=object)).fillna("").astype(str) != "approved_info")
+                    )
+                    | (
+                        (metrics_df.get("selection_outcome", pd.Series(dtype=object)).fillna("").astype(str) != "no_valid_winner")
+                        & (metrics_df.get("operator_selected_decision_status", pd.Series(dtype=object)).fillna("").astype(str) == "CONDITIONAL")
+                        & (
+                            ~metrics_df.get("operator_readiness_render_mode", pd.Series(dtype=object))
+                            .fillna("")
+                            .astype(str)
+                            .isin(["conditional_time_gate", "conditional_manual_review"])
+                        )
+                    )
+                    | (
+                        (metrics_df.get("selection_outcome", pd.Series(dtype=object)).fillna("").astype(str) != "no_valid_winner")
+                        & (metrics_df.get("operator_selected_decision_status", pd.Series(dtype=object)).fillna("").astype(str) == "REJECTED")
+                        & (
+                            ~metrics_df.get("operator_readiness_render_mode", pd.Series(dtype=object))
+                            .fillna("")
+                            .astype(str)
+                            .isin(["rejected_not_ready", "rejected_manual_review"])
+                        )
+                    )
+                ).sum()
+            ),
+            "fallback_blocker_suppressed_count": int(
+                pd.to_numeric(metrics_df.get("operator_fallback_blocker_suppressed", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
             ),
         },
         "dice_lane_summary": {

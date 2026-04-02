@@ -83,6 +83,9 @@ _PRIMARY_REASON_TITLE_MAP: dict[str, tuple[str, str]] = {
     "DATA_ISSUE": ("Karar verisi tamam degil", "Decision data is not complete yet"),
 }
 
+_CONDITIONAL_FALLBACK_PRIMARY_REASONS = {"LOW_EXECUTION", "OFFER_BLOCK", "TIME_BLOCK", "DATA_ISSUE"}
+_REJECTED_FALLBACK_PRIMARY_REASONS = {"NO_PATH", "LOW_IMPACT", "LOW_EXECUTION"}
+
 
 def _localized_text_from_payload(payload: Any, *, fallback_en: str = "", fallback_tr: str = "") -> LocalizedText | None:
     if isinstance(payload, Mapping):
@@ -104,6 +107,19 @@ def _selected_surface_empty_state() -> LocalizedText:
     )
 
 
+def _empty_state_blocker(summary: Mapping[str, Any]) -> OperatorPacketBlocker:
+    detail = build_operator_summary_line(summary.get("decision_reason_summary")) or _selected_surface_empty_state().en
+    return OperatorPacketBlocker(
+        blocker_code="reason:NO_VALID_WINNER",
+        blocker_title=_lt(
+            "Gecerli bir yol henuz yok",
+            "No valid recommendation path is available",
+        ),
+        blocker_detail=_lt(detail, detail),
+        driver_key=None,
+    )
+
+
 def _narrative_steps(roadmap: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     narrative = roadmap.get("narrative", {})
     if isinstance(narrative, Mapping):
@@ -116,6 +132,22 @@ def _narrative_steps(roadmap: Mapping[str, Any]) -> list[Mapping[str, Any]]:
 def _roadmap_summary(roadmap: Mapping[str, Any]) -> dict[str, Any]:
     summary = roadmap.get("summary", {})
     return dict(summary) if isinstance(summary, Mapping) else {}
+
+
+def _packet_decision_status(summary: Mapping[str, Any]) -> str:
+    return _safe_text(summary.get("selected_decision_status"), _safe_text(summary.get("decision_status"), "CONDITIONAL"))
+
+
+def _selection_outcome(summary: Mapping[str, Any]) -> str:
+    return _safe_text(summary.get("selection_outcome"))
+
+
+def _selected_recommendation_source(summary: Mapping[str, Any]) -> str:
+    return _safe_text(summary.get("selected_recommendation_source"))
+
+
+def _is_empty_state_packet(summary: Mapping[str, Any]) -> bool:
+    return _selection_outcome(summary) == "no_valid_winner" or _selected_recommendation_source(summary) == "empty_state"
 
 
 def _driver_blocker(driver: Mapping[str, Any], *, fallback_primary: str | None = None) -> OperatorPacketBlocker:
@@ -145,15 +177,40 @@ def _fallback_blocker(summary: Mapping[str, Any]) -> OperatorPacketBlocker:
     )
 
 
-def _blockers_from_summary(summary: Mapping[str, Any]) -> list[OperatorPacketBlocker]:
+def _blockers_from_summary(
+    summary: Mapping[str, Any],
+    *,
+    decision_status: str,
+    empty_state_packet: bool,
+) -> tuple[list[OperatorPacketBlocker], str, int, bool, list[str]]:
     raw_drivers = summary.get("decision_reason_drivers", [])
     drivers = [driver for driver in raw_drivers if isinstance(driver, Mapping)]
-    if not drivers:
-        return [_fallback_blocker(summary)]
-    blockers = [_driver_blocker(driver, fallback_primary=_safe_text(summary.get("decision_reason_primary"))) for driver in drivers[:3]]
-    if not blockers:
-        return [_fallback_blocker(summary)]
-    return blockers
+    active_driver_count = len(drivers)
+    primary_reason = _safe_text(summary.get("decision_reason_primary")).upper()
+    coherence_codes: list[str] = []
+    if decision_status == "APPROVED":
+        if active_driver_count > 0:
+            coherence_codes.append("approved_blockers_suppressed")
+        if primary_reason:
+            coherence_codes.append("approved_fallback_blocker_suppressed")
+        return [], "suppressed", active_driver_count, bool(primary_reason), coherence_codes
+    if drivers:
+        blockers = [_driver_blocker(driver, fallback_primary=primary_reason) for driver in drivers[:3]]
+        if blockers:
+            return blockers, "driver", active_driver_count, False, coherence_codes
+    if empty_state_packet:
+        coherence_codes.append("empty_state_blocker_rendered")
+        return [_empty_state_blocker(summary)], "empty_state", active_driver_count, False, coherence_codes
+    allowed_primary_reasons = (
+        _CONDITIONAL_FALLBACK_PRIMARY_REASONS
+        if decision_status == "CONDITIONAL"
+        else _REJECTED_FALLBACK_PRIMARY_REASONS
+    )
+    if primary_reason in allowed_primary_reasons:
+        return [_fallback_blocker(summary)], "primary_reason", active_driver_count, False, coherence_codes
+    if primary_reason:
+        coherence_codes.append("fallback_blocker_suppressed")
+    return [], "suppressed", active_driver_count, bool(primary_reason), coherence_codes
 
 
 def _step_related_to_blocker(step: Mapping[str, Any], blocker: OperatorPacketBlocker) -> bool:
@@ -190,11 +247,19 @@ def _actions_from_narrative(
     summary: Mapping[str, Any],
     steps: Sequence[Mapping[str, Any]],
     blockers: Sequence[OperatorPacketBlocker],
-) -> list[OperatorPacketAction]:
+) -> tuple[list[OperatorPacketAction], str, list[str]]:
     selected: list[OperatorPacketAction] = []
-    selected_projection_source = _safe_text(summary.get("selected_recommendation_source"))
-    if selected_projection_source == "empty_state":
-        return []
+    coherence_codes: list[str] = []
+    decision_status = _packet_decision_status(summary)
+    empty_state_packet = _is_empty_state_packet(summary)
+    selected_projection_source = _selected_recommendation_source(summary)
+    if decision_status == "APPROVED":
+        if selected_projection_source == "selected_plan":
+            coherence_codes.append("approved_actions_suppressed")
+        return [], "suppressed", coherence_codes
+    if empty_state_packet or selected_projection_source == "empty_state":
+        coherence_codes.append("empty_state_actions_suppressed")
+        return [], "empty_state", coherence_codes
     selected_projection_text = _localized_text_from_payload(
         summary.get("selected_recommendation_text_localized"),
         fallback_en=_safe_text(summary.get("selected_recommendation_text")),
@@ -205,6 +270,11 @@ def _actions_from_narrative(
         fallback_en=_safe_text(summary.get("selected_institution_condition")),
         fallback_tr=_safe_text(summary.get("selected_institution_condition")),
     )
+    if decision_status == "REJECTED" and not (
+        selected_projection_source == "selected_plan" and selected_projection_text is not None
+    ):
+        coherence_codes.append("rejected_actions_suppressed")
+        return [], "suppressed", coherence_codes
     if selected_projection_source == "selected_plan" and selected_projection_text is not None:
         first_step = steps[0] if steps else {}
         timing_hint = _localized_text_from_payload(first_step.get("action_timing_hint")) if isinstance(first_step, Mapping) else None
@@ -219,14 +289,18 @@ def _actions_from_narrative(
                 blocker_codes=blocker_codes,
             )
         )
+    if not selected:
+        return [], "suppressed", coherence_codes
+    if decision_status != "CONDITIONAL":
+        return selected, "selected_projection", coherence_codes
     for raw_step in steps:
         blocker_codes = [
             blocker.blocker_code
             for blocker in blockers
             if _step_related_to_blocker(raw_step, blocker)
         ]
-        if not blocker_codes and blockers:
-            blocker_codes = [blockers[0].blocker_code]
+        if blockers and not blocker_codes:
+            continue
         action_summary = _localized_text_from_payload(raw_step.get("primary_recommendation"))
         if action_summary is None:
             action_summary = _localized_text_from_payload(raw_step.get("action_summary"))
@@ -252,14 +326,45 @@ def _actions_from_narrative(
         )
         if len(selected) >= 3:
             break
-    return selected
+    return selected, "selected_projection", coherence_codes
+
+
+def _readiness_payload(summary: Mapping[str, Any]) -> tuple[str, LocalizedText | None, str]:
+    decision_status = _packet_decision_status(summary)
+    expected_readiness = _safe_text(summary.get("expected_readiness"), "unknown_review")
+    if _is_empty_state_packet(summary):
+        return expected_readiness, build_operator_readiness_note(expected_readiness), "empty_state_context"
+    if decision_status == "APPROVED":
+        return expected_readiness, build_operator_readiness_note(expected_readiness), "approved_info"
+    if decision_status == "CONDITIONAL":
+        mode = "conditional_manual_review" if expected_readiness == "unknown_review" else "conditional_time_gate"
+        return expected_readiness, build_operator_readiness_note(expected_readiness), mode
+    if decision_status == "REJECTED":
+        mode = "rejected_manual_review" if expected_readiness == "unknown_review" else "rejected_not_ready"
+        return expected_readiness, build_operator_readiness_note(expected_readiness), mode
+    return expected_readiness, None, "suppressed"
+
+
+def _upgrade_condition_payload(summary: Mapping[str, Any]) -> tuple[str | None, list[str]]:
+    decision_status = _packet_decision_status(summary)
+    upgrade_condition = _safe_text(summary.get("upgrade_condition")) or None
+    if decision_status == "APPROVED":
+        return None, (["approved_upgrade_condition_suppressed"] if upgrade_condition else [])
+    return upgrade_condition, []
 
 
 def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPacket:
     summary = _roadmap_summary(roadmap)
     steps = _narrative_steps(roadmap)
-    blockers = _blockers_from_summary(summary)
-    actions = _actions_from_narrative(summary, steps, blockers)
+    decision_status = _packet_decision_status(summary)
+    blockers, blocker_render_source, active_driver_count, fallback_blocker_suppressed, blocker_codes = _blockers_from_summary(
+        summary,
+        decision_status=decision_status,
+        empty_state_packet=_is_empty_state_packet(summary),
+    )
+    actions, action_render_source, action_codes = _actions_from_narrative(summary, steps, blockers)
+    expected_readiness, expected_readiness_note, readiness_render_mode = _readiness_payload(summary)
+    upgrade_condition, upgrade_codes = _upgrade_condition_payload(summary)
     narrative = roadmap.get("narrative", {}) if isinstance(roadmap.get("narrative", {}), Mapping) else {}
     executive_summary = narrative.get("executive_summary", {}) if isinstance(narrative, Mapping) else {}
     offer_state = None
@@ -283,15 +388,21 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
             conditional_type=summary.get("conditional_type"),
             rejection_type=summary.get("rejection_type"),
         )
+    packet_coherence_codes = list(dict.fromkeys(blocker_codes + action_codes + upgrade_codes))
+    if actions and blockers:
+        first_action_codes = set(actions[0].blocker_codes)
+        blocker_code_set = {blocker.blocker_code for blocker in blockers}
+        if blocker_code_set and not first_action_codes.intersection(blocker_code_set):
+            packet_coherence_codes.append("action_blocker_mismatch")
 
     short_view = OperatorPacketShortView(
-        decision_status=_safe_text(summary.get("selected_decision_status"), _safe_text(summary.get("decision_status"), "CONDITIONAL")),
+        decision_status=decision_status,
         decision_reason_summary=build_operator_summary_line(summary.get("decision_reason_summary")),
         decision_confidence=_safe_float(summary.get("decision_confidence"), 0.0),
         top_blockers=blockers[:3],
         next_best_actions=actions[:3],
-        expected_readiness=_safe_text(summary.get("expected_readiness"), "unknown_review"),
-        expected_readiness_note=build_operator_readiness_note(summary.get("expected_readiness")),
+        expected_readiness=expected_readiness,
+        expected_readiness_note=expected_readiness_note,
         recommendation_sanity_flag=bool(_safe_int(summary.get("recommendation_sanity_flag", 0), 0)),
         recommendation_sanity_note=(
             _lt(
@@ -301,7 +412,7 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
             if bool(_safe_int(summary.get("recommendation_sanity_flag", 0), 0))
             else None
         ),
-        upgrade_condition=_safe_text(summary.get("upgrade_condition")) or None,
+        upgrade_condition=upgrade_condition,
         offer_state=offer_state,
         downside_risk=downside,
         technical_detail_available=True,
@@ -324,6 +435,12 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
             _safe_text(summary.get("selected_recommendation_projection_version")) or None
         ),
         selected_action_count=_safe_int(summary.get("selected_action_count", 0), 0),
+        active_driver_count=active_driver_count,
+        blocker_render_source=blocker_render_source or None,
+        action_render_source=action_render_source or None,
+        readiness_render_mode=readiness_render_mode or None,
+        fallback_blocker_suppressed=bool(fallback_blocker_suppressed),
+        packet_coherence_codes=packet_coherence_codes,
     )
     return OperatorReviewPacket(
         decision_id=_safe_text(summary.get("decision_id"), f"{_safe_text(roadmap.get('customer_id'), _safe_text(summary.get('customer_id'), 'customer'))}_decision"),
@@ -406,6 +523,12 @@ def render_operator_review_packet_markdown(packet: OperatorReviewPacket) -> str:
     lines.append(f"- Selected recommendation source: {appendix.selected_recommendation_source or 'n/a'}")
     lines.append(f"- Selected recommendation projection version: {appendix.selected_recommendation_projection_version or 'n/a'}")
     lines.append(f"- Selected action count: {appendix.selected_action_count}")
+    lines.append(f"- Active driver count: {appendix.active_driver_count}")
+    lines.append(f"- Blocker render source: {appendix.blocker_render_source or 'n/a'}")
+    lines.append(f"- Action render source: {appendix.action_render_source or 'n/a'}")
+    lines.append(f"- Readiness render mode: {appendix.readiness_render_mode or 'n/a'}")
+    lines.append(f"- Fallback blocker suppressed: {int(bool(appendix.fallback_blocker_suppressed))}")
+    lines.append(f"- Packet coherence codes: {json.dumps(appendix.packet_coherence_codes, ensure_ascii=False)}")
     lines.append(f"- Contract health: {json.dumps(appendix.contract_health, ensure_ascii=False)}")
     return "\n".join(lines) + "\n"
 
@@ -446,6 +569,22 @@ def operator_packet_metrics_fields(
             else ""
         ),
         "operator_selected_action_count": int(packet.technical_appendix.selected_action_count),
+        "operator_rendered_action_count": int(len(packet.short_view.next_best_actions)),
+        "operator_rendered_blocker_count": int(len(packet.short_view.top_blockers)),
+        "operator_first_action_blocker_codes_json": json.dumps(
+            packet.short_view.next_best_actions[0].blocker_codes if packet.short_view.next_best_actions else [],
+            ensure_ascii=False,
+        ),
+        "operator_upgrade_condition_text": str(packet.short_view.upgrade_condition or ""),
+        "operator_blocker_render_source": str(packet.technical_appendix.blocker_render_source or ""),
+        "operator_action_render_source": str(packet.technical_appendix.action_render_source or ""),
+        "operator_readiness_render_mode": str(packet.technical_appendix.readiness_render_mode or ""),
+        "operator_packet_coherence_codes_json": json.dumps(
+            packet.technical_appendix.packet_coherence_codes,
+            ensure_ascii=False,
+        ),
+        "operator_fallback_blocker_suppressed": int(bool(packet.technical_appendix.fallback_blocker_suppressed)),
+        "operator_active_driver_count": int(packet.technical_appendix.active_driver_count),
         "operator_offer_state_en": packet.short_view.offer_state.en if packet.short_view.offer_state is not None else "",
         "operator_downside_risk_en": packet.short_view.downside_risk.en if packet.short_view.downside_risk is not None else "",
         "operator_technical_detail_available": int(bool(packet.short_view.technical_detail_available)),

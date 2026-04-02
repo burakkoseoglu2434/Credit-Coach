@@ -467,6 +467,15 @@ def test_collection_summary_markdown_reports_dice_lane_rates() -> None:
                 "dice_fallback_flag": 1,
                 "selected_dice_flag": 1,
                 "selected_dice_valid_flag": 1,
+                "operator_selected_decision_status": "CONDITIONAL",
+                "operator_rendered_blocker_count": 1,
+                "operator_rendered_action_count": 1,
+                "operator_top_blocker_codes_json": json.dumps(["driver:realization_anchor"]),
+                "operator_first_action_blocker_codes_json": json.dumps(["driver:realization_anchor"]),
+                "operator_upgrade_condition_text": "realization_anchor 0.40 -> 0.50",
+                "operator_readiness_render_mode": "conditional_time_gate",
+                "operator_fallback_blocker_suppressed": 0,
+                "selected_recommendation_source": "selected_plan",
             }
         ]
     )
@@ -498,6 +507,8 @@ def test_collection_summary_markdown_reports_dice_lane_rates() -> None:
     assert "## DICE Lane" in markdown
     assert "DICE candidate count: 2" in markdown
     assert "Selected DICE valid rate: 1.0000" in markdown
+    assert "## Operator Packet Coherence" in markdown
+    assert "Approved with blocker count: 0" in markdown
 
 
 def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Path) -> None:
@@ -977,6 +988,15 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "operator_packet_relpath" in metrics_df.columns
     assert "operator_top_blocker_codes_json" in metrics_df.columns
     assert "operator_next_best_action_keys_json" in metrics_df.columns
+    assert "operator_rendered_action_count" in metrics_df.columns
+    assert "operator_rendered_blocker_count" in metrics_df.columns
+    assert "operator_first_action_blocker_codes_json" in metrics_df.columns
+    assert "operator_upgrade_condition_text" in metrics_df.columns
+    assert "operator_blocker_render_source" in metrics_df.columns
+    assert "operator_action_render_source" in metrics_df.columns
+    assert "operator_readiness_render_mode" in metrics_df.columns
+    assert "operator_packet_coherence_codes_json" in metrics_df.columns
+    assert "operator_fallback_blocker_suppressed" in metrics_df.columns
     assert "operator_offer_state_en" in metrics_df.columns
     assert "operator_downside_risk_en" in metrics_df.columns
     assert "selected_best_flag" in plans_df.columns
@@ -1004,6 +1024,7 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "calibration_summary" in manifest
     assert "calibration_files" in manifest
     assert "operator_files" in manifest
+    assert "operator_packet_coherence_summary" in manifest
     assert "operator_briefing_summary" in manifest
     assert "candidate_policy_versions_compared" in manifest
     assert set(manifest["funnel_summary"]).issuperset(
@@ -1011,6 +1032,17 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     )
     assert set(manifest["plan_quality_summary"]).issuperset(
         {"hard_invalid_plan_rate", "numeric_warning_rate", "best_plan_warning_rate"}
+    )
+    assert set(manifest["operator_packet_coherence_summary"]).issuperset(
+        {
+            "approved_with_blocker_count",
+            "approved_with_action_count",
+            "approved_with_upgrade_condition_count",
+            "empty_state_with_action_count",
+            "action_blocker_mismatch_count",
+            "readiness_decision_mismatch_count",
+            "fallback_blocker_suppressed_count",
+        }
     )
 
     summary_md = (collection_root / "collection_summary.md").read_text(encoding="utf-8")
@@ -1024,6 +1056,7 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "## Planner Quality" in summary_md
     assert "Hard-invalid plan rate" in summary_md
     assert "Numeric warning rate" in summary_md
+    assert "## Operator Packet Coherence" in summary_md
     assert "## Operator Review" in summary_md
     assert "Likely-to-upgrade-soon queue" in summary_md
     assert "analysis-only" in review_md
