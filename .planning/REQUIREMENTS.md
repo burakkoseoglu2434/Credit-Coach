@@ -26,9 +26,9 @@ Requirements for `v2.2 Winner Integrity & Consumer Consistency`. Each maps to ex
 
 ### Operator Packet Coherence
 
-- [ ] **OPER-01**: Operator short view never renders an invalid selected recommendation as a recommended next action
-- [ ] **OPER-02**: Approved packets with no active drivers render no fallback blockers
-- [ ] **OPER-03**: Warning badges and appendix diagnostics remain available without creating contradictory short-view guidance
+- [x] **OPER-01**: Operator short view never renders an invalid selected recommendation as a recommended next action
+- [x] **OPER-02**: Approved packets with no active drivers render no fallback blockers
+- [x] **OPER-03**: Warning badges and appendix diagnostics remain available without creating contradictory short-view guidance
 
 ## v2 Requirements
 
@@ -70,9 +70,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CONS-01 | Phase 47 | Complete |
 | CONS-02 | Phase 47 | Complete |
 | CONS-03 | Phase 47 | Complete |
-| OPER-01 | Phase 48 | Pending |
-| OPER-02 | Phase 48 | Pending |
-| OPER-03 | Phase 48 | Pending |
+| OPER-01 | Phase 48 | Complete |
+| OPER-02 | Phase 48 | Complete |
+| OPER-03 | Phase 48 | Complete |
 
 **Coverage:**
 - v2.2 requirements: 11 total
@@ -92,7 +92,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 - ✓ Post-v2.1 Phase `42.5 Recommendation Validity Layer` now hardens numeric recommendations with canonical validity evaluation, hard-invalid contender filtering, warning penalties, operator sanity badges, explanation-pack human-review propagation, and additive collection metrics
 - ✓ Phase `46 Dice Lane Validity Enforcement` now converges DICE onto the shared typed-action contract, adds lane-specific completeness and semantic-quality truth, keeps diagnostics visible while gating planner contention on DICE eligibility, and proves selected DICE cleanliness with `selected_dice_valid_rate = 1.0` across three 250-customer reruns
 - ✓ Phase `47 Selected Surface Consistency` now aligns selected overlays, `best_plan_id` and selected-row integrity, operator and explanation recommendation projection, and explicit `no_valid_winner` empty-state semantics; three 250-customer reruns show zero tracked selected-surface drift, while empty-state rendering is proven by targeted automated tests because those cohorts contained zero `no_valid_winner` cases
+- ✓ Phase `48 Operator Packet Coherence` now makes operator packet rendering decision-aware, suppresses approved blocker/action/upgrade contradictions, exports packet coherence diagnostics into flat and collection artifacts, and proves zero tracked packet-coherence mismatches across the three 250-customer rerun cohorts; `no_valid_winner` packet behavior remains test-proven because those cohorts contained zero empty-state cases
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-04-01 after completing Phase 47*
+*Last updated: 2026-04-02 after completing Phase 48*

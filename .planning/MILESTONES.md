@@ -32,9 +32,9 @@
 - redesign of Phases `40`, `40.5`, `41`, `42`, `42.5`, or `43`
 - new borrower-facing channels, live institution integrations, or compliance automation
 
-**Current progress:** Phases `45 Winner Integrity Hard Stop` and `46 Dice Lane Validity Enforcement` completed on 2026-03-26, and Phase `47 Selected Surface Consistency` completed on 2026-04-01. Three new 250-customer reruns now show `0` selected invalid winners, `0` selected invalid `dice` winners, `0` selected decision-status mismatches, `0` fake empty-state recommendations, and `selected_dice_valid_rate = 1.0` across `pilot_mixed`, `risk_band_balanced`, and `offer_needed_balanced`. The rerun cohorts happened to contain `0` `no_valid_winner` cases, so explicit empty-state behavior is proven by targeted automated tests rather than cohort evidence.
+**Current progress:** Phases `45 Winner Integrity Hard Stop` and `46 Dice Lane Validity Enforcement` completed on 2026-03-26, Phase `47 Selected Surface Consistency` completed on 2026-04-01, and Phase `48 Operator Packet Coherence` completed on 2026-04-02. Three new 250-customer reruns now show `0` selected invalid winners, `0` selected invalid `dice` winners, `0` selected decision-status mismatches, `0` approved packets with blockers, `0` approved packets with actions, `0` approved packets with upgrade conditions, `0` action-blocker mismatches, and `0` readiness-decision mismatches across `pilot_mixed`, `risk_band_balanced`, and `offer_needed_balanced`. The rerun cohorts again contained `0` `no_valid_winner` cases, so explicit empty-state packet behavior is proven by targeted automated tests rather than cohort evidence.
 
-**What's next:** `$gsd-discuss-phase 48`
+**What's next:** `$gsd-audit-milestone`
 
 ## v1.0 Brownfield Baseline (Shipped: 2026-03-10)
 
