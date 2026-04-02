@@ -70,6 +70,8 @@ def _build_collection_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
         "calibration/policy_comparison.csv",
         "calibration/decision_shift_matrix.csv",
         "calibration/segment_breakdown.csv",
+        "calibration/policy_profile_catalog.json",
+        "calibration/policy_recommendation_summary.json",
         "calibration/calibration_review.md",
         "operator_review_briefing.md",
     ]:
@@ -109,6 +111,14 @@ def _build_collection_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
     manifest = {
         "selected_n_customers": 1,
         "policy_version_evaluated": "v2.1_phase_40_5",
+        "candidate_policy_versions_compared": [
+            "analysis_mild_relax_v2_3a",
+            "analysis_relaxed_v2_3a",
+            "analysis_strict_control_v2_3a",
+        ],
+        "recommended_candidate_policy_version": "analysis_mild_relax_v2_3a",
+        "recommended_candidate_status": "shortlisted",
+        "recommended_candidate_reason": "Bounded yield uplift is positive while Phase 49 proxy guardrails remain within limits.",
         "contract_health": {
             "critical_field_null_rate": 0.0,
             "raw_flat_mismatch_count": 0,
@@ -126,6 +136,8 @@ def _build_collection_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
             "policy_comparison_csv": "tables/customer_artifact_collection/calibration/policy_comparison.csv",
             "decision_shift_matrix_csv": "tables/customer_artifact_collection/calibration/decision_shift_matrix.csv",
             "segment_breakdown_csv": "tables/customer_artifact_collection/calibration/segment_breakdown.csv",
+            "policy_profile_catalog_json": "tables/customer_artifact_collection/calibration/policy_profile_catalog.json",
+            "policy_recommendation_summary_json": "tables/customer_artifact_collection/calibration/policy_recommendation_summary.json",
             "calibration_review_md": "tables/customer_artifact_collection/calibration/calibration_review.md",
         },
         "operator_files": {
@@ -152,6 +164,8 @@ def test_evaluate_pilot_artifact_qa_passes_for_complete_package(tmp_path: Path) 
     assert summary["artifact_qa_status"] == QA_STATUS_PASS
     assert summary["operator_packet_count"] == 1
     assert summary["decision_explanation_pack_count"] == 1
+    assert summary["recommended_candidate_status"] == "shortlisted"
+    assert summary["recommended_candidate_policy_version"] == "analysis_mild_relax_v2_3a"
 
 
 def test_evaluate_pilot_artifact_qa_degrades_when_optional_inputs_are_missing(tmp_path: Path) -> None:

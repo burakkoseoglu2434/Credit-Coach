@@ -970,6 +970,9 @@ def _collection_summary_markdown(
             "## Calibration",
             f"- Policy version evaluated: {calibration_summary.get('policy_version_evaluated', '')}",
             f"- Candidate policies compared: {', '.join(calibration_summary.get('candidate_policy_versions_compared', []) or []) or 'n/a'}",
+            f"- Recommended candidate status: {_safe_text(calibration_summary.get('recommended_candidate_status'), 'no_safe_uplift') or 'no_safe_uplift'}",
+            f"- Recommended candidate policy: {_safe_text(calibration_summary.get('recommended_candidate_policy_version'), 'n/a') or 'n/a'}",
+            f"- Recommended candidate reason: {_safe_text(calibration_summary.get('recommended_candidate_reason'), 'n/a') or 'n/a'}",
             f"- Baseline north-star pass: {bool(dict(calibration_summary.get('baseline_policy_metrics', {})).get('north_star_pass', False))}",
             f"- Baseline false-positive proxy: {_safe_float(dict(calibration_summary.get('baseline_policy_metrics', {})).get('false_positive_proxy'), 0.0):.4f}",
             "",
@@ -1040,6 +1043,8 @@ def _collection_summary_markdown(
             f"- Selection: `{manifest_rel_root}/flat/customer_selection.csv`",
             f"- Funnel summary: `{manifest_rel_root}/calibration/funnel_summary.json`",
             f"- Policy comparison: `{manifest_rel_root}/calibration/policy_comparison.csv`",
+            f"- Policy profile catalog: `{manifest_rel_root}/calibration/policy_profile_catalog.json`",
+            f"- Policy recommendation summary: `{manifest_rel_root}/calibration/policy_recommendation_summary.json`",
             f"- Calibration review: `{manifest_rel_root}/calibration/calibration_review.md`",
             f"- Operator briefing: `{manifest_rel_root}/operator_review_briefing.md`",
             f"- Operator packets: `{manifest_rel_root}/operator_packets/`",
@@ -1347,6 +1352,8 @@ def main(argv: Sequence[str] | None = None):
     decision_shift_matrix_df = policy_comparison_payload["decision_shift_matrix"]
     segment_breakdown_df = policy_comparison_payload["segment_breakdown"]
     calibration_summary = policy_comparison_payload["calibration_summary"]
+    policy_profile_catalog = policy_comparison_payload["policy_profile_catalog"]
+    policy_recommendation_summary = policy_comparison_payload["policy_recommendation_summary"]
     operator_briefing = build_collection_operator_briefing(
         metrics_df=metrics_df,
         operator_packets=[record["packet"] for record in operator_packet_records],
@@ -1361,6 +1368,8 @@ def main(argv: Sequence[str] | None = None):
     policy_comparison_csv = calibration_root / "policy_comparison.csv"
     shift_matrix_csv = calibration_root / "decision_shift_matrix.csv"
     segment_breakdown_csv = calibration_root / "segment_breakdown.csv"
+    policy_catalog_json = calibration_root / "policy_profile_catalog.json"
+    policy_recommendation_json = calibration_root / "policy_recommendation_summary.json"
     calibration_review_md = calibration_root / "calibration_review.md"
     operator_briefing_md = collection_root / "operator_review_briefing.md"
 
@@ -1370,6 +1379,11 @@ def main(argv: Sequence[str] | None = None):
     policy_comparison_df.to_csv(policy_comparison_csv, index=False)
     decision_shift_matrix_df.to_csv(shift_matrix_csv, index=False)
     segment_breakdown_df.to_csv(segment_breakdown_csv, index=False)
+    policy_catalog_json.write_text(json.dumps(policy_profile_catalog, indent=2, ensure_ascii=False), encoding="utf-8")
+    policy_recommendation_json.write_text(
+        json.dumps(policy_recommendation_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
     calibration_review_md.write_text(
         build_calibration_review_markdown(
             selection_policy_name=str(selection_metadata.get("selection_policy_name", args.cohort_policy)),
@@ -1377,6 +1391,7 @@ def main(argv: Sequence[str] | None = None):
             funnel_summary=funnel_summary,
             readiness_summary=readiness_summary,
             policy_comparison_df=policy_comparison_df,
+            recommendation_summary=policy_recommendation_summary,
         ),
         encoding="utf-8",
     )
@@ -1400,6 +1415,13 @@ def main(argv: Sequence[str] | None = None):
         "config_hash": hash_config(cfg),
         "policy_version_evaluated": policy_version_evaluated,
         "candidate_policy_versions_compared": list(calibration_summary.get("candidate_policy_versions_compared", [])),
+        "policy_profile_catalog_version": _safe_text(calibration_summary.get("policy_profile_catalog_version")),
+        "recommended_candidate_policy_version": _safe_text(
+            calibration_summary.get("recommended_candidate_policy_version")
+        ),
+        "recommended_candidate_status": _safe_text(calibration_summary.get("recommended_candidate_status")),
+        "recommended_candidate_reason": _safe_text(calibration_summary.get("recommended_candidate_reason")),
+        "policy_recommendation_summary": dict(policy_recommendation_summary),
         "raw_root": f"{rel_root}/raw",
         "funnel_summary": funnel_summary,
         "readiness_summary": readiness_summary,
@@ -1713,6 +1735,8 @@ def main(argv: Sequence[str] | None = None):
             "policy_comparison_csv": f"{rel_root}/calibration/policy_comparison.csv",
             "decision_shift_matrix_csv": f"{rel_root}/calibration/decision_shift_matrix.csv",
             "segment_breakdown_csv": f"{rel_root}/calibration/segment_breakdown.csv",
+            "policy_profile_catalog_json": f"{rel_root}/calibration/policy_profile_catalog.json",
+            "policy_recommendation_summary_json": f"{rel_root}/calibration/policy_recommendation_summary.json",
             "calibration_review_md": f"{rel_root}/calibration/calibration_review.md",
         },
         "operator_files": {

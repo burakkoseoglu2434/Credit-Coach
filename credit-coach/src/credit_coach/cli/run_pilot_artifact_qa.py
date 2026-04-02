@@ -143,6 +143,10 @@ def evaluate_pilot_artifact_qa(
         collection_manifest.get("decision_policy_version"),
         _safe_text(collection_manifest.get("policy_version_evaluated")),
     )
+    candidate_policy_versions_compared = [str(item) for item in (collection_manifest.get("candidate_policy_versions_compared", []) or [])]
+    recommended_candidate_policy_version = _safe_text(collection_manifest.get("recommended_candidate_policy_version"))
+    recommended_candidate_status = _safe_text(collection_manifest.get("recommended_candidate_status"), "no_safe_uplift")
+    recommended_candidate_reason = _safe_text(collection_manifest.get("recommended_candidate_reason"))
     if expected_policy_version and collection_policy_version and collection_policy_version != expected_policy_version:
         fail_findings.append("collection_policy_version_mismatch")
 
@@ -196,6 +200,10 @@ def evaluate_pilot_artifact_qa(
         "degraded_findings": degraded_findings,
         "contract_health": contract_health,
         "collection_policy_version": collection_policy_version,
+        "candidate_policy_versions_compared": candidate_policy_versions_compared,
+        "recommended_candidate_policy_version": recommended_candidate_policy_version,
+        "recommended_candidate_status": recommended_candidate_status,
+        "recommended_candidate_reason": recommended_candidate_reason,
         "pilot_package_policy_version": _safe_text(pilot_manifest_payload.get("policy_version_evaluated")),
     }
 
@@ -208,6 +216,9 @@ def _render_summary_markdown(summary: Mapping[str, Any]) -> str:
         f"- Selected customers: {int(summary.get('selected_count', 0))}",
         f"- Operator packets: {int(summary.get('operator_packet_count', 0))}",
         f"- Decision explanation packs: {int(summary.get('decision_explanation_pack_count', 0))}",
+        f"- Candidate policies compared: {', '.join(summary.get('candidate_policy_versions_compared', []) or []) or 'n/a'}",
+        f"- Recommended candidate status: {_safe_text(summary.get('recommended_candidate_status')) or 'no_safe_uplift'}",
+        f"- Recommended candidate policy: {_safe_text(summary.get('recommended_candidate_policy_version')) or 'n/a'}",
         "",
         "## Fail Findings",
     ]

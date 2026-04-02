@@ -174,10 +174,125 @@ def test_build_policy_comparison_emits_analysis_only_candidates_and_shift_matrix
     comparison = payload["policy_comparison"]
     shift_matrix = payload["decision_shift_matrix"]
     segment_breakdown = payload["segment_breakdown"]
+    recommendation = payload["policy_recommendation_summary"]
+    catalog = payload["policy_profile_catalog"]
 
     assert {"policy_version", "analysis_only", "false_positive_proxy_delta", "approve_plus_conditional_share_delta"}.issubset(comparison.columns)
     assert "v2.1_phase_40_5" in set(comparison["policy_version"])
-    assert comparison.loc[comparison["analysis_only"] == 1, "policy_version"].nunique() >= 1
+    assert set(comparison.loc[comparison["analysis_only"] == 1, "policy_version"]) == {
+        "analysis_mild_relax_v2_3a",
+        "analysis_relaxed_v2_3a",
+        "analysis_strict_control_v2_3a",
+    }
+    assert {"recommendation_status", "recommendation_reason", "profile_role", "promotion_target"}.issubset(comparison.columns)
     assert not shift_matrix.empty
     assert {"from_status", "to_status", "count", "share"}.issubset(shift_matrix.columns)
     assert "decision_confidence_band" in set(segment_breakdown["segment_axis"])
+    assert recommendation["recommended_candidate_status"] in {"shortlisted", "no_safe_uplift"}
+    assert catalog["catalog_version"] == cal.POLICY_PROFILE_CATALOG_VERSION
+    assert catalog["profiles"][0]["policy_version"] == "v2.1_phase_40_5"
+
+
+def test_build_policy_profile_catalog_mirrors_shipped_baseline_and_locked_candidates() -> None:
+    catalog = cal.build_policy_profile_catalog(policy_version_evaluated="v2.1_phase_40_5")
+
+    assert catalog["catalog_version"] == "v2.3_phase_49"
+    assert [profile["policy_version"] for profile in catalog["profiles"]] == [
+        "v2.1_phase_40_5",
+        "analysis_mild_relax_v2_3a",
+        "analysis_relaxed_v2_3a",
+        "analysis_strict_control_v2_3a",
+    ]
+    baseline = catalog["profiles"][0]
+    assert baseline["approved_realization_min"] == 0.5
+    assert baseline["approved_improvement_min"] == 0.02
+    assert baseline["approved_confidence_min"] == 0.6
+    assert baseline["conditional_realization_min"] == 0.2
+    assert baseline["conditional_improvement_min"] == 0.01
+    assert baseline["conditional_confidence_min"] == 0.4
+
+
+def test_recommend_candidate_policy_returns_no_safe_uplift_when_all_candidates_are_blocked() -> None:
+    comparison_df = pd.DataFrame(
+        [
+            {
+                "policy_version": "v2.1_phase_40_5",
+                "analysis_only": 0,
+                "profile_role": "baseline",
+                "promotion_target": False,
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "approved_share_delta": 0.0,
+            },
+            {
+                "policy_version": "analysis_relaxed_v2_3a",
+                "analysis_only": 1,
+                "profile_role": "candidate",
+                "promotion_target": True,
+                "approve_plus_conditional_share_delta": 0.01,
+                "false_positive_proxy_delta": 0.02,
+                "internal_needs_review_share_delta": 0.0,
+                "approved_share_delta": 0.0,
+            },
+            {
+                "policy_version": "analysis_strict_control_v2_3a",
+                "analysis_only": 1,
+                "profile_role": "control",
+                "promotion_target": False,
+                "approve_plus_conditional_share_delta": -0.01,
+                "false_positive_proxy_delta": -0.01,
+                "internal_needs_review_share_delta": -0.01,
+                "approved_share_delta": -0.01,
+            },
+        ]
+    )
+
+    summary = cal.recommend_candidate_policy(comparison_df)
+
+    assert summary["recommended_candidate_status"] == "no_safe_uplift"
+    assert summary["recommended_candidate_policy_version"] == ""
+    assert "guardrail" in summary["recommended_candidate_reason"].lower() or "control profile" in summary["recommended_candidate_reason"].lower()
+
+
+def test_recommend_candidate_policy_shortlists_best_safe_candidate() -> None:
+    comparison_df = pd.DataFrame(
+        [
+            {
+                "policy_version": "v2.1_phase_40_5",
+                "analysis_only": 0,
+                "profile_role": "baseline",
+                "promotion_target": False,
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "approved_share_delta": 0.0,
+            },
+            {
+                "policy_version": "analysis_mild_relax_v2_3a",
+                "analysis_only": 1,
+                "profile_role": "candidate",
+                "promotion_target": True,
+                "approve_plus_conditional_share_delta": 0.01,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "approved_share_delta": 0.005,
+            },
+            {
+                "policy_version": "analysis_relaxed_v2_3a",
+                "analysis_only": 1,
+                "profile_role": "candidate",
+                "promotion_target": True,
+                "approve_plus_conditional_share_delta": 0.02,
+                "false_positive_proxy_delta": 0.005,
+                "internal_needs_review_share_delta": 0.01,
+                "approved_share_delta": 0.008,
+            },
+        ]
+    )
+
+    summary = cal.recommend_candidate_policy(comparison_df)
+
+    assert summary["recommended_candidate_status"] == "shortlisted"
+    assert summary["recommended_candidate_policy_version"] == "analysis_relaxed_v2_3a"
+    assert "guardrails remain within limits" in summary["recommended_candidate_reason"]

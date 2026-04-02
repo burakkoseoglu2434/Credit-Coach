@@ -509,6 +509,9 @@ def test_collection_summary_markdown_reports_dice_lane_rates() -> None:
     assert "Selected DICE valid rate: 1.0000" in markdown
     assert "## Operator Packet Coherence" in markdown
     assert "Approved with blocker count: 0" in markdown
+    assert "Recommended candidate status: no_safe_uplift" in markdown
+    assert "Policy profile catalog:" in markdown
+    assert "Policy recommendation summary:" in markdown
 
 
 def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Path) -> None:

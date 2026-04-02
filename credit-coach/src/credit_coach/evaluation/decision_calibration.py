@@ -5,6 +5,8 @@ from typing import Any, Mapping, Sequence
 
 import pandas as pd
 
+from credit_coach.decision.ownership import DECISION_POLICY_VERSION
+
 
 READINESS_ORDER: tuple[str, ...] = ("now", "week_4", "week_12", "week_24", "not_ready", "unknown_review")
 EXTERNAL_STATUS_ORDER: tuple[str, ...] = ("APPROVED", "CONDITIONAL", "REJECTED")
@@ -23,7 +25,20 @@ PILOT_MIX_WEIGHTS: Mapping[str, int] = {
 }
 DEFAULT_CANDIDATE_POLICIES: tuple[Mapping[str, Any], ...] = (
     {
-        "policy_version": "analysis_relaxed_v1",
+        "policy_version": "analysis_mild_relax_v2_3a",
+        "profile_role": "candidate",
+        "promotion_target": True,
+        "approved_realization_min": 0.49,
+        "approved_improvement_min": 0.019,
+        "approved_confidence_min": 0.58,
+        "conditional_realization_min": 0.19,
+        "conditional_improvement_min": 0.009,
+        "conditional_confidence_min": 0.35,
+    },
+    {
+        "policy_version": "analysis_relaxed_v2_3a",
+        "profile_role": "candidate",
+        "promotion_target": True,
         "approved_realization_min": 0.48,
         "approved_improvement_min": 0.018,
         "approved_confidence_min": 0.55,
@@ -32,7 +47,9 @@ DEFAULT_CANDIDATE_POLICIES: tuple[Mapping[str, Any], ...] = (
         "conditional_confidence_min": 0.30,
     },
     {
-        "policy_version": "analysis_strict_v1",
+        "policy_version": "analysis_strict_control_v2_3a",
+        "profile_role": "control",
+        "promotion_target": False,
         "approved_realization_min": 0.55,
         "approved_improvement_min": 0.025,
         "approved_confidence_min": 0.68,
@@ -41,6 +58,10 @@ DEFAULT_CANDIDATE_POLICIES: tuple[Mapping[str, Any], ...] = (
         "conditional_confidence_min": 0.45,
     },
 )
+POLICY_PROFILE_CATALOG_VERSION = "v2.3_phase_49"
+SHORTLIST_MAX_FALSE_POSITIVE_PROXY_DELTA = 0.01
+SHORTLIST_MAX_INTERNAL_REVIEW_DELTA = 0.02
+SHORTLIST_MIN_APPROVE_PLUS_CONDITIONAL_DELTA = 0.000001
 FALSE_POSITIVE_PROXY_WEIGHTS: Mapping[str, float] = {
     "low_realization_rate": 0.40,
     "weak_readiness_alignment_rate": 0.30,
@@ -52,6 +73,51 @@ FALSE_POSITIVE_PROXY_WEIGHTS: Mapping[str, float] = {
 class CohortSelectionResult:
     selected: pd.DataFrame
     metadata: dict[str, Any]
+
+
+def baseline_policy_profile(*, policy_version: str = DECISION_POLICY_VERSION) -> dict[str, Any]:
+    return {
+        "policy_version": str(policy_version or DECISION_POLICY_VERSION),
+        "profile_role": "baseline",
+        "analysis_only": 0,
+        "promotion_target": False,
+        "approved_realization_min": 0.50,
+        "approved_improvement_min": 0.02,
+        "approved_confidence_min": 0.60,
+        "conditional_realization_min": 0.20,
+        "conditional_improvement_min": 0.01,
+        "conditional_confidence_min": 0.40,
+    }
+
+
+def _normalize_candidate_policy(policy: Mapping[str, Any]) -> dict[str, Any]:
+    normalized = {
+        "policy_version": _safe_str(policy.get("policy_version"), "analysis_candidate"),
+        "profile_role": _safe_str(policy.get("profile_role"), "candidate"),
+        "analysis_only": int(_safe_int(policy.get("analysis_only", 1), 1)),
+        "promotion_target": bool(policy.get("promotion_target", True)),
+        "approved_realization_min": _round_metric(policy.get("approved_realization_min"), 6),
+        "approved_improvement_min": _round_metric(policy.get("approved_improvement_min"), 6),
+        "approved_confidence_min": _round_metric(policy.get("approved_confidence_min"), 6),
+        "conditional_realization_min": _round_metric(policy.get("conditional_realization_min"), 6),
+        "conditional_improvement_min": _round_metric(policy.get("conditional_improvement_min"), 6),
+        "conditional_confidence_min": _round_metric(policy.get("conditional_confidence_min"), 6),
+    }
+    return normalized
+
+
+def build_policy_profile_catalog(
+    *,
+    policy_version_evaluated: str,
+    candidate_policies: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    candidates = [_normalize_candidate_policy(policy) for policy in (candidate_policies or DEFAULT_CANDIDATE_POLICIES)]
+    baseline = baseline_policy_profile(policy_version=_safe_str(policy_version_evaluated, DECISION_POLICY_VERSION))
+    return {
+        "catalog_version": POLICY_PROFILE_CATALOG_VERSION,
+        "policy_version_evaluated": baseline["policy_version"],
+        "profiles": [baseline, *candidates],
+    }
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -511,7 +577,16 @@ def prepare_metrics_for_calibration(metrics_df: pd.DataFrame) -> pd.DataFrame:
         work.get("strong_execution_flag", pd.Series(dtype=float)),
         errors="coerce",
     ).fillna(0.0).astype(int)
+    work["approval_ready_4w"] = pd.to_numeric(
+        work.get("approval_ready_4w", pd.Series(dtype=float)),
+        errors="coerce",
+    ).fillna(0.0).astype(int)
     work["offer_maturity"] = work.get("offer_maturity", pd.Series(dtype=object)).fillna("none").astype(str)
+    work["best_constraint_status"] = work.get("best_constraint_status", pd.Series(dtype=object)).fillna("valid").astype(str)
+    work["plan_contract_pass"] = pd.to_numeric(
+        work.get("plan_contract_pass", pd.Series(dtype=float)),
+        errors="coerce",
+    ).fillna(0.0).astype(int)
     work["decision_policy_version"] = work.get("decision_policy_version", pd.Series(dtype=object)).fillna("").astype(str)
     return work
 
@@ -597,7 +672,9 @@ def summarize_readiness(metrics_df: pd.DataFrame) -> dict[str, Any]:
 
 
 def _candidate_policy_row(row: Mapping[str, Any], policy: Mapping[str, Any]) -> tuple[str, str]:
-    zero_step = _safe_int(row.get("zero_step_flag", 0), 0) == 1 or _safe_int(row.get("best_action_count", 0), 0) == 0
+    best_plan_id = _safe_str(row.get("best_plan_id"))
+    best_action_count = _safe_int(row.get("best_action_count", 0), 0)
+    zero_step = _safe_int(row.get("zero_step_flag", 0), 0) == 1
     raw_contract_pass = _safe_int(row.get("raw_contract_pass", 1), 1) == 1
     parity_pass = _safe_int(row.get("parity_pass", 1), 1) == 1
     expected_pd_improvement = _safe_float(row.get("expected_pd_improvement"), 0.0)
@@ -605,35 +682,41 @@ def _candidate_policy_row(row: Mapping[str, Any], policy: Mapping[str, Any]) -> 
     confidence = _safe_float(row.get("decision_confidence"), 0.0)
     readiness = _normalize_readiness(row.get("expected_readiness"))
     offer_maturity = _safe_str(row.get("offer_maturity"), "none").lower()
+    approval_ready_4w = _safe_int(row.get("approval_ready_4w", 0), 0) == 1
+    best_constraint_status = _safe_str(row.get("best_constraint_status"), "valid").lower()
+    plan_contract_pass = _safe_int(row.get("plan_contract_pass", 0), 0) == 1
+    no_viable_plan = bool(best_action_count == 0 or not best_plan_id or not plan_contract_pass)
+    invalid_best_path = bool(best_constraint_status == "invalid" or not plan_contract_pass)
     data_issue = _safe_int(row.get("data_issue_flag", 0), 0) == 1 or not raw_contract_pass or not parity_pass
     strong_execution = _safe_int(row.get("strong_execution_flag", 0), 0) == 1
 
     reject_gate = bool(
         zero_step
+        or no_viable_plan
+        or invalid_best_path
+        or best_constraint_status == "invalid"
         or expected_pd_improvement < 0.01
         or realization_anchor < 0.10
     )
     approve_gate = bool(
         not reject_gate
+        and raw_contract_pass
+        and parity_pass
         and not data_issue
         and readiness in {"now", "week_4"}
         and realization_anchor >= _safe_float(policy.get("approved_realization_min"), 0.50)
         and expected_pd_improvement >= _safe_float(policy.get("approved_improvement_min"), 0.02)
         and confidence >= _safe_float(policy.get("approved_confidence_min"), 0.60)
-        and (strong_execution or readiness == "now")
-        and (
-            offer_maturity == "active_rankable"
-            or offer_maturity == "none"
-            or (
-                offer_maturity == "provisional"
-                and realization_anchor >= 0.60
-                and confidence >= 0.70
-            )
-        )
+        and (approval_ready_4w or strong_execution)
+        and offer_maturity not in {"inactive", "provisional"}
     )
     conditional_gate = bool(
         not reject_gate
         and not approve_gate
+        and best_action_count > 0
+        and raw_contract_pass
+        and parity_pass
+        and not data_issue
         and expected_pd_improvement >= _safe_float(policy.get("conditional_improvement_min"), 0.01)
         and realization_anchor >= _safe_float(policy.get("conditional_realization_min"), 0.20)
         and confidence >= _safe_float(policy.get("conditional_confidence_min"), 0.40)
@@ -753,6 +836,107 @@ def _segment_breakdown(
     return pd.DataFrame(rows)
 
 
+def _candidate_recommendation_status(row: Mapping[str, Any]) -> tuple[str, str]:
+    profile_role = _safe_str(row.get("profile_role"), "candidate")
+    policy_version = _safe_str(row.get("policy_version"), "analysis_candidate")
+    uplift_delta = _safe_float(row.get("approve_plus_conditional_share_delta"), 0.0)
+    false_positive_delta = _safe_float(row.get("false_positive_proxy_delta"), 0.0)
+    internal_review_delta = _safe_float(row.get("internal_needs_review_share_delta"), 0.0)
+
+    if profile_role == "control":
+        return "blocked", f"{policy_version} is a control profile and not a promotion target."
+    if uplift_delta < SHORTLIST_MIN_APPROVE_PLUS_CONDITIONAL_DELTA:
+        return "blocked", "No bounded APPROVED + CONDITIONAL uplift over the shipped baseline."
+    if false_positive_delta > SHORTLIST_MAX_FALSE_POSITIVE_PROXY_DELTA:
+        return "blocked", "False-positive proxy regression exceeds the Phase 49 guardrail."
+    if internal_review_delta > SHORTLIST_MAX_INTERNAL_REVIEW_DELTA:
+        return "blocked", "Internal review pressure regression exceeds the Phase 49 guardrail."
+    return "shortlisted", "Bounded yield uplift is positive while Phase 49 proxy guardrails remain within limits."
+
+
+def recommend_candidate_policy(policy_comparison_df: pd.DataFrame) -> dict[str, Any]:
+    if policy_comparison_df.empty:
+        return {
+            "recommended_candidate_policy_version": "",
+            "recommended_candidate_status": "no_safe_uplift",
+            "recommended_candidate_reason": "No candidate policies were evaluated.",
+            "shortlisted_candidate_versions": [],
+            "blocked_candidate_versions": [],
+        }
+
+    work = policy_comparison_df.copy()
+    if "analysis_only" not in work.columns:
+        work["analysis_only"] = 0
+    if "profile_role" not in work.columns:
+        work["profile_role"] = "candidate"
+    if "promotion_target" not in work.columns:
+        work["promotion_target"] = work["profile_role"].astype(str) != "control"
+
+    candidate_rows = work.loc[work["analysis_only"].astype(int) == 1].copy()
+    if candidate_rows.empty:
+        return {
+            "recommended_candidate_policy_version": "",
+            "recommended_candidate_status": "no_safe_uplift",
+            "recommended_candidate_reason": "No analysis-only candidate policies were available.",
+            "shortlisted_candidate_versions": [],
+            "blocked_candidate_versions": [],
+        }
+
+    statuses = candidate_rows.apply(
+        lambda row: _candidate_recommendation_status(row.to_dict()),
+        axis=1,
+    )
+    candidate_rows["recommendation_status"] = [pair[0] for pair in statuses]
+    candidate_rows["recommendation_reason"] = [pair[1] for pair in statuses]
+
+    shortlisted = candidate_rows.loc[candidate_rows["recommendation_status"].astype(str) == "shortlisted"].copy()
+    blocked_versions = candidate_rows.loc[
+        candidate_rows["recommendation_status"].astype(str) == "blocked",
+        "policy_version",
+    ].astype(str).tolist()
+    if shortlisted.empty:
+        best_blocked = candidate_rows.sort_values(
+            [
+                "approve_plus_conditional_share_delta",
+                "false_positive_proxy_delta",
+                "internal_needs_review_share_delta",
+                "policy_version",
+            ],
+            ascending=[False, True, True, True],
+        ).head(1)
+        reason = (
+            _safe_str(best_blocked.iloc[0].get("recommendation_reason"))
+            if not best_blocked.empty
+            else "No candidate satisfied the bounded Phase 49 uplift guardrails."
+        )
+        return {
+            "recommended_candidate_policy_version": "",
+            "recommended_candidate_status": "no_safe_uplift",
+            "recommended_candidate_reason": reason,
+            "shortlisted_candidate_versions": [],
+            "blocked_candidate_versions": blocked_versions,
+        }
+
+    shortlisted = shortlisted.sort_values(
+        [
+            "approve_plus_conditional_share_delta",
+            "approved_share_delta",
+            "false_positive_proxy_delta",
+            "internal_needs_review_share_delta",
+            "policy_version",
+        ],
+        ascending=[False, False, True, True, True],
+    )
+    best = shortlisted.iloc[0]
+    return {
+        "recommended_candidate_policy_version": _safe_str(best.get("policy_version")),
+        "recommended_candidate_status": "shortlisted",
+        "recommended_candidate_reason": _safe_str(best.get("recommendation_reason")),
+        "shortlisted_candidate_versions": shortlisted["policy_version"].astype(str).tolist(),
+        "blocked_candidate_versions": blocked_versions,
+    }
+
+
 def build_policy_comparison(
     metrics_df: pd.DataFrame,
     *,
@@ -760,16 +944,24 @@ def build_policy_comparison(
     candidate_policies: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     work = prepare_metrics_for_calibration(metrics_df)
+    policy_catalog = build_policy_profile_catalog(
+        policy_version_evaluated=policy_version_evaluated,
+        candidate_policies=candidate_policies,
+    )
     baseline = work.copy()
     baseline["candidate_decision_status"] = baseline["decision_status"]
     baseline["candidate_decision_status_internal"] = baseline["decision_status_internal"]
     baseline["policy_version"] = str(policy_version_evaluated)
+    baseline["profile_role"] = "baseline"
+    baseline["promotion_target"] = False
     baseline_metrics = _policy_metrics(baseline)
     comparison_rows = [
         {
             "policy_version": str(policy_version_evaluated),
             "analysis_only": 0,
             "comparison_type": "baseline",
+            "profile_role": "baseline",
+            "promotion_target": False,
             **baseline_metrics,
             "approved_share_delta": 0.0,
             "conditional_share_delta": 0.0,
@@ -777,11 +969,13 @@ def build_policy_comparison(
             "internal_needs_review_share_delta": 0.0,
             "approve_plus_conditional_share_delta": 0.0,
             "false_positive_proxy_delta": 0.0,
+            "recommendation_status": "baseline",
+            "recommendation_reason": "Shipped live decision policy baseline.",
         }
     ]
     shift_rows: list[dict[str, Any]] = []
     segment_frames = [_segment_breakdown(baseline, policy_version=str(policy_version_evaluated))]
-    candidates = list(candidate_policies or DEFAULT_CANDIDATE_POLICIES)
+    candidates = list(policy_catalog.get("profiles", [])[1:])
     for policy in candidates:
         policy_version = _safe_str(policy.get("policy_version"), "analysis_candidate")
         candidate = work.copy()
@@ -789,12 +983,16 @@ def build_policy_comparison(
         candidate["candidate_decision_status"] = [pair[0] for pair in candidate_pairs]
         candidate["candidate_decision_status_internal"] = [pair[1] for pair in candidate_pairs]
         candidate["policy_version"] = policy_version
+        candidate["profile_role"] = _safe_str(policy.get("profile_role"), "candidate")
+        candidate["promotion_target"] = bool(policy.get("promotion_target", True))
         metrics = _policy_metrics(candidate)
         comparison_rows.append(
             {
                 "policy_version": policy_version,
                 "analysis_only": 1,
                 "comparison_type": "candidate",
+                "profile_role": _safe_str(policy.get("profile_role"), "candidate"),
+                "promotion_target": bool(policy.get("promotion_target", True)),
                 **metrics,
                 "approved_share_delta": _round_metric(metrics["approved_share"] - baseline_metrics["approved_share"]),
                 "conditional_share_delta": _round_metric(metrics["conditional_share"] - baseline_metrics["conditional_share"]),
@@ -808,6 +1006,8 @@ def build_policy_comparison(
                 "false_positive_proxy_delta": _round_metric(
                     metrics["false_positive_proxy"] - baseline_metrics["false_positive_proxy"]
                 ),
+                "recommendation_status": "",
+                "recommendation_reason": "",
             }
         )
         shifts = (
@@ -829,6 +1029,15 @@ def build_policy_comparison(
             )
         segment_frames.append(_segment_breakdown(candidate, policy_version=policy_version))
     comparison_df = pd.DataFrame(comparison_rows)
+    recommendation_summary = recommend_candidate_policy(comparison_df)
+    if not comparison_df.empty and "analysis_only" in comparison_df.columns:
+        candidate_mask = comparison_df["analysis_only"].astype(int) == 1
+        status_pairs = comparison_df.loc[candidate_mask].apply(
+            lambda row: _candidate_recommendation_status(row.to_dict()),
+            axis=1,
+        )
+        comparison_df.loc[candidate_mask, "recommendation_status"] = [pair[0] for pair in status_pairs]
+        comparison_df.loc[candidate_mask, "recommendation_reason"] = [pair[1] for pair in status_pairs]
     shift_df = pd.DataFrame(shift_rows)
     segment_df = pd.concat(segment_frames, ignore_index=True) if segment_frames else pd.DataFrame()
     summary = {
@@ -836,12 +1045,16 @@ def build_policy_comparison(
         "candidate_policy_versions_compared": [str(row["policy_version"]) for row in comparison_rows if int(row["analysis_only"]) == 1],
         "baseline_policy_metrics": comparison_rows[0],
         "north_star_pass": bool(comparison_rows[0]["north_star_pass"]),
+        "policy_profile_catalog_version": POLICY_PROFILE_CATALOG_VERSION,
+        **recommendation_summary,
     }
     return {
+        "policy_profile_catalog": policy_catalog,
         "policy_comparison": comparison_df,
         "decision_shift_matrix": shift_df,
         "segment_breakdown": segment_df,
         "calibration_summary": summary,
+        "policy_recommendation_summary": recommendation_summary,
     }
 
 
@@ -852,6 +1065,7 @@ def build_calibration_review_markdown(
     funnel_summary: Mapping[str, Any],
     readiness_summary: Mapping[str, Any],
     policy_comparison_df: pd.DataFrame,
+    recommendation_summary: Mapping[str, Any] | None = None,
 ) -> str:
     baseline_row = (
         policy_comparison_df.loc[policy_comparison_df["comparison_type"].astype(str) == "baseline"].head(1).to_dict(orient="records")
@@ -892,6 +1106,17 @@ def build_calibration_review_markdown(
                 f"approved_delta={_round_metric(row.get('approved_share_delta', 0.0)):.4f}, "
                 f"approve_plus_conditional_delta={_round_metric(row.get('approve_plus_conditional_share_delta', 0.0)):.4f}, "
                 f"false_positive_proxy_delta={_round_metric(row.get('false_positive_proxy_delta', 0.0)):.4f}, "
-                f"north_star_pass={bool(row.get('north_star_pass', False))}"
+                f"north_star_pass={bool(row.get('north_star_pass', False))}, "
+                f"status={_safe_str(row.get('recommendation_status'), 'blocked')}"
             )
+    if recommendation_summary:
+        lines.extend(
+            [
+                "",
+                "## Recommendation",
+                f"- Status: {_safe_str(recommendation_summary.get('recommended_candidate_status'), 'no_safe_uplift')}",
+                f"- Recommended candidate: {_safe_str(recommendation_summary.get('recommended_candidate_policy_version'), 'n/a') or 'n/a'}",
+                f"- Reason: {_safe_str(recommendation_summary.get('recommended_candidate_reason'), 'n/a') or 'n/a'}",
+            ]
+        )
     return "\n".join(lines) + "\n"
