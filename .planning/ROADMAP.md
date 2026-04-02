@@ -37,6 +37,7 @@ Success criteria:
 1. Analysts can compare candidate threshold policies on approval, conditional, reject, readiness, and bounded false-positive metrics across the standard cohorts.
 2. Evaluated runs expose which threshold-policy profile generated the decision outputs and collection summary.
 3. Threshold-policy experimentation keeps all shipped v2.2 trust counters clean while candidate profiles are compared.
+Status note: Completed 2026-04-02. All three standard cohorts produced explicit `no_safe_uplift`, so bounded threshold-only relaxation did not safely beat the shipped baseline.
 
 **Phase 50: Offer & Readiness Outcome Rules**
 Goal: Turn existing offer and readiness signals into bounded decision rules that can move customers through the funnel without opening new feature space.
@@ -214,7 +215,7 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 46. Dice Lane Validity Enforcement | v2.2 | 3/3 | Complete | 2026-03-26 |
 | 47. Selected Surface Consistency | v2.2 | 3/3 | Complete | 2026-04-01 |
 | 48. Operator Packet Coherence | v2.2 | 3/3 | Complete | 2026-04-02 |
-| 49. Threshold Policy Evaluation & Provenance | v2.3 | 0/3 | Not Started | — |
+| 49. Threshold Policy Evaluation & Provenance | v2.3 | 3/3 | Complete | 2026-04-02 |
 | 50. Offer & Readiness Outcome Rules | v2.3 | 0/3 | Not Started | — |
 | 51. Funnel Movement Guardrails & Evidence | v2.3 | 0/3 | Not Started | — |
 | 52. Preferred Policy Baseline & Demo Proof | v2.3 | 0/3 | Not Started | — |

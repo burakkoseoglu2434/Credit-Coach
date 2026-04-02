@@ -7,9 +7,9 @@
 
 ### Threshold Calibration
 
-- [ ] **THR-01**: Pilot reviewers can evaluate bounded threshold-policy profiles on existing winner-clean artifacts without reopening invalid-winner or selected-surface drift behaviors
-- [ ] **THR-02**: Analysts can compare candidate threshold policies on approval share, conditional share, reject share, readiness mix, and bounded false-positive proxy across the standard cohorts
-- [ ] **THR-03**: Raw, flat, and collection artifacts can record which threshold-policy profile produced each evaluated run and each promoted recommendation
+- [x] **THR-01**: Pilot reviewers can evaluate bounded threshold-policy profiles on existing winner-clean artifacts without reopening invalid-winner or selected-surface drift behaviors
+- [x] **THR-02**: Analysts can compare candidate threshold policies on approval share, conditional share, reject share, readiness mix, and bounded false-positive proxy across the standard cohorts
+- [x] **THR-03**: Raw, flat, and collection artifacts can record which threshold-policy profile produced each evaluated run and each promoted recommendation
 
 ### Offer and Readiness Outcomes
 
@@ -53,9 +53,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| THR-01 | Phase 49 | Pending |
-| THR-02 | Phase 49 | Pending |
-| THR-03 | Phase 49 | Pending |
+| THR-01 | Phase 49 | Complete |
+| THR-02 | Phase 49 | Complete |
+| THR-03 | Phase 49 | Complete |
 | OUT-01 | Phase 50 | Pending |
 | OUT-02 | Phase 50 | Pending |
 | OUT-03 | Phase 50 | Pending |
@@ -72,4 +72,4 @@
 
 ---
 *Requirements defined: 2026-04-02*
-*Last updated: 2026-04-02 after milestone v2.3 definition*
+*Last updated: 2026-04-02 after Phase 49 completion*

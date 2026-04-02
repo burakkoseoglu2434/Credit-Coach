@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 ## Current Position
 
 Phase: 49
-Plan: 01-03
-Status: Planned; ready for execution
-Last activity: 2026-04-02 - Finalized Phase `49 Threshold Policy Evaluation & Provenance` planning package with repo-grounded research, validation, and three execution plans
+Plan: Complete
+Status: Complete; ready for Phase 50
+Last activity: 2026-04-02 - Closed Phase `49 Threshold Policy Evaluation & Provenance` with deterministic policy provenance, three-cohort rerun proof, and an explicit `no_safe_uplift` result across all bounded threshold-only candidates
 
-Progress: `v2.2` is now the shipped and audited trust baseline. `v2.3` is scoped to improve approval and conditional yield, turn existing offer/readiness signals into outcome-producing levers, and measure funnel movement without reopening winner-integrity or consumer-surface layers.
+Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` proved that bounded threshold-only relaxations do not safely improve `APPROVED + CONDITIONAL` yield on the three standard cohorts, so `v2.3` now moves to offer/readiness outcome rules rather than threshold-only promotion.
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 135 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-48)
+- Total plans completed: 141 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-49)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -35,6 +35,7 @@ Progress: `v2.2` is now the shipped and audited trust baseline. `v2.3` is scoped
 | v2.1 completed milestone | 18 | phases 40, 40.5, 41, 43, 42, 44 complete | n/a |
 | post-v2.1 carry-forward hardening | 3 | phase 42.5 complete | n/a |
 | v2.2 completed milestone | 12 | phases 45-48 complete; archived | n/a |
+| v2.3 active milestone | 3 | phase 49 complete | n/a |
 
 **Recent Trend:**
 - Credit Coach now carries one continuous stack from semantic action planning to pilot-facing package delivery.
@@ -55,6 +56,7 @@ Progress: `v2.2` is now the shipped and audited trust baseline. `v2.3` is scoped
 - Phase 48 now suppresses incoherent approved blockers/actions, prevents fake empty-state recommendations, exports first-class packet coherence diagnostics, and proves zero tracked packet contradictions across `pilot_mixed`, `risk_band_balanced`, and `offer_needed_balanced`.
 - Milestone `v2.2` is now archived as the shipped trust baseline that `v2.3` will optimize rather than reopen.
 - Milestone `v2.3` is now defined, with threshold policy evaluation, offer/readiness outcome rules, funnel guardrails, and preferred-policy proof sequenced into Phases `49-52`.
+- Phase 49 now adds a deterministic threshold-policy catalog, recommendation-summary provenance, and three-cohort proof that bounded threshold-only relaxations produce `no_safe_uplift` against the shipped baseline while preserving all `v2.2` trust counters.
 
 ## Accumulated Context
 
@@ -73,6 +75,7 @@ Recent decisions affecting the shipped baseline:
 - Phase `46 Dice Lane Validity Enforcement` now converges DICE onto the shared action contract, adds lane-specific semantic quality truth, splits visible diagnostics from planner-eligible DICE contenders, and proves DICE cleanliness in rerun artifacts with `selected_dice_valid_rate = 1.0` across all three 250-customer cohorts
 - Phase `47 Selected Surface Consistency` now ships a consumer-safe selected overlay, one owner for selected recommendation text, explicit `no_valid_winner` empty-state rendering, and a canonical drift-guard field set spanning raw, flat, operator, and explanation surfaces
 - Large-sample reruns now show zero selected-surface drift on the tracked Phase 47 fields and zero tracked operator packet coherence mismatches on the Phase 48 counters
+- Phase `49 Threshold Policy Evaluation & Provenance` now proves that the shipped baseline should not be loosened through bounded threshold-only changes alone; all three standard cohorts ended with explicit `no_safe_uplift` while collection and pilot artifacts published replayable policy provenance
 - The website remains a typed consumer of engine artifacts rather than a source of decision logic
 - Portfolio proof now includes numeric impact and calibration honesty, not just product confidence
 - Pilot integration remains export-first and controlled instead of pretending live connectivity
@@ -88,9 +91,10 @@ None yet.
 - Some Phase 41-44 validation frontmatter still understates `wave_0_complete` despite shipped tests and successful audit coverage.
 - Large-sample reruns for v2.2 still produced zero `no_valid_winner` cases, so empty-state packet behavior remains proven by targeted automated tests rather than cohort evidence.
 - `v2.3` must improve yield using only existing signals and existing outputs; action-space expansion is intentionally deferred.
+- Phase `49` found no safe threshold-only uplift candidate, so the milestone’s remaining lift must come from bounded offer/readiness outcome rules and later policy-pair evidence rather than threshold relaxation alone.
 
 ## Session Continuity
 
 Last session: 2026-04-02
-Stopped at: Phase `49` planning complete; next step is `$gsd-execute-phase 49`
-Resume file: .planning/phases/49-threshold-policy-evaluation-provenance/49-01-PLAN.md
+Stopped at: Phase `49` complete; next step is `$gsd-discuss-phase 50`
+Resume file: .planning/phases/49-threshold-policy-evaluation-provenance/49-VERIFICATION.md

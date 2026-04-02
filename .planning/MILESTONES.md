@@ -32,7 +32,7 @@
 - redesign of Phases `40`, `40.5`, `41`, `42`, `42.5`, `43`, `45`, `46`, `47`, or `48`
 - new borrower-facing channels, live institution integrations, or compliance automation
 
-**Current status:** Milestone defined; requirements and roadmap are ready, phase execution has not started yet.
+**Current status:** Phase 49 complete. Bounded threshold-only evaluation is now provenance-safe and explicitly concluded `no_safe_uplift` on the three standard cohorts, so the milestone continues with Phase 50 offer/readiness outcome work rather than threshold-only promotion.
 
 ## v2.2 Winner Integrity & Consumer Consistency (Shipped: 2026-04-02)
 
