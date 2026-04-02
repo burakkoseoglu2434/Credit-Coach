@@ -19,12 +19,15 @@ Generate customer-specific credit action plans that are actionable, behaviorally
 
 The system is now strong enough for pilot-facing demos on winner and consumer-truth integrity. The next milestone can optimize thresholds and business outcomes from this cleaner baseline instead of continuing trust repair.
 
-## Next Milestone Goals
+## Current Milestone: v2.3 Threshold & Outcome Optimization
 
-- safely widen thresholds using validity-clean winner evidence
-- improve approval and conditional yield without degrading selected-surface trust
-- make offer-maturity and readiness signals produce business outcome instead of remaining mostly descriptive
-- validate empty-state behavior on naturally occurring `no_valid_winner` customers once a future milestone broadens the operating envelope
+**Goal:** Improve approval and conditional yield from the shipped `v2.2` trust baseline by tuning bounded thresholds and making existing offer/readiness signals produce real funnel movement.
+
+**Target features:**
+- threshold policy evaluation and promotion using only existing signals and existing trust-clean winner outputs
+- outcome-producing offer and readiness rules that can move customers from `REJECTED -> CONDITIONAL -> APPROVED`
+- funnel movement proof that decomposes gains into threshold-driven versus offer/readiness-driven lift
+- one preferred policy profile and one fallback profile for pilot demos and first customer conversations
 
 <details>
 <summary>Archived Milestone Context: v2.1 Decision Ownership & Pilot-Ready Trust</summary>
@@ -83,14 +86,15 @@ The system is now strong enough for pilot-facing demos on winner and consumer-tr
 
 ### Active
 
-- [ ] Safely widen thresholds using validity-clean winner evidence
-- [ ] Improve approval and conditional yield without degrading selected-surface trust
-- [ ] Turn offer maturity and readiness into outcome-producing signals rather than mostly descriptive diagnostics
-- [ ] Validate broadened operating-envelope behavior with naturally occurring `no_valid_winner` and edge-case cohorts
+- [ ] Bounded threshold profiles can improve approval and conditional yield without breaking the shipped winner and consumer-truth invariants
+- [ ] Existing offer and readiness signals can produce explicit decision movement rather than remaining descriptive only
+- [ ] Standard cohorts can measure `REJECTED -> CONDITIONAL -> APPROVED` movement and separate threshold lift from offer/readiness lift
+- [ ] One preferred policy profile and one fallback profile can refresh the pilot baseline for demos and first customer conversations
 
 ### Out of Scope
 
 - Redesigns of Phases `40`, `40.5`, `41`, `42`, `42.5`, `43`, `45`, `46`, `47`, or `48` rather than consuming their shipped semantics as fixed baselines
+- Expanding action semantics, adding new feature space, or broadening the mathematical recommendation space in this milestone
 - Full borrower-facing self-serve or mobile experiences until a future milestone explicitly opens them
 - Legal or compliance opinion automation or live institution integration expansion beyond the shipped pilot baseline
 
@@ -106,7 +110,7 @@ The system is now strong enough for pilot-facing demos on winner and consumer-tr
 - Phase `46` proved DICE contender cleanliness separately from general winner integrity.
 - Phase `47` aligned selected overlays across raw, flat, operator, and explanation outputs.
 - Phase `48` proved operator packet coherence on the tracked blocker/action/readiness invariants across three large-sample reruns.
-- The next milestone should build forward from this shipped trust baseline rather than reopening winner-integrity layers.
+- The next milestone should build forward from this shipped trust baseline rather than reopening winner-integrity layers or widening the action space.
 
 ## Constraints
 
@@ -116,8 +120,8 @@ The system is now strong enough for pilot-facing demos on winner and consumer-tr
 - **Proof Before Hype**: Demo, proof, and pilot claims should stay anchored to portfolio evidence and explicit trust cues
 - **Brownfield**: Existing CLI runners, artifacts, website stack, and review surfaces should be evolved rather than replaced
 - **Milestone Continuity**: Phase numbering continues across milestones rather than resetting
-- **Threshold Tuning Deferred**: Approval-rate and threshold optimization belong to the next milestone, not this shipped trust baseline
-- **No Semantic Reopen**: Decision ownership, calibration math, planner-quality measurement, recommendation validity semantics, and operator packet semantics remain inherited baselines for this milestone
+- **Existing Signal Scope Only**: `v2.3` must operate strictly on current signals, current outputs, and current action space rather than introducing new feature domains
+- **Trust Layers Frozen**: Decision ownership, calibration math, planner-quality measurement, recommendation validity semantics, winner hard-stop, selected-surface projection, and operator packet semantics remain inherited baselines for this milestone
 
 ## Key Decisions
 
@@ -134,6 +138,7 @@ The system is now strong enough for pilot-facing demos on winner and consumer-tr
 | Separate business-visible decision truth from internal review diagnostics | The pilot story needed deterministic external decisions without leaking internal exception states | ✓ Good |
 | Treat calibration, operator review, planner quality, and pilot refresh as additive consumers of one decision owner | This preserved deterministic ownership while still making the system measurable, reviewable, and packageable | ✓ Good |
 | Open `v2.2 Winner Integrity & Consumer Consistency` before any threshold widening | Large-sample reruns showed that invalid selected winners and contradictory consumer surfaces were the real bottleneck, not approval aggressiveness | ✓ Good |
+| Open `v2.3 Threshold & Outcome Optimization` after `v2.2` shipped cleanly | Pilot demos now need measurable funnel movement and outcome lift more than more trust repair or action-space expansion | — Pending |
 
 <details>
 <summary>Archived Milestone Context: v2.2 Winner Integrity & Consumer Consistency</summary>
@@ -149,4 +154,4 @@ The system is now strong enough for pilot-facing demos on winner and consumer-tr
 </details>
 
 ---
-*Last updated: 2026-04-02 after shipping v2.2*
+*Last updated: 2026-04-02 after starting v2.3*

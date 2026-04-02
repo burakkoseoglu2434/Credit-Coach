@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-02)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** v2.2 archived; ready to define the next milestone
+**Current focus:** v2.3 Threshold & Outcome Optimization
 
 ## Current Position
 
-Phase: none
-Plan: n/a
-Status: Milestone archived; no active phase
-Last activity: 2026-04-02 - Archived milestone `v2.2 Winner Integrity & Consumer Consistency`, created milestone archives, and prepared the repo for a fresh next-milestone definition
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-02 - Started milestone `v2.3 Threshold & Outcome Optimization` and opened requirements definition
 
-Progress: `v2.2` is now the shipped and audited milestone baseline for winner integrity and consumer consistency. Post-shipment work should build on fail-closed winner selection, DICE contender enforcement, aligned selected surfaces, and coherent operator packets instead of reopening those trust repairs.
+Progress: `v2.2` is now the shipped and audited trust baseline. `v2.3` is scoped to improve approval and conditional yield, turn existing offer/readiness signals into outcome-producing levers, and measure funnel movement without reopening winner-integrity or consumer-surface layers.
 
 ## Performance Metrics
 
@@ -53,7 +53,8 @@ Progress: `v2.2` is now the shipped and audited milestone baseline for winner in
 - Phase 46 now proves DICE lane cleanliness separately from general winner integrity, with explicit DICE eligibility, invalid, warning, fallback, and selected-cleanliness metrics in collection artifacts.
 - Phase 47 now aligns raw summaries, flat metrics, operator packets, and explanation packs on one selected-surface projection, with explicit `no_valid_winner` empty-state semantics and rerun-level drift proof across the three 250-customer cohorts.
 - Phase 48 now suppresses incoherent approved blockers/actions, prevents fake empty-state recommendations, exports first-class packet coherence diagnostics, and proves zero tracked packet contradictions across `pilot_mixed`, `risk_band_balanced`, and `offer_needed_balanced`.
-- Milestone `v2.2` is now archived as a shipped baseline and the repo is back to milestone-definition mode instead of phase-execution mode.
+- Milestone `v2.2` is now archived as the shipped trust baseline that `v2.3` will optimize rather than reopen.
+- Milestone `v2.3` is now defined, with threshold policy evaluation, offer/readiness outcome rules, funnel guardrails, and preferred-policy proof sequenced into Phases `49-52`.
 
 ## Accumulated Context
 
@@ -85,11 +86,11 @@ None yet.
 
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
 - Some Phase 41-44 validation frontmatter still understates `wave_0_complete` despite shipped tests and successful audit coverage.
-- There is no active milestone yet; the next step is defining one rather than continuing phase execution.
 - Large-sample reruns for v2.2 still produced zero `no_valid_winner` cases, so empty-state packet behavior remains proven by targeted automated tests rather than cohort evidence.
+- `v2.3` must improve yield using only existing signals and existing outputs; action-space expansion is intentionally deferred.
 
 ## Session Continuity
 
 Last session: 2026-04-02
-Stopped at: Milestone `v2.2` archived; next step is `$gsd-new-milestone`
+Stopped at: Milestone `v2.3` started; next step is requirements and roadmap definition
 Resume file: None
