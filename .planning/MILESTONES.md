@@ -1,6 +1,38 @@
 # Project Milestones: Credit Coach
 
-**Current active milestone:** none - ready for `$gsd-new-milestone`
+**Current active milestone:** v2.3 Threshold & Outcome Optimization
+
+## v2.3 Threshold & Outcome Optimization (Active)
+
+**Goal:** Improve approval and conditional yield from the shipped `v2.2` trust baseline by tuning bounded thresholds and making existing offer/readiness signals produce real funnel movement.
+
+**Why this milestone exists now:**
+- `v2.2` closed the remaining winner-integrity and consumer-consistency trust repairs, so the next bottleneck is business lift rather than trust repair
+- pilot-facing demos are now credible, but the decision funnel still needs stronger `APPROVED + CONDITIONAL` movement to support customer conversations
+- offer maturity and readiness are currently measured well but remain too descriptive rather than outcome-producing
+- the system should first optimize results using existing signals before expanding action semantics or feature space
+
+**Planned phases:** 49-52
+
+**Workstreams:**
+- Phase 49: Threshold Policy Evaluation & Provenance
+- Phase 50: Offer & Readiness Outcome Rules
+- Phase 51: Funnel Movement Guardrails & Evidence
+- Phase 52: Preferred Policy Baseline & Demo Proof
+
+**Acceptance checks:**
+- at least one bounded policy profile improves `APPROVED + CONDITIONAL` yield versus the shipped `v2.2` baseline on the standard cohorts
+- `offer_needed_balanced` shows explicit outcome movement attributable to offer/readiness rules rather than descriptive-only diagnostics
+- yield proof can separate threshold-driven movement from offer/readiness-driven movement
+- all shipped `v2.2` trust counters remain clean while candidate and promoted policies are evaluated
+- one preferred policy profile and one fallback profile are ready for pilot demos and first customer conversations
+
+**Not in this milestone:**
+- expanding action semantics or opening new recommendation feature space
+- redesign of Phases `40`, `40.5`, `41`, `42`, `42.5`, `43`, `45`, `46`, `47`, or `48`
+- new borrower-facing channels, live institution integrations, or compliance automation
+
+**Current status:** Milestone defined; requirements and roadmap are ready, phase execution has not started yet.
 
 ## v2.2 Winner Integrity & Consumer Consistency (Shipped: 2026-04-02)
 
