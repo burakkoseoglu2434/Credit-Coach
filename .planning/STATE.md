@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 
 ## Current Position
 
-Phase: 49
-Plan: Complete
-Status: Complete; ready for Phase 50
-Last activity: 2026-04-02 - Closed Phase `49 Threshold Policy Evaluation & Provenance` with deterministic policy provenance, three-cohort rerun proof, and an explicit `no_safe_uplift` result across all bounded threshold-only candidates
+Phase: 50
+Plan: Context locked
+Status: Discussed; ready for planning
+Last activity: 2026-04-02 - Locked Phase `50 Offer & Readiness Outcome Rules` context around bounded analysis-only outcome rules, existing offer/readiness signal reuse, and additive rule-effect provenance
 
-Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` proved that bounded threshold-only relaxations do not safely improve `APPROVED + CONDITIONAL` yield on the three standard cohorts, so `v2.3` now moves to offer/readiness outcome rules rather than threshold-only promotion.
+Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` proved that bounded threshold-only relaxations do not safely improve `APPROVED + CONDITIONAL` yield on the three standard cohorts, so `v2.3` now shifts to bounded offer/readiness outcome rules rather than more threshold-only loosening.
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` prov
 - Milestone `v2.2` is now archived as the shipped trust baseline that `v2.3` will optimize rather than reopen.
 - Milestone `v2.3` is now defined, with threshold policy evaluation, offer/readiness outcome rules, funnel guardrails, and preferred-policy proof sequenced into Phases `49-52`.
 - Phase 49 now adds a deterministic threshold-policy catalog, recommendation-summary provenance, and three-cohort proof that bounded threshold-only relaxations produce `no_safe_uplift` against the shipped baseline while preserving all `v2.2` trust counters.
+- Phase 50 context is now locked around a small, analysis-only offer/readiness rule ladder that reuses existing readiness and offer signals as explicit outcome levers without reopening threshold tuning or trust semantics.
 
 ## Accumulated Context
 
@@ -76,6 +77,7 @@ Recent decisions affecting the shipped baseline:
 - Phase `47 Selected Surface Consistency` now ships a consumer-safe selected overlay, one owner for selected recommendation text, explicit `no_valid_winner` empty-state rendering, and a canonical drift-guard field set spanning raw, flat, operator, and explanation surfaces
 - Large-sample reruns now show zero selected-surface drift on the tracked Phase 47 fields and zero tracked operator packet coherence mismatches on the Phase 48 counters
 - Phase `49 Threshold Policy Evaluation & Provenance` now proves that the shipped baseline should not be loosened through bounded threshold-only changes alone; all three standard cohorts ended with explicit `no_safe_uplift` while collection and pilot artifacts published replayable policy provenance
+- Phase `50 Offer & Readiness Outcome Rules` is now scoped to test whether existing offer and readiness signals can safely create one-step outcome movement through analysis-only rule profiles and additive rule-effect provenance
 - The website remains a typed consumer of engine artifacts rather than a source of decision logic
 - Portfolio proof now includes numeric impact and calibration honesty, not just product confidence
 - Pilot integration remains export-first and controlled instead of pretending live connectivity
@@ -92,9 +94,10 @@ None yet.
 - Large-sample reruns for v2.2 still produced zero `no_valid_winner` cases, so empty-state packet behavior remains proven by targeted automated tests rather than cohort evidence.
 - `v2.3` must improve yield using only existing signals and existing outputs; action-space expansion is intentionally deferred.
 - Phase `49` found no safe threshold-only uplift candidate, so the milestone’s remaining lift must come from bounded offer/readiness outcome rules and later policy-pair evidence rather than threshold relaxation alone.
+- Phase `50` must keep live decision ownership untouched; any offer/readiness movement remains analysis-only until a later promotion phase chooses a preferred profile.
 
 ## Session Continuity
 
 Last session: 2026-04-02
-Stopped at: Phase `49` complete; next step is `$gsd-discuss-phase 50`
-Resume file: .planning/phases/49-threshold-policy-evaluation-provenance/49-VERIFICATION.md
+Stopped at: Phase `50` context locked; next step is `$gsd-plan-phase 50 --research`
+Resume file: .planning/phases/50-offer-readiness-outcome-rules/50-CONTEXT.md
