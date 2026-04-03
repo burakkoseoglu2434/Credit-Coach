@@ -46,6 +46,7 @@ Success criteria:
 1. Existing offer-maturity signals can upgrade eligible customers under explicit bounded rules.
 2. Existing readiness signals can upgrade eligible customers under explicit bounded rules.
 3. Operator and explanation surfaces state when offer/readiness changed an outcome without drifting from selected truth.
+Status note: Completed 2026-04-03. All three standard cohorts produced explicit `no_safe_uplift`, so bounded offer/readiness-only rules did not create safe one-step movement; additive provenance and consumer-safe note seams are now in place for later v2.3 evidence work.
 
 **Phase 51: Funnel Movement Guardrails & Evidence**
 Goal: Measure funnel movement clearly and prevent promotion of unsafe candidate policies.
@@ -216,6 +217,6 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 47. Selected Surface Consistency | v2.2 | 3/3 | Complete | 2026-04-01 |
 | 48. Operator Packet Coherence | v2.2 | 3/3 | Complete | 2026-04-02 |
 | 49. Threshold Policy Evaluation & Provenance | v2.3 | 3/3 | Complete | 2026-04-02 |
-| 50. Offer & Readiness Outcome Rules | v2.3 | 0/3 | Not Started | — |
+| 50. Offer & Readiness Outcome Rules | v2.3 | 3/3 | Complete | 2026-04-03 |
 | 51. Funnel Movement Guardrails & Evidence | v2.3 | 0/3 | Not Started | — |
 | 52. Preferred Policy Baseline & Demo Proof | v2.3 | 0/3 | Not Started | — |

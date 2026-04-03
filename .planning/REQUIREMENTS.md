@@ -13,9 +13,9 @@
 
 ### Offer and Readiness Outcomes
 
-- [ ] **OUT-01**: Existing offer-maturity signals can upgrade eligible customers from `REJECTED` to `CONDITIONAL` or `APPROVED` under explicit bounded rules
-- [ ] **OUT-02**: Existing readiness signals can upgrade eligible customers from `REJECTED` to `CONDITIONAL` or from `CONDITIONAL` to `APPROVED` under explicit bounded rules
-- [ ] **OUT-03**: Operator and explanation surfaces can state when offer or readiness rules changed the decision outcome without drifting from the selected consumer truth
+- [x] **OUT-01**: Existing offer-maturity signals can upgrade eligible customers from `REJECTED` to `CONDITIONAL` or `APPROVED` under explicit bounded rules
+- [x] **OUT-02**: Existing readiness signals can upgrade eligible customers from `REJECTED` to `CONDITIONAL` or from `CONDITIONAL` to `APPROVED` under explicit bounded rules
+- [x] **OUT-03**: Operator and explanation surfaces can state when offer or readiness rules changed the decision outcome without drifting from the selected consumer truth
 
 ### Funnel Movement Guardrails
 
@@ -56,9 +56,9 @@
 | THR-01 | Phase 49 | Complete |
 | THR-02 | Phase 49 | Complete |
 | THR-03 | Phase 49 | Complete |
-| OUT-01 | Phase 50 | Pending |
-| OUT-02 | Phase 50 | Pending |
-| OUT-03 | Phase 50 | Pending |
+| OUT-01 | Phase 50 | Complete |
+| OUT-02 | Phase 50 | Complete |
+| OUT-03 | Phase 50 | Complete |
 | FUN-01 | Phase 51 | Pending |
 | FUN-02 | Phase 51 | Pending |
 | FUN-03 | Phase 51 | Pending |
@@ -72,4 +72,4 @@
 
 ---
 *Requirements defined: 2026-04-02*
-*Last updated: 2026-04-02 after Phase 49 completion*
+*Last updated: 2026-04-03 after Phase 50 completion*
