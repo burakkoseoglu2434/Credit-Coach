@@ -72,6 +72,11 @@ def _build_collection_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
         "calibration/segment_breakdown.csv",
         "calibration/policy_profile_catalog.json",
         "calibration/policy_recommendation_summary.json",
+        "calibration/outcome_rule_comparison.csv",
+        "calibration/outcome_rule_shift_matrix.csv",
+        "calibration/outcome_rule_customer_effects.csv",
+        "calibration/outcome_rule_profile_catalog.json",
+        "calibration/outcome_rule_recommendation_summary.json",
         "calibration/calibration_review.md",
         "operator_review_briefing.md",
     ]:
@@ -119,6 +124,14 @@ def _build_collection_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
         "recommended_candidate_policy_version": "analysis_mild_relax_v2_3a",
         "recommended_candidate_status": "shortlisted",
         "recommended_candidate_reason": "Bounded yield uplift is positive while Phase 49 proxy guardrails remain within limits.",
+        "candidate_outcome_rule_versions_compared": [
+            "analysis_offer_support_v2_3b",
+            "analysis_readiness_support_v2_3b",
+            "analysis_offer_readiness_combo_v2_3b",
+        ],
+        "recommended_outcome_rule_profile_version": "analysis_offer_readiness_combo_v2_3b",
+        "recommended_outcome_rule_status": "shortlisted",
+        "recommended_outcome_rule_reason": "Offer/readiness-driven uplift is positive while Phase 50 guardrails remain within limits.",
         "contract_health": {
             "critical_field_null_rate": 0.0,
             "raw_flat_mismatch_count": 0,
@@ -138,6 +151,11 @@ def _build_collection_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
             "segment_breakdown_csv": "tables/customer_artifact_collection/calibration/segment_breakdown.csv",
             "policy_profile_catalog_json": "tables/customer_artifact_collection/calibration/policy_profile_catalog.json",
             "policy_recommendation_summary_json": "tables/customer_artifact_collection/calibration/policy_recommendation_summary.json",
+            "outcome_rule_comparison_csv": "tables/customer_artifact_collection/calibration/outcome_rule_comparison.csv",
+            "outcome_rule_shift_matrix_csv": "tables/customer_artifact_collection/calibration/outcome_rule_shift_matrix.csv",
+            "outcome_rule_customer_effects_csv": "tables/customer_artifact_collection/calibration/outcome_rule_customer_effects.csv",
+            "outcome_rule_profile_catalog_json": "tables/customer_artifact_collection/calibration/outcome_rule_profile_catalog.json",
+            "outcome_rule_recommendation_summary_json": "tables/customer_artifact_collection/calibration/outcome_rule_recommendation_summary.json",
             "calibration_review_md": "tables/customer_artifact_collection/calibration/calibration_review.md",
         },
         "operator_files": {
@@ -166,6 +184,8 @@ def test_evaluate_pilot_artifact_qa_passes_for_complete_package(tmp_path: Path) 
     assert summary["decision_explanation_pack_count"] == 1
     assert summary["recommended_candidate_status"] == "shortlisted"
     assert summary["recommended_candidate_policy_version"] == "analysis_mild_relax_v2_3a"
+    assert summary["recommended_outcome_rule_status"] == "shortlisted"
+    assert summary["recommended_outcome_rule_profile_version"] == "analysis_offer_readiness_combo_v2_3b"
 
 
 def test_evaluate_pilot_artifact_qa_degrades_when_optional_inputs_are_missing(tmp_path: Path) -> None:

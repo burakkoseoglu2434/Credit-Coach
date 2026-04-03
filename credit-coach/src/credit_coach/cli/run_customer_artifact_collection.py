@@ -36,6 +36,7 @@ from credit_coach.data.split import split_dataframe
 from credit_coach.evaluation.decision_calibration import (
     build_calibration_review_markdown,
     build_funnel_summary,
+    build_outcome_rule_comparison,
     build_policy_comparison,
     build_readiness_distribution,
     build_selection_work_frame,
@@ -124,6 +125,66 @@ def _json_list(value: Any) -> list[str]:
     if not isinstance(parsed, list):
         return []
     return [str(item) for item in parsed if str(item)]
+
+
+def _outcome_rule_note(effect: Mapping[str, Any] | None) -> dict[str, Any]:
+    if not effect or int(_safe_int(effect.get("outcome_rule_applied", 0), 0)) != 1:
+        return {
+            "selected_outcome_rule_applied": 0,
+            "selected_outcome_rule_profile_version": "",
+            "selected_outcome_rule_source": "",
+            "selected_outcome_rule_transition": "",
+            "selected_outcome_rule_note": "",
+            "selected_outcome_rule_note_localized": None,
+        }
+    transition = _safe_text(effect.get("outcome_rule_transition"), "none")
+    profile_version = _safe_text(effect.get("outcome_rule_profile_version"))
+    source = _safe_text(effect.get("outcome_rule_source"))
+    messages = {
+        "rejected_to_conditional_offer_support": (
+            "Aktif kurum destegiyle bu dosya analiz katmaninda REJECTED durumundan CONDITIONAL durumuna tasinirdi.",
+            "With active institution support, this file would move from REJECTED to CONDITIONAL in the analysis layer.",
+        ),
+        "rejected_to_conditional_readiness_support": (
+            "Mevcut hazirlik sinyalleriyle bu dosya analiz katmaninda REJECTED durumundan CONDITIONAL durumuna tasinirdi.",
+            "With the current readiness evidence, this file would move from REJECTED to CONDITIONAL in the analysis layer.",
+        ),
+        "conditional_to_approved_offer_support": (
+            "Aktif kurum destegiyle bu dosya analiz katmaninda CONDITIONAL durumundan APPROVED durumuna tasinirdi.",
+            "With active institution support, this file would move from CONDITIONAL to APPROVED in the analysis layer.",
+        ),
+        "conditional_to_approved_offer_readiness_combo": (
+            "Teklif ve hazirlik birlikte guclendiginde bu dosya analiz katmaninda CONDITIONAL durumundan APPROVED durumuna tasinirdi.",
+            "With combined offer and readiness support, this file would move from CONDITIONAL to APPROVED in the analysis layer.",
+        ),
+    }
+    tr_text, en_text = messages.get(
+        transition,
+        (
+            "Sinirli bir teklif/hazirlik kuralı bu dosyada analiz katmaninda yukari yonlu hareket olustururdu.",
+            "A bounded offer/readiness rule would create upward movement for this file in the analysis layer.",
+        ),
+    )
+    return {
+        "selected_outcome_rule_applied": 1,
+        "selected_outcome_rule_profile_version": profile_version,
+        "selected_outcome_rule_source": source,
+        "selected_outcome_rule_transition": transition,
+        "selected_outcome_rule_note": en_text,
+        "selected_outcome_rule_note_localized": {"tr": tr_text, "en": en_text},
+    }
+
+
+def _apply_outcome_rule_note_to_bundle(
+    bundle: CustomerArtifactBundle,
+    *,
+    effect: Mapping[str, Any] | None,
+) -> None:
+    payload = _outcome_rule_note(effect)
+    bundle.roadmap.setdefault("summary", {})
+    if isinstance(bundle.roadmap.get("summary"), dict):
+        bundle.roadmap["summary"].update(payload)
+    bundle.metrics_summary.update(payload)
 
 
 def _aligned_series(
@@ -532,6 +593,43 @@ def _augment_metrics_row(
                 )
                 or ""
             ),
+            "selected_outcome_rule_applied": int(
+                _safe_int(
+                    metrics.get(
+                        "selected_outcome_rule_applied",
+                        roadmap_summary.get("selected_outcome_rule_applied", 0),
+                    ),
+                    0,
+                )
+            ),
+            "selected_outcome_rule_profile_version": str(
+                metrics.get(
+                    "selected_outcome_rule_profile_version",
+                    roadmap_summary.get("selected_outcome_rule_profile_version", ""),
+                )
+                or ""
+            ),
+            "selected_outcome_rule_source": str(
+                metrics.get(
+                    "selected_outcome_rule_source",
+                    roadmap_summary.get("selected_outcome_rule_source", ""),
+                )
+                or ""
+            ),
+            "selected_outcome_rule_transition": str(
+                metrics.get(
+                    "selected_outcome_rule_transition",
+                    roadmap_summary.get("selected_outcome_rule_transition", ""),
+                )
+                or ""
+            ),
+            "selected_outcome_rule_note": str(
+                metrics.get(
+                    "selected_outcome_rule_note",
+                    roadmap_summary.get("selected_outcome_rule_note", ""),
+                )
+                or ""
+            ),
             "selection_outcome": str(metrics.get("selection_outcome", roadmap_summary.get("selection_outcome", "")) or ""),
             "selection_stage": str(metrics.get("selection_stage", roadmap_summary.get("selection_stage", "")) or ""),
             "invalid_candidates_removed_count": int(_safe_int(metrics.get("invalid_candidates_removed_count", roadmap_summary.get("invalid_candidates_removed_count", 0)), 0)),
@@ -733,6 +831,7 @@ def _collection_summary_markdown(
     funnel_summary: Mapping[str, Any],
     readiness_summary: Mapping[str, Any],
     calibration_summary: Mapping[str, Any],
+    outcome_rule_summary: Mapping[str, Any],
     operator_briefing: Mapping[str, Any],
 ) -> str:
     decision_status_counts = (
@@ -927,6 +1026,9 @@ def _collection_summary_markdown(
     fallback_blocker_suppressed_count = int(
         pd.to_numeric(metrics_df.get("operator_fallback_blocker_suppressed", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
     )
+    selected_outcome_rule_applied_count = int(
+        pd.to_numeric(metrics_df.get("selected_outcome_rule_applied", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+    )
     return "\n".join(
         [
             "# Customer Artifact Collection",
@@ -975,6 +1077,13 @@ def _collection_summary_markdown(
             f"- Recommended candidate reason: {_safe_text(calibration_summary.get('recommended_candidate_reason'), 'n/a') or 'n/a'}",
             f"- Baseline north-star pass: {bool(dict(calibration_summary.get('baseline_policy_metrics', {})).get('north_star_pass', False))}",
             f"- Baseline false-positive proxy: {_safe_float(dict(calibration_summary.get('baseline_policy_metrics', {})).get('false_positive_proxy'), 0.0):.4f}",
+            "",
+            "## Outcome Rules",
+            f"- Candidate outcome-rule profiles compared: {', '.join(outcome_rule_summary.get('candidate_outcome_rule_versions_compared', []) or []) or 'n/a'}",
+            f"- Recommended outcome-rule status: {_safe_text(outcome_rule_summary.get('recommended_outcome_rule_status'), 'no_safe_uplift') or 'no_safe_uplift'}",
+            f"- Recommended outcome-rule profile: {_safe_text(outcome_rule_summary.get('recommended_outcome_rule_profile_version'), 'n/a') or 'n/a'}",
+            f"- Recommended outcome-rule reason: {_safe_text(outcome_rule_summary.get('recommended_outcome_rule_reason'), 'n/a') or 'n/a'}",
+            f"- Selected outcome-rule note count: {selected_outcome_rule_applied_count}",
             "",
             "## Planner Source Mix",
             f"- Best-plan source distribution: {best_source_counts or '{}'}",
@@ -1045,6 +1154,11 @@ def _collection_summary_markdown(
             f"- Policy comparison: `{manifest_rel_root}/calibration/policy_comparison.csv`",
             f"- Policy profile catalog: `{manifest_rel_root}/calibration/policy_profile_catalog.json`",
             f"- Policy recommendation summary: `{manifest_rel_root}/calibration/policy_recommendation_summary.json`",
+            f"- Outcome-rule comparison: `{manifest_rel_root}/calibration/outcome_rule_comparison.csv`",
+            f"- Outcome-rule shift matrix: `{manifest_rel_root}/calibration/outcome_rule_shift_matrix.csv`",
+            f"- Outcome-rule customer effects: `{manifest_rel_root}/calibration/outcome_rule_customer_effects.csv`",
+            f"- Outcome-rule profile catalog: `{manifest_rel_root}/calibration/outcome_rule_profile_catalog.json`",
+            f"- Outcome-rule recommendation summary: `{manifest_rel_root}/calibration/outcome_rule_recommendation_summary.json`",
             f"- Calibration review: `{manifest_rel_root}/calibration/calibration_review.md`",
             f"- Operator briefing: `{manifest_rel_root}/operator_review_briefing.md`",
             f"- Operator packets: `{manifest_rel_root}/operator_packets/`",
@@ -1222,10 +1336,9 @@ def main(argv: Sequence[str] | None = None):
         (int(record["selection"]["source_row_index"]), str(record["selection"]["customer_id"])): record["result"]
         for record in processed_records
     }
-    metrics_rows: list[dict[str, Any]] = []
+    pre_customer_records: list[dict[str, Any]] = []
     plan_frames: list[pd.DataFrame] = []
     step_frames: list[pd.DataFrame] = []
-    operator_packet_records: list[dict[str, Any]] = []
     for _, selection_row in selection_df.sort_values(["batch_index", "customer_id"]).iterrows():
         result = record_lookup[(int(selection_row["source_row_index"]), str(selection_row["customer_id"]))]
         metrics_row = _augment_metrics_row(
@@ -1285,28 +1398,29 @@ def main(argv: Sequence[str] | None = None):
             result=result,
         )
         metrics_row.update(parity)
-        raw_dir = raw_root / f"{int(selection_row['batch_index']):03d}_{_path_safe_customer_id(str(selection_row['customer_id']))}"
-        write_customer_artifact_bundle(result.bundle, raw_dir)
-        packet = build_operator_review_packet(result.bundle.roadmap)
-        operator_dir = operator_root / f"{int(selection_row['batch_index']):03d}_{_path_safe_customer_id(str(selection_row['customer_id']))}"
-        packet_paths = write_operator_review_packet(packet, operator_dir)
-        packet_relpath = f"{rel_root}/operator_packets/{operator_dir.name}/operator_packet.json"
-        metrics_row.update(operator_packet_metrics_fields(packet, packet_relpath=packet_relpath))
-        operator_packet_records.append(
+        pre_customer_records.append(
             {
-                "customer_id": packet.customer_id,
-                "batch_index": int(selection_row["batch_index"]),
-                "packet_relpath": packet_relpath,
-                "packet": packet.model_dump(mode="json"),
-                "markdown_relpath": f"{rel_root}/operator_packets/{operator_dir.name}/operator_packet.md",
-                "written_files": {name: str(path) for name, path in packet_paths.items()},
+                "selection_row": selection_row.copy(),
+                "result": result,
+                "parity": dict(parity),
+                "raw_dir": raw_root / f"{int(selection_row['batch_index']):03d}_{_path_safe_customer_id(str(selection_row['customer_id']))}",
+                "operator_dir": operator_root / f"{int(selection_row['batch_index']):03d}_{_path_safe_customer_id(str(selection_row['customer_id']))}",
             }
         )
-        metrics_rows.append(metrics_row)
         plan_frames.append(plans_df)
         step_frames.append(steps_df)
 
-    metrics_df = pd.DataFrame(metrics_rows).sort_values(["batch_index", "customer_id"]).reset_index(drop=True)
+    pre_metrics_df = pd.DataFrame(
+        [
+            _augment_metrics_row(
+                collection_run_id=run_ctx.run_id,
+                selection_row=record["selection_row"],
+                result=record["result"],
+            )
+            | dict(record["parity"])
+            for record in pre_customer_records
+        ]
+    ).sort_values(["batch_index", "customer_id"]).reset_index(drop=True)
     customer_plans_df = (
         pd.concat(plan_frames, ignore_index=True)
         if plan_frames
@@ -1317,6 +1431,87 @@ def main(argv: Sequence[str] | None = None):
         if step_frames
         else pd.DataFrame(columns=["collection_run_id", "batch_index", "source_row_index", "customer_id"])
     )
+    calibration_input_df = prepare_metrics_for_calibration(pre_metrics_df)
+    funnel_summary = build_funnel_summary(calibration_input_df)
+    readiness_summary = summarize_readiness(calibration_input_df)
+    readiness_distribution_df = build_readiness_distribution(calibration_input_df)
+    status_by_readiness_df = build_status_by_readiness(calibration_input_df)
+    policy_version_evaluated = (
+        pre_metrics_df.get("decision_policy_version", pd.Series(dtype=object)).astype(str).mode().iloc[0]
+        if not pre_metrics_df.empty and not pre_metrics_df.get("decision_policy_version", pd.Series(dtype=object)).empty
+        else ""
+    )
+    policy_comparison_payload = build_policy_comparison(
+        calibration_input_df,
+        policy_version_evaluated=policy_version_evaluated,
+    )
+    policy_comparison_df = policy_comparison_payload["policy_comparison"]
+    decision_shift_matrix_df = policy_comparison_payload["decision_shift_matrix"]
+    segment_breakdown_df = policy_comparison_payload["segment_breakdown"]
+    calibration_summary = policy_comparison_payload["calibration_summary"]
+    policy_profile_catalog = policy_comparison_payload["policy_profile_catalog"]
+    policy_recommendation_summary = policy_comparison_payload["policy_recommendation_summary"]
+    outcome_rule_payload = build_outcome_rule_comparison(
+        calibration_input_df,
+        policy_version_evaluated=policy_version_evaluated,
+    )
+    outcome_rule_comparison_df = outcome_rule_payload["outcome_rule_comparison"]
+    outcome_rule_shift_matrix_df = outcome_rule_payload["outcome_rule_shift_matrix"]
+    outcome_rule_customer_effects_df = outcome_rule_payload["outcome_rule_customer_effects"]
+    outcome_rule_profile_catalog = outcome_rule_payload["outcome_rule_profile_catalog"]
+    outcome_rule_summary = outcome_rule_payload["outcome_rule_summary"]
+    outcome_rule_recommendation_summary = outcome_rule_payload["outcome_rule_recommendation_summary"]
+    recommended_outcome_rule_profile_version = _safe_text(
+        outcome_rule_recommendation_summary.get("recommended_outcome_rule_profile_version")
+    )
+    selected_effect_map: dict[tuple[int, str], dict[str, Any]] = {}
+    if recommended_outcome_rule_profile_version:
+        filtered_effects = outcome_rule_customer_effects_df.loc[
+            (outcome_rule_customer_effects_df.get("outcome_rule_profile_version", pd.Series(dtype=object)).astype(str) == recommended_outcome_rule_profile_version)
+            & (
+                pd.to_numeric(
+                    outcome_rule_customer_effects_df.get("outcome_rule_applied", pd.Series(dtype=float)),
+                    errors="coerce",
+                ).fillna(0.0)
+                == 1
+            )
+        ].copy()
+        selected_effect_map = {
+            (int(row["source_row_index"]), str(row["customer_id"])): dict(row)
+            for row in filtered_effects.to_dict(orient="records")
+        }
+
+    metrics_rows: list[dict[str, Any]] = []
+    operator_packet_records: list[dict[str, Any]] = []
+    for record in sorted(pre_customer_records, key=lambda item: (int(item["selection_row"]["batch_index"]), str(item["selection_row"]["customer_id"]))):
+        selection_row = record["selection_row"]
+        result = record["result"]
+        effect = selected_effect_map.get((int(selection_row["source_row_index"]), str(selection_row["customer_id"])))
+        _apply_outcome_rule_note_to_bundle(result.bundle, effect=effect)
+        metrics_row = _augment_metrics_row(
+            collection_run_id=run_ctx.run_id,
+            selection_row=selection_row,
+            result=result,
+        )
+        metrics_row.update(record["parity"])
+        write_customer_artifact_bundle(result.bundle, record["raw_dir"])
+        packet = build_operator_review_packet(result.bundle.roadmap)
+        packet_paths = write_operator_review_packet(packet, record["operator_dir"])
+        packet_relpath = f"{rel_root}/operator_packets/{record['operator_dir'].name}/operator_packet.json"
+        metrics_row.update(operator_packet_metrics_fields(packet, packet_relpath=packet_relpath))
+        operator_packet_records.append(
+            {
+                "customer_id": packet.customer_id,
+                "batch_index": int(selection_row["batch_index"]),
+                "packet_relpath": packet_relpath,
+                "packet": packet.model_dump(mode="json"),
+                "markdown_relpath": f"{rel_root}/operator_packets/{record['operator_dir'].name}/operator_packet.md",
+                "written_files": {name: str(path) for name, path in packet_paths.items()},
+            }
+        )
+        metrics_rows.append(metrics_row)
+
+    metrics_df = pd.DataFrame(metrics_rows).sort_values(["batch_index", "customer_id"]).reset_index(drop=True)
     selection_out = selection_df.drop(columns=["_frame_position"]).copy()
     selection_out.insert(0, "collection_run_id", run_ctx.run_id)
     selection_out = selection_out.merge(
@@ -1334,26 +1529,6 @@ def main(argv: Sequence[str] | None = None):
     customer_steps_df.to_csv(steps_csv, index=False)
     selection_out.to_csv(selection_csv, index=False)
 
-    calibration_input_df = prepare_metrics_for_calibration(metrics_df)
-    funnel_summary = build_funnel_summary(calibration_input_df)
-    readiness_summary = summarize_readiness(calibration_input_df)
-    readiness_distribution_df = build_readiness_distribution(calibration_input_df)
-    status_by_readiness_df = build_status_by_readiness(calibration_input_df)
-    policy_version_evaluated = (
-        metrics_df.get("decision_policy_version", pd.Series(dtype=object)).astype(str).mode().iloc[0]
-        if not metrics_df.empty and not metrics_df.get("decision_policy_version", pd.Series(dtype=object)).empty
-        else ""
-    )
-    policy_comparison_payload = build_policy_comparison(
-        calibration_input_df,
-        policy_version_evaluated=policy_version_evaluated,
-    )
-    policy_comparison_df = policy_comparison_payload["policy_comparison"]
-    decision_shift_matrix_df = policy_comparison_payload["decision_shift_matrix"]
-    segment_breakdown_df = policy_comparison_payload["segment_breakdown"]
-    calibration_summary = policy_comparison_payload["calibration_summary"]
-    policy_profile_catalog = policy_comparison_payload["policy_profile_catalog"]
-    policy_recommendation_summary = policy_comparison_payload["policy_recommendation_summary"]
     operator_briefing = build_collection_operator_briefing(
         metrics_df=metrics_df,
         operator_packets=[record["packet"] for record in operator_packet_records],
@@ -1370,6 +1545,11 @@ def main(argv: Sequence[str] | None = None):
     segment_breakdown_csv = calibration_root / "segment_breakdown.csv"
     policy_catalog_json = calibration_root / "policy_profile_catalog.json"
     policy_recommendation_json = calibration_root / "policy_recommendation_summary.json"
+    outcome_rule_comparison_csv = calibration_root / "outcome_rule_comparison.csv"
+    outcome_rule_shift_csv = calibration_root / "outcome_rule_shift_matrix.csv"
+    outcome_rule_customer_effects_csv = calibration_root / "outcome_rule_customer_effects.csv"
+    outcome_rule_catalog_json = calibration_root / "outcome_rule_profile_catalog.json"
+    outcome_rule_recommendation_json = calibration_root / "outcome_rule_recommendation_summary.json"
     calibration_review_md = calibration_root / "calibration_review.md"
     operator_briefing_md = collection_root / "operator_review_briefing.md"
 
@@ -1384,6 +1564,17 @@ def main(argv: Sequence[str] | None = None):
         json.dumps(policy_recommendation_summary, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+    outcome_rule_comparison_df.to_csv(outcome_rule_comparison_csv, index=False)
+    outcome_rule_shift_matrix_df.to_csv(outcome_rule_shift_csv, index=False)
+    outcome_rule_customer_effects_df.to_csv(outcome_rule_customer_effects_csv, index=False)
+    outcome_rule_catalog_json.write_text(
+        json.dumps(outcome_rule_profile_catalog, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    outcome_rule_recommendation_json.write_text(
+        json.dumps(outcome_rule_recommendation_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
     calibration_review_md.write_text(
         build_calibration_review_markdown(
             selection_policy_name=str(selection_metadata.get("selection_policy_name", args.cohort_policy)),
@@ -1392,6 +1583,8 @@ def main(argv: Sequence[str] | None = None):
             readiness_summary=readiness_summary,
             policy_comparison_df=policy_comparison_df,
             recommendation_summary=policy_recommendation_summary,
+            outcome_rule_comparison_df=outcome_rule_comparison_df,
+            outcome_rule_recommendation_summary=outcome_rule_recommendation_summary,
         ),
         encoding="utf-8",
     )
@@ -1422,10 +1615,19 @@ def main(argv: Sequence[str] | None = None):
         "recommended_candidate_status": _safe_text(calibration_summary.get("recommended_candidate_status")),
         "recommended_candidate_reason": _safe_text(calibration_summary.get("recommended_candidate_reason")),
         "policy_recommendation_summary": dict(policy_recommendation_summary),
+        "candidate_outcome_rule_versions_compared": list(outcome_rule_summary.get("candidate_outcome_rule_versions_compared", [])),
+        "outcome_rule_catalog_version": _safe_text(outcome_rule_summary.get("outcome_rule_catalog_version")),
+        "recommended_outcome_rule_profile_version": _safe_text(
+            outcome_rule_summary.get("recommended_outcome_rule_profile_version")
+        ),
+        "recommended_outcome_rule_status": _safe_text(outcome_rule_summary.get("recommended_outcome_rule_status")),
+        "recommended_outcome_rule_reason": _safe_text(outcome_rule_summary.get("recommended_outcome_rule_reason")),
+        "outcome_rule_recommendation_summary": dict(outcome_rule_recommendation_summary),
         "raw_root": f"{rel_root}/raw",
         "funnel_summary": funnel_summary,
         "readiness_summary": readiness_summary,
         "calibration_summary": calibration_summary,
+        "outcome_rule_summary": outcome_rule_summary,
         "operator_briefing_summary": operator_briefing,
         "source_mix_summary": {
             "best_source_distribution": metrics_df.get("best_plan_source", pd.Series(dtype=object)).astype(str).value_counts().sort_index().to_dict(),
@@ -1737,6 +1939,11 @@ def main(argv: Sequence[str] | None = None):
             "segment_breakdown_csv": f"{rel_root}/calibration/segment_breakdown.csv",
             "policy_profile_catalog_json": f"{rel_root}/calibration/policy_profile_catalog.json",
             "policy_recommendation_summary_json": f"{rel_root}/calibration/policy_recommendation_summary.json",
+            "outcome_rule_comparison_csv": f"{rel_root}/calibration/outcome_rule_comparison.csv",
+            "outcome_rule_shift_matrix_csv": f"{rel_root}/calibration/outcome_rule_shift_matrix.csv",
+            "outcome_rule_customer_effects_csv": f"{rel_root}/calibration/outcome_rule_customer_effects.csv",
+            "outcome_rule_profile_catalog_json": f"{rel_root}/calibration/outcome_rule_profile_catalog.json",
+            "outcome_rule_recommendation_summary_json": f"{rel_root}/calibration/outcome_rule_recommendation_summary.json",
             "calibration_review_md": f"{rel_root}/calibration/calibration_review.md",
         },
         "operator_files": {
@@ -1756,6 +1963,7 @@ def main(argv: Sequence[str] | None = None):
         funnel_summary=funnel_summary,
         readiness_summary=readiness_summary,
         calibration_summary=calibration_summary,
+        outcome_rule_summary=outcome_rule_summary,
         operator_briefing=operator_briefing,
     )
     summary_path = collection_root / "collection_summary.md"

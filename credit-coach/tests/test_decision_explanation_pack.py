@@ -147,6 +147,36 @@ def test_build_decision_explanation_pack_marks_warning_plan_for_human_review() -
     assert pack.human_review_required is True
 
 
+def test_build_decision_explanation_pack_keeps_additive_outcome_rule_note_in_sync() -> None:
+    roadmap = _sample_roadmap()
+    roadmap["summary"].update(
+        {
+            "selected_outcome_rule_applied": 1,
+            "selected_outcome_rule_profile_version": "analysis_offer_support_v2_3b",
+            "selected_outcome_rule_source": "offer_support",
+            "selected_outcome_rule_transition": "conditional_to_approved_offer_support",
+            "selected_outcome_rule_note": "With active institution support, this file would move from CONDITIONAL to APPROVED in the analysis layer.",
+            "selected_outcome_rule_note_localized": {
+                "tr": "Aktif kurum destegiyle bu dosya analiz katmaninda CONDITIONAL durumundan APPROVED durumuna tasinirdi.",
+                "en": "With active institution support, this file would move from CONDITIONAL to APPROVED in the analysis layer.",
+            },
+        }
+    )
+    operator_packet = build_operator_review_packet(roadmap)
+
+    pack = build_decision_explanation_pack(
+        roadmap,
+        metrics_summary={"adverse_action_reasons": ["high_credit_utilization"]},
+        operator_packet=operator_packet,
+    )
+
+    assert pack.selected_outcome_rule_applied is True
+    assert pack.selected_outcome_rule_profile_version == "analysis_offer_support_v2_3b"
+    assert pack.selected_outcome_rule_source == "offer_support"
+    assert pack.selected_outcome_rule_transition == "conditional_to_approved_offer_support"
+    assert "analysis layer" in (pack.selected_outcome_rule_note or "")
+
+
 def test_build_decision_explanation_pack_renders_empty_state_without_fake_recommendation() -> None:
     roadmap = _sample_roadmap()
     roadmap["best_plan_id"] = None

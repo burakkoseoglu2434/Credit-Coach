@@ -170,6 +170,11 @@ def _build_collection_run(tmp_path: Path, artifact_root: str, customer_ids: list
         "calibration/segment_breakdown.csv",
         "calibration/policy_profile_catalog.json",
         "calibration/policy_recommendation_summary.json",
+        "calibration/outcome_rule_comparison.csv",
+        "calibration/outcome_rule_shift_matrix.csv",
+        "calibration/outcome_rule_customer_effects.csv",
+        "calibration/outcome_rule_profile_catalog.json",
+        "calibration/outcome_rule_recommendation_summary.json",
         "calibration/calibration_review.md",
         "operator_review_briefing.md",
     ]:
@@ -194,6 +199,14 @@ def _build_collection_run(tmp_path: Path, artifact_root: str, customer_ids: list
         "recommended_candidate_policy_version": "analysis_mild_relax_v2_3a",
         "recommended_candidate_status": "shortlisted",
         "recommended_candidate_reason": "Bounded yield uplift is positive while Phase 49 proxy guardrails remain within limits.",
+        "candidate_outcome_rule_versions_compared": [
+            "analysis_offer_support_v2_3b",
+            "analysis_readiness_support_v2_3b",
+            "analysis_offer_readiness_combo_v2_3b",
+        ],
+        "recommended_outcome_rule_profile_version": "analysis_offer_readiness_combo_v2_3b",
+        "recommended_outcome_rule_status": "shortlisted",
+        "recommended_outcome_rule_reason": "Offer/readiness-driven uplift is positive while Phase 50 guardrails remain within limits.",
         "funnel_summary": {
             "approved_share": 0.10,
             "conditional_share": 0.60,
@@ -220,6 +233,11 @@ def _build_collection_run(tmp_path: Path, artifact_root: str, customer_ids: list
             "segment_breakdown_csv": "tables/customer_artifact_collection/calibration/segment_breakdown.csv",
             "policy_profile_catalog_json": "tables/customer_artifact_collection/calibration/policy_profile_catalog.json",
             "policy_recommendation_summary_json": "tables/customer_artifact_collection/calibration/policy_recommendation_summary.json",
+            "outcome_rule_comparison_csv": "tables/customer_artifact_collection/calibration/outcome_rule_comparison.csv",
+            "outcome_rule_shift_matrix_csv": "tables/customer_artifact_collection/calibration/outcome_rule_shift_matrix.csv",
+            "outcome_rule_customer_effects_csv": "tables/customer_artifact_collection/calibration/outcome_rule_customer_effects.csv",
+            "outcome_rule_profile_catalog_json": "tables/customer_artifact_collection/calibration/outcome_rule_profile_catalog.json",
+            "outcome_rule_recommendation_summary_json": "tables/customer_artifact_collection/calibration/outcome_rule_recommendation_summary.json",
             "calibration_review_md": "tables/customer_artifact_collection/calibration/calibration_review.md",
         },
         "operator_files": {
@@ -369,10 +387,14 @@ def test_run_pilot_baseline_refresh_writes_dual_lane_summary_and_canonical_refer
     assert manifest["resolved_runtime_config"]["resolved"]["cohort_policy"] == "pilot_mixed"
     assert manifest["comparison_summary"]["recommended_candidate_policy_version"] == "analysis_mild_relax_v2_3a"
     assert manifest["comparison_summary"]["recommended_candidate_status"] == "shortlisted"
+    assert manifest["comparison_summary"]["recommended_outcome_rule_profile_version"] == "analysis_offer_readiness_combo_v2_3b"
+    assert manifest["comparison_summary"]["recommended_outcome_rule_status"] == "shortlisted"
     assert (run_ctx.tables_dir / "policy_version_comparison.csv").exists()
     assert (run_ctx.tables_dir / "policy_version_comparison.md").exists()
     assert "Recommended candidate status: shortlisted" in summary_md
     assert "Recommended candidate policy: analysis_mild_relax_v2_3a" in summary_md
+    assert "Recommended outcome-rule status: shortlisted" in summary_md
+    assert "Recommended outcome-rule profile: analysis_offer_readiness_combo_v2_3b" in summary_md
     assert "Portfolio smoke status: LIMITED_GO" in summary_md
     assert "Artifact QA status: PASS" in summary_md
     assert qa_summary["artifact_qa_status"] == "PASS"

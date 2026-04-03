@@ -59,6 +59,69 @@ DEFAULT_CANDIDATE_POLICIES: tuple[Mapping[str, Any], ...] = (
     },
 )
 POLICY_PROFILE_CATALOG_VERSION = "v2.3_phase_49"
+DEFAULT_OUTCOME_RULE_PROFILES: tuple[Mapping[str, Any], ...] = (
+    {
+        "outcome_rule_profile_version": "analysis_offer_support_v2_3b",
+        "profile_role": "candidate",
+        "promotion_target": True,
+        "rule_source": "offer_support",
+        "allow_rejected_to_conditional": True,
+        "allow_conditional_to_approved": True,
+        "required_offer_maturity": "active_rankable",
+        "required_rankable_offer_count": 1,
+        "max_approval_pending_action_count": 0,
+        "min_offer_acceptance_probability": 0.10,
+        "min_approval_dependent_probability": 0.42,
+        "min_combined_realization_probability": 0.22,
+        "min_approval_realization": 0.45,
+        "min_approval_confidence": 0.55,
+        "min_approval_improvement": 0.015,
+        "allowed_rejected_readiness": ["week_4", "week_12", "week_24"],
+        "allowed_approved_readiness": ["now", "week_4"],
+        "allowed_conditional_types": ["OFFER_GATED", "EXECUTION_GATED"],
+    },
+    {
+        "outcome_rule_profile_version": "analysis_readiness_support_v2_3b",
+        "profile_role": "candidate",
+        "promotion_target": True,
+        "rule_source": "readiness_support",
+        "allow_rejected_to_conditional": True,
+        "allow_conditional_to_approved": False,
+        "required_offer_maturity": "",
+        "required_rankable_offer_count": 0,
+        "max_approval_pending_action_count": 99,
+        "min_offer_acceptance_probability": 0.0,
+        "min_approval_dependent_probability": 0.0,
+        "min_combined_realization_probability": 0.20,
+        "min_approval_realization": 1.0,
+        "min_approval_confidence": 1.0,
+        "min_approval_improvement": 1.0,
+        "allowed_rejected_readiness": ["week_12", "week_24"],
+        "allowed_approved_readiness": [],
+        "allowed_conditional_types": [],
+    },
+    {
+        "outcome_rule_profile_version": "analysis_offer_readiness_combo_v2_3b",
+        "profile_role": "candidate",
+        "promotion_target": True,
+        "rule_source": "offer_readiness_combo",
+        "allow_rejected_to_conditional": True,
+        "allow_conditional_to_approved": True,
+        "required_offer_maturity": "active_rankable",
+        "required_rankable_offer_count": 1,
+        "max_approval_pending_action_count": 0,
+        "min_offer_acceptance_probability": 0.10,
+        "min_approval_dependent_probability": 0.38,
+        "min_combined_realization_probability": 0.20,
+        "min_approval_realization": 0.45,
+        "min_approval_confidence": 0.55,
+        "min_approval_improvement": 0.015,
+        "allowed_rejected_readiness": ["week_4", "week_12", "week_24"],
+        "allowed_approved_readiness": ["now", "week_4"],
+        "allowed_conditional_types": ["OFFER_GATED", "EXECUTION_GATED"],
+    },
+)
+OUTCOME_RULE_CATALOG_VERSION = "v2.3_phase_50"
 SHORTLIST_MAX_FALSE_POSITIVE_PROXY_DELTA = 0.01
 SHORTLIST_MAX_INTERNAL_REVIEW_DELTA = 0.02
 SHORTLIST_MIN_APPROVE_PLUS_CONDITIONAL_DELTA = 0.000001
@@ -581,14 +644,195 @@ def prepare_metrics_for_calibration(metrics_df: pd.DataFrame) -> pd.DataFrame:
         work.get("approval_ready_4w", pd.Series(dtype=float)),
         errors="coerce",
     ).fillna(0.0).astype(int)
+    work["approval_ready_12w"] = pd.to_numeric(
+        work.get("approval_ready_12w", pd.Series(dtype=float)),
+        errors="coerce",
+    ).fillna(0.0).astype(int)
+    work["approval_ready_24w"] = pd.to_numeric(
+        work.get("approval_ready_24w", pd.Series(dtype=float)),
+        errors="coerce",
+    ).fillna(0.0).astype(int)
     work["offer_maturity"] = work.get("offer_maturity", pd.Series(dtype=object)).fillna("none").astype(str)
+    work["offer_plan"] = pd.to_numeric(work.get("offer_plan", pd.Series(dtype=float)), errors="coerce").fillna(0.0).astype(int)
+    work["rankable_offer_count"] = pd.to_numeric(
+        work.get("rankable_offer_count", pd.Series(dtype=float)),
+        errors="coerce",
+    ).fillna(0.0).astype(int)
+    work["approval_pending_action_count"] = pd.to_numeric(
+        work.get("approval_pending_action_count", pd.Series(dtype=float)),
+        errors="coerce",
+    ).fillna(0.0).astype(int)
+    work["approval_dependent_plan_probability"] = pd.to_numeric(
+        work.get("approval_dependent_plan_probability", pd.Series(dtype=float)),
+        errors="coerce",
+    ).fillna(work["realization_anchor"])
+    work["offer_acceptance_probability"] = pd.to_numeric(
+        work.get("offer_acceptance_probability", pd.Series(dtype=float)),
+        errors="coerce",
+    ).fillna(0.0)
+    work["combined_plan_realization_probability"] = pd.to_numeric(
+        work.get("combined_plan_realization_probability", pd.Series(dtype=float)),
+        errors="coerce",
+    ).fillna(work["realization_anchor"])
     work["best_constraint_status"] = work.get("best_constraint_status", pd.Series(dtype=object)).fillna("valid").astype(str)
     work["plan_contract_pass"] = pd.to_numeric(
         work.get("plan_contract_pass", pd.Series(dtype=float)),
         errors="coerce",
     ).fillna(0.0).astype(int)
+    work["selection_outcome"] = work.get("selection_outcome", pd.Series(dtype=object)).fillna("").astype(str)
     work["decision_policy_version"] = work.get("decision_policy_version", pd.Series(dtype=object)).fillna("").astype(str)
     return work
+
+
+def _normalize_text_list(values: Any) -> list[str]:
+    if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+        return []
+    return [_safe_str(value) for value in values if _safe_str(value)]
+
+
+def _normalize_candidate_outcome_rule(profile: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "outcome_rule_profile_version": _safe_str(profile.get("outcome_rule_profile_version"), "analysis_outcome_rule"),
+        "profile_role": _safe_str(profile.get("profile_role"), "candidate"),
+        "analysis_only": int(_safe_int(profile.get("analysis_only", 1), 1)),
+        "promotion_target": bool(profile.get("promotion_target", True)),
+        "rule_source": _safe_str(profile.get("rule_source"), "offer_readiness_combo"),
+        "allow_rejected_to_conditional": bool(profile.get("allow_rejected_to_conditional", True)),
+        "allow_conditional_to_approved": bool(profile.get("allow_conditional_to_approved", True)),
+        "required_offer_maturity": _safe_str(profile.get("required_offer_maturity")).lower(),
+        "required_rankable_offer_count": int(_safe_int(profile.get("required_rankable_offer_count", 0), 0)),
+        "max_approval_pending_action_count": int(_safe_int(profile.get("max_approval_pending_action_count", 0), 0)),
+        "min_offer_acceptance_probability": _round_metric(profile.get("min_offer_acceptance_probability"), 6),
+        "min_approval_dependent_probability": _round_metric(profile.get("min_approval_dependent_probability"), 6),
+        "min_combined_realization_probability": _round_metric(profile.get("min_combined_realization_probability"), 6),
+        "min_approval_realization": _round_metric(profile.get("min_approval_realization"), 6),
+        "min_approval_confidence": _round_metric(profile.get("min_approval_confidence"), 6),
+        "min_approval_improvement": _round_metric(profile.get("min_approval_improvement"), 6),
+        "allowed_rejected_readiness": _normalize_text_list(profile.get("allowed_rejected_readiness", [])),
+        "allowed_approved_readiness": _normalize_text_list(profile.get("allowed_approved_readiness", [])),
+        "allowed_conditional_types": [item.upper() for item in _normalize_text_list(profile.get("allowed_conditional_types", []))],
+    }
+
+
+def build_outcome_rule_catalog(
+    *,
+    policy_version_evaluated: str,
+    candidate_rules: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    profiles = [
+        _normalize_candidate_outcome_rule(profile)
+        for profile in (candidate_rules or DEFAULT_OUTCOME_RULE_PROFILES)
+    ]
+    return {
+        "catalog_version": OUTCOME_RULE_CATALOG_VERSION,
+        "policy_version_evaluated": _safe_str(policy_version_evaluated, DECISION_POLICY_VERSION),
+        "profiles": profiles,
+    }
+
+
+def _combined_realization(row: Mapping[str, Any]) -> float:
+    combined = _safe_float(row.get("combined_plan_realization_probability"), 0.0)
+    if combined > 0.0:
+        return combined
+    return _safe_float(row.get("realization_anchor"), 0.0)
+
+
+def _outcome_rule_base_eligible(row: Mapping[str, Any]) -> bool:
+    best_action_count = _safe_int(row.get("best_action_count", 0), 0)
+    return bool(
+        _safe_int(row.get("raw_contract_pass", 1), 1) == 1
+        and _safe_int(row.get("parity_pass", 1), 1) == 1
+        and _safe_int(row.get("plan_contract_pass", 0), 0) == 1
+        and _safe_int(row.get("zero_step_flag", best_action_count == 0), 0) == 0
+        and best_action_count > 0
+        and _safe_str(row.get("selection_outcome")) != "no_valid_winner"
+        and _safe_float(row.get("expected_pd_improvement"), 0.0) >= 0.01
+        and _combined_realization(row) >= 0.10
+    )
+
+
+def _offer_supports_conditional(row: Mapping[str, Any], profile: Mapping[str, Any]) -> bool:
+    readiness = _normalize_readiness(row.get("expected_readiness"))
+    return bool(
+        readiness in set(profile.get("allowed_rejected_readiness", []))
+        and _offer_needed_flag(row) == "offer_needed"
+        and _safe_str(row.get("offer_maturity"), "none").lower() == _safe_str(profile.get("required_offer_maturity")).lower()
+        and _safe_int(row.get("rankable_offer_count", 0), 0) >= _safe_int(profile.get("required_rankable_offer_count", 0), 0)
+        and _safe_int(row.get("approval_pending_action_count", 0), 0) <= _safe_int(profile.get("max_approval_pending_action_count", 0), 0)
+        and _safe_float(row.get("approval_dependent_plan_probability"), 0.0) >= _safe_float(profile.get("min_approval_dependent_probability"), 0.0)
+        and _safe_float(row.get("offer_acceptance_probability"), 0.0) >= _safe_float(profile.get("min_offer_acceptance_probability"), 0.0)
+        and _combined_realization(row) >= _safe_float(profile.get("min_combined_realization_probability"), 0.0)
+    )
+
+
+def _offer_supports_approval(row: Mapping[str, Any], profile: Mapping[str, Any]) -> bool:
+    readiness = _normalize_readiness(row.get("expected_readiness"))
+    conditional_type = _safe_str(row.get("conditional_type")).upper()
+    allowed_conditional_types = set(profile.get("allowed_conditional_types", []))
+    return bool(
+        readiness in set(profile.get("allowed_approved_readiness", []))
+        and (not allowed_conditional_types or conditional_type in allowed_conditional_types)
+        and _offer_supports_conditional(
+            {
+                **dict(row),
+                "expected_readiness": readiness,
+            },
+            {
+                **dict(profile),
+                "allowed_rejected_readiness": profile.get("allowed_approved_readiness", []),
+            },
+        )
+        and _safe_float(row.get("decision_confidence"), 0.0) >= _safe_float(profile.get("min_approval_confidence"), 0.0)
+        and _safe_float(row.get("expected_pd_improvement"), 0.0) >= _safe_float(profile.get("min_approval_improvement"), 0.0)
+        and _combined_realization(row) >= _safe_float(profile.get("min_approval_realization"), 0.0)
+    )
+
+
+def _readiness_supports_conditional(row: Mapping[str, Any], profile: Mapping[str, Any]) -> bool:
+    readiness = _normalize_readiness(row.get("expected_readiness"))
+    if readiness not in set(profile.get("allowed_rejected_readiness", [])):
+        return False
+    if readiness == "week_12" and _safe_int(row.get("approval_ready_12w", 0), 0) != 1:
+        return False
+    if readiness == "week_24" and _safe_int(row.get("approval_ready_24w", 0), 0) != 1:
+        return False
+    return bool(
+        _combined_realization(row) >= _safe_float(profile.get("min_combined_realization_probability"), 0.0)
+        and _safe_float(row.get("decision_confidence"), 0.0) >= 0.35
+    )
+
+
+def _candidate_outcome_rule_row(
+    row: Mapping[str, Any],
+    profile: Mapping[str, Any],
+) -> tuple[str, str, bool, str, str]:
+    baseline_external = _normalize_decision_status(row.get("decision_status"))
+    baseline_internal = _normalize_internal_status(row.get("decision_status_internal"))
+    if not _outcome_rule_base_eligible(row):
+        return baseline_external, baseline_internal, False, "", "none"
+
+    rule_source = _safe_str(profile.get("rule_source"), "offer_readiness_combo")
+    if baseline_external == "REJECTED" and bool(profile.get("allow_rejected_to_conditional", True)):
+        if rule_source == "offer_support" and _offer_supports_conditional(row, profile):
+            return "CONDITIONAL", "CONDITIONAL", True, "offer_support", "rejected_to_conditional_offer_support"
+        if rule_source == "readiness_support" and _readiness_supports_conditional(row, profile):
+            return "CONDITIONAL", "CONDITIONAL", True, "readiness_support", "rejected_to_conditional_readiness_support"
+        if rule_source == "offer_readiness_combo":
+            if _offer_supports_conditional(row, profile):
+                return "CONDITIONAL", "CONDITIONAL", True, "offer_readiness_combo", "rejected_to_conditional_offer_support"
+            if _readiness_supports_conditional(row, profile):
+                return "CONDITIONAL", "CONDITIONAL", True, "offer_readiness_combo", "rejected_to_conditional_readiness_support"
+
+    if baseline_external == "CONDITIONAL" and bool(profile.get("allow_conditional_to_approved", True)):
+        if rule_source in {"offer_support", "offer_readiness_combo"} and _offer_supports_approval(row, profile):
+            transition = (
+                "conditional_to_approved_offer_support"
+                if rule_source == "offer_support"
+                else "conditional_to_approved_offer_readiness_combo"
+            )
+            return "APPROVED", "APPROVED", True, rule_source, transition
+
+    return baseline_external, baseline_internal, False, "", "none"
 
 
 def build_funnel_summary(metrics_df: pd.DataFrame) -> dict[str, Any]:
@@ -937,6 +1181,283 @@ def recommend_candidate_policy(policy_comparison_df: pd.DataFrame) -> dict[str, 
     }
 
 
+def _candidate_outcome_rule_status(row: Mapping[str, Any]) -> tuple[str, str]:
+    profile_role = _safe_str(row.get("profile_role"), "candidate")
+    profile_version = _safe_str(row.get("outcome_rule_profile_version"), "analysis_outcome_rule")
+    uplift_delta = _safe_float(row.get("approve_plus_conditional_share_delta"), 0.0)
+    false_positive_delta = _safe_float(row.get("false_positive_proxy_delta"), 0.0)
+    internal_review_delta = _safe_float(row.get("internal_needs_review_share_delta"), 0.0)
+    direct_rejected_to_approved_count = _safe_int(row.get("direct_rejected_to_approved_count", 0), 0)
+    movement_count = _safe_int(row.get("rejected_to_conditional_count", 0), 0) + _safe_int(
+        row.get("conditional_to_approved_count", 0),
+        0,
+    )
+
+    if profile_role == "control":
+        return "blocked", f"{profile_version} is a control profile and not a promotion target."
+    if direct_rejected_to_approved_count > 0:
+        return "blocked", "Direct REJECTED -> APPROVED movement is disallowed in Phase 50."
+    if movement_count <= 0:
+        return "blocked", "No bounded offer/readiness-driven outcome movement was created."
+    if uplift_delta < SHORTLIST_MIN_APPROVE_PLUS_CONDITIONAL_DELTA:
+        return "blocked", "No bounded APPROVED + CONDITIONAL uplift over the shipped baseline."
+    if false_positive_delta > SHORTLIST_MAX_FALSE_POSITIVE_PROXY_DELTA:
+        return "blocked", "False-positive proxy regression exceeds the Phase 50 guardrail."
+    if internal_review_delta > SHORTLIST_MAX_INTERNAL_REVIEW_DELTA:
+        return "blocked", "Internal review pressure regression exceeds the Phase 50 guardrail."
+    return "shortlisted", "Offer/readiness-driven uplift is positive while Phase 50 guardrails remain within limits."
+
+
+def recommend_outcome_rule(outcome_rule_comparison_df: pd.DataFrame) -> dict[str, Any]:
+    if outcome_rule_comparison_df.empty:
+        return {
+            "recommended_outcome_rule_profile_version": "",
+            "recommended_outcome_rule_status": "no_safe_uplift",
+            "recommended_outcome_rule_reason": "No outcome-rule profiles were evaluated.",
+            "shortlisted_outcome_rule_versions": [],
+            "blocked_outcome_rule_versions": [],
+        }
+
+    work = outcome_rule_comparison_df.copy()
+    if "analysis_only" not in work.columns:
+        work["analysis_only"] = 0
+    if "profile_role" not in work.columns:
+        work["profile_role"] = "candidate"
+
+    candidate_rows = work.loc[work["analysis_only"].astype(int) == 1].copy()
+    if candidate_rows.empty:
+        return {
+            "recommended_outcome_rule_profile_version": "",
+            "recommended_outcome_rule_status": "no_safe_uplift",
+            "recommended_outcome_rule_reason": "No analysis-only outcome-rule profiles were available.",
+            "shortlisted_outcome_rule_versions": [],
+            "blocked_outcome_rule_versions": [],
+        }
+
+    statuses = candidate_rows.apply(lambda row: _candidate_outcome_rule_status(row.to_dict()), axis=1)
+    candidate_rows["recommendation_status"] = [pair[0] for pair in statuses]
+    candidate_rows["recommendation_reason"] = [pair[1] for pair in statuses]
+
+    shortlisted = candidate_rows.loc[candidate_rows["recommendation_status"].astype(str) == "shortlisted"].copy()
+    blocked_versions = candidate_rows.loc[
+        candidate_rows["recommendation_status"].astype(str) == "blocked",
+        "outcome_rule_profile_version",
+    ].astype(str).tolist()
+    if shortlisted.empty:
+        best_blocked = candidate_rows.sort_values(
+            [
+                "approve_plus_conditional_share_delta",
+                "direct_rejected_to_approved_count",
+                "false_positive_proxy_delta",
+                "internal_needs_review_share_delta",
+                "outcome_rule_profile_version",
+            ],
+            ascending=[False, True, True, True, True],
+        ).head(1)
+        reason = (
+            _safe_str(best_blocked.iloc[0].get("recommendation_reason"))
+            if not best_blocked.empty
+            else "No candidate satisfied the bounded Phase 50 uplift guardrails."
+        )
+        return {
+            "recommended_outcome_rule_profile_version": "",
+            "recommended_outcome_rule_status": "no_safe_uplift",
+            "recommended_outcome_rule_reason": reason,
+            "shortlisted_outcome_rule_versions": [],
+            "blocked_outcome_rule_versions": blocked_versions,
+        }
+
+    shortlisted = shortlisted.sort_values(
+        [
+            "approve_plus_conditional_share_delta",
+            "conditional_to_approved_count",
+            "rejected_to_conditional_count",
+            "false_positive_proxy_delta",
+            "internal_needs_review_share_delta",
+            "outcome_rule_profile_version",
+        ],
+        ascending=[False, False, False, True, True, True],
+    )
+    best = shortlisted.iloc[0]
+    return {
+        "recommended_outcome_rule_profile_version": _safe_str(best.get("outcome_rule_profile_version")),
+        "recommended_outcome_rule_status": "shortlisted",
+        "recommended_outcome_rule_reason": _safe_str(best.get("recommendation_reason")),
+        "shortlisted_outcome_rule_versions": shortlisted["outcome_rule_profile_version"].astype(str).tolist(),
+        "blocked_outcome_rule_versions": blocked_versions,
+    }
+
+
+def build_outcome_rule_comparison(
+    metrics_df: pd.DataFrame,
+    *,
+    policy_version_evaluated: str,
+    candidate_rules: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    work = prepare_metrics_for_calibration(metrics_df)
+    rule_catalog = build_outcome_rule_catalog(
+        policy_version_evaluated=policy_version_evaluated,
+        candidate_rules=candidate_rules,
+    )
+    baseline = work.copy()
+    baseline["candidate_decision_status"] = baseline["decision_status"]
+    baseline["candidate_decision_status_internal"] = baseline["decision_status_internal"]
+    baseline["outcome_rule_profile_version"] = _safe_str(policy_version_evaluated, DECISION_POLICY_VERSION)
+    baseline["profile_role"] = "baseline"
+    baseline["promotion_target"] = False
+    baseline["rule_source"] = "baseline"
+    baseline_metrics = _policy_metrics(baseline)
+    comparison_rows = [
+        {
+            "outcome_rule_profile_version": _safe_str(policy_version_evaluated, DECISION_POLICY_VERSION),
+            "analysis_only": 0,
+            "comparison_type": "baseline",
+            "profile_role": "baseline",
+            "promotion_target": False,
+            "rule_source": "baseline",
+            **baseline_metrics,
+            "approved_share_delta": 0.0,
+            "conditional_share_delta": 0.0,
+            "rejected_share_delta": 0.0,
+            "internal_needs_review_share_delta": 0.0,
+            "approve_plus_conditional_share_delta": 0.0,
+            "false_positive_proxy_delta": 0.0,
+            "rejected_to_conditional_count": 0,
+            "conditional_to_approved_count": 0,
+            "direct_rejected_to_approved_count": 0,
+            "recommendation_status": "baseline",
+            "recommendation_reason": "Shipped live decision baseline.",
+        }
+    ]
+    shift_rows: list[dict[str, Any]] = []
+    customer_effect_rows: list[dict[str, Any]] = []
+    segment_frames = [_segment_breakdown(baseline, policy_version=_safe_str(policy_version_evaluated, DECISION_POLICY_VERSION))]
+    for profile in list(rule_catalog.get("profiles", [])):
+        profile_version = _safe_str(profile.get("outcome_rule_profile_version"), "analysis_outcome_rule")
+        candidate = work.copy()
+        outcome_rows = candidate.apply(lambda row: _candidate_outcome_rule_row(row.to_dict(), profile), axis=1)
+        candidate["candidate_decision_status"] = [item[0] for item in outcome_rows]
+        candidate["candidate_decision_status_internal"] = [item[1] for item in outcome_rows]
+        candidate["outcome_rule_applied"] = [int(bool(item[2])) for item in outcome_rows]
+        candidate["outcome_rule_source"] = [item[3] for item in outcome_rows]
+        candidate["outcome_rule_transition"] = [item[4] for item in outcome_rows]
+        candidate["outcome_rule_profile_version"] = profile_version
+        candidate["profile_role"] = _safe_str(profile.get("profile_role"), "candidate")
+        candidate["promotion_target"] = bool(profile.get("promotion_target", True))
+        candidate["rule_source"] = _safe_str(profile.get("rule_source"), "offer_readiness_combo")
+        metrics = _policy_metrics(candidate)
+        rejected_to_conditional_count = int(
+            (
+                candidate["decision_status"].eq("REJECTED")
+                & candidate["candidate_decision_status"].eq("CONDITIONAL")
+            ).sum()
+        )
+        conditional_to_approved_count = int(
+            (
+                candidate["decision_status"].eq("CONDITIONAL")
+                & candidate["candidate_decision_status"].eq("APPROVED")
+            ).sum()
+        )
+        direct_rejected_to_approved_count = int(
+            (
+                candidate["decision_status"].eq("REJECTED")
+                & candidate["candidate_decision_status"].eq("APPROVED")
+            ).sum()
+        )
+        comparison_rows.append(
+            {
+                "outcome_rule_profile_version": profile_version,
+                "analysis_only": 1,
+                "comparison_type": "candidate",
+                "profile_role": _safe_str(profile.get("profile_role"), "candidate"),
+                "promotion_target": bool(profile.get("promotion_target", True)),
+                "rule_source": _safe_str(profile.get("rule_source"), "offer_readiness_combo"),
+                **metrics,
+                "approved_share_delta": _round_metric(metrics["approved_share"] - baseline_metrics["approved_share"]),
+                "conditional_share_delta": _round_metric(metrics["conditional_share"] - baseline_metrics["conditional_share"]),
+                "rejected_share_delta": _round_metric(metrics["rejected_share"] - baseline_metrics["rejected_share"]),
+                "internal_needs_review_share_delta": _round_metric(
+                    metrics["internal_needs_review_share"] - baseline_metrics["internal_needs_review_share"]
+                ),
+                "approve_plus_conditional_share_delta": _round_metric(
+                    metrics["approve_plus_conditional_share"] - baseline_metrics["approve_plus_conditional_share"]
+                ),
+                "false_positive_proxy_delta": _round_metric(
+                    metrics["false_positive_proxy"] - baseline_metrics["false_positive_proxy"]
+                ),
+                "rejected_to_conditional_count": rejected_to_conditional_count,
+                "conditional_to_approved_count": conditional_to_approved_count,
+                "direct_rejected_to_approved_count": direct_rejected_to_approved_count,
+                "recommendation_status": "",
+                "recommendation_reason": "",
+            }
+        )
+        shifts = (
+            candidate.assign(baseline_status=baseline["candidate_decision_status"].values)
+            .groupby(["baseline_status", "candidate_decision_status"], dropna=False)
+            .size()
+            .reset_index(name="count")
+        )
+        total = max(1, len(candidate))
+        for row in shifts.to_dict(orient="records"):
+            shift_rows.append(
+                {
+                    "outcome_rule_profile_version": profile_version,
+                    "from_status": _safe_str(row.get("baseline_status")),
+                    "to_status": _safe_str(row.get("candidate_decision_status")),
+                    "count": int(row.get("count", 0)),
+                    "share": _round_metric(_safe_float(row.get("count"), 0.0) / total),
+                }
+            )
+        for row in candidate.to_dict(orient="records"):
+            customer_effect_rows.append(
+                {
+                    "source_row_index": _safe_int(row.get("source_row_index", 0), 0),
+                    "customer_id": _safe_str(row.get("customer_id")),
+                    "outcome_rule_profile_version": profile_version,
+                    "baseline_decision_status": _safe_str(row.get("decision_status")),
+                    "baseline_decision_status_internal": _safe_str(row.get("decision_status_internal")),
+                    "candidate_decision_status": _safe_str(row.get("candidate_decision_status")),
+                    "candidate_decision_status_internal": _safe_str(row.get("candidate_decision_status_internal")),
+                    "outcome_rule_applied": int(_safe_int(row.get("outcome_rule_applied", 0), 0)),
+                    "outcome_rule_source": _safe_str(row.get("outcome_rule_source")),
+                    "outcome_rule_transition": _safe_str(row.get("outcome_rule_transition"), "none"),
+                    "rule_source": _safe_str(profile.get("rule_source"), "offer_readiness_combo"),
+                }
+            )
+        segment_frames.append(_segment_breakdown(candidate, policy_version=profile_version))
+    comparison_df = pd.DataFrame(comparison_rows)
+    recommendation_summary = recommend_outcome_rule(comparison_df)
+    if not comparison_df.empty and "analysis_only" in comparison_df.columns:
+        candidate_mask = comparison_df["analysis_only"].astype(int) == 1
+        status_pairs = comparison_df.loc[candidate_mask].apply(
+            lambda row: _candidate_outcome_rule_status(row.to_dict()),
+            axis=1,
+        )
+        comparison_df.loc[candidate_mask, "recommendation_status"] = [pair[0] for pair in status_pairs]
+        comparison_df.loc[candidate_mask, "recommendation_reason"] = [pair[1] for pair in status_pairs]
+    summary = {
+        "policy_version_evaluated": _safe_str(policy_version_evaluated, DECISION_POLICY_VERSION),
+        "candidate_outcome_rule_versions_compared": [
+            _safe_str(row["outcome_rule_profile_version"])
+            for row in comparison_rows
+            if int(row["analysis_only"]) == 1
+        ],
+        "baseline_outcome_rule_metrics": comparison_rows[0],
+        "outcome_rule_catalog_version": OUTCOME_RULE_CATALOG_VERSION,
+        **recommendation_summary,
+    }
+    return {
+        "outcome_rule_profile_catalog": rule_catalog,
+        "outcome_rule_comparison": comparison_df,
+        "outcome_rule_shift_matrix": pd.DataFrame(shift_rows),
+        "outcome_rule_segment_breakdown": pd.concat(segment_frames, ignore_index=True) if segment_frames else pd.DataFrame(),
+        "outcome_rule_customer_effects": pd.DataFrame(customer_effect_rows),
+        "outcome_rule_summary": summary,
+        "outcome_rule_recommendation_summary": recommendation_summary,
+    }
+
+
 def build_policy_comparison(
     metrics_df: pd.DataFrame,
     *,
@@ -1066,6 +1587,8 @@ def build_calibration_review_markdown(
     readiness_summary: Mapping[str, Any],
     policy_comparison_df: pd.DataFrame,
     recommendation_summary: Mapping[str, Any] | None = None,
+    outcome_rule_comparison_df: pd.DataFrame | None = None,
+    outcome_rule_recommendation_summary: Mapping[str, Any] | None = None,
 ) -> str:
     baseline_row = (
         policy_comparison_df.loc[policy_comparison_df["comparison_type"].astype(str) == "baseline"].head(1).to_dict(orient="records")
@@ -1119,4 +1642,34 @@ def build_calibration_review_markdown(
                 f"- Reason: {_safe_str(recommendation_summary.get('recommended_candidate_reason'), 'n/a') or 'n/a'}",
             ]
         )
+    if outcome_rule_comparison_df is not None:
+        candidate_rows = (
+            outcome_rule_comparison_df.loc[
+                outcome_rule_comparison_df["analysis_only"].astype(int) == 1
+            ].to_dict(orient="records")
+            if not outcome_rule_comparison_df.empty
+            else []
+        )
+        lines.extend(["", "## Outcome Rules"])
+        if not candidate_rows:
+            lines.append("- No analysis-only outcome-rule profiles evaluated.")
+        else:
+            for row in candidate_rows:
+                lines.append(
+                    f"- {row.get('outcome_rule_profile_version', 'rule')}: "
+                    f"approve_plus_conditional_delta={_round_metric(row.get('approve_plus_conditional_share_delta', 0.0)):.4f}, "
+                    f"rejected_to_conditional={int(_safe_int(row.get('rejected_to_conditional_count', 0), 0))}, "
+                    f"conditional_to_approved={int(_safe_int(row.get('conditional_to_approved_count', 0), 0))}, "
+                    f"status={_safe_str(row.get('recommendation_status'), 'blocked')}"
+                )
+        if outcome_rule_recommendation_summary:
+            lines.extend(
+                [
+                    "",
+                    "## Outcome Rule Recommendation",
+                    f"- Status: {_safe_str(outcome_rule_recommendation_summary.get('recommended_outcome_rule_status'), 'no_safe_uplift')}",
+                    f"- Recommended profile: {_safe_str(outcome_rule_recommendation_summary.get('recommended_outcome_rule_profile_version'), 'n/a') or 'n/a'}",
+                    f"- Reason: {_safe_str(outcome_rule_recommendation_summary.get('recommended_outcome_rule_reason'), 'n/a') or 'n/a'}",
+                ]
+            )
     return "\n".join(lines) + "\n"

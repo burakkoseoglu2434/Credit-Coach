@@ -321,6 +321,15 @@ def _write_policy_comparison(
     )
     recommended_candidate_reason = _safe_text(current_collection_manifest.get("recommended_candidate_reason"))
     candidate_policy_versions = list(current_collection_manifest.get("candidate_policy_versions_compared", []) or [])
+    recommended_outcome_rule_profile_version = _safe_text(
+        current_collection_manifest.get("recommended_outcome_rule_profile_version")
+    )
+    recommended_outcome_rule_status = _safe_text(
+        current_collection_manifest.get("recommended_outcome_rule_status"),
+        "no_safe_uplift",
+    )
+    recommended_outcome_rule_reason = _safe_text(current_collection_manifest.get("recommended_outcome_rule_reason"))
+    candidate_outcome_rule_versions = list(current_collection_manifest.get("candidate_outcome_rule_versions_compared", []) or [])
     lines = [
         "# Policy Version Comparison",
         "",
@@ -330,6 +339,10 @@ def _write_policy_comparison(
         f"- Recommended candidate status: {recommended_candidate_status or 'no_safe_uplift'}",
         f"- Recommended candidate policy: {recommended_candidate_policy_version or 'n/a'}",
         f"- Recommended candidate reason: {recommended_candidate_reason or 'n/a'}",
+        f"- Candidate outcome rules compared: {', '.join(str(item) for item in candidate_outcome_rule_versions) or 'n/a'}",
+        f"- Recommended outcome-rule status: {recommended_outcome_rule_status or 'no_safe_uplift'}",
+        f"- Recommended outcome-rule profile: {recommended_outcome_rule_profile_version or 'n/a'}",
+        f"- Recommended outcome-rule reason: {recommended_outcome_rule_reason or 'n/a'}",
         "",
         "## Funnel Deltas",
     ]
@@ -349,6 +362,10 @@ def _write_policy_comparison(
         "recommended_candidate_policy_version": recommended_candidate_policy_version,
         "recommended_candidate_status": recommended_candidate_status or "no_safe_uplift",
         "recommended_candidate_reason": recommended_candidate_reason,
+        "candidate_outcome_rule_versions_compared": [str(item) for item in candidate_outcome_rule_versions],
+        "recommended_outcome_rule_profile_version": recommended_outcome_rule_profile_version,
+        "recommended_outcome_rule_status": recommended_outcome_rule_status or "no_safe_uplift",
+        "recommended_outcome_rule_reason": recommended_outcome_rule_reason,
     }
 
 
@@ -378,6 +395,8 @@ def _render_refresh_summary(summary: Mapping[str, Any]) -> str:
         f"- Policy version: {_safe_text(summary.get('policy_version_evaluated')) or 'n/a'}",
         f"- Recommended candidate status: {_safe_text(summary.get('recommended_candidate_status')) or 'no_safe_uplift'}",
         f"- Recommended candidate policy: {_safe_text(summary.get('recommended_candidate_policy_version')) or 'n/a'}",
+        f"- Recommended outcome-rule status: {_safe_text(summary.get('recommended_outcome_rule_status')) or 'no_safe_uplift'}",
+        f"- Recommended outcome-rule profile: {_safe_text(summary.get('recommended_outcome_rule_profile_version')) or 'n/a'}",
         f"- Portfolio smoke status: {_safe_text(summary.get('portfolio_smoke_status')) or 'n/a'}",
         f"- Artifact QA status: {_safe_text(summary.get('artifact_qa_status')) or 'n/a'}",
         f"- Comparison canonical: {'yes' if bool(summary.get('comparison_is_canonical')) else 'no'}",
@@ -664,6 +683,8 @@ def main(argv: Sequence[str] | None = None):
         "policy_version_evaluated": _safe_text(collection_manifest.get("policy_version_evaluated")),
         "recommended_candidate_policy_version": _safe_text(collection_manifest.get("recommended_candidate_policy_version")),
         "recommended_candidate_status": _safe_text(collection_manifest.get("recommended_candidate_status"), "no_safe_uplift"),
+        "recommended_outcome_rule_profile_version": _safe_text(collection_manifest.get("recommended_outcome_rule_profile_version")),
+        "recommended_outcome_rule_status": _safe_text(collection_manifest.get("recommended_outcome_rule_status"), "no_safe_uplift"),
         "portfolio_smoke_status": _safe_text(release_smoke_summary.get("release_decision")),
         "artifact_qa_status": _safe_text(artifact_qa_summary.get("artifact_qa_status")),
         "comparison_is_canonical": bool(comparison_is_canonical),

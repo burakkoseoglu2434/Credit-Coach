@@ -296,3 +296,201 @@ def test_recommend_candidate_policy_shortlists_best_safe_candidate() -> None:
     assert summary["recommended_candidate_status"] == "shortlisted"
     assert summary["recommended_candidate_policy_version"] == "analysis_relaxed_v2_3a"
     assert "guardrails remain within limits" in summary["recommended_candidate_reason"]
+
+
+def test_build_outcome_rule_catalog_is_locked_and_deterministic() -> None:
+    catalog = cal.build_outcome_rule_catalog(policy_version_evaluated="v2.1_phase_40_5")
+
+    assert catalog["catalog_version"] == cal.OUTCOME_RULE_CATALOG_VERSION
+    assert catalog["policy_version_evaluated"] == "v2.1_phase_40_5"
+    assert [profile["outcome_rule_profile_version"] for profile in catalog["profiles"]] == [
+        "analysis_offer_support_v2_3b",
+        "analysis_readiness_support_v2_3b",
+        "analysis_offer_readiness_combo_v2_3b",
+    ]
+
+
+def test_build_outcome_rule_comparison_enforces_one_step_movement() -> None:
+    metrics_df = pd.DataFrame(
+        [
+            {
+                "source_row_index": 1,
+                "customer_id": "offer-reject",
+                "decision_status": "REJECTED",
+                "decision_status_internal": "REJECTED",
+                "decision_confidence": 0.50,
+                "expected_readiness": "week_12",
+                "realization_anchor": 0.32,
+                "expected_pd_improvement": 0.015,
+                "raw_contract_pass": 1,
+                "parity_pass": 1,
+                "plan_contract_pass": 1,
+                "best_action_count": 1,
+                "offer_plan": 1,
+                "offer_maturity": "active_rankable",
+                "rankable_offer_count": 1,
+                "approval_pending_action_count": 0,
+                "offer_acceptance_probability": 0.35,
+                "approval_dependent_plan_probability": 0.60,
+                "combined_plan_realization_probability": 0.36,
+                "conditional_type": "",
+            },
+            {
+                "source_row_index": 2,
+                "customer_id": "readiness-reject",
+                "decision_status": "REJECTED",
+                "decision_status_internal": "REJECTED",
+                "decision_confidence": 0.50,
+                "expected_readiness": "week_12",
+                "realization_anchor": 0.31,
+                "expected_pd_improvement": 0.018,
+                "raw_contract_pass": 1,
+                "parity_pass": 1,
+                "plan_contract_pass": 1,
+                "best_action_count": 1,
+                "offer_plan": 0,
+                "offer_maturity": "none",
+                "rankable_offer_count": 0,
+                "approval_pending_action_count": 0,
+                "offer_acceptance_probability": 0.0,
+                "approval_dependent_plan_probability": 0.31,
+                "combined_plan_realization_probability": 0.31,
+                "approval_ready_12w": 1,
+                "conditional_type": "",
+            },
+            {
+                "source_row_index": 3,
+                "customer_id": "offer-conditional",
+                "decision_status": "CONDITIONAL",
+                "decision_status_internal": "CONDITIONAL",
+                "decision_confidence": 0.58,
+                "expected_readiness": "week_4",
+                "realization_anchor": 0.48,
+                "expected_pd_improvement": 0.022,
+                "raw_contract_pass": 1,
+                "parity_pass": 1,
+                "plan_contract_pass": 1,
+                "best_action_count": 1,
+                "offer_plan": 1,
+                "offer_maturity": "active_rankable",
+                "rankable_offer_count": 1,
+                "approval_pending_action_count": 0,
+                "offer_acceptance_probability": 0.40,
+                "approval_dependent_plan_probability": 0.74,
+                "combined_plan_realization_probability": 0.55,
+                "conditional_type": "OFFER_GATED",
+            },
+            {
+                "source_row_index": 4,
+                "customer_id": "baseline-approved",
+                "decision_status": "APPROVED",
+                "decision_status_internal": "APPROVED",
+                "decision_confidence": 0.72,
+                "expected_readiness": "week_4",
+                "realization_anchor": 0.66,
+                "expected_pd_improvement": 0.03,
+                "raw_contract_pass": 1,
+                "parity_pass": 1,
+                "plan_contract_pass": 1,
+                "best_action_count": 1,
+                "offer_plan": 0,
+                "offer_maturity": "none",
+                "rankable_offer_count": 0,
+                "approval_pending_action_count": 0,
+                "offer_acceptance_probability": 0.0,
+                "approval_dependent_plan_probability": 0.66,
+                "combined_plan_realization_probability": 0.66,
+                "conditional_type": "",
+            },
+        ]
+    )
+
+    payload = cal.build_outcome_rule_comparison(metrics_df, policy_version_evaluated="v2.1_phase_40_5")
+
+    comparison = payload["outcome_rule_comparison"]
+    effects = payload["outcome_rule_customer_effects"]
+    recommendation = payload["outcome_rule_recommendation_summary"]
+
+    assert set(comparison.loc[comparison["analysis_only"] == 1, "outcome_rule_profile_version"]) == {
+        "analysis_offer_support_v2_3b",
+        "analysis_readiness_support_v2_3b",
+        "analysis_offer_readiness_combo_v2_3b",
+    }
+    assert int(comparison.loc[comparison["analysis_only"] == 1, "direct_rejected_to_approved_count"].sum()) == 0
+    assert (
+        effects.loc[
+            (effects["outcome_rule_profile_version"] == "analysis_offer_support_v2_3b")
+            & (effects["customer_id"] == "offer-reject"),
+            "candidate_decision_status",
+        ]
+        .iloc[0]
+        == "CONDITIONAL"
+    )
+    assert (
+        effects.loc[
+            (effects["outcome_rule_profile_version"] == "analysis_readiness_support_v2_3b")
+            & (effects["customer_id"] == "readiness-reject"),
+            "candidate_decision_status",
+        ]
+        .iloc[0]
+        == "CONDITIONAL"
+    )
+    assert (
+        effects.loc[
+            (effects["outcome_rule_profile_version"] == "analysis_offer_support_v2_3b")
+            & (effects["customer_id"] == "offer-conditional"),
+            "candidate_decision_status",
+        ]
+        .iloc[0]
+        == "APPROVED"
+    )
+    assert recommendation["recommended_outcome_rule_status"] == "shortlisted"
+    assert recommendation["recommended_outcome_rule_profile_version"] in {
+        "analysis_offer_support_v2_3b",
+        "analysis_offer_readiness_combo_v2_3b",
+    }
+
+
+def test_recommend_outcome_rule_returns_no_safe_uplift_when_guardrails_fail() -> None:
+    comparison_df = pd.DataFrame(
+        [
+            {
+                "outcome_rule_profile_version": "v2.1_phase_40_5",
+                "analysis_only": 0,
+                "profile_role": "baseline",
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 0,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+            },
+            {
+                "outcome_rule_profile_version": "analysis_offer_support_v2_3b",
+                "analysis_only": 1,
+                "profile_role": "candidate",
+                "approve_plus_conditional_share_delta": 0.02,
+                "false_positive_proxy_delta": 0.02,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 1,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+            },
+            {
+                "outcome_rule_profile_version": "analysis_offer_readiness_combo_v2_3b",
+                "analysis_only": 1,
+                "profile_role": "candidate",
+                "approve_plus_conditional_share_delta": 0.01,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 0,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+            },
+        ]
+    )
+
+    summary = cal.recommend_outcome_rule(comparison_df)
+
+    assert summary["recommended_outcome_rule_status"] == "no_safe_uplift"
+    assert summary["recommended_outcome_rule_profile_version"] == ""

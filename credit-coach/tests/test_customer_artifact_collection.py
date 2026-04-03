@@ -501,6 +501,7 @@ def test_collection_summary_markdown_reports_dice_lane_rates() -> None:
         },
         readiness_summary={"distribution": {"week_12": {"count": 1}}},
         calibration_summary={"policy_version_evaluated": "v2.2", "candidate_policy_versions_compared": [], "baseline_policy_metrics": {}},
+        outcome_rule_summary={"candidate_outcome_rule_versions_compared": [], "recommended_outcome_rule_status": "no_safe_uplift"},
         operator_briefing={"priority_queues": [], "dominant_blockers": [], "conditional_hotspots": [], "offer_hotspots": [], "review_guidance": [], "health_note": ""},
     )
 
@@ -510,6 +511,7 @@ def test_collection_summary_markdown_reports_dice_lane_rates() -> None:
     assert "## Operator Packet Coherence" in markdown
     assert "Approved with blocker count: 0" in markdown
     assert "Recommended candidate status: no_safe_uplift" in markdown
+    assert "## Outcome Rules" in markdown
     assert "Policy profile catalog:" in markdown
     assert "Policy recommendation summary:" in markdown
 
@@ -952,6 +954,11 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert (collection_root / "calibration" / "policy_comparison.csv").exists()
     assert (collection_root / "calibration" / "decision_shift_matrix.csv").exists()
     assert (collection_root / "calibration" / "segment_breakdown.csv").exists()
+    assert (collection_root / "calibration" / "outcome_rule_comparison.csv").exists()
+    assert (collection_root / "calibration" / "outcome_rule_shift_matrix.csv").exists()
+    assert (collection_root / "calibration" / "outcome_rule_customer_effects.csv").exists()
+    assert (collection_root / "calibration" / "outcome_rule_profile_catalog.json").exists()
+    assert (collection_root / "calibration" / "outcome_rule_recommendation_summary.json").exists()
     assert (collection_root / "calibration" / "calibration_review.md").exists()
     assert set(metrics_df["decision_status"]) == {"CONDITIONAL"}
     assert set(metrics_df["decision_status_internal"]) == {"CONDITIONAL"}
@@ -1002,6 +1009,12 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "operator_fallback_blocker_suppressed" in metrics_df.columns
     assert "operator_offer_state_en" in metrics_df.columns
     assert "operator_downside_risk_en" in metrics_df.columns
+    assert "selected_outcome_rule_applied" in metrics_df.columns
+    assert "selected_outcome_rule_profile_version" in metrics_df.columns
+    assert "selected_outcome_rule_source" in metrics_df.columns
+    assert "selected_outcome_rule_transition" in metrics_df.columns
+    assert "selected_outcome_rule_note" in metrics_df.columns
+    assert "operator_selected_outcome_rule_note_en" in metrics_df.columns
     assert "selected_best_flag" in plans_df.columns
     assert "plan_step_count" in plans_df.columns
     assert "plan_contract_pass" in plans_df.columns
@@ -1030,6 +1043,9 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "operator_packet_coherence_summary" in manifest
     assert "operator_briefing_summary" in manifest
     assert "candidate_policy_versions_compared" in manifest
+    assert "candidate_outcome_rule_versions_compared" in manifest
+    assert "recommended_outcome_rule_status" in manifest
+    assert "outcome_rule_summary" in manifest
     assert set(manifest["funnel_summary"]).issuperset(
         {"approved_share", "conditional_share", "rejected_share", "internal_needs_review_share"}
     )
@@ -1055,6 +1071,7 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "## Decision Funnel" in summary_md
     assert "## Readiness" in summary_md
     assert "## Calibration" in summary_md
+    assert "## Outcome Rules" in summary_md
     assert "## Planner Source Mix" in summary_md
     assert "## Planner Quality" in summary_md
     assert "Hard-invalid plan rate" in summary_md
@@ -1063,6 +1080,7 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "## Operator Review" in summary_md
     assert "Likely-to-upgrade-soon queue" in summary_md
     assert "analysis-only" in review_md
+    assert "## Outcome Rules" in review_md
 
 
 def test_run_customer_artifact_collection_falls_back_to_sample_csv_when_processed_missing(

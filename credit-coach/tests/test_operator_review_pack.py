@@ -193,6 +193,32 @@ def test_build_operator_review_packet_surfaces_recommendation_sanity_badge() -> 
     assert packet.technical_appendix.recommendation_validity_codes == ["economic_delta_large"]
 
 
+def test_build_operator_review_packet_renders_additive_outcome_rule_note() -> None:
+    roadmap = _sample_roadmap()
+    roadmap["summary"].update(
+        {
+            "selected_outcome_rule_applied": 1,
+            "selected_outcome_rule_profile_version": "analysis_offer_readiness_combo_v2_3b",
+            "selected_outcome_rule_source": "offer_readiness_combo",
+            "selected_outcome_rule_transition": "conditional_to_approved_offer_readiness_combo",
+            "selected_outcome_rule_note": "With combined offer and readiness support, this file would move from CONDITIONAL to APPROVED in the analysis layer.",
+            "selected_outcome_rule_note_localized": {
+                "tr": "Teklif ve hazirlik birlikte guclendiginde bu dosya analiz katmaninda CONDITIONAL durumundan APPROVED durumuna tasinirdi.",
+                "en": "With combined offer and readiness support, this file would move from CONDITIONAL to APPROVED in the analysis layer.",
+            },
+        }
+    )
+
+    packet = build_operator_review_packet(roadmap)
+    markdown = render_operator_review_packet_markdown(packet)
+
+    assert packet.short_view.outcome_rule_note is not None
+    assert "analysis layer" in packet.short_view.outcome_rule_note.en
+    assert packet.technical_appendix.selected_outcome_rule_applied is True
+    assert packet.technical_appendix.selected_outcome_rule_profile_version == "analysis_offer_readiness_combo_v2_3b"
+    assert "## Analysis-only Outcome Rule" in markdown
+
+
 def test_build_operator_review_packet_renders_empty_state_for_no_valid_winner() -> None:
     roadmap = _sample_roadmap()
     roadmap["best_plan_id"] = None

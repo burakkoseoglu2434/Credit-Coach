@@ -394,6 +394,11 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
         blocker_code_set = {blocker.blocker_code for blocker in blockers}
         if blocker_code_set and not first_action_codes.intersection(blocker_code_set):
             packet_coherence_codes.append("action_blocker_mismatch")
+    outcome_rule_note = _localized_text_from_payload(
+        summary.get("selected_outcome_rule_note_localized"),
+        fallback_en=_safe_text(summary.get("selected_outcome_rule_note")),
+        fallback_tr=_safe_text(summary.get("selected_outcome_rule_note")),
+    )
 
     short_view = OperatorPacketShortView(
         decision_status=decision_status,
@@ -412,6 +417,7 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
             if bool(_safe_int(summary.get("recommendation_sanity_flag", 0), 0))
             else None
         ),
+        outcome_rule_note=outcome_rule_note,
         upgrade_condition=upgrade_condition,
         offer_state=offer_state,
         downside_risk=downside,
@@ -435,6 +441,12 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
             _safe_text(summary.get("selected_recommendation_projection_version")) or None
         ),
         selected_action_count=_safe_int(summary.get("selected_action_count", 0), 0),
+        selected_outcome_rule_applied=bool(_safe_int(summary.get("selected_outcome_rule_applied", 0), 0)),
+        selected_outcome_rule_profile_version=(
+            _safe_text(summary.get("selected_outcome_rule_profile_version")) or None
+        ),
+        selected_outcome_rule_source=_safe_text(summary.get("selected_outcome_rule_source")) or None,
+        selected_outcome_rule_transition=_safe_text(summary.get("selected_outcome_rule_transition")) or None,
         active_driver_count=active_driver_count,
         blocker_render_source=blocker_render_source or None,
         action_render_source=action_render_source or None,
@@ -467,9 +479,10 @@ def render_operator_review_packet_markdown(packet: OperatorReviewPacket) -> str:
         "",
         "## 1-line Summary",
         f"- {short.decision_reason_summary or 'n/a'}",
-        "",
-        "## Blockers",
     ]
+    if short.outcome_rule_note is not None:
+        lines.extend(["", "## Analysis-only Outcome Rule", f"- {short.outcome_rule_note.en}"])
+    lines.extend(["", "## Blockers"])
     if short.top_blockers:
         for blocker in short.top_blockers:
             lines.append(f"- {blocker.blocker_title.en}: {blocker.blocker_detail.en}")
@@ -523,6 +536,10 @@ def render_operator_review_packet_markdown(packet: OperatorReviewPacket) -> str:
     lines.append(f"- Selected recommendation source: {appendix.selected_recommendation_source or 'n/a'}")
     lines.append(f"- Selected recommendation projection version: {appendix.selected_recommendation_projection_version or 'n/a'}")
     lines.append(f"- Selected action count: {appendix.selected_action_count}")
+    lines.append(f"- Selected outcome-rule applied: {int(bool(appendix.selected_outcome_rule_applied))}")
+    lines.append(f"- Selected outcome-rule profile version: {appendix.selected_outcome_rule_profile_version or 'n/a'}")
+    lines.append(f"- Selected outcome-rule source: {appendix.selected_outcome_rule_source or 'n/a'}")
+    lines.append(f"- Selected outcome-rule transition: {appendix.selected_outcome_rule_transition or 'n/a'}")
     lines.append(f"- Active driver count: {appendix.active_driver_count}")
     lines.append(f"- Blocker render source: {appendix.blocker_render_source or 'n/a'}")
     lines.append(f"- Action render source: {appendix.action_render_source or 'n/a'}")
@@ -568,7 +585,18 @@ def operator_packet_metrics_fields(
             if packet.short_view.next_best_actions
             else ""
         ),
+        "operator_selected_outcome_rule_note_en": (
+            packet.short_view.outcome_rule_note.en
+            if packet.short_view.outcome_rule_note is not None
+            else ""
+        ),
         "operator_selected_action_count": int(packet.technical_appendix.selected_action_count),
+        "operator_selected_outcome_rule_applied": int(bool(packet.technical_appendix.selected_outcome_rule_applied)),
+        "operator_selected_outcome_rule_profile_version": str(
+            packet.technical_appendix.selected_outcome_rule_profile_version or ""
+        ),
+        "operator_selected_outcome_rule_source": str(packet.technical_appendix.selected_outcome_rule_source or ""),
+        "operator_selected_outcome_rule_transition": str(packet.technical_appendix.selected_outcome_rule_transition or ""),
         "operator_rendered_action_count": int(len(packet.short_view.next_best_actions)),
         "operator_rendered_blocker_count": int(len(packet.short_view.top_blockers)),
         "operator_first_action_blocker_codes_json": json.dumps(

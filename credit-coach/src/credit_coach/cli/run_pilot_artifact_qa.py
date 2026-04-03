@@ -147,6 +147,17 @@ def evaluate_pilot_artifact_qa(
     recommended_candidate_policy_version = _safe_text(collection_manifest.get("recommended_candidate_policy_version"))
     recommended_candidate_status = _safe_text(collection_manifest.get("recommended_candidate_status"), "no_safe_uplift")
     recommended_candidate_reason = _safe_text(collection_manifest.get("recommended_candidate_reason"))
+    candidate_outcome_rule_versions_compared = [
+        str(item) for item in (collection_manifest.get("candidate_outcome_rule_versions_compared", []) or [])
+    ]
+    recommended_outcome_rule_profile_version = _safe_text(
+        collection_manifest.get("recommended_outcome_rule_profile_version")
+    )
+    recommended_outcome_rule_status = _safe_text(
+        collection_manifest.get("recommended_outcome_rule_status"),
+        "no_safe_uplift",
+    )
+    recommended_outcome_rule_reason = _safe_text(collection_manifest.get("recommended_outcome_rule_reason"))
     if expected_policy_version and collection_policy_version and collection_policy_version != expected_policy_version:
         fail_findings.append("collection_policy_version_mismatch")
 
@@ -204,6 +215,10 @@ def evaluate_pilot_artifact_qa(
         "recommended_candidate_policy_version": recommended_candidate_policy_version,
         "recommended_candidate_status": recommended_candidate_status,
         "recommended_candidate_reason": recommended_candidate_reason,
+        "candidate_outcome_rule_versions_compared": candidate_outcome_rule_versions_compared,
+        "recommended_outcome_rule_profile_version": recommended_outcome_rule_profile_version,
+        "recommended_outcome_rule_status": recommended_outcome_rule_status,
+        "recommended_outcome_rule_reason": recommended_outcome_rule_reason,
         "pilot_package_policy_version": _safe_text(pilot_manifest_payload.get("policy_version_evaluated")),
     }
 
@@ -219,6 +234,9 @@ def _render_summary_markdown(summary: Mapping[str, Any]) -> str:
         f"- Candidate policies compared: {', '.join(summary.get('candidate_policy_versions_compared', []) or []) or 'n/a'}",
         f"- Recommended candidate status: {_safe_text(summary.get('recommended_candidate_status')) or 'no_safe_uplift'}",
         f"- Recommended candidate policy: {_safe_text(summary.get('recommended_candidate_policy_version')) or 'n/a'}",
+        f"- Candidate outcome rules compared: {', '.join(summary.get('candidate_outcome_rule_versions_compared', []) or []) or 'n/a'}",
+        f"- Recommended outcome-rule status: {_safe_text(summary.get('recommended_outcome_rule_status')) or 'no_safe_uplift'}",
+        f"- Recommended outcome-rule profile: {_safe_text(summary.get('recommended_outcome_rule_profile_version')) or 'n/a'}",
         "",
         "## Fail Findings",
     ]

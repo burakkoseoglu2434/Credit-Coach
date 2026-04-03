@@ -201,6 +201,26 @@ class DecisionExplanationPack(BaseModel):
         ge=0,
         description="Selected-plan action count carried into the consumer-safe overlay",
     )
+    selected_outcome_rule_applied: bool = Field(
+        default=False,
+        description="Whether an analysis-only offer/readiness rule would move this case under the recommended profile",
+    )
+    selected_outcome_rule_profile_version: str | None = Field(
+        default=None,
+        description="Recommended analysis-only outcome-rule profile version when applicable",
+    )
+    selected_outcome_rule_source: str | None = Field(
+        default=None,
+        description="Offer/readiness rule source behind the analysis-only movement note",
+    )
+    selected_outcome_rule_transition: str | None = Field(
+        default=None,
+        description="One-step movement trace for the analysis-only outcome rule",
+    )
+    selected_outcome_rule_note: str | None = Field(
+        default=None,
+        description="Analysis-only offer/readiness movement note kept separate from selected decision truth",
+    )
     driver_methodology_note: str = Field(
         default="Drivers are derived from the owned decision payload and exposed only as institution-safe numeric summaries.",
         description="Short methodology note for the driver list",

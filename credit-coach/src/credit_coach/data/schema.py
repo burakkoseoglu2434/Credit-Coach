@@ -952,6 +952,10 @@ class OperatorPacketShortView(BaseModel):
         default=None,
         description="Low-prominence manual-review note for numeric recommendations",
     )
+    outcome_rule_note: LocalizedText | None = Field(
+        default=None,
+        description="Analysis-only offer/readiness outcome-rule note kept separate from selected truth",
+    )
     upgrade_condition: str | None = Field(
         default=None,
         description="What would move the decision upward",
@@ -1036,6 +1040,22 @@ class OperatorPacketTechnicalAppendix(BaseModel):
         default=0,
         ge=0,
         description="Selected-plan action count carried into the consumer-safe overlay",
+    )
+    selected_outcome_rule_applied: bool = Field(
+        default=False,
+        description="Whether an analysis-only outcome rule would move this case under the recommended profile",
+    )
+    selected_outcome_rule_profile_version: str | None = Field(
+        default=None,
+        description="Recommended analysis-only outcome-rule profile version when applicable",
+    )
+    selected_outcome_rule_source: str | None = Field(
+        default=None,
+        description="Offer/readiness rule source behind the analysis-only movement note",
+    )
+    selected_outcome_rule_transition: str | None = Field(
+        default=None,
+        description="One-step movement trace for the analysis-only outcome rule",
     )
     active_driver_count: int = Field(
         default=0,

@@ -146,6 +146,12 @@ def _operator_packet_action_projection(short_view: Mapping[str, Any]) -> tuple[s
     return recommended_customer_action or None, institution_condition or None
 
 
+def _operator_packet_outcome_rule_note(short_view: Mapping[str, Any]) -> str | None:
+    if not isinstance(short_view, Mapping):
+        return None
+    return _localized_text_value(short_view.get("outcome_rule_note"), locale="en") or None
+
+
 def _assert_packet_drift_guard(
     *,
     pack: DecisionExplanationPack,
@@ -162,11 +168,16 @@ def _assert_packet_drift_guard(
     packet_readiness = _safe_text(short_view.get("expected_readiness"))
     packet_upgrade = _safe_text(short_view.get("upgrade_condition"))
     packet_recommended_action, packet_institution_condition = _operator_packet_action_projection(short_view)
+    packet_outcome_rule_note = _operator_packet_outcome_rule_note(short_view)
     appendix = packet.get("technical_appendix", {})
     if not isinstance(appendix, Mapping):
         appendix = {}
     packet_selected_recommendation_source = _safe_text(appendix.get("selected_recommendation_source"))
     packet_selected_projection_version = _safe_text(appendix.get("selected_recommendation_projection_version"))
+    packet_outcome_rule_applied = bool(appendix.get("selected_outcome_rule_applied"))
+    packet_outcome_rule_profile_version = _safe_text(appendix.get("selected_outcome_rule_profile_version"))
+    packet_outcome_rule_source = _safe_text(appendix.get("selected_outcome_rule_source"))
+    packet_outcome_rule_transition = _safe_text(appendix.get("selected_outcome_rule_transition"))
 
     if packet_decision_id and packet_decision_id != pack.decision_id:
         raise ValueError("Explanation pack drift: decision_id mismatch")
@@ -192,6 +203,20 @@ def _assert_packet_drift_guard(
         pack.selected_recommendation_projection_version
     ):
         raise ValueError("Explanation pack drift: selected recommendation projection version mismatch")
+    if packet_outcome_rule_applied != bool(pack.selected_outcome_rule_applied):
+        raise ValueError("Explanation pack drift: selected outcome-rule applied mismatch")
+    if packet_outcome_rule_profile_version and packet_outcome_rule_profile_version != _safe_text(
+        pack.selected_outcome_rule_profile_version
+    ):
+        raise ValueError("Explanation pack drift: selected outcome-rule profile version mismatch")
+    if packet_outcome_rule_source and packet_outcome_rule_source != _safe_text(pack.selected_outcome_rule_source):
+        raise ValueError("Explanation pack drift: selected outcome-rule source mismatch")
+    if packet_outcome_rule_transition and packet_outcome_rule_transition != _safe_text(
+        pack.selected_outcome_rule_transition
+    ):
+        raise ValueError("Explanation pack drift: selected outcome-rule transition mismatch")
+    if packet_outcome_rule_note and packet_outcome_rule_note != _safe_text(pack.selected_outcome_rule_note):
+        raise ValueError("Explanation pack drift: selected outcome-rule note mismatch")
 
 
 def build_decision_explanation_pack(
@@ -212,6 +237,7 @@ def build_decision_explanation_pack(
     selected_recommendation_source = _safe_text(summary.get("selected_recommendation_source"))
     recommended_customer_action = _safe_text(summary.get("selected_recommendation_text")) or None
     institution_condition = _safe_text(summary.get("selected_institution_condition")) or None
+    selected_outcome_rule_note = _safe_text(summary.get("selected_outcome_rule_note")) or None
     pack = DecisionExplanationPack(
         decision_id=decision_id,
         customer_id=customer_id,
@@ -227,6 +253,13 @@ def build_decision_explanation_pack(
             _safe_text(summary.get("selected_recommendation_projection_version")) or None
         ),
         selected_action_count=_safe_int(summary.get("selected_action_count", 0), 0),
+        selected_outcome_rule_applied=bool(_safe_int(summary.get("selected_outcome_rule_applied", 0), 0)),
+        selected_outcome_rule_profile_version=(
+            _safe_text(summary.get("selected_outcome_rule_profile_version")) or None
+        ),
+        selected_outcome_rule_source=_safe_text(summary.get("selected_outcome_rule_source")) or None,
+        selected_outcome_rule_transition=_safe_text(summary.get("selected_outcome_rule_transition")) or None,
+        selected_outcome_rule_note=selected_outcome_rule_note,
         upgrade_condition=_safe_text(summary.get("upgrade_condition")) or None,
         expected_readiness=_safe_text(summary.get("expected_readiness"), "unknown_review"),
         adverse_action_friendly_reasons=_build_reason_rows(_extract_reason_codes(summary, metrics_summary)),
@@ -258,6 +291,7 @@ def render_decision_explanation_pack_markdown(pack: DecisionExplanationPack) -> 
         "## Improvement Path",
         f"- Recommended customer action: {action_line}",
         f"- Institution condition: {pack.institution_condition or 'n/a'}",
+        f"- Analysis-only outcome rule note: {pack.selected_outcome_rule_note or 'n/a'}",
         f"- Upgrade condition: {pack.upgrade_condition or 'n/a'}",
         f"- Expected readiness: {pack.expected_readiness}",
         "",
