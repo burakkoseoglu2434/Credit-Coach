@@ -62,8 +62,8 @@
 | FUN-01 | Phase 51 | Complete |
 | FUN-02 | Phase 51 | Complete |
 | FUN-03 | Phase 51 | Complete |
-| POL-01 | Phase 52 | Pending |
-| POL-02 | Phase 52 | Pending |
+| POL-01 | Phase 53 | Pending |
+| POL-02 | Phase 53 | Pending |
 
 **Coverage:**
 - v1 requirements: 11 total

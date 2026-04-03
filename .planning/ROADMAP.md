@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🟡 **v2.3 Threshold & Outcome Optimization** - Phases 49-52 (active; started 2026-04-02)
+- 🟡 **v2.3 Threshold & Outcome Optimization** - Phases 49-52 (execution complete; audit pending, started 2026-04-02)
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
 - ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
 - ✅ **v1.2 Recommendation Quality Hardening** - Phases 12-16 (completed 2026-03-16)
@@ -19,7 +19,7 @@
 
 **Goal:** Improve approval and conditional yield from the shipped `v2.2` trust baseline by tuning bounded thresholds and making existing offer/readiness signals produce real funnel movement.
 
-**Phase plan:** 4 phases | 11 requirements mapped | All covered ✓
+**Phase plan:** 5 phases | 11 requirements mapped | All covered ✓
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
@@ -27,6 +27,7 @@
 | 50 | Offer & Readiness Outcome Rules | Turn existing offer and readiness signals into bounded outcome-producing decision rules | OUT-01, OUT-02, OUT-03 | 3 |
 | 51 | Funnel Movement Guardrails & Evidence | Measure funnel movement and block unsafe policy promotion with explicit guardrails | FUN-01, FUN-02, FUN-03 | 3 |
 | 52 | Preferred Policy Baseline & Demo Proof | Refresh the pilot baseline with one preferred policy and one fallback profile for demos | POL-01, POL-02 | 3 |
+| 53 | Formal Phase 52 Verification | Fully verify Phase 52 and close the milestone auditable chain | POL-01, POL-02 | 3 |
 
 ### Phase Details
 
@@ -64,6 +65,16 @@ Success criteria:
 1. Preferred and fallback policy profiles can regenerate the standard artifact bundle and compare cleanly against the shipped `v2.2` baseline.
 2. Pilot/demo proof can explain why the preferred profile won using cohort evidence and guardrail status.
 3. The recommended policy pair is ready to carry into first customer conversations without reopening trust-repair work.
+Status note: Completed 2026-04-03. The preferred and fallback demo profiles now package the same shipped runtime baseline `v2.1_phase_40_5`, collection artifacts emit baseline-selection and candidate-disposition proof, pilot refresh emits demo-proof and next-step handoff docs, and all three standard cohorts confirm `no_safe_uplift` plus `structural_cohort_limited` instead of a promoted bounded candidate.
+
+**Phase 53: Formal Phase 52 Verification**
+Goal: Generate `52-VERIFICATION.md` based on existing phase summaries to fully close POL-01 and POL-02 traceability and fix the milestone audit gaps.
+Requirements: POL-01, POL-02
+Success criteria:
+1. `52-VERIFICATION.md` is generated and fully documents the demo proof run.
+2. POL-01 and POL-02 are marked as completed.
+3. The milestone audit passes without gaps.
+Status note: Pending plan
 
 <details>
 <summary>✅ v1.0 Brownfield Baseline (Phases 1-7) - SHIPPED 2026-03-10</summary>
@@ -220,4 +231,5 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 49. Threshold Policy Evaluation & Provenance | v2.3 | 3/3 | Complete | 2026-04-02 |
 | 50. Offer & Readiness Outcome Rules | v2.3 | 3/3 | Complete | 2026-04-03 |
 | 51. Funnel Movement Guardrails & Evidence | v2.3 | 3/3 | Complete | 2026-04-03 |
-| 52. Preferred Policy Baseline & Demo Proof | v2.3 | 0/3 | Not Started | — |
+| 52. Preferred Policy Baseline & Demo Proof | v2.3 | 3/3 | Complete | 2026-04-03 |
+| 53. Formal Phase 52 Verification | v2.3 | 0/3 | Pending | |
