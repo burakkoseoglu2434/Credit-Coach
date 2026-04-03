@@ -10,16 +10,26 @@ Generate customer-specific credit action plans that are actionable, behaviorally
 
 ## Current State
 
-`v2.2 Winner Integrity & Consumer Consistency` shipped on `2026-04-02` and passed milestone audit. Credit Coach now supports:
-- fail-closed winner selection that never revives invalid candidates after validity filtering
-- DICE lane contender enforcement with shared typed-action parity, semantic-quality gates, and selected-DICE cleanliness proof
-- one selected consumer-truth projection aligned across raw summary, flat metrics, operator packets, and explanation packs
-- decision-aware operator packets that suppress approved contradictions and export coherence diagnostics into collection artifacts
-- repeatable three-cohort rerun proof for winner integrity, selected-surface consistency, and operator packet coherence
+`v2.3 Threshold & Outcome Optimization` shipped on `2026-04-03` and passed milestone audit. Credit Coach now supports:
+- deterministic threshold-policy comparison layer that proves honesty
+- explicit offer and readiness outcome-rule pathways with additive provenance
+- diagnostic funnel filters that identify `structural_cohort_limited` safely
+- one packaged pilot-facing proof surface (preferred demo and fallback)
+- full gap closure on Phase 52 verification and traceability
 
-The system is now strong enough for pilot-facing demos on winner and consumer-truth integrity. The next milestone can optimize thresholds and business outcomes from this cleaner baseline instead of continuing trust repair.
+The system has definitively proven that bounded optimization on the current action space and signals cannot create safe business lift. The next milestone will pivot to **movement capability expansion** to test richer action semantics and signals.
 
-## Current Milestone: v2.3 Threshold & Outcome Optimization
+## Current Milestone: Planning Next Milestone
+
+**Goal:** Expand the set of actionable movement levers while preserving the `v2.2` trust contracts as non-negotiable.
+
+**Target features:**
+- test whether richer action semantics or richer movement signals create real near-term eligibility
+- expand the action space to generate materially more diverse numeric solution paths
+- maintain all previous winner-integrity and consumer-consistency invariants
+
+<details>
+<summary>Archived Milestone Context: v2.3 Threshold & Outcome Optimization</summary>
 
 **Goal:** Improve approval and conditional yield from the shipped `v2.2` trust baseline by tuning bounded thresholds and making existing offer/readiness signals produce real funnel movement.
 
@@ -28,6 +38,8 @@ The system is now strong enough for pilot-facing demos on winner and consumer-tr
 - outcome-producing offer and readiness rules that can move customers from `REJECTED -> CONDITIONAL -> APPROVED`
 - funnel movement proof that decomposes gains into threshold-driven versus offer/readiness-driven lift
 - one preferred policy profile and one fallback profile for pilot demos and first customer conversations
+
+</details>
 
 <details>
 <summary>Archived Milestone Context: v2.1 Decision Ownership & Pilot-Ready Trust</summary>
@@ -85,12 +97,14 @@ The system is now strong enough for pilot-facing demos on winner and consumer-tr
 - ✓ Winner selection is now fail-closed, DICE contenders obey shared validity standards, selected consumer truth is aligned across raw and derived surfaces, and operator packets are coherence-safe on the tracked invariants - v2.2
 - ✓ Phase 53 verified 52 to officially close milestone auditable chain for POL-01 and POL-02 gaps - v2.3
 
+- ✓ Bounded threshold profiles were evaluated without breaking the shipped winner and consumer-truth invariants - v2.3
+- ✓ Existing offer and readiness signals were evaluated for explicit decision movement - v2.3
+- ✓ Standard cohorts measured `REJECTED -> CONDITIONAL -> APPROVED` movement limiters - v2.3
+- ✓ One preferred policy profile and one fallback profile refreshed the pilot baseline for demos - v2.3
+
 ### Active
 
-- [ ] Bounded threshold profiles can improve approval and conditional yield without breaking the shipped winner and consumer-truth invariants
-- [ ] Existing offer and readiness signals can produce explicit decision movement rather than remaining descriptive only
-- [ ] Standard cohorts can measure `REJECTED -> CONDITIONAL -> APPROVED` movement and separate threshold lift from offer/readiness lift
-- [ ] One preferred policy profile and one fallback profile can refresh the pilot baseline for demos and first customer conversations
+- [ ] (Planning next milestone)
 
 ### Out of Scope
 
@@ -111,7 +125,8 @@ The system is now strong enough for pilot-facing demos on winner and consumer-tr
 - Phase `46` proved DICE contender cleanliness separately from general winner integrity.
 - Phase `47` aligned selected overlays across raw, flat, operator, and explanation outputs.
 - Phase `48` proved operator packet coherence on the tracked blocker/action/readiness invariants across three large-sample reruns.
-- The next milestone should build forward from this shipped trust baseline rather than reopening winner-integrity layers or widening the action space.
+- `v2.3 Threshold & Outcome Optimization` is now shipped and audited. It operated as a truth-finding milestone that proved bounded thresholds and outcome rules cannot yield safe uplift on standard cohorts, firmly establishing `structural_cohort_limited` as the bottleneck.
+- The next milestone should build forward from this shipped trust baseline by expanding action-space and movement-lever capabilities rather than reopening winner-integrity layers or continuing bounded parameter search.
 
 ## Constraints
 
@@ -139,7 +154,8 @@ The system is now strong enough for pilot-facing demos on winner and consumer-tr
 | Separate business-visible decision truth from internal review diagnostics | The pilot story needed deterministic external decisions without leaking internal exception states | ✓ Good |
 | Treat calibration, operator review, planner quality, and pilot refresh as additive consumers of one decision owner | This preserved deterministic ownership while still making the system measurable, reviewable, and packageable | ✓ Good |
 | Open `v2.2 Winner Integrity & Consumer Consistency` before any threshold widening | Large-sample reruns showed that invalid selected winners and contradictory consumer surfaces were the real bottleneck, not approval aggressiveness | ✓ Good |
-| Open `v2.3 Threshold & Outcome Optimization` after `v2.2` shipped cleanly | Pilot demos now need measurable funnel movement and outcome lift more than more trust repair or action-space expansion | — Pending |
+| Open `v2.3 Threshold & Outcome Optimization` after `v2.2` shipped cleanly | Pilot demos now need measurable funnel movement and outcome lift more than more trust repair or action-space expansion | ✓ Good |
+| Open new milestone around action-space or movement-lever expansion | Bounded optimization tests proved the current parameter space is exhausted without yielding lift | — Pending |
 
 <details>
 <summary>Archived Milestone Context: v2.2 Winner Integrity & Consumer Consistency</summary>
@@ -155,4 +171,4 @@ The system is now strong enough for pilot-facing demos on winner and consumer-tr
 </details>
 
 ---
-*Last updated: 2026-04-02 after starting v2.3*
+*Last updated: 2026-04-03 after shipping v2.3*

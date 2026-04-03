@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🟡 **v2.3 Threshold & Outcome Optimization** - Phases 49-52 (execution complete; audit pending, started 2026-04-02)
+- ✅ **v2.3 Threshold & Outcome Optimization** - Phases 49-53 (shipped 2026-04-03; archive: `.planning/milestones/v2.3-ROADMAP.md`)
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
 - ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
 - ✅ **v1.2 Recommendation Quality Hardening** - Phases 12-16 (completed 2026-03-16)
@@ -15,66 +15,18 @@
 
 - ✅ **Phase 42.5 Recommendation Validity Layer** - post-v2.1 carry-forward hardening (completed 2026-03-24; code validation passed, and large-sample reruns now execute locally via deterministic sample-CSV fallback while processed-data-specific reruns still depend on `credit-coach/data/processed/test.parquet`)
 
-## Active Milestone: v2.3 Threshold & Outcome Optimization
+<details>
+<summary>✅ v2.3 Threshold & Outcome Optimization (Phases 49-53) - SHIPPED 2026-04-03</summary>
 
-**Goal:** Improve approval and conditional yield from the shipped `v2.2` trust baseline by tuning bounded thresholds and making existing offer/readiness signals produce real funnel movement.
+Historical archive: `.planning/milestones/v2.3-ROADMAP.md`
 
-**Phase plan:** 5 phases | 11 requirements mapped | All covered ✓
+- Phase 49: Threshold Policy Evaluation & Provenance
+- Phase 50: Offer & Readiness Outcome Rules
+- Phase 51: Funnel Movement Guardrails & Evidence
+- Phase 52: Preferred Policy Baseline & Demo Proof
+- Phase 53: Formal Phase 52 Verification
 
-| # | Phase | Goal | Requirements | Success Criteria |
-|---|-------|------|--------------|------------------|
-| 49 | Threshold Policy Evaluation & Provenance | Evaluate bounded threshold-policy profiles on existing trust-clean outputs and persist policy truth into artifacts | THR-01, THR-02, THR-03 | 3 |
-| 50 | Offer & Readiness Outcome Rules | Turn existing offer and readiness signals into bounded outcome-producing decision rules | OUT-01, OUT-02, OUT-03 | 3 |
-| 51 | Funnel Movement Guardrails & Evidence | Measure funnel movement and block unsafe policy promotion with explicit guardrails | FUN-01, FUN-02, FUN-03 | 3 |
-| 52 | Preferred Policy Baseline & Demo Proof | Refresh the pilot baseline with one preferred policy and one fallback profile for demos | POL-01, POL-02 | 3 |
-| 53 | Formal Phase 52 Verification | Fully verify Phase 52 and close the milestone auditable chain | Complete    | 2026-04-03 |
-
-### Phase Details
-
-**Phase 49: Threshold Policy Evaluation & Provenance**
-Goal: Evaluate bounded threshold-policy profiles on existing trust-clean outputs and persist policy provenance into raw, flat, and collection artifacts.
-Requirements: THR-01, THR-02, THR-03
-Success criteria:
-1. Analysts can compare candidate threshold policies on approval, conditional, reject, readiness, and bounded false-positive metrics across the standard cohorts.
-2. Evaluated runs expose which threshold-policy profile generated the decision outputs and collection summary.
-3. Threshold-policy experimentation keeps all shipped v2.2 trust counters clean while candidate profiles are compared.
-Status note: Completed 2026-04-02. All three standard cohorts produced explicit `no_safe_uplift`, so bounded threshold-only relaxation did not safely beat the shipped baseline.
-
-**Phase 50: Offer & Readiness Outcome Rules**
-Goal: Turn existing offer and readiness signals into bounded decision rules that can move customers through the funnel without opening new feature space.
-Requirements: OUT-01, OUT-02, OUT-03
-Success criteria:
-1. Existing offer-maturity signals can upgrade eligible customers under explicit bounded rules.
-2. Existing readiness signals can upgrade eligible customers under explicit bounded rules.
-3. Operator and explanation surfaces state when offer/readiness changed an outcome without drifting from selected truth.
-Status note: Completed 2026-04-03. All three standard cohorts produced explicit `no_safe_uplift`, so bounded offer/readiness-only rules did not create safe one-step movement; additive provenance and consumer-safe note seams are now in place for later v2.3 evidence work.
-
-**Phase 51: Funnel Movement Guardrails & Evidence**
-Goal: Measure funnel movement clearly and prevent promotion of unsafe candidate policies.
-Requirements: FUN-01, FUN-02, FUN-03
-Success criteria:
-1. Standard cohorts report `REJECTED -> CONDITIONAL -> APPROVED` movement for every candidate policy.
-2. Promotion is blocked automatically when shipped trust invariants regress or bounded risk proxies worsen past explicit limits.
-3. Portfolio outputs separate threshold-driven lift from offer/readiness-driven lift.
-Status note: Completed 2026-04-03. All three standard cohorts ended with `structural_cohort_limited`, while threshold and offer/readiness candidate families both remained `no_movement` and all shipped `v2.2` trust counters stayed clean.
-
-**Phase 52: Preferred Policy Baseline & Demo Proof**
-Goal: Refresh the pilot baseline with one preferred policy and one fallback profile that are ready for demos and first customer conversations.
-Requirements: POL-01, POL-02
-Success criteria:
-1. Preferred and fallback policy profiles can regenerate the standard artifact bundle and compare cleanly against the shipped `v2.2` baseline.
-2. Pilot/demo proof can explain why the preferred profile won using cohort evidence and guardrail status.
-3. The recommended policy pair is ready to carry into first customer conversations without reopening trust-repair work.
-Status note: Completed 2026-04-03. The preferred and fallback demo profiles now package the same shipped runtime baseline `v2.1_phase_40_5`, collection artifacts emit baseline-selection and candidate-disposition proof, pilot refresh emits demo-proof and next-step handoff docs, and all three standard cohorts confirm `no_safe_uplift` plus `structural_cohort_limited` instead of a promoted bounded candidate.
-
-**Phase 53: Formal Phase 52 Verification**
-Goal: Generate `52-VERIFICATION.md` based on existing phase summaries to fully close POL-01 and POL-02 traceability and fix the milestone audit gaps.
-Requirements: POL-01, POL-02
-Success criteria:
-1. `52-VERIFICATION.md` is generated and fully documents the demo proof run.
-2. POL-01 and POL-02 are marked as completed.
-3. The milestone audit passes without gaps.
-Status note: Pending plan
+</details>
 
 <details>
 <summary>✅ v1.0 Brownfield Baseline (Phases 1-7) - SHIPPED 2026-03-10</summary>
@@ -232,4 +184,4 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 50. Offer & Readiness Outcome Rules | v2.3 | 3/3 | Complete | 2026-04-03 |
 | 51. Funnel Movement Guardrails & Evidence | v2.3 | 3/3 | Complete | 2026-04-03 |
 | 52. Preferred Policy Baseline & Demo Proof | v2.3 | 3/3 | Complete | 2026-04-03 |
-| 53. Formal Phase 52 Verification | v2.3 | 0/3 | Pending | |
+| 53. Formal Phase 52 Verification | v2.3 | 1/1 | Complete | 2026-04-03 |

@@ -1,5 +1,144 @@
 # Project Milestones: Credit Coach
 
+## v2.3 Threshold & Outcome Optimization (Shipped: 2026-04-03)
+
+**Phases completed:** 44 phases, 128 plans, 0 tasks
+
+**Key accomplishments:**
+
+- Shared seeded fairness contract extracted into ops helpers and phase-suite artifacts now expose explicit lift, reliability, and fairness status per seed.
+- Canonical segment localization and seeded breakdown rollups now make fairness failures explainable by segment, source, stress view, and fail reason.
+- Shared `GO | LIMITED_GO | NO_GO` semantics now flow through suite artifacts, production smoke metadata, and challenger ranking without losing fairness-control traceability.
+- Shared KPI semantics are now centralized, and smoke, suite, and challenger all consume the same threshold and failed-check contract.
+- Frozen-model provenance is now explicit, fail-closed, and reused consistently across repeated seeded suite and challenger runs.
+- Milestone acceptance is now grounded in repeated seeded evidence, and smoke, suite, and challenger all emit or consume the same contract-shaped KPI semantics.
+- Candidate-quality evidence now survives the jump from single batch runs into seeded suite and challenger artifacts.
+- High-risk fast-track tuning is now explicit, bounded, and reviewable instead of living as an opaque config side effect.
+- Generator and policy impact is now explained as comparative seeded evidence, and the review surface exposes Phase 10 sections without becoming a dashboard dump.
+- Telemetry is now a fail-closed operational prerequisite rather than a loosely attached smoke detail.
+- Release evidence is now packaged as one stable machine-readable bundle instead of a loose set of artifact names.
+- Outcome feedback now plugs into release review as companion evidence, not a second release gate.
+- Typed action taxonomy now expresses behavioral, structural, and institutional recommendations without dropping the existing feature-grounded planner seam.
+- Financial realism is now enforced with reason-coded clipping and rejection, and recourse runs expose why actions became constrained or infeasible.
+- Action interaction constraints now repair conflicting bundles, preserve approval-pending recommendations as provisional evidence, and keep invalid combinations out of normal winner selection.
+- Execution likelihood is now explicit in the recourse contract instead of being an implicit assumption hidden behind nominal plan quality.
+- Planner ranking is now behavior-aware: among safe plans, more executable recommendations can outrank less realistic ones without weakening inherited fairness, reliability, or telemetry gates.
+- Behavior-aware scoring now has robustness evidence: the system can quantify what happens when plans are only partially executed, intermittently missed, or effectively fail in the weekly coaching loop.
+- Sequential planning is now a first-class contract: recommendations carry explicit multi-phase trajectories instead of only flattened action lists.
+- Trajectory evaluation now simulates time, partial execution, and review-boundary replans through the existing weekly loop instead of a disconnected second simulator.
+- The planner now ranks trajectories with an explicit short-term-first policy, and the resulting trajectory quality is comparable across batch, suite, challenger, and review outputs.
+- Institution-side offers are now real planning primitives instead of opaque placeholders.
+- Offer ranking is now recovery-aware without weakening the existing safety stack.
+- Offer-policy evidence is now visible across seeded evaluation, challenger comparison, and milestone review.
+- Decision logging is now a real learning ledger instead of a thin delayed-outcome row.
+- Outcome feedback now tells us not just what happened, but whether the data is ready to learn from.
+- The repo can now evaluate logged policy behavior with explicit IPS and Doubly Robust evidence instead of heuristic-only comparisons.
+- Phase 17 now has a canonical whole-cohort proof seam instead of relying on selected demo stories.
+- Portfolio proof now produces strategy insight, not just slice dumps.
+- Phase 17 closes with an executive proof layer that can say when a good-looking demo is not representative.
+- The engine now emits a canonical translated narrative layer instead of leaving product language to the website.
+- Phase 18 now has a controlled reveal layer, not just prettier action summaries.
+- The brownfield website is now a narrative consumer, not the hidden translator of engine output.
+- Execution truth now behaves like a realism-preserving trust layer instead of a neutral heuristic.
+- Winner selection now prefers realistic completion over nominal-only upside.
+- Behavior-aware evidence now tells a decision-ready story instead of exposing raw execution fields without context.
+- Trajectory contract drift is now closed at the schema and serialization layer.
+- Trajectory quality now depends on believable early health, not just attractive long-horizon PD.
+- Review boundaries, trajectory status, and policy labels now behave like a stable contract rather than a loosely implied simulation outcome.
+- Phase 21 now gives the portfolio proof seam a product-facing answer instead of only a coverage report.
+- The refreshed proof now survives suite aggregation and ships as one engine-owned confidence artifact.
+- The website proof page now renders one curated proof artifact instead of stitching together multiple low-level proof files.
+- Phase 21 summary metadata now closes the audit traceability gap for curated snapshot sync without overstating website scope.
+- The shared Demo Center surface now has calmer hero framing, explicit KPI context labels, and reusable request-demo conversion seams.
+- The Demo Center now reads as an executive product walkthrough with business-first customer, portfolio, offer, and learning sections.
+- The single-customer roadmap now reads like a governed recovery workflow built around phase windows instead of month counters and raw diagnostics.
+- The website now has one shared bilingual narrative seam for Proof and Investor pages, covering verdict support, trust rail language, benchmark translation, and positioning vocabulary.
+- The Proof page now reads like an executive memo that answers whether the system is ready to matter on a real portfolio before showing deeper evidence.
+- The Investor page now reads as a disciplined product brief that connects market pain, wedge, proof, and monetization without hype or raw internal terminology.
+- Phase 24 now has a concrete analyst UAT matrix that defines the five representative institution tasks, the scoring model, and the rule for closing or keeping open `OPS-01`.
+- Phase 24 now has a facilitator-grade walkthrough packet that maps every analyst task to a route, section, evidence source, and technical-reveal expectation.
+- Phase 24 now has an auditable analyst results packet showing that all five representative institution tasks pass on understandable, useful, and trustworthy criteria from the shipped product surfaces.
+- The website now captures structured pilot-intake context for demo requests and explains the buyer handoff path more honestly.
+- The website repo now has one explicit pilot-readiness baseline that says what is ready now, what must be configured before a serious pilot, and what remains intentionally deferred.
+- The website now has a repeatable curated demo handoff pack that turns structured intake into a trustworthy `/demo` and `/proof` walkthrough.
+- The action catalog is now strict enough to be a real semantic foundation instead of a best-effort mapping layer.
+- The runtime contract now speaks in grouped semantic actions first and exposes raw effect anchors only in the technical layer.
+- The semantic contract now reaches real consumers: roadmap, narrative, and batch proof paths all default to grouped business actions instead of raw feature deltas.
+- The engine now has a real numeric target contract instead of loosely attached numeric fields.
+- Numeric targets are now emitted by the generator with a clean handoff to feasibility rather than being inferred downstream.
+- Runtime and messaging consumers now speak the same numeric target contract the generator emits.
+- The feasibility layer now speaks one canonical verdict language instead of mixed legacy status terms.
+- Repair now means “softened without losing meaning,” and invalid now means “the plan stopped being real.”
+- Feasibility truth now shows up at the right density: business-safe by default and technically explicit on demand.
+- The execution estimator now emits an explicit action-level difficulty contract instead of leaving follow-through burden implicit inside probability math.
+- Plan ordering now treats grouped-action burden, explicit load, and low follow-through readiness as first-class plan-quality signals.
+- Execution truth now reaches product, proof, and technical surfaces in one engine-owned contract: readable by default, fully traceable on demand.
+- Institutional actions now carry one canonical nested `offer_contract` instead of relying on loose flat offer metadata.
+- Offer-bearing plans now distinguish institution readiness from customer acceptance, so contender eligibility is deterministic without collapsing realization truth.
+- Offer truth is now product-safe by default and technically complete on demand, while keeping customer action as the main recommendation story.
+- The narrative contract now reads in a stricter product order while keeping numeric and realism truth in predictable places.
+- Narrative wording now feels more customer-specific and guidance-oriented without becoming hype, blame, or explicit segment jargon.
+- The default narrative is now leaner and more product-safe, while technical reveal remains complete enough for analysts, proof, and downstream runtime consumers.
+- The product surface contract now matches the richer v2.0 roadmap truth instead of relying on page-local inference.
+- The single-customer page now behaves like a product workflow instead of a phase-led demo stack.
+- The page now enforces one clean business flow and one explicit analyst reveal, with no silent UI reinterpretation in between.
+- The engine can now quantify portfolio-level numeric burden and realized payoff without reopening single-customer contracts.
+- Portfolio impact now tells a segment strategy story instead of stopping at cohort-wide averages.
+- The portfolio review now speaks about personalized numeric impact in one business-safe hierarchy.
+- The engine can now judge whether personalized numeric plans are realistic and honest, not just high-payoff on paper.
+- Calibration now tells a segment and drift story instead of stopping at one portfolio-wide average.
+- The portfolio review can now say whether personalized numeric planning is realistic, optimistic, unstable, or narrower than expected.
+- The repo now has one explicit answer to what institution-style pilot data must look like before personalized planning can run.
+- A validated pilot bundle can now run end to end and emit one explicit package with provenance, guardrails, confidence, and acceptance posture.
+- Pilot onboarding is now explicit enough for a serious institution conversation without pretending the repo already has live integrations or full rollout tooling.
+- Raw customer artifacts now normalize through one deterministic contract seam before they are written.
+- Collection outputs now mirror the raw roadmap contract and explicitly report trust failures.
+- Trust repair now reaches the consumer edge: zero-step paths reject early and live demo reads the repaired summary contract first.
+- The repo now has one deterministic customer-level decision owner instead of relying on legacy `best_status` passthrough.
+- Collection review outputs now mirror the final decision payload instead of carrying a second decision system.
+- Business-facing consumers now speak only in `APPROVED | CONDITIONAL | REJECTED` while still staying traceable to the same deterministic decision payload.
+- Collection runs now understand real cohort semantics and can describe the shipped decision owner as a fintech funnel instead of only a denied-customer artifact dump.
+- The repo can now compare shipped and candidate decision policies without leaking candidate outcomes into customer-facing truth.
+- A single collection run now packages raw inspection, flat review, and cohort calibration evidence together without breaking existing artifact consumers.
+- Phase 42 now starts from explicit provenance and contender truth instead of string heuristics and implicit empty-plan behavior.
+- Source mix is now honest and reviewable: collection artifacts can distinguish real planner wins from recovery-lane rescues.
+- Phase 42 now closes with honest planner-quality evidence: not just who won, but whether winners are diverse enough and mature enough to trust.
+- Phase 42.5 now has a canonical recommendation-validity layer that can invalidate directionally wrong numeric plans before they ever shape best-plan truth.
+- Phase 42.5 now surfaces numeric recommendation trust consistently across operator packets, explanation packs, and collection artifacts without redesigning those consumer contracts.
+- Phase 42.5 now closes with clean code and regression validation, plus an explicit note that full 50-customer artifact rerun validation is deferred locally because the processed dataset is unavailable.
+- Per-customer operator review packets now exist as first-class derived artifacts, with a short layer for fast triage and an appendix layer for traceability.
+- Collection runs now produce one operator-first briefing that says where review effort is most valuable, using the shipped decision and calibration artifacts as inputs rather than new logic.
+- Operator review is now packaged into the same collection run root as raw, flat, and calibration artifacts, so one run can support fast packet review without breaking decision ownership.
+- Phase 44 now has a repeatable pilot refresh runner and a dedicated artifact trust fence, both layered on top of existing collection, pilot-package, and smoke flows.
+- Phase 44 now includes reproducible institution overlays and a bounded institution-facing explanation artifact derived from the same deterministic decision snapshot used elsewhere.
+- Phase 44 now closes with aligned engine and website docs, a bounded pilot story, and regression coverage over the new refresh baseline.
+- Phase 45 now hard-stops invalid winner leakage at the chooser boundary instead of relying on downstream surfaces to notice it later.
+- Winner hard-stop now propagates into raw and flat artifacts as a null-safe, parity-safe contract instead of leaving stale best-plan residue behind.
+- The hard-stop was proven on three 250-customer reruns: invalid winners disappeared, widened valid selection remained deterministic, and empty-selection states surfaced as explicit `no_valid_winner` records.
+- Phase 46 now gives the `dice` lane the same minimum typed-action contract as internal plans before any contender decision is made.
+- Phase 46 now keeps all DICE provenance visible while preventing annotation-incomplete or semantically invalid DICE candidates from entering planner contention.
+- Phase 46 closes with regression and rerun proof that selected DICE winners, when present, are fully eligible, fully annotated, and semantically clean.
+- Phase 47 now makes selected consumer truth explicit instead of inferred from raw selected plan status.
+- Phase 47 now propagates one selected recommendation projection into flat metrics, plans, operator packets, and explanation packs.
+- Phase 47 now has both automated regression proof and three-cohort rerun evidence for selected-surface consistency.
+- Phase 48 now makes packet rendering decision-aware instead of relying on generic blocker and action fallbacks.
+- Phase 48 now exports operator packet coherence as measurable artifact truth instead of relying on manual packet reading alone.
+- Phase 48 closes with regression and rerun proof that operator packets no longer contradict selected consumer truth.
+- Phase 49 now owns one deterministic, analysis-only threshold ladder instead of open-ended policy comparison.
+- Phase 49 now makes threshold-policy evaluation replayable from artifacts rather than source inspection.
+- Phase 49 closed with evidence, not intuition: bounded threshold-only relaxations did not safely improve the shipped baseline on the standard cohorts.
+- Phase 50 now owns one bounded, replayable offer/readiness rule ladder instead of descriptive-only diagnostics.
+- Phase 50 now makes offer/readiness outcome-rule experiments visible from artifacts instead of hiding them inside calibration tables.
+- Phase 50 closed with evidence, not optimism: bounded offer/readiness rules did not create safe funnel movement on the three standard cohorts.
+- Phase 51 now has one canonical owner for movement diagnosis instead of loosely interpreted Phase 49 and Phase 50 outputs.
+- Phase 51 evidence is now publishable from the collection root and pilot refresh stack.
+- Phase 51 closed with explicit cohort-level diagnosis instead of another unexplained `no_safe_uplift`.
+- Phase 52 now has one canonical owner for preferred-baseline selection instead of relying on milestone-close narrative.
+- Phase 52 proof is now replayable from collection and pilot artifacts instead of being reconstructed by hand from prior phases.
+- Phase 52 closed with replayable proof that the shipped runtime baseline remains the honest demo and pilot baseline.
+
+---
+
 **Current active milestone:** v2.3 Threshold & Outcome Optimization
 
 ## v2.3 Threshold & Outcome Optimization (Active)
@@ -7,6 +146,7 @@
 **Goal:** Improve approval and conditional yield from the shipped `v2.2` trust baseline by tuning bounded thresholds and making existing offer/readiness signals produce real funnel movement.
 
 **Why this milestone exists now:**
+
 - `v2.2` closed the remaining winner-integrity and consumer-consistency trust repairs, so the next bottleneck is business lift rather than trust repair
 - pilot-facing demos are now credible, but the decision funnel still needs stronger `APPROVED + CONDITIONAL` movement to support customer conversations
 - offer maturity and readiness are currently measured well but remain too descriptive rather than outcome-producing
@@ -15,12 +155,14 @@
 **Planned phases:** 49-52
 
 **Workstreams:**
+
 - Phase 49: Threshold Policy Evaluation & Provenance
 - Phase 50: Offer & Readiness Outcome Rules
 - Phase 51: Funnel Movement Guardrails & Evidence
 - Phase 52: Preferred Policy Baseline & Demo Proof
 
 **Acceptance checks:**
+
 - at least one bounded policy profile improves `APPROVED + CONDITIONAL` yield versus the shipped `v2.2` baseline on the standard cohorts
 - `offer_needed_balanced` shows explicit outcome movement attributable to offer/readiness rules rather than descriptive-only diagnostics
 - yield proof can separate threshold-driven movement from offer/readiness-driven movement
@@ -28,6 +170,7 @@
 - one preferred policy profile and one fallback profile are ready for pilot demos and first customer conversations
 
 **Not in this milestone:**
+
 - expanding action semantics or opening new recommendation feature space
 - redesign of Phases `40`, `40.5`, `41`, `42`, `42.5`, `43`, `45`, `46`, `47`, or `48`
 - new borrower-facing channels, live institution integrations, or compliance automation
@@ -39,6 +182,7 @@
 **Goal:** Fix selected-winner integrity and consumer-surface consistency before any threshold widening or approval-rate optimization.
 
 **Why this milestone exists now:**
+
 - targeted failure analysis showed that selected invalid recommendation leakage is dominated by a planner filtering fallback bug in `choose_best_plan(...)`
 - all leaked selected invalid winners observed in large-sample reruns were `dice` winners
 - recommendation validity annotation appears to be working, so the remaining gap is winner enforcement and surface coherence
@@ -47,18 +191,21 @@
 **Planned phases:** 45-48
 
 **Workstreams:**
+
 - Phase 45: Winner Integrity Hard Stop
 - Phase 46: Dice Lane Validity Enforcement
 - Phase 47: Selected Surface Consistency
 - Phase 48: Operator Packet Coherence
 
 **Acceptance checks:**
+
 - `0` selected invalid winners across large-sample reruns
 - `0` external `CONDITIONAL` outputs pointing at selected `REJECTED` rows
 - `0` approved packets with fallback blockers when no active drivers exist
 - `0` operator short views rendering invalid selected actions as the chosen recommendation
 
 **Not in this milestone:**
+
 - threshold widening
 - approval-rate optimization
 - redesign of Phases `40`, `40.5`, `41`, `42`, `42.5`, or `43`
@@ -69,12 +216,14 @@
 **Phases completed:** 45-48 (12 plans total)
 
 **Key accomplishments:**
+
 - Hard-stopped invalid selected winners with deterministic valid-only widening and explicit `no_valid_winner` behavior.
 - Converged DICE onto the shared typed-action contract and added lane-specific contender-quality gates with rerun-proven selected DICE cleanliness.
 - Aligned raw summary, flat metrics, operator packets, and explanation packs on one selected projection and explicit empty-state contract.
 - Made operator packets decision-aware and proved zero approved blocker/action contradictions and zero tracked packet-coherence mismatches on large-sample reruns.
 
 **Stats:**
+
 - 4 GSD phases completed with 12 executed plans and 66 planned tasks
 - Milestone audit passed with 11/11 requirements satisfied
 - Nyquist compliance: 4/4 phases compliant
@@ -82,6 +231,7 @@
 - Timeline: 2026-03-24 through 2026-04-02
 
 **Known gaps carried forward:**
+
 - Large-sample reruns still surfaced zero natural `no_valid_winner` cases, so empty-state selected-surface and packet behavior remain proven by automated tests rather than cohort evidence.
 - Collection reruns still emit pandas `FutureWarning` messages from empty/all-NA frame concatenation.
 - Local `gsd-tools.cjs` milestone-op helper still requires manual fallback.
@@ -95,6 +245,7 @@
 **Phases completed:** 1-7 (20 plans total)
 
 **Key accomplishments:**
+
 - Established deterministic backend selection, calibration, and reproducible artifact generation
 - Shifted recourse scoring toward approval, reliability, and worst-margin gate passing
 - Added high-risk and trajectory-style planning paths with richer KPI outputs
@@ -103,11 +254,13 @@
 - Aligned smoke, challenger, and batch workflows around a measurable KPI contract baseline
 
 **Stats:**
+
 - 7 historical phases reconstructed from imported planning and execution documents
 - 20 plans represented in the imported roadmap
 - Git range unavailable - pre-GSD history was imported from legacy docs rather than reconstructed from phase commits
 
 **Known gaps carried forward:**
+
 - Fairness and equalized-odds stability still break under repeated seeded KPI checks
 - 4-week trajectory and short-term effectiveness need a more realistic contract and stronger action space
 - Candidate diversity and source-mix evidence are still weaker than release needs
@@ -124,6 +277,7 @@
 **Phases completed:** 8-11 (12 plans total)
 
 **Key accomplishments:**
+
 - Standardized `GO | LIMITED_GO | NO_GO` fairness release semantics across suite, smoke, and challenger workflows
 - Unified seeded KPI contracts, frozen model provenance, and milestone acceptance artifacts
 - Promoted candidate diversity, high-risk tuning, and comparative impact into canonical seeded evidence
@@ -131,11 +285,13 @@
 - Added suite-owned `release_evidence_pack.json` bundles and linked outcome-feedback summaries into derived milestone review
 
 **Stats:**
+
 - 4 GSD phases completed with 12 executed plans
 - Milestone audit passed with 12/12 requirements satisfied
 - Nyquist compliance: 4/4 phases compliant
 
 **Known gaps carried forward:**
+
 - Action space is still too tied to feature edits and lacks richer behavioral, structural, and institutional actions
 - Planner scoring still treats execution as mostly static rather than explicitly behavior-aware
 - Sequential, multi-phase recommendation trajectories are not yet first-class planning objects
@@ -152,6 +308,7 @@
 **Phases completed:** 12-16 (15 plans total)
 
 **Key accomplishments:**
+
 - Replaced raw feature-edit recommendation semantics with typed behavioral, structural, and institutional actions plus explicit feasibility and interaction constraints
 - Added execution-probability modeling and behavior-aware ranking without weakening inherited fairness, reliability, telemetry, or acceptance gates
 - Promoted phased trajectories, weekly checkpoint simulation, and replan-aware evidence to first-class planning contracts
@@ -159,12 +316,14 @@
 - Closed the learning loop with compact decision logging, graded outcome-ingestion readiness, and IPS/Doubly Robust off-policy evaluation
 
 **Stats:**
+
 - 5 GSD phases completed with 15 executed plans
 - Milestone audit passed with 11/11 requirements satisfied
 - Nyquist compliance: 5/5 phases compliant
 - 88 files changed in the shipped milestone range with 15,125 insertions and 381 deletions
 
 **Known gaps carried forward:**
+
 - Operator-facing dashboards still need to summarize the artifact-rich milestone health surface
 - Regulatory explanation and user-facing adverse-action narratives are still future work
 - Online policy promotion remains intentionally blocked behind evidence-first learning
@@ -181,6 +340,7 @@
 **Phases completed:** 17-25 (28 plans total)
 
 **Key accomplishments:**
+
 - Established full-portfolio coverage, segment, and representativeness proof instead of relying on curated demo stories
 - Moved recommendation translation into an engine-owned narrative contract with business-first defaults and technical reveal on demand
 - Re-hardened behavior-aware and trajectory truth before refreshing proof and product-confidence surfaces
@@ -188,6 +348,7 @@
 - Closed analyst UAT and pilot-readiness baseline with explicit runbooks, results, intake, and handoff documentation
 
 **Stats:**
+
 - 9 GSD phases completed with 28 executed plans and 56 planned tasks
 - Milestone audit passed with 9/9 requirements satisfied
 - Nyquist compliance: 9/9 phases compliant
@@ -195,6 +356,7 @@
 - Timeline: 2026-03-17 through 2026-03-20
 
 **Known gaps carried forward:**
+
 - Pilot-grade external institution integrations remain deeper future work beyond curated artifact handoff
 - Regulatory explanation and adverse-action communication packs remain future milestone scope
 - Release review, proof refresh, and milestone health automation remain future work
@@ -211,6 +373,7 @@
 **Phases completed:** 30-39 (30 plans total)
 
 **Key accomplishments:**
+
 - Replaced raw feature-delta recommendation identity with deterministic semantic actions, grouped business-vs-technical contracts, and canonical action families
 - Added customer-specific numeric targets with feasibility, difficulty, execution realism, and institution-offer truth in one plan contract
 - Shipped narrative and product-surface upgrades so the website renders engine-owned personalized plans without UI-side meaning invention
@@ -218,6 +381,7 @@
 - Closed the milestone with a typed pilot bundle, guarded pilot package runner, and engine-to-website handoff docs for institution conversations
 
 **Stats:**
+
 - 10 GSD phases completed with 30 executed plans and 60 planned tasks
 - Milestone audit passed with 10/10 requirements satisfied
 - Nyquist compliance: 10/10 phases compliant
@@ -225,6 +389,7 @@
 - Timeline: 2026-03-20 through 2026-03-22
 
 **Known gaps carried forward:**
+
 - Pilot-grade external institution integrations remain future work beyond the shipped export-to-package seam
 - Regulatory explanation and adverse-action communication packs remain outside the shipped scope
 - Proof refresh, release review, and milestone health automation remain future work
@@ -241,6 +406,7 @@
 **Phases completed:** 40-44 (18 plans total)
 
 **Key accomplishments:**
+
 - Repaired raw and flat customer artifacts so decision-critical fields, parity signals, and zero-step rejection became null-free, explicit, and business-safe
 - Shipped one deterministic decision owner with external `APPROVED | CONDITIONAL | REJECTED` outputs, internal review diagnostics, confidence, readiness, subtype truth, and upgrade conditions
 - Added mixed-cohort funnel, readiness, and shadow calibration evidence under the same collection run root as raw and flat artifacts
@@ -249,6 +415,7 @@
 - Closed the milestone with repeatable pilot refresh orchestration, dedicated artifact QA, thin institution overlays, institution-facing explanation packs, and bounded proof documentation
 
 **Stats:**
+
 - 6 GSD phases completed with 18 executed plans and 84 planned tasks
 - Milestone audit passed with 12/12 requirements satisfied
 - Nyquist compliance: 6/6 phases compliant
@@ -256,12 +423,14 @@
 - Timeline: 2026-03-23 through 2026-03-23
 
 **Known gaps carried forward:**
+
 - Live institution integrations remain future work beyond the shipped overlay and package-based pilot baseline
 - Compliance-adjacent explanation workflows remain bounded support artifacts rather than full compliance automation
 - Recurring proof refresh, release review, and milestone health automation remain future scope
 - Local `gsd-tools.cjs` milestone-op automation still requires manual fallback, and some validation frontmatter metadata needs cleanup
 
 **Post-shipment carry-forward completed on 2026-03-24:**
+
 - Phase `42.5 Recommendation Validity Layer` added canonical numeric recommendation validity, hard-invalid pre-selection filtering, warning penalties, operator manual-review badges, explanation-pack human-review propagation, and additive collection metrics.
 - Code and regression validation passed cleanly for the carry-forward phase.
 - Full processed-data 50-customer artifact rerun validation is still deferred locally because `credit-coach/data/processed/test.parquet` is not present in the current checkout.
