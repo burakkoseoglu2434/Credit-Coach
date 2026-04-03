@@ -6,8 +6,11 @@ Feature bazli aksiyon uzayi tanimlari.
 Phase 12 ile birlikte bu modul yalnizca "hangi feature degisir" bilgisini
 degil, bu degisimin hangi gercek dunya action semantigine ait oldugunu da
 tasir. Brownfield uyumluluk icin generator hala feature-level effect uzerinden
-calisir; fakat her actionable spec artik bir `action_key` ve `action_class`
-tasir.
+calisir; fakat her actionable spec artik bir `action_key`, `action_owner`
+ve `action_category` tasir.
+
+Phase 54: Canonical ActionOwner / ActionCategory taxonomy replaces the
+legacy ActionClass / ActionFamily literals.
 """
 
 from __future__ import annotations
@@ -15,17 +18,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-ActionClass = Literal["behavioral", "structural", "institutional"]
-ActionFamily = Literal[
-    "loan_sizing",
-    "debt_restructuring",
-    "income_strength",
-    "documentation",
-    "cashflow_management",
-    "utilization",
-    "payment_discipline",
-    "limit_management",
-    "hardship_relief",
+ActionOwner = Literal["customer", "institution", "hybrid"]
+ActionCategory = Literal[
+    "utilization_capacity",
+    "burden_reduction",
+    "delinquency_cleanup",
+    "credit_structure",
+    "income_trust",
+    "application_parameters",
+    "institution_relief",
 ]
 NumericUnit = Literal[
     "currency",
@@ -41,12 +42,16 @@ NumericUnit = Literal[
 @dataclass(frozen=True)
 class ActionTemplate:
     action_key: str
-    action_class: ActionClass
-    action_family: ActionFamily
+    action_owner: ActionOwner
+    action_category: ActionCategory
     title: str
+    action_type: str = ""
     description: str = ""
-    feature_names: tuple[str, ...] = field(default_factory=tuple)
+    primary_features_impacted: tuple[str, ...] = field(default_factory=tuple)
     primary_target_feature_name: str | None = None
+    dice_eligible: bool = False
+    heuristic_only: bool = False
+    requires_numeric_target: bool = False
     requires_institutional_approval: bool = False
     approval_pending_semantic_only: bool = False
     institutional_approval_state: Literal["not_required", "approved", "pending", "unknown"] = "not_required"
@@ -73,10 +78,14 @@ class ActionSpec:
     time_months: int = 3
     description: str = ""
     action_key: str | None = None
-    action_class: ActionClass | None = None
-    action_family: ActionFamily | None = None
+    action_owner: ActionOwner | None = None
+    action_category: ActionCategory | None = None
     action_title: str = ""
+    primary_features_impacted: tuple[str, ...] = field(default_factory=tuple)
     primary_target_feature_name: str | None = None
+    dice_eligible: bool | None = None
+    heuristic_only: bool | None = None
+    requires_numeric_target: bool | None = None
     requires_institutional_approval: bool = False
     approval_pending_semantic_only: bool = False
     institutional_approval_state: Literal["not_required", "approved", "pending", "unknown"] = "not_required"
@@ -94,88 +103,106 @@ class ActionSpec:
 ACTION_CATALOG: dict[str, ActionTemplate] = {
     "adjust_requested_loan_amount": ActionTemplate(
         action_key="adjust_requested_loan_amount",
-        action_class="structural",
-        action_family="loan_sizing",
+        action_type="adjustment",
+        action_owner="customer",
+        action_category="application_parameters",
         title="Adjust requested loan amount",
         description="Reduce the requested loan size to improve affordability and approval odds.",
-        feature_names=("loan_amnt",),
+        primary_features_impacted=("loan_amnt",),
         primary_target_feature_name="loan_amnt",
+        requires_numeric_target=True,
     ),
     "refinance": ActionTemplate(
         action_key="refinance",
-        action_class="structural",
-        action_family="debt_restructuring",
+        action_type="restructure",
+        action_owner="hybrid",
+        action_category="credit_structure",
         title="Refinance or restructure debt",
         description="Use refinancing to improve rate and installment affordability.",
-        feature_names=("int_rate", "installment"),
+        primary_features_impacted=("int_rate", "installment"),
         primary_target_feature_name="installment",
+        requires_numeric_target=True,
         prerequisite_tags=("stable_income",),
     ),
     "increase_regular_income": ActionTemplate(
         action_key="increase_regular_income",
-        action_class="behavioral",
-        action_family="income_strength",
+        action_type="documentation",
+        action_owner="customer",
+        action_category="income_trust",
         title="Increase regular income",
         description="Improve recurring income through additional work or stable earnings.",
-        feature_names=("annual_inc",),
+        primary_features_impacted=("annual_inc",),
         primary_target_feature_name="annual_inc",
+        requires_numeric_target=True,
         provides_tags=("stable_income",),
     ),
     "verify_income_documentation": ActionTemplate(
         action_key="verify_income_documentation",
-        action_class="structural",
-        action_family="documentation",
+        action_type="documentation",
+        action_owner="customer",
+        action_category="income_trust",
         title="Verify income documentation",
         description="Complete documentation or verification steps to strengthen the file.",
-        feature_names=("verification_status",),
+        primary_features_impacted=("verification_status",),
         primary_target_feature_name="verification_status",
         provides_tags=("income_verified",),
     ),
     "reduce_spending": ActionTemplate(
         action_key="reduce_spending",
-        action_class="behavioral",
-        action_family="cashflow_management",
+        action_type="behavioral",
+        action_owner="customer",
+        action_category="utilization_capacity",
         title="Reduce spending pressure",
         description="Reduce ongoing spending to improve debt-to-income behavior.",
-        feature_names=("dti",),
+        primary_features_impacted=("dti",),
         primary_target_feature_name="dti",
+        heuristic_only=True,
     ),
     "debt_consolidation": ActionTemplate(
         action_key="debt_consolidation",
-        action_class="structural",
-        action_family="debt_restructuring",
+        action_type="restructure",
+        action_owner="hybrid",
+        action_category="credit_structure",
         title="Consolidate revolving debt",
         description="Use consolidation or structured repayment to reduce revolving balances.",
-        feature_names=("revol_bal", "tot_cur_bal", "total_bal_ex_mort"),
+        primary_features_impacted=("revol_bal", "tot_cur_bal", "total_bal_ex_mort"),
         primary_target_feature_name="revol_bal",
+        requires_numeric_target=True,
         conflict_tags=("settlement_discount",),
     ),
     "limit_credit_usage": ActionTemplate(
         action_key="limit_credit_usage",
-        action_class="behavioral",
-        action_family="utilization",
+        action_type="behavioral",
+        action_owner="customer",
+        action_category="utilization_capacity",
         title="Limit credit usage",
         description="Reduce revolving utilization and slow new card usage.",
-        feature_names=("revol_util",),
+        primary_features_impacted=("revol_util",),
         primary_target_feature_name="revol_util",
+        heuristic_only=True,
     ),
     "improve_payment_consistency": ActionTemplate(
         action_key="improve_payment_consistency",
-        action_class="behavioral",
-        action_family="payment_discipline",
+        action_type="behavioral",
+        action_owner="customer",
+        action_category="delinquency_cleanup",
         title="Improve payment consistency",
         description="Build more consistent repayment behavior over time.",
-        feature_names=("fico_range_low", "fico_range_high", "last_fico_range_low", "last_fico_range_high"),
+        primary_features_impacted=("fico_range_low", "fico_range_high", "last_fico_range_low", "last_fico_range_high"),
         primary_target_feature_name="last_fico_range_low",
+        heuristic_only=True,
     ),
     "credit_limit_adjustment": ActionTemplate(
         action_key="credit_limit_adjustment",
-        action_class="institutional",
-        action_family="limit_management",
+        action_type="institutional",
+        action_owner="institution",
+        action_category="institution_relief",
         title="Request or negotiate credit limit adjustment",
         description="Institution-mediated credit limit changes can improve utilization headroom.",
-        feature_names=("total_rev_hi_lim", "total_bc_limit", "tot_hi_cred_lim"),
+        primary_features_impacted=("total_rev_hi_lim", "total_bc_limit", "tot_hi_cred_lim"),
         primary_target_feature_name="total_rev_hi_lim",
+        dice_eligible=True,
+        requires_numeric_target=True,
         requires_institutional_approval=True,
         institutional_approval_state="pending",
         offer_type="credit_limit_adjustment",
@@ -187,12 +214,15 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     ),
     "settlement_discount": ActionTemplate(
         action_key="settlement_discount",
-        action_class="institutional",
-        action_family="hardship_relief",
+        action_type="institutional",
+        action_owner="institution",
+        action_category="burden_reduction",
         title="Negotiate settlement discount",
         description="Use an institution-approved settlement to reduce collections pressure.",
-        feature_names=("tot_coll_amt",),
+        primary_features_impacted=("tot_coll_amt",),
         primary_target_feature_name="tot_coll_amt",
+        dice_eligible=True,
+        requires_numeric_target=True,
         requires_institutional_approval=True,
         institutional_approval_state="approved",
         offer_type="discount_offer",
@@ -205,12 +235,15 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     ),
     "installment_plan": ActionTemplate(
         action_key="installment_plan",
-        action_class="institutional",
-        action_family="hardship_relief",
+        action_type="institutional",
+        action_owner="institution",
+        action_category="burden_reduction",
         title="Enter an installment plan",
         description="Restructure delinquent balances into an approved installment plan.",
-        feature_names=("acc_now_delinq", "delinq_amnt", "collections_12_mths_ex_med"),
+        primary_features_impacted=("acc_now_delinq", "delinq_amnt", "collections_12_mths_ex_med"),
         primary_target_feature_name="delinq_amnt",
+        dice_eligible=True,
+        requires_numeric_target=True,
         requires_institutional_approval=True,
         institutional_approval_state="approved",
         offer_type="installment_terms",
@@ -250,10 +283,14 @@ def _spec(
         time_months=time_months,
         description=description or (template.description if template else ""),
         action_key=template.action_key if template else None,
-        action_class=template.action_class if template else None,
-        action_family=template.action_family if template else None,
+        action_owner=template.action_owner if template else None,
+        action_category=template.action_category if template else None,
         action_title=template.title if template else "",
+        primary_features_impacted=tuple(template.primary_features_impacted) if template else (),
         primary_target_feature_name=template.primary_target_feature_name if template else None,
+        dice_eligible=bool(template.dice_eligible) if template else None,
+        heuristic_only=bool(template.heuristic_only) if template else None,
+        requires_numeric_target=bool(template.requires_numeric_target) if template else None,
         requires_institutional_approval=bool(template.requires_institutional_approval) if template else False,
         approval_pending_semantic_only=bool(template.approval_pending_semantic_only) if template else False,
         institutional_approval_state=template.institutional_approval_state if template else "not_required",
@@ -510,16 +547,14 @@ class NumericTargetRule:
     primary_for_action: bool = True
 
 
-ACTION_FAMILY_NUMERIC_DEFAULTS: dict[ActionFamily, NumericTargetRule] = {
-    "loan_sizing": NumericTargetRule(metric_key="requested_loan_amount", unit="currency"),
-    "debt_restructuring": NumericTargetRule(metric_key="monthly_payment_amount", unit="currency"),
-    "income_strength": NumericTargetRule(metric_key="documented_income_amount", unit="currency"),
-    "documentation": NumericTargetRule(metric_key="income_verification_state", unit="boolean_state"),
-    "cashflow_management": NumericTargetRule(metric_key="debt_to_income_pct", unit="percentage_points"),
-    "utilization": NumericTargetRule(metric_key="credit_utilization_pct", unit="percentage_points"),
-    "payment_discipline": NumericTargetRule(metric_key="credit_score_points", unit="score_points"),
-    "limit_management": NumericTargetRule(metric_key="credit_limit_amount", unit="currency"),
-    "hardship_relief": NumericTargetRule(metric_key="delinquent_balance_amount", unit="currency"),
+ACTION_CATEGORY_NUMERIC_DEFAULTS: dict[ActionCategory, NumericTargetRule] = {
+    "application_parameters": NumericTargetRule(metric_key="requested_loan_amount", unit="currency"),
+    "credit_structure": NumericTargetRule(metric_key="monthly_payment_amount", unit="currency"),
+    "income_trust": NumericTargetRule(metric_key="documented_income_amount", unit="currency"),
+    "utilization_capacity": NumericTargetRule(metric_key="credit_utilization_pct", unit="percentage_points"),
+    "delinquency_cleanup": NumericTargetRule(metric_key="credit_score_points", unit="score_points"),
+    "institution_relief": NumericTargetRule(metric_key="credit_limit_amount", unit="currency"),
+    "burden_reduction": NumericTargetRule(metric_key="delinquent_balance_amount", unit="currency"),
 }
 
 
@@ -592,15 +627,15 @@ def _validate_action_mapping(feature_name: str, spec: ActionSpec) -> None:
             f"Actionable feature '{feature_name}' bilinmeyen action_key='{spec.action_key}' kullaniyor."
         )
     template = ACTION_CATALOG[spec.action_key]
-    if not spec.action_class or spec.action_class != template.action_class:
+    if not spec.action_owner or spec.action_owner != template.action_owner:
         raise ValueError(
-            f"Actionable feature '{feature_name}' icin action_class kontrati bozuk: "
-            f"spec={spec.action_class!r}, catalog={template.action_class!r}"
+            f"Actionable feature '{feature_name}' icin action_owner kontrati bozuk: "
+            f"spec={spec.action_owner!r}, catalog={template.action_owner!r}"
         )
-    if not spec.action_family or spec.action_family != template.action_family:
+    if not spec.action_category or spec.action_category != template.action_category:
         raise ValueError(
-            f"Actionable feature '{feature_name}' icin action_family kontrati bozuk: "
-            f"spec={spec.action_family!r}, catalog={template.action_family!r}"
+            f"Actionable feature '{feature_name}' icin action_category kontrati bozuk: "
+            f"spec={spec.action_category!r}, catalog={template.action_category!r}"
         )
     if not spec.action_title or spec.action_title != template.title:
         raise ValueError(
@@ -609,10 +644,10 @@ def _validate_action_mapping(feature_name: str, spec: ActionSpec) -> None:
         )
     if spec.primary_target_feature_name is None:
         raise ValueError(f"Actionable feature '{feature_name}' icin primary_target_feature_name eksik.")
-    if spec.action_family not in ACTION_FAMILY_NUMERIC_DEFAULTS:
+    if spec.action_category not in ACTION_CATEGORY_NUMERIC_DEFAULTS:
         raise ValueError(
-            f"Actionable feature '{feature_name}' icin numeric family default eksik: "
-            f"action_family={spec.action_family!r}"
+            f"Actionable feature '{feature_name}' icin numeric category default eksik: "
+            f"action_category={spec.action_category!r}"
         )
 
 
@@ -659,8 +694,8 @@ def get_action_metadata(
     if not spec.action_key:
         return {
             "action_key": None,
-            "action_class": None,
-            "action_family": None,
+            "action_owner": None,
+            "action_category": None,
             "action_title": "",
             "action_description": "",
             "action_group_id": action_group_id,
@@ -679,17 +714,18 @@ def get_action_metadata(
             "conflict_tags": [],
             "primary_numeric_target": None,
         }
+    assert spec.action_key is not None
     template = get_action_template(spec.action_key)
     numeric_target = get_numeric_target_metadata(feature_name, action_month=action_month)
     return {
         "action_key": template.action_key,
-        "action_class": template.action_class,
-        "action_family": template.action_family,
+        "action_owner": template.action_owner,
+        "action_category": template.action_category,
         "action_title": template.title,
         "action_description": template.description,
         "action_group_id": action_group_id
         or derive_action_group_id(template.action_key, action_month, action_phase=action_phase),
-        "composite_action": len(template.feature_names) > 1,
+        "composite_action": len(template.primary_features_impacted) > 1,
         "requires_institutional_approval": bool(template.requires_institutional_approval),
         "approval_pending_semantic_only": bool(template.approval_pending_semantic_only),
         "institutional_approval_state": str(template.institutional_approval_state),
@@ -712,7 +748,7 @@ def get_numeric_target_metadata(
     action_month: int | None = None,
 ) -> dict[str, Any]:
     spec = get_action_spec(feature_name)
-    if not spec.action_key or not spec.action_family:
+    if not spec.action_key or not spec.action_category:
         return {
             "metric_key": None,
             "unit": None,
@@ -721,15 +757,16 @@ def get_numeric_target_metadata(
             "primary_target_feature_name": None,
             "is_primary_target": False,
         }
-    template = get_action_template(spec.action_key)
+    action_key: str = spec.action_key
+    template = get_action_template(action_key)
     primary_target_feature_name = str(
         template.primary_target_feature_name
         or spec.primary_target_feature_name
-        or (template.feature_names[0] if template.feature_names else feature_name)
+        or (template.primary_features_impacted[0] if template.primary_features_impacted else feature_name)
     )
-    family_default = ACTION_FAMILY_NUMERIC_DEFAULTS[template.action_family]
+    category_default = ACTION_CATEGORY_NUMERIC_DEFAULTS[template.action_category]
     override = FEATURE_NUMERIC_OVERRIDES.get(feature_name)
-    rule = override or family_default
+    rule = override or category_default
     is_primary_target = bool(rule.primary_for_action and feature_name == primary_target_feature_name)
     return {
         "metric_key": str(rule.metric_key),
@@ -738,7 +775,7 @@ def get_numeric_target_metadata(
         "due_month": int(max(1, int(action_month or spec.time_months))),
         "primary_target_feature_name": primary_target_feature_name,
         "is_primary_target": is_primary_target,
-        "rule_source": "feature_override" if override is not None else "action_family_default",
+        "rule_source": "feature_override" if override is not None else "action_category_default",
     }
 
 

@@ -195,7 +195,7 @@ def _append_trace(
         {
             "event_type": event_type,
             "action_key": str(getattr(action, "action_key", "") or ""),
-            "action_class": str(getattr(action, "action_class", "") or ""),
+            "action_owner": str(getattr(action, "action_owner", "") or ""),
             "action_group_id": action_group_id,
             "feature_name": str(getattr(action, "feature_name", "") or ""),
             "time_months": int(getattr(action, "time_months", 1) or 1),

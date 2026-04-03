@@ -25,7 +25,7 @@ from credit_coach.data.schema import PlanAction
 from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.action_space import (
     ACTION_CATALOG,
-    ACTION_FAMILY_NUMERIC_DEFAULTS,
+    ACTION_CATEGORY_NUMERIC_DEFAULTS,
     ACTION_SPACE,
     FEATURE_NUMERIC_OVERRIDES,
     ActionSpec,
@@ -157,8 +157,9 @@ class TestActionSpecValues:
             if not spec.actionable:
                 continue
             assert spec.action_key, f"'{name}' icin action_key eksik."
-            assert spec.action_class in {"behavioral", "structural", "institutional"}
-            assert spec.action_family, f"'{name}' icin action_family eksik."
+            assert spec.action_owner in {"customer", "institution", "hybrid"}, \
+                f"'{name}' icin gecersiz action_owner={spec.action_owner!r}."
+            assert spec.action_category, f"'{name}' icin action_category eksik."
             assert spec.action_title, f"'{name}' icin action_title eksik."
 
     def test_action_space_contract_has_no_mapping_errors(self) -> None:
@@ -179,32 +180,32 @@ class TestTypedActionCatalog:
         ):
             assert action_key in ACTION_CATALOG, f"'{action_key}' ACTION_CATALOG icinde olmali."
 
-    def test_action_catalog_spans_all_three_classes(self) -> None:
-        classes = {template.action_class for template in ACTION_CATALOG.values()}
-        assert classes == {"behavioral", "structural", "institutional"}
+    def test_action_catalog_spans_all_three_owner_types(self) -> None:
+        owners = {template.action_owner for template in ACTION_CATALOG.values()}
+        assert owners == {"customer", "institution", "hybrid"}
 
-    def test_action_catalog_exposes_families_for_all_templates(self) -> None:
-        assert all(template.action_family for template in ACTION_CATALOG.values())
-        families = {template.action_family for template in ACTION_CATALOG.values()}
-        assert "debt_restructuring" in families
-        assert "hardship_relief" in families
+    def test_action_catalog_exposes_categories_for_all_templates(self) -> None:
+        assert all(template.action_category for template in ACTION_CATALOG.values())
+        categories = {template.action_category for template in ACTION_CATALOG.values()}
+        assert "credit_structure" in categories
+        assert "burden_reduction" in categories
 
-    def test_numeric_target_defaults_exist_for_all_action_families(self) -> None:
-        families = {template.action_family for template in ACTION_CATALOG.values()}
-        assert families <= set(ACTION_FAMILY_NUMERIC_DEFAULTS.keys())
+    def test_numeric_target_defaults_exist_for_all_action_categories(self) -> None:
+        categories = {template.action_category for template in ACTION_CATALOG.values()}
+        assert categories <= set(ACTION_CATEGORY_NUMERIC_DEFAULTS.keys())
 
     def test_get_action_template_returns_catalog_entry(self) -> None:
         template = get_action_template("refinance")
-        assert template.action_class == "structural"
-        assert template.action_family == "debt_restructuring"
-        assert {"int_rate", "installment"} <= set(template.feature_names)
+        assert template.action_owner == "hybrid"
+        assert template.action_category == "credit_structure"
+        assert {"int_rate", "installment"} <= set(template.primary_features_impacted)
         assert template.primary_target_feature_name == "installment"
 
     def test_action_metadata_builds_shared_group_for_composite_actions(self) -> None:
         first = get_action_metadata("int_rate", action_month=3)
         second = get_action_metadata("installment", action_month=3)
         assert first["action_key"] == "refinance"
-        assert first["action_family"] == "debt_restructuring"
+        assert first["action_category"] == "credit_structure"
         assert first["action_group_id"] == second["action_group_id"]
         assert derive_action_group_id("refinance", 3) == "refinance:phase_2_build"
         assert derive_action_group_id("refinance", 3) == first["action_group_id"]
@@ -419,8 +420,8 @@ class TestHelperFunctions:
                 actionable=True,
                 direction="decrease",
                 action_key=None,
-                action_class=None,
-                action_family=None,
+                action_owner=None,
+                action_category=None,
                 action_title="",
                 step=1.0,
                 cost_weight=0.6,
