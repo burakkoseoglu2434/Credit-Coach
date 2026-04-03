@@ -55,7 +55,7 @@ Success criteria:
 1. Standard cohorts report `REJECTED -> CONDITIONAL -> APPROVED` movement for every candidate policy.
 2. Promotion is blocked automatically when shipped trust invariants regress or bounded risk proxies worsen past explicit limits.
 3. Portfolio outputs separate threshold-driven lift from offer/readiness-driven lift.
-Status note: Planning locked 2026-04-03. This phase will not create a new policy ladder; it will diagnose whether absent uplift is blocked by guardrails, weak recommendation space, or structural cohort composition.
+Status note: Completed 2026-04-03. All three standard cohorts ended with `structural_cohort_limited`, while threshold and offer/readiness candidate families both remained `no_movement` and all shipped `v2.2` trust counters stayed clean.
 
 **Phase 52: Preferred Policy Baseline & Demo Proof**
 Goal: Refresh the pilot baseline with one preferred policy and one fallback profile that are ready for demos and first customer conversations.
@@ -219,5 +219,5 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 48. Operator Packet Coherence | v2.2 | 3/3 | Complete | 2026-04-02 |
 | 49. Threshold Policy Evaluation & Provenance | v2.3 | 3/3 | Complete | 2026-04-02 |
 | 50. Offer & Readiness Outcome Rules | v2.3 | 3/3 | Complete | 2026-04-03 |
-| 51. Funnel Movement Guardrails & Evidence | v2.3 | 0/3 | Planned | 2026-04-03 |
+| 51. Funnel Movement Guardrails & Evidence | v2.3 | 3/3 | Complete | 2026-04-03 |
 | 52. Preferred Policy Baseline & Demo Proof | v2.3 | 0/3 | Not Started | — |

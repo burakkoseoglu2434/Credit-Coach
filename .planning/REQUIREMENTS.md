@@ -19,9 +19,9 @@
 
 ### Funnel Movement Guardrails
 
-- [ ] **FUN-01**: Portfolio reviewers can measure `REJECTED -> CONDITIONAL -> APPROVED` movement for each candidate policy across `pilot_mixed`, `risk_band_balanced`, and `offer_needed_balanced`
-- [ ] **FUN-02**: Candidate policies are blocked from promotion if they break shipped trust invariants or worsen bounded risk proxies beyond explicit limits
-- [ ] **FUN-03**: Portfolio outputs can separate yield gained from threshold movement versus yield gained from offer/readiness outcome rules
+- [x] **FUN-01**: Portfolio reviewers can measure `REJECTED -> CONDITIONAL -> APPROVED` movement for each candidate policy across `pilot_mixed`, `risk_band_balanced`, and `offer_needed_balanced`
+- [x] **FUN-02**: Candidate policies are blocked from promotion if they break shipped trust invariants or worsen bounded risk proxies beyond explicit limits
+- [x] **FUN-03**: Portfolio outputs can separate yield gained from threshold movement versus yield gained from offer/readiness outcome rules
 
 ### Preferred Policy Promotion
 
@@ -59,9 +59,9 @@
 | OUT-01 | Phase 50 | Complete |
 | OUT-02 | Phase 50 | Complete |
 | OUT-03 | Phase 50 | Complete |
-| FUN-01 | Phase 51 | Pending |
-| FUN-02 | Phase 51 | Pending |
-| FUN-03 | Phase 51 | Pending |
+| FUN-01 | Phase 51 | Complete |
+| FUN-02 | Phase 51 | Complete |
+| FUN-03 | Phase 51 | Complete |
 | POL-01 | Phase 52 | Pending |
 | POL-02 | Phase 52 | Pending |
 
@@ -72,4 +72,4 @@
 
 ---
 *Requirements defined: 2026-04-02*
-*Last updated: 2026-04-03 after Phase 50 completion*
+*Last updated: 2026-04-03 after Phase 51 completion*

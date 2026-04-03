@@ -11,15 +11,15 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 
 Phase: 51
 Plan: 01-03
-Status: Planning complete; ready for execution
-Last activity: 2026-04-03 - Completed Phase `51 Funnel Movement Guardrails & Evidence` planning package with research, validation, and three-wave execution plan
+Status: Complete
+Last activity: 2026-04-03 - Completed Phase `51 Funnel Movement Guardrails & Evidence` with regression closure and three-cohort proof of the dominant bottleneck
 
-Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` proved that bounded threshold-only relaxations do not safely improve `APPROVED + CONDITIONAL` yield on the three standard cohorts, and Phase `50` has now proved the same `no_safe_uplift` result for bounded offer/readiness-only outcome rules while preserving all shipped trust counters.
+Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` proved that bounded threshold-only relaxations do not safely improve `APPROVED + CONDITIONAL` yield on the three standard cohorts, Phase `50` proved the same `no_safe_uplift` result for bounded offer/readiness-only outcome rules, and Phase `51` has now shown that all three standard cohorts are structurally too far from near-term movement under the current signal and action baseline.
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 144 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-50)
+- Total plans completed: 147 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-51)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -35,7 +35,7 @@ Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` prov
 | v2.1 completed milestone | 18 | phases 40, 40.5, 41, 43, 42, 44 complete | n/a |
 | post-v2.1 carry-forward hardening | 3 | phase 42.5 complete | n/a |
 | v2.2 completed milestone | 12 | phases 45-48 complete; archived | n/a |
-| v2.3 active milestone | 6 | phases 49-50 complete | n/a |
+| v2.3 active milestone | 9 | phases 49-51 complete | n/a |
 
 **Recent Trend:**
 - Credit Coach now carries one continuous stack from semantic action planning to pilot-facing package delivery.
@@ -58,7 +58,8 @@ Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` prov
 - Milestone `v2.3` is now defined, with threshold policy evaluation, offer/readiness outcome rules, funnel guardrails, and preferred-policy proof sequenced into Phases `49-52`.
 - Phase 49 now adds a deterministic threshold-policy catalog, recommendation-summary provenance, and three-cohort proof that bounded threshold-only relaxations produce `no_safe_uplift` against the shipped baseline while preserving all `v2.2` trust counters.
 - Phase 50 now adds a deterministic offer/readiness outcome-rule catalog, additive collection and consumer provenance, and three-cohort proof that bounded offer/readiness-only rules also produce explicit `no_safe_uplift` while leaving the `v2.2` trust baseline clean.
-- Phase 51 planning is now locked around deterministic movement guardrail evidence, promotion-blocker attribution, and one dominant bottleneck diagnosis per standard cohort without reopening policy or action semantics.
+- Phase 51 now adds deterministic movement guardrail evidence, promotion-blocker attribution, and one dominant bottleneck diagnosis per standard cohort without reopening policy or action semantics.
+- The latest three standard cohorts all converge on `structural_cohort_limited`, with threshold and offer/readiness families both showing `no_movement` while trust counters remain clean.
 
 ## Accumulated Context
 
@@ -79,6 +80,7 @@ Recent decisions affecting the shipped baseline:
 - Large-sample reruns now show zero selected-surface drift on the tracked Phase 47 fields and zero tracked operator packet coherence mismatches on the Phase 48 counters
 - Phase `49 Threshold Policy Evaluation & Provenance` now proves that the shipped baseline should not be loosened through bounded threshold-only changes alone; all three standard cohorts ended with explicit `no_safe_uplift` while collection and pilot artifacts published replayable policy provenance
 - Phase `50 Offer & Readiness Outcome Rules` now proves that existing offer and readiness signals can be evaluated through bounded analysis-only rule profiles with additive provenance, and that all three standard cohorts still end in explicit `no_safe_uplift`
+- Phase `51 Funnel Movement Guardrails & Evidence` now proves that the absence of movement is primarily a structural cohort problem under the current bounded signal set, rather than a hidden trust regression or a merely blocked promotion candidate
 - The website remains a typed consumer of engine artifacts rather than a source of decision logic
 - Portfolio proof now includes numeric impact and calibration honesty, not just product confidence
 - Pilot integration remains export-first and controlled instead of pretending live connectivity
@@ -96,10 +98,10 @@ None yet.
 - `v2.3` must improve yield using only existing signals and existing outputs; action-space expansion is intentionally deferred.
 - Phase `49` found no safe threshold-only uplift candidate, and Phase `50` found no safe offer/readiness-only uplift candidate, so remaining v2.3 work must focus on movement evidence, guardrails, and honest promotion criteria rather than forcing a weak shortlist.
 - Phase `50` kept live decision ownership untouched; all offer/readiness movement remained analysis-only and additive to selected truth.
-- Phase `51` must explain why movement is absent using only existing Phase `49` and Phase `50` comparison outputs, trust counters, and structural ceiling signals.
+- Phase `51` concluded with `structural_cohort_limited` on all three standard cohorts, so Phase `52` should package an honest preferred-baseline demo story instead of pretending bounded policy promotion is already available.
 
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Phase `51` planning complete; next step is `$gsd-execute-phase 51`
-Resume file: .planning/phases/51-funnel-movement-guardrails-evidence/51-CONTEXT.md
+Stopped at: Phase `51` complete; next step is `$gsd-discuss-phase 52`
+Resume file: .planning/phases/51-funnel-movement-guardrails-evidence/51-VERIFICATION.md
