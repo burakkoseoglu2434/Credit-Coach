@@ -19,6 +19,9 @@ Generate customer-specific credit action plans that are actionable, behaviorally
 
 The system has definitively proven that bounded optimization on the current action space and signals cannot create safe business lift. The next milestone will pivot to **movement capability expansion** to test richer action semantics and signals.
 
+`v2.4 Recourse Capability Expansion & Action Semantics` is now **in progress**. Phase 54 (Action Semantics Taxonomy) shipped 2026-04-03 — canonical `ActionOwner` / `ActionCategory` taxonomy replaces legacy `ActionClass` / `ActionFamily` literals; all 11 ACTION_CATALOG entries remapped; downstream constraint telemetry updated.
+
+
 ## Current Milestone: v2.4 Recourse Capability Expansion & Action Semantics
 
 **Goal:** For each customer, the system produces ≥ 2–3 distinct, valid, actionable solution paths covering customer-driven, institution-assisted, and hybrid solutions.
@@ -105,6 +108,9 @@ The system has definitively proven that bounded optimization on the current acti
 - ✓ Existing offer and readiness signals were evaluated for explicit decision movement - v2.3
 - ✓ Standard cohorts measured `REJECTED -> CONDITIONAL -> APPROVED` movement limiters - v2.3
 - ✓ One preferred policy profile and one fallback profile refreshed the pilot baseline for demos - v2.3
+- ✓ SEM-01: Canonical action categories (ActionCategory) defined and all 11 catalog entries classified - Phase 54 (v2.4)
+- ✓ SEM-02: action_owner field (customer/institution/hybrid) added to ActionTemplate and ActionSpec; propagated to constraint telemetry - Phase 54 (v2.4)
+- ✓ SEM-03: All 11 existing actions mapped to ActionOwner + ActionCategory with zero unclassified actions - Phase 54 (v2.4)
 
 ### Active
 
