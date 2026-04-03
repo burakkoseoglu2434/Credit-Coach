@@ -27,7 +27,7 @@
 | 50 | Offer & Readiness Outcome Rules | Turn existing offer and readiness signals into bounded outcome-producing decision rules | OUT-01, OUT-02, OUT-03 | 3 |
 | 51 | Funnel Movement Guardrails & Evidence | Measure funnel movement and block unsafe policy promotion with explicit guardrails | FUN-01, FUN-02, FUN-03 | 3 |
 | 52 | Preferred Policy Baseline & Demo Proof | Refresh the pilot baseline with one preferred policy and one fallback profile for demos | POL-01, POL-02 | 3 |
-| 53 | Formal Phase 52 Verification | Fully verify Phase 52 and close the milestone auditable chain | POL-01, POL-02 | 3 |
+| 53 | Formal Phase 52 Verification | Fully verify Phase 52 and close the milestone auditable chain | Complete    | 2026-04-03 |
 
 ### Phase Details
 

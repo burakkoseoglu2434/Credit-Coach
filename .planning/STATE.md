@@ -1,3 +1,18 @@
+---
+gsd_state_version: 1.0
+milestone: v2.3
+milestone_name: Threshold & Outcome Optimization
+status: executing
+stopped_at: Phase `52` complete; next step is milestone audit for `v2.3`
+last_updated: "2026-04-03T12:50:02.222Z"
+last_activity: 2026-04-03
+progress:
+  total_phases: 44
+  completed_phases: 43
+  total_plans: 128
+  completed_plans: 131
+---
+
 # Project State
 
 ## Project Reference
@@ -5,21 +20,22 @@
 See: .planning/PROJECT.md (updated 2026-04-02)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** v2.3 Threshold & Outcome Optimization
+**Current focus:** Phase 53 — formal-phase-52-verification
 
 ## Current Position
 
-Phase: 51
-Plan: 01-03
-Status: Complete
-Last activity: 2026-04-03 - Completed Phase `51 Funnel Movement Guardrails & Evidence` with regression closure and three-cohort proof of the dominant bottleneck
+Phase: 53
+Plan: Not started
+Status: Executing Phase 53
+Last activity: 2026-04-03
 
-Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` proved that bounded threshold-only relaxations do not safely improve `APPROVED + CONDITIONAL` yield on the three standard cohorts, Phase `50` proved the same `no_safe_uplift` result for bounded offer/readiness-only outcome rules, and Phase `51` has now shown that all three standard cohorts are structurally too far from near-term movement under the current signal and action baseline.
+Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` proved that bounded threshold-only relaxations do not safely improve `APPROVED + CONDITIONAL` yield on the three standard cohorts, Phase `50` proved the same `no_safe_uplift` result for bounded offer/readiness-only outcome rules, Phase `51` showed that the standard cohorts are structurally too far from near-term movement under the current signal and action baseline, and Phase `52` has now packaged that truth into one preferred demo baseline, one fallback communication profile, and explicit non-adoption proof over the same shipped runtime policy.
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 147 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-51)
+
+- Total plans completed: 150 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-52)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -35,9 +51,10 @@ Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` prov
 | v2.1 completed milestone | 18 | phases 40, 40.5, 41, 43, 42, 44 complete | n/a |
 | post-v2.1 carry-forward hardening | 3 | phase 42.5 complete | n/a |
 | v2.2 completed milestone | 12 | phases 45-48 complete; archived | n/a |
-| v2.3 active milestone | 9 | phases 49-51 complete | n/a |
+| v2.3 active milestone | 12 | phases 49-52 complete | n/a |
 
 **Recent Trend:**
+
 - Credit Coach now carries one continuous stack from semantic action planning to pilot-facing package delivery.
 - Buyer-safe and analyst-safe surfaces remain typed consumers of engine-owned truth rather than alternate logic layers.
 - Portfolio proof can now speak about personalized numeric burden, realization, calibration, and pilot readiness.
@@ -60,6 +77,7 @@ Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` prov
 - Phase 50 now adds a deterministic offer/readiness outcome-rule catalog, additive collection and consumer provenance, and three-cohort proof that bounded offer/readiness-only rules also produce explicit `no_safe_uplift` while leaving the `v2.2` trust baseline clean.
 - Phase 51 now adds deterministic movement guardrail evidence, promotion-blocker attribution, and one dominant bottleneck diagnosis per standard cohort without reopening policy or action semantics.
 - The latest three standard cohorts all converge on `structural_cohort_limited`, with threshold and offer/readiness families both showing `no_movement` while trust counters remain clean.
+- Phase 52 now adds deterministic preferred/fallback demo profile packaging, explicit candidate non-adoption disposition, collection and pilot proof docs, and honest next-step handoff while keeping the shipped runtime policy pinned to `v2.1_phase_40_5`.
 
 ## Accumulated Context
 
@@ -81,6 +99,7 @@ Recent decisions affecting the shipped baseline:
 - Phase `49 Threshold Policy Evaluation & Provenance` now proves that the shipped baseline should not be loosened through bounded threshold-only changes alone; all three standard cohorts ended with explicit `no_safe_uplift` while collection and pilot artifacts published replayable policy provenance
 - Phase `50 Offer & Readiness Outcome Rules` now proves that existing offer and readiness signals can be evaluated through bounded analysis-only rule profiles with additive provenance, and that all three standard cohorts still end in explicit `no_safe_uplift`
 - Phase `51 Funnel Movement Guardrails & Evidence` now proves that the absence of movement is primarily a structural cohort problem under the current bounded signal set, rather than a hidden trust regression or a merely blocked promotion candidate
+- Phase `52 Preferred Policy Baseline & Demo Proof` now proves that demos and pilots should carry the shipped runtime baseline forward under explicit preferred/fallback profile labels, while publishing replayable non-adoption reasons for every bounded candidate
 - The website remains a typed consumer of engine artifacts rather than a source of decision logic
 - Portfolio proof now includes numeric impact and calibration honesty, not just product confidence
 - Pilot integration remains export-first and controlled instead of pretending live connectivity
@@ -95,13 +114,11 @@ None yet.
 - The local `gsd-tools.cjs` helper is still missing internal modules, so milestone-op automation requires manual fallback.
 - Some Phase 41-44 validation frontmatter still understates `wave_0_complete` despite shipped tests and successful audit coverage.
 - Large-sample reruns for v2.2 still produced zero `no_valid_winner` cases, so empty-state packet behavior remains proven by targeted automated tests rather than cohort evidence.
-- `v2.3` must improve yield using only existing signals and existing outputs; action-space expansion is intentionally deferred.
-- Phase `49` found no safe threshold-only uplift candidate, and Phase `50` found no safe offer/readiness-only uplift candidate, so remaining v2.3 work must focus on movement evidence, guardrails, and honest promotion criteria rather than forcing a weak shortlist.
-- Phase `50` kept live decision ownership untouched; all offer/readiness movement remained analysis-only and additive to selected truth.
-- Phase `51` concluded with `structural_cohort_limited` on all three standard cohorts, so Phase `52` should package an honest preferred-baseline demo story instead of pretending bounded policy promotion is already available.
+- `v2.3` is now execution-complete, but the milestone still needs audit and archive closeout.
+- Phase `49` found no safe threshold-only uplift candidate, Phase `50` found no safe offer/readiness-only uplift candidate, and Phase `51`/`52` now lock the honest conclusion that movement expansion, not bounded threshold or outcome-rule retuning, is the next milestone focus.
 
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Phase `51` complete; next step is `$gsd-discuss-phase 52`
-Resume file: .planning/phases/51-funnel-movement-guardrails-evidence/51-VERIFICATION.md
+Stopped at: Phase `52` complete; next step is milestone audit for `v2.3`
+Resume file: .planning/phases/52-preferred-policy-baseline-demo-proof/52-03-SUMMARY.md
