@@ -19,14 +19,18 @@ Generate customer-specific credit action plans that are actionable, behaviorally
 
 The system has definitively proven that bounded optimization on the current action space and signals cannot create safe business lift. The next milestone will pivot to **movement capability expansion** to test richer action semantics and signals.
 
-## Current Milestone: Planning Next Milestone
+## Current Milestone: v2.4 Recourse Capability Expansion & Action Semantics
 
-**Goal:** Expand the set of actionable movement levers while preserving the `v2.2` trust contracts as non-negotiable.
+**Goal:** For each customer, the system produces ≥ 2–3 distinct, valid, actionable solution paths covering customer-driven, institution-assisted, and hybrid solutions.
 
 **Target features:**
-- test whether richer action semantics or richer movement signals create real near-term eligibility
-- expand the action space to generate materially more diverse numeric solution paths
-- maintain all previous winner-integrity and consumer-consistency invariants
+- Phase 54 — Action Semantics Taxonomy
+- Phase 55 — Feature → Action Mapping
+- Phase 56 — DICE Action Space Expansion
+- Phase 57 — Heuristic / Institution Action Lane
+- Phase 58 — Multi-Path Recourse Generation
+- Phase 59 — Action Semantics Rendering
+- Phase 60 — Validation & Cohort Evaluation
 
 <details>
 <summary>Archived Milestone Context: v2.3 Threshold & Outcome Optimization</summary>
@@ -104,7 +108,7 @@ The system has definitively proven that bounded optimization on the current acti
 
 ### Active
 
-- [ ] (Planning next milestone)
+- [ ] Milestone v2.4: Recourse Capability Expansion & Action Semantics
 
 ### Out of Scope
 
@@ -170,5 +174,22 @@ The system has definitively proven that bounded optimization on the current acti
 
 </details>
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-04-03 after shipping v2.3*
+*Last updated: 2026-04-03 — Milestone v2.4 started*
