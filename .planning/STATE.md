@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 ## Current Position
 
 Phase: 51
-Plan: discussion
-Status: Context gathered; ready for planning
-Last activity: 2026-04-03 - Captured Phase `51 Funnel Movement Guardrails & Evidence` context around bottleneck diagnosis, promotion blockers, and movement evidence ownership
+Plan: 01-03
+Status: Planning complete; ready for execution
+Last activity: 2026-04-03 - Completed Phase `51 Funnel Movement Guardrails & Evidence` planning package with research, validation, and three-wave execution plan
 
 Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` proved that bounded threshold-only relaxations do not safely improve `APPROVED + CONDITIONAL` yield on the three standard cohorts, and Phase `50` has now proved the same `no_safe_uplift` result for bounded offer/readiness-only outcome rules while preserving all shipped trust counters.
 
@@ -58,6 +58,7 @@ Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` prov
 - Milestone `v2.3` is now defined, with threshold policy evaluation, offer/readiness outcome rules, funnel guardrails, and preferred-policy proof sequenced into Phases `49-52`.
 - Phase 49 now adds a deterministic threshold-policy catalog, recommendation-summary provenance, and three-cohort proof that bounded threshold-only relaxations produce `no_safe_uplift` against the shipped baseline while preserving all `v2.2` trust counters.
 - Phase 50 now adds a deterministic offer/readiness outcome-rule catalog, additive collection and consumer provenance, and three-cohort proof that bounded offer/readiness-only rules also produce explicit `no_safe_uplift` while leaving the `v2.2` trust baseline clean.
+- Phase 51 planning is now locked around deterministic movement guardrail evidence, promotion-blocker attribution, and one dominant bottleneck diagnosis per standard cohort without reopening policy or action semantics.
 
 ## Accumulated Context
 
@@ -95,9 +96,10 @@ None yet.
 - `v2.3` must improve yield using only existing signals and existing outputs; action-space expansion is intentionally deferred.
 - Phase `49` found no safe threshold-only uplift candidate, and Phase `50` found no safe offer/readiness-only uplift candidate, so remaining v2.3 work must focus on movement evidence, guardrails, and honest promotion criteria rather than forcing a weak shortlist.
 - Phase `50` kept live decision ownership untouched; all offer/readiness movement remained analysis-only and additive to selected truth.
+- Phase `51` must explain why movement is absent using only existing Phase `49` and Phase `50` comparison outputs, trust counters, and structural ceiling signals.
 
 ## Session Continuity
 
 Last session: 2026-04-03
-Stopped at: Phase `50` complete with three-cohort `no_safe_uplift` proof; next step is `$gsd-discuss-phase 51`
+Stopped at: Phase `51` planning complete; next step is `$gsd-execute-phase 51`
 Resume file: .planning/phases/51-funnel-movement-guardrails-evidence/51-CONTEXT.md
