@@ -9,10 +9,10 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 
 ## Current Position
 
-Phase: 50
-Plan: 01-03
-Status: Complete; ready for Phase 51 discussion
-Last activity: 2026-04-03 - Closed Phase `50 Offer & Readiness Outcome Rules` with deterministic outcome-rule provenance, additive consumer-safe notes, and three-cohort `no_safe_uplift` proof
+Phase: 51
+Plan: discussion
+Status: Context gathered; ready for planning
+Last activity: 2026-04-03 - Captured Phase `51 Funnel Movement Guardrails & Evidence` context around bottleneck diagnosis, promotion blockers, and movement evidence ownership
 
 Progress: `v2.2` remains the shipped and audited trust baseline. Phase `49` proved that bounded threshold-only relaxations do not safely improve `APPROVED + CONDITIONAL` yield on the three standard cohorts, and Phase `50` has now proved the same `no_safe_uplift` result for bounded offer/readiness-only outcome rules while preserving all shipped trust counters.
 
@@ -100,4 +100,4 @@ None yet.
 
 Last session: 2026-04-03
 Stopped at: Phase `50` complete with three-cohort `no_safe_uplift` proof; next step is `$gsd-discuss-phase 51`
-Resume file: .planning/phases/50-offer-readiness-outcome-rules/50-VERIFICATION.md
+Resume file: .planning/phases/51-funnel-movement-guardrails-evidence/51-CONTEXT.md
