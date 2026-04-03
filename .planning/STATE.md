@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.4
-milestone_name: Recourse Capability Expansion & Action Semantics
-status: defining requirements
-stopped_at: 
-last_updated: "2026-04-03T13:06:00.000Z"
-last_activity: 2026-04-03
+milestone_name: milestone
+status: Defining requirements
+stopped_at: Phase 54 context gathered (declarative mode)
+last_updated: "2026-04-03T13:14:28.164Z"
+last_activity: 2026-04-03 — Milestone v2.4 started
 progress:
-  total_phases: 44
-  completed_phases: 44
+  total_phases: 45
+  completed_phases: 43
   total_plans: 128
   completed_plans: 131
 ---
@@ -91,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-03
-Stopped at: Milestone v2.4 started
-Resume file: .planning/REQUIREMENTS.md
+Last session: 2026-04-03T13:14:28.152Z
+Stopped at: Phase 54 context gathered (declarative mode)
+Resume file: .planning/phases/54-action-semantics-taxonomy/54-CONTEXT.md
