@@ -25,8 +25,8 @@
 
 ### Preferred Policy Promotion
 
-- [ ] **POL-01**: Pilot teams can refresh the standard artifact bundle under one preferred policy profile and compare it directly against the shipped `v2.2` baseline
-- [ ] **POL-02**: Pilot teams can carry one preferred policy profile and one fallback profile into demos and first customer conversations with explicit cohort evidence and guardrail status
+- [x] **POL-01**: Pilot teams can refresh the standard artifact bundle under one preferred policy profile and compare it directly against the shipped `v2.2` baseline
+- [x] **POL-02**: Pilot teams can carry one preferred policy profile and one fallback profile into demos and first customer conversations with explicit cohort evidence and guardrail status
 
 ## v2 Requirements
 
@@ -62,8 +62,8 @@
 | FUN-01 | Phase 51 | Complete |
 | FUN-02 | Phase 51 | Complete |
 | FUN-03 | Phase 51 | Complete |
-| POL-01 | Phase 53 | Pending |
-| POL-02 | Phase 53 | Pending |
+| POL-01 | Phase 53 | Complete |
+| POL-02 | Phase 53 | Complete |
 
 **Coverage:**
 - v1 requirements: 11 total
