@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🔄 **v2.4 Recourse Capability Expansion & Action Semantics** - Phases 54-60 (Active)
 - ✅ **v2.3 Threshold & Outcome Optimization** - Phases 49-53 (shipped 2026-04-03; archive: `.planning/milestones/v2.3-ROADMAP.md`)
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
 - ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
@@ -185,3 +186,10 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 51. Funnel Movement Guardrails & Evidence | v2.3 | 3/3 | Complete | 2026-04-03 |
 | 52. Preferred Policy Baseline & Demo Proof | v2.3 | 3/3 | Complete | 2026-04-03 |
 | 53. Formal Phase 52 Verification | v2.3 | 1/1 | Complete | 2026-04-03 |
+| 54. Action Semantics Taxonomy | v2.4 | 0/3 | Pending | - |
+| 55. Feature → Action Mapping | v2.4 | 0/3 | Pending | - |
+| 56. DICE Action Space Expansion | v2.4 | 0/3 | Pending | - |
+| 57. Heuristic / Institution Action Lane | v2.4 | 0/3 | Pending | - |
+| 58. Multi-Path Recourse Generation | v2.4 | 0/3 | Pending | - |
+| 59. Action Semantics Rendering | v2.4 | 0/3 | Pending | - |
+| 60. Validation & Cohort Evaluation | v2.4 | 0/3 | Pending | - |
