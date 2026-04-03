@@ -175,6 +175,11 @@ def _build_collection_run(tmp_path: Path, artifact_root: str, customer_ids: list
         "calibration/outcome_rule_customer_effects.csv",
         "calibration/outcome_rule_profile_catalog.json",
         "calibration/outcome_rule_recommendation_summary.json",
+        "calibration/movement_guardrail_summary.json",
+        "calibration/movement_promotion_blockers.csv",
+        "calibration/movement_bottleneck_breakdown.csv",
+        "calibration/movement_ceiling_breakdown.csv",
+        "calibration/movement_guardrail_review.md",
         "calibration/calibration_review.md",
         "operator_review_briefing.md",
     ]:
@@ -207,6 +212,9 @@ def _build_collection_run(tmp_path: Path, artifact_root: str, customer_ids: list
         "recommended_outcome_rule_profile_version": "analysis_offer_readiness_combo_v2_3b",
         "recommended_outcome_rule_status": "shortlisted",
         "recommended_outcome_rule_reason": "Offer/readiness-driven uplift is positive while Phase 50 guardrails remain within limits.",
+        "dominant_movement_bottleneck": "structural_cohort_limited",
+        "movement_guardrail_summary": "Neither threshold nor offer/readiness candidates created safe movement; this cohort appears structurally too far from near-term movement.",
+        "promotion_blocker_summary": "No candidate family created promotable movement under the shipped trust and risk guardrails.",
         "funnel_summary": {
             "approved_share": 0.10,
             "conditional_share": 0.60,
@@ -238,6 +246,11 @@ def _build_collection_run(tmp_path: Path, artifact_root: str, customer_ids: list
             "outcome_rule_customer_effects_csv": "tables/customer_artifact_collection/calibration/outcome_rule_customer_effects.csv",
             "outcome_rule_profile_catalog_json": "tables/customer_artifact_collection/calibration/outcome_rule_profile_catalog.json",
             "outcome_rule_recommendation_summary_json": "tables/customer_artifact_collection/calibration/outcome_rule_recommendation_summary.json",
+            "movement_guardrail_summary_json": "tables/customer_artifact_collection/calibration/movement_guardrail_summary.json",
+            "movement_promotion_blockers_csv": "tables/customer_artifact_collection/calibration/movement_promotion_blockers.csv",
+            "movement_bottleneck_breakdown_csv": "tables/customer_artifact_collection/calibration/movement_bottleneck_breakdown.csv",
+            "movement_ceiling_breakdown_csv": "tables/customer_artifact_collection/calibration/movement_ceiling_breakdown.csv",
+            "movement_guardrail_review_md": "tables/customer_artifact_collection/calibration/movement_guardrail_review.md",
             "calibration_review_md": "tables/customer_artifact_collection/calibration/calibration_review.md",
         },
         "operator_files": {
@@ -389,12 +402,14 @@ def test_run_pilot_baseline_refresh_writes_dual_lane_summary_and_canonical_refer
     assert manifest["comparison_summary"]["recommended_candidate_status"] == "shortlisted"
     assert manifest["comparison_summary"]["recommended_outcome_rule_profile_version"] == "analysis_offer_readiness_combo_v2_3b"
     assert manifest["comparison_summary"]["recommended_outcome_rule_status"] == "shortlisted"
+    assert manifest["comparison_summary"]["dominant_movement_bottleneck"] == "structural_cohort_limited"
     assert (run_ctx.tables_dir / "policy_version_comparison.csv").exists()
     assert (run_ctx.tables_dir / "policy_version_comparison.md").exists()
     assert "Recommended candidate status: shortlisted" in summary_md
     assert "Recommended candidate policy: analysis_mild_relax_v2_3a" in summary_md
     assert "Recommended outcome-rule status: shortlisted" in summary_md
     assert "Recommended outcome-rule profile: analysis_offer_readiness_combo_v2_3b" in summary_md
+    assert "Dominant movement bottleneck: structural_cohort_limited" in summary_md
     assert "Portfolio smoke status: LIMITED_GO" in summary_md
     assert "Artifact QA status: PASS" in summary_md
     assert qa_summary["artifact_qa_status"] == "PASS"

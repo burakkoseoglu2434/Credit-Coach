@@ -36,6 +36,8 @@ from credit_coach.data.split import split_dataframe
 from credit_coach.evaluation.decision_calibration import (
     build_calibration_review_markdown,
     build_funnel_summary,
+    build_movement_guardrail_evidence,
+    build_movement_guardrail_review_markdown,
     build_outcome_rule_comparison,
     build_policy_comparison,
     build_readiness_distribution,
@@ -833,6 +835,7 @@ def _collection_summary_markdown(
     calibration_summary: Mapping[str, Any],
     outcome_rule_summary: Mapping[str, Any],
     operator_briefing: Mapping[str, Any],
+    movement_guardrail_summary: Mapping[str, Any] | None = None,
 ) -> str:
     decision_status_counts = (
         metrics_df.get("decision_status", metrics_df.get("best_status", pd.Series(dtype=object)))
@@ -1029,6 +1032,12 @@ def _collection_summary_markdown(
     selected_outcome_rule_applied_count = int(
         pd.to_numeric(metrics_df.get("selected_outcome_rule_applied", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
     )
+    movement_guardrail_summary = dict(movement_guardrail_summary or {})
+    threshold_family = dict(movement_guardrail_summary.get("threshold_family", {}) or {})
+    outcome_family = dict(movement_guardrail_summary.get("offer_readiness_family", {}) or {})
+    trust_guardrails = dict(movement_guardrail_summary.get("trust_guardrails", {}) or {})
+    recommendation_space = dict(movement_guardrail_summary.get("recommendation_space", {}) or {})
+    structural_cohort = dict(movement_guardrail_summary.get("structural_cohort", {}) or {})
     return "\n".join(
         [
             "# Customer Artifact Collection",
@@ -1084,6 +1093,26 @@ def _collection_summary_markdown(
             f"- Recommended outcome-rule profile: {_safe_text(outcome_rule_summary.get('recommended_outcome_rule_profile_version'), 'n/a') or 'n/a'}",
             f"- Recommended outcome-rule reason: {_safe_text(outcome_rule_summary.get('recommended_outcome_rule_reason'), 'n/a') or 'n/a'}",
             f"- Selected outcome-rule note count: {selected_outcome_rule_applied_count}",
+            "",
+            "## Funnel Guardrails",
+            f"- Dominant movement bottleneck: {_safe_text(movement_guardrail_summary.get('dominant_movement_bottleneck'), 'n/a') or 'n/a'}",
+            f"- Movement guardrail summary: {_safe_text(movement_guardrail_summary.get('movement_guardrail_summary'), 'n/a') or 'n/a'}",
+            f"- Promotion blocker summary: {_safe_text(movement_guardrail_summary.get('promotion_blocker_summary'), 'n/a') or 'n/a'}",
+            f"- Threshold family status: {_safe_text(threshold_family.get('status'), 'n/a') or 'n/a'}",
+            f"- Offer/readiness family status: {_safe_text(outcome_family.get('status'), 'n/a') or 'n/a'}",
+            f"- Trust regression detected: {bool(trust_guardrails.get('regression_detected', False))}",
+            "",
+            "## Movement Diagnosis",
+            f"- Recommendation-space signal score: {_safe_int(recommendation_space.get('signal_score', 0), 0)}",
+            f"- Structural-cohort signal score: {_safe_int(structural_cohort.get('signal_score', 0), 0)}",
+            f"- Recommendation-space top blocker: {_safe_text(recommendation_space.get('top_blocker_title'), 'n/a') or 'n/a'}",
+            f"- Structural top blocker: {_safe_text(structural_cohort.get('top_blocker_title'), 'n/a') or 'n/a'}",
+            f"- Non-empty contender share: {_safe_float(recommendation_space.get('non_empty_contender_share'), 0.0):.4f}",
+            f"- Approval-shell-only share: {_safe_float(recommendation_space.get('approval_shell_only_share'), 0.0):.4f}",
+            f"- Not-ready share: {_safe_float(structural_cohort.get('not_ready_share'), 0.0):.4f}",
+            f"- Near-term readiness share: {_safe_float(structural_cohort.get('near_term_readiness_share'), 0.0):.4f}",
+            f"- Offer-ready contender share: {_safe_float(structural_cohort.get('offer_ready_contender_share'), 0.0):.4f}",
+            f"- High-risk share: {_safe_float(structural_cohort.get('high_risk_share'), 0.0):.4f}",
             "",
             "## Planner Source Mix",
             f"- Best-plan source distribution: {best_source_counts or '{}'}",
@@ -1159,6 +1188,11 @@ def _collection_summary_markdown(
             f"- Outcome-rule customer effects: `{manifest_rel_root}/calibration/outcome_rule_customer_effects.csv`",
             f"- Outcome-rule profile catalog: `{manifest_rel_root}/calibration/outcome_rule_profile_catalog.json`",
             f"- Outcome-rule recommendation summary: `{manifest_rel_root}/calibration/outcome_rule_recommendation_summary.json`",
+            f"- Movement guardrail summary: `{manifest_rel_root}/calibration/movement_guardrail_summary.json`",
+            f"- Movement promotion blockers: `{manifest_rel_root}/calibration/movement_promotion_blockers.csv`",
+            f"- Movement bottleneck breakdown: `{manifest_rel_root}/calibration/movement_bottleneck_breakdown.csv`",
+            f"- Movement ceiling breakdown: `{manifest_rel_root}/calibration/movement_ceiling_breakdown.csv`",
+            f"- Movement guardrail review: `{manifest_rel_root}/calibration/movement_guardrail_review.md`",
             f"- Calibration review: `{manifest_rel_root}/calibration/calibration_review.md`",
             f"- Operator briefing: `{manifest_rel_root}/operator_review_briefing.md`",
             f"- Operator packets: `{manifest_rel_root}/operator_packets/`",
@@ -1536,6 +1570,18 @@ def main(argv: Sequence[str] | None = None):
         readiness_summary=readiness_summary,
         segment_breakdown_df=segment_breakdown_df,
     )
+    movement_guardrail_payload = build_movement_guardrail_evidence(
+        metrics_df=metrics_df,
+        policy_comparison_df=policy_comparison_df,
+        policy_recommendation_summary=policy_recommendation_summary,
+        outcome_rule_comparison_df=outcome_rule_comparison_df,
+        outcome_rule_recommendation_summary=outcome_rule_recommendation_summary,
+        operator_briefing=operator_briefing,
+    )
+    movement_guardrail_summary = movement_guardrail_payload["movement_guardrail_summary"]
+    movement_promotion_blockers_df = movement_guardrail_payload["movement_promotion_blockers"]
+    movement_bottleneck_breakdown_df = movement_guardrail_payload["movement_bottleneck_breakdown"]
+    movement_ceiling_breakdown_df = movement_guardrail_payload["movement_ceiling_breakdown"]
 
     funnel_json = calibration_root / "funnel_summary.json"
     readiness_csv = calibration_root / "readiness_distribution.csv"
@@ -1550,6 +1596,11 @@ def main(argv: Sequence[str] | None = None):
     outcome_rule_customer_effects_csv = calibration_root / "outcome_rule_customer_effects.csv"
     outcome_rule_catalog_json = calibration_root / "outcome_rule_profile_catalog.json"
     outcome_rule_recommendation_json = calibration_root / "outcome_rule_recommendation_summary.json"
+    movement_guardrail_summary_json = calibration_root / "movement_guardrail_summary.json"
+    movement_promotion_blockers_csv = calibration_root / "movement_promotion_blockers.csv"
+    movement_bottleneck_breakdown_csv = calibration_root / "movement_bottleneck_breakdown.csv"
+    movement_ceiling_breakdown_csv = calibration_root / "movement_ceiling_breakdown.csv"
+    movement_guardrail_review_md = calibration_root / "movement_guardrail_review.md"
     calibration_review_md = calibration_root / "calibration_review.md"
     operator_briefing_md = collection_root / "operator_review_briefing.md"
 
@@ -1573,6 +1624,17 @@ def main(argv: Sequence[str] | None = None):
     )
     outcome_rule_recommendation_json.write_text(
         json.dumps(outcome_rule_recommendation_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    movement_guardrail_summary_json.write_text(
+        json.dumps(movement_guardrail_summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    movement_promotion_blockers_df.to_csv(movement_promotion_blockers_csv, index=False)
+    movement_bottleneck_breakdown_df.to_csv(movement_bottleneck_breakdown_csv, index=False)
+    movement_ceiling_breakdown_df.to_csv(movement_ceiling_breakdown_csv, index=False)
+    movement_guardrail_review_md.write_text(
+        build_movement_guardrail_review_markdown(movement_guardrail_summary),
         encoding="utf-8",
     )
     calibration_review_md.write_text(
@@ -1623,11 +1685,15 @@ def main(argv: Sequence[str] | None = None):
         "recommended_outcome_rule_status": _safe_text(outcome_rule_summary.get("recommended_outcome_rule_status")),
         "recommended_outcome_rule_reason": _safe_text(outcome_rule_summary.get("recommended_outcome_rule_reason")),
         "outcome_rule_recommendation_summary": dict(outcome_rule_recommendation_summary),
+        "dominant_movement_bottleneck": _safe_text(movement_guardrail_summary.get("dominant_movement_bottleneck")),
+        "movement_guardrail_summary": _safe_text(movement_guardrail_summary.get("movement_guardrail_summary")),
+        "promotion_blocker_summary": _safe_text(movement_guardrail_summary.get("promotion_blocker_summary")),
         "raw_root": f"{rel_root}/raw",
         "funnel_summary": funnel_summary,
         "readiness_summary": readiness_summary,
         "calibration_summary": calibration_summary,
         "outcome_rule_summary": outcome_rule_summary,
+        "movement_guardrail_summary_payload": movement_guardrail_summary,
         "operator_briefing_summary": operator_briefing,
         "source_mix_summary": {
             "best_source_distribution": metrics_df.get("best_plan_source", pd.Series(dtype=object)).astype(str).value_counts().sort_index().to_dict(),
@@ -1944,6 +2010,11 @@ def main(argv: Sequence[str] | None = None):
             "outcome_rule_customer_effects_csv": f"{rel_root}/calibration/outcome_rule_customer_effects.csv",
             "outcome_rule_profile_catalog_json": f"{rel_root}/calibration/outcome_rule_profile_catalog.json",
             "outcome_rule_recommendation_summary_json": f"{rel_root}/calibration/outcome_rule_recommendation_summary.json",
+            "movement_guardrail_summary_json": f"{rel_root}/calibration/movement_guardrail_summary.json",
+            "movement_promotion_blockers_csv": f"{rel_root}/calibration/movement_promotion_blockers.csv",
+            "movement_bottleneck_breakdown_csv": f"{rel_root}/calibration/movement_bottleneck_breakdown.csv",
+            "movement_ceiling_breakdown_csv": f"{rel_root}/calibration/movement_ceiling_breakdown.csv",
+            "movement_guardrail_review_md": f"{rel_root}/calibration/movement_guardrail_review.md",
             "calibration_review_md": f"{rel_root}/calibration/calibration_review.md",
         },
         "operator_files": {
@@ -1965,6 +2036,7 @@ def main(argv: Sequence[str] | None = None):
         calibration_summary=calibration_summary,
         outcome_rule_summary=outcome_rule_summary,
         operator_briefing=operator_briefing,
+        movement_guardrail_summary=movement_guardrail_summary,
     )
     summary_path = collection_root / "collection_summary.md"
     summary_path.write_text(summary_md, encoding="utf-8")

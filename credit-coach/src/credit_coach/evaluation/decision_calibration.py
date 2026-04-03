@@ -122,9 +122,15 @@ DEFAULT_OUTCOME_RULE_PROFILES: tuple[Mapping[str, Any], ...] = (
     },
 )
 OUTCOME_RULE_CATALOG_VERSION = "v2.3_phase_50"
+MOVEMENT_GUARDRAIL_VERSION = "v2.3_phase_51"
 SHORTLIST_MAX_FALSE_POSITIVE_PROXY_DELTA = 0.01
 SHORTLIST_MAX_INTERNAL_REVIEW_DELTA = 0.02
 SHORTLIST_MIN_APPROVE_PLUS_CONDITIONAL_DELTA = 0.000001
+STRUCTURAL_HIGH_NOT_READY_SHARE = 0.70
+STRUCTURAL_LOW_NEAR_TERM_SHARE = 0.15
+STRUCTURAL_HIGH_RISK_SHARE = 0.50
+RECOMMENDATION_LOW_NON_EMPTY_SHARE = 0.50
+RECOMMENDATION_HIGH_SHELL_SHARE = 0.35
 FALSE_POSITIVE_PROXY_WEIGHTS: Mapping[str, float] = {
     "low_realization_rate": 0.40,
     "weak_readiness_alignment_rate": 0.30,
@@ -1490,6 +1496,9 @@ def build_policy_comparison(
             "internal_needs_review_share_delta": 0.0,
             "approve_plus_conditional_share_delta": 0.0,
             "false_positive_proxy_delta": 0.0,
+            "rejected_to_conditional_count": 0,
+            "conditional_to_approved_count": 0,
+            "direct_rejected_to_approved_count": 0,
             "recommendation_status": "baseline",
             "recommendation_reason": "Shipped live decision policy baseline.",
         }
@@ -1507,6 +1516,24 @@ def build_policy_comparison(
         candidate["profile_role"] = _safe_str(policy.get("profile_role"), "candidate")
         candidate["promotion_target"] = bool(policy.get("promotion_target", True))
         metrics = _policy_metrics(candidate)
+        rejected_to_conditional_count = int(
+            (
+                candidate["decision_status"].eq("REJECTED")
+                & candidate["candidate_decision_status"].eq("CONDITIONAL")
+            ).sum()
+        )
+        conditional_to_approved_count = int(
+            (
+                candidate["decision_status"].eq("CONDITIONAL")
+                & candidate["candidate_decision_status"].eq("APPROVED")
+            ).sum()
+        )
+        direct_rejected_to_approved_count = int(
+            (
+                candidate["decision_status"].eq("REJECTED")
+                & candidate["candidate_decision_status"].eq("APPROVED")
+            ).sum()
+        )
         comparison_rows.append(
             {
                 "policy_version": policy_version,
@@ -1527,6 +1554,9 @@ def build_policy_comparison(
                 "false_positive_proxy_delta": _round_metric(
                     metrics["false_positive_proxy"] - baseline_metrics["false_positive_proxy"]
                 ),
+                "rejected_to_conditional_count": rejected_to_conditional_count,
+                "conditional_to_approved_count": conditional_to_approved_count,
+                "direct_rejected_to_approved_count": direct_rejected_to_approved_count,
                 "recommendation_status": "",
                 "recommendation_reason": "",
             }
@@ -1672,4 +1702,688 @@ def build_calibration_review_markdown(
                     f"- Reason: {_safe_str(outcome_rule_recommendation_summary.get('recommended_outcome_rule_reason'), 'n/a') or 'n/a'}",
                 ]
             )
+    return "\n".join(lines) + "\n"
+
+
+def _safe_mean(series: pd.Series) -> float:
+    if series.empty:
+        return 0.0
+    return _safe_float(pd.to_numeric(series, errors="coerce").fillna(0.0).mean(), 0.0)
+
+
+def _positive_movement_count(row: Mapping[str, Any]) -> int:
+    return (
+        _safe_int(row.get("rejected_to_conditional_count", 0), 0)
+        + _safe_int(row.get("conditional_to_approved_count", 0), 0)
+        + _safe_int(row.get("direct_rejected_to_approved_count", 0), 0)
+    )
+
+
+def _candidate_blocker_code(row: Mapping[str, Any]) -> str:
+    direct_rejected_to_approved_count = _safe_int(row.get("direct_rejected_to_approved_count", 0), 0)
+    false_positive_delta = _safe_float(row.get("false_positive_proxy_delta"), 0.0)
+    internal_review_delta = _safe_float(row.get("internal_needs_review_share_delta"), 0.0)
+    uplift_delta = _safe_float(row.get("approve_plus_conditional_share_delta"), 0.0)
+    movement_count = _positive_movement_count(row)
+    north_star_pass = bool(row.get("north_star_pass", False))
+    profile_role = _safe_str(row.get("profile_role"))
+
+    if profile_role == "control":
+        return "control_profile"
+    if direct_rejected_to_approved_count > 0:
+        return "direct_rejected_to_approved_disallowed"
+    if false_positive_delta > SHORTLIST_MAX_FALSE_POSITIVE_PROXY_DELTA:
+        return "false_positive_proxy_guardrail"
+    if internal_review_delta > SHORTLIST_MAX_INTERNAL_REVIEW_DELTA:
+        return "internal_review_guardrail"
+    if not north_star_pass and movement_count > 0:
+        return "north_star_guardrail"
+    if movement_count <= 0 and uplift_delta <= SHORTLIST_MIN_APPROVE_PLUS_CONDITIONAL_DELTA:
+        return "no_movement"
+    if uplift_delta <= SHORTLIST_MIN_APPROVE_PLUS_CONDITIONAL_DELTA:
+        return "no_uplift"
+    return "other_blocker"
+
+
+def _candidate_guardrail_blocked(row: Mapping[str, Any]) -> bool:
+    return _candidate_blocker_code(row) in {
+        "direct_rejected_to_approved_disallowed",
+        "false_positive_proxy_guardrail",
+        "internal_review_guardrail",
+        "north_star_guardrail",
+    }
+
+
+def _candidate_family_summary(
+    comparison_df: pd.DataFrame,
+    *,
+    family: str,
+    version_column: str,
+) -> dict[str, Any]:
+    if comparison_df.empty:
+        return {
+            "family": family,
+            "status": "no_candidates",
+            "candidate_count": 0,
+            "movement_profile_count": 0,
+            "guardrail_blocked_profile_count": 0,
+            "shortlisted_profile_count": 0,
+            "total_positive_movement_count": 0,
+            "max_approve_plus_conditional_share_delta": 0.0,
+            "blocked_profile_versions": [],
+            "shortlisted_profile_versions": [],
+            "top_blocker_code": "no_candidates",
+            "top_blocker_reason": "No candidate profiles were available.",
+        }
+
+    candidate_rows = comparison_df.loc[comparison_df.get("analysis_only", pd.Series(dtype=float)).astype(int) == 1].copy()
+    if candidate_rows.empty:
+        return {
+            "family": family,
+            "status": "no_candidates",
+            "candidate_count": 0,
+            "movement_profile_count": 0,
+            "guardrail_blocked_profile_count": 0,
+            "shortlisted_profile_count": 0,
+            "total_positive_movement_count": 0,
+            "max_approve_plus_conditional_share_delta": 0.0,
+            "blocked_profile_versions": [],
+            "shortlisted_profile_versions": [],
+            "top_blocker_code": "no_candidates",
+            "top_blocker_reason": "No analysis-only candidate profiles were available.",
+        }
+
+    if "recommendation_status" not in candidate_rows.columns:
+        candidate_rows["recommendation_status"] = ""
+    if "recommendation_reason" not in candidate_rows.columns:
+        candidate_rows["recommendation_reason"] = ""
+    candidate_rows["approve_plus_conditional_share_delta"] = pd.to_numeric(
+        candidate_rows.get("approve_plus_conditional_share_delta", pd.Series(dtype=float)),
+        errors="coerce",
+    ).fillna(0.0)
+    candidate_rows["movement_count_total"] = candidate_rows.apply(
+        lambda row: _positive_movement_count(row.to_dict()),
+        axis=1,
+    )
+    candidate_rows["movement_created"] = (
+        candidate_rows["movement_count_total"].gt(0)
+        | candidate_rows["approve_plus_conditional_share_delta"].astype(float).gt(SHORTLIST_MIN_APPROVE_PLUS_CONDITIONAL_DELTA)
+    )
+    candidate_rows["blocker_code"] = candidate_rows.apply(
+        lambda row: _candidate_blocker_code(row.to_dict()),
+        axis=1,
+    )
+    candidate_rows["guardrail_blocked"] = candidate_rows.apply(
+        lambda row: int(_candidate_guardrail_blocked(row.to_dict())),
+        axis=1,
+    )
+
+    blocked_rows = candidate_rows.loc[candidate_rows["recommendation_status"].astype(str) == "blocked"].copy()
+    shortlisted_rows = candidate_rows.loc[candidate_rows["recommendation_status"].astype(str) == "shortlisted"].copy()
+    movement_rows = candidate_rows.loc[candidate_rows["movement_created"].astype(bool)].copy()
+    guardrail_rows = candidate_rows.loc[candidate_rows["guardrail_blocked"].astype(int) == 1].copy()
+
+    if not shortlisted_rows.empty:
+        status = "promotable"
+    elif not movement_rows.empty and not guardrail_rows.empty:
+        status = "guardrail_blocked"
+    else:
+        status = "no_movement"
+
+    top_blocker_reason = "No candidate profile created bounded movement."
+    top_blocker_code = "no_movement"
+    if not blocked_rows.empty:
+        blocked_sorted = blocked_rows.sort_values(
+            [
+                "guardrail_blocked",
+                "movement_created",
+                "movement_count_total",
+                "approve_plus_conditional_share_delta",
+                version_column,
+            ],
+            ascending=[False, False, False, False, True],
+        )
+        best_blocked = blocked_sorted.iloc[0]
+        top_blocker_code = _safe_str(best_blocked.get("blocker_code"), "other_blocker")
+        top_blocker_reason = _safe_str(
+            best_blocked.get("recommendation_reason"),
+            "Candidate profile was blocked before promotion.",
+        )
+
+    return {
+        "family": family,
+        "status": status,
+        "candidate_count": int(len(candidate_rows)),
+        "movement_profile_count": int(len(movement_rows)),
+        "guardrail_blocked_profile_count": int(len(guardrail_rows)),
+        "shortlisted_profile_count": int(len(shortlisted_rows)),
+        "total_positive_movement_count": int(candidate_rows["movement_count_total"].sum()),
+        "max_approve_plus_conditional_share_delta": _round_metric(
+            candidate_rows["approve_plus_conditional_share_delta"].max()
+        ),
+        "blocked_profile_versions": blocked_rows.get(version_column, pd.Series(dtype=object)).astype(str).tolist(),
+        "shortlisted_profile_versions": shortlisted_rows.get(version_column, pd.Series(dtype=object)).astype(str).tolist(),
+        "top_blocker_code": top_blocker_code,
+        "top_blocker_reason": top_blocker_reason,
+    }
+
+
+def _selected_dice_valid_rate(metrics_df: pd.DataFrame) -> float:
+    selected_dice_total = float(
+        pd.to_numeric(metrics_df.get("selected_dice_flag", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+    )
+    if selected_dice_total <= 0.0:
+        return 1.0
+    valid_total = float(
+        pd.to_numeric(metrics_df.get("selected_dice_valid_flag", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+    )
+    return valid_total / selected_dice_total
+
+
+def _trust_guardrail_summary(metrics_df: pd.DataFrame) -> dict[str, Any]:
+    selected_invalid_winner_count = int(
+        pd.to_numeric(metrics_df.get("selected_invalid_winner_flag", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
+    )
+    selected_decision_mismatch_count = int(
+        (
+            metrics_df.get("decision_status", pd.Series(dtype=object)).fillna("").astype(str)
+            != metrics_df.get("selected_decision_status", pd.Series(dtype=object)).fillna("").astype(str)
+        ).sum()
+    )
+    approved_with_blocker_count = int(
+        (
+            (metrics_df.get("operator_selected_decision_status", pd.Series(dtype=object)).fillna("").astype(str) == "APPROVED")
+            & (
+                pd.to_numeric(
+                    metrics_df.get("operator_rendered_blocker_count", pd.Series(dtype=float)),
+                    errors="coerce",
+                ).fillna(0.0)
+                > 0
+            )
+        ).sum()
+    )
+    approved_with_action_count = int(
+        (
+            (metrics_df.get("operator_selected_decision_status", pd.Series(dtype=object)).fillna("").astype(str) == "APPROVED")
+            & (
+                pd.to_numeric(
+                    metrics_df.get("operator_rendered_action_count", pd.Series(dtype=float)),
+                    errors="coerce",
+                ).fillna(0.0)
+                > 0
+            )
+        ).sum()
+    )
+    approved_with_upgrade_condition_count = int(
+        (
+            (metrics_df.get("operator_selected_decision_status", pd.Series(dtype=object)).fillna("").astype(str) == "APPROVED")
+            & (metrics_df.get("operator_upgrade_condition_text", pd.Series(dtype=object)).fillna("").astype(str).str.strip() != "")
+        ).sum()
+    )
+    action_blocker_mismatch_count = int(
+        sum(
+            1
+            for _, row in metrics_df.iterrows()
+            if _safe_int(row.get("operator_rendered_action_count", 0), 0) > 0
+            and _safe_int(row.get("operator_rendered_blocker_count", 0), 0) > 0
+            and set(row.get("operator_top_blocker_codes_json", []) if isinstance(row.get("operator_top_blocker_codes_json"), list) else [])
+        )
+    )
+    if action_blocker_mismatch_count == 0:
+        action_blocker_mismatch_count = int(
+            sum(
+                1
+                for _, row in metrics_df.iterrows()
+                if _safe_int(row.get("operator_rendered_action_count", 0), 0) > 0
+                and _safe_int(row.get("operator_rendered_blocker_count", 0), 0) > 0
+                and set(_safe_str(row.get("operator_top_blocker_codes_json"), "[]").strip("[]").split(",")) != {""}
+                and not set(_safe_str(row.get("operator_top_blocker_codes_json"), "[]").strip("[]").split(",")).intersection(
+                    set(_safe_str(row.get("operator_first_action_blocker_codes_json"), "[]").strip("[]").split(","))
+                )
+            )
+        )
+    readiness_decision_mismatch_count = int(
+        (
+            (
+                (metrics_df.get("selection_outcome", pd.Series(dtype=object)).fillna("").astype(str) == "no_valid_winner")
+                & (metrics_df.get("operator_readiness_render_mode", pd.Series(dtype=object)).fillna("").astype(str) != "empty_state_context")
+            )
+            | (
+                (metrics_df.get("selection_outcome", pd.Series(dtype=object)).fillna("").astype(str) != "no_valid_winner")
+                & (metrics_df.get("operator_selected_decision_status", pd.Series(dtype=object)).fillna("").astype(str) == "APPROVED")
+                & (metrics_df.get("operator_readiness_render_mode", pd.Series(dtype=object)).fillna("").astype(str) != "approved_info")
+            )
+        ).sum()
+    )
+    selected_dice_valid_rate = _round_metric(_selected_dice_valid_rate(metrics_df))
+    regression = bool(
+        selected_invalid_winner_count > 0
+        or selected_decision_mismatch_count > 0
+        or approved_with_blocker_count > 0
+        or approved_with_action_count > 0
+        or approved_with_upgrade_condition_count > 0
+        or action_blocker_mismatch_count > 0
+        or readiness_decision_mismatch_count > 0
+        or selected_dice_valid_rate < 1.0
+    )
+    return {
+        "selected_invalid_winner_count": selected_invalid_winner_count,
+        "selected_invalid_winner_rate": _round_metric(
+            _safe_mean(metrics_df.get("selected_invalid_winner_flag", pd.Series(dtype=float)))
+        ),
+        "selected_dice_valid_rate": selected_dice_valid_rate,
+        "selected_decision_mismatch_count": selected_decision_mismatch_count,
+        "approved_with_blocker_count": approved_with_blocker_count,
+        "approved_with_action_count": approved_with_action_count,
+        "approved_with_upgrade_condition_count": approved_with_upgrade_condition_count,
+        "action_blocker_mismatch_count": action_blocker_mismatch_count,
+        "readiness_decision_mismatch_count": readiness_decision_mismatch_count,
+        "regression_detected": regression,
+    }
+
+
+def _top_operator_blocker(operator_briefing: Mapping[str, Any]) -> tuple[str, str]:
+    blockers = list(operator_briefing.get("dominant_blockers", []) or [])
+    if not blockers:
+        return "", ""
+    first = blockers[0] if isinstance(blockers[0], Mapping) else {}
+    return _safe_str(first.get("blocker_code")), _safe_str(first.get("title"))
+
+
+def _recommendation_space_signals(metrics_df: pd.DataFrame, operator_briefing: Mapping[str, Any]) -> dict[str, Any]:
+    candidate_pool = pd.to_numeric(metrics_df.get("candidate_pool_count", pd.Series(dtype=float)), errors="coerce").replace(0, pd.NA)
+    non_empty = pd.to_numeric(metrics_df.get("candidate_non_empty_count", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
+    non_empty_share = _safe_float((non_empty / candidate_pool).fillna(0.0).mean(), 0.0)
+    approval_shell_only_share = _safe_mean(metrics_df.get("approval_shell_only_share", pd.Series(dtype=float)))
+    top_blocker_code, top_blocker_title = _top_operator_blocker(operator_briefing)
+    blocker_signal = int(
+        top_blocker_code in {"driver:best_action_count", "driver:expected_pd_improvement", "reason:NO_PATH", "reason:LOW_IMPACT"}
+    )
+    score = int(non_empty_share < RECOMMENDATION_LOW_NON_EMPTY_SHARE) + int(
+        approval_shell_only_share > RECOMMENDATION_HIGH_SHELL_SHARE
+    ) + blocker_signal
+    return {
+        "non_empty_contender_share": _round_metric(non_empty_share),
+        "approval_shell_only_share": _round_metric(approval_shell_only_share),
+        "top_blocker_code": top_blocker_code,
+        "top_blocker_title": top_blocker_title,
+        "signal_score": int(score),
+        "is_primary_candidate": bool(score >= 2),
+    }
+
+
+def _structural_cohort_signals(metrics_df: pd.DataFrame, operator_briefing: Mapping[str, Any]) -> dict[str, Any]:
+    readiness = metrics_df.get("expected_readiness", pd.Series(dtype=object)).fillna("").astype(str)
+    not_ready_share = _safe_float((readiness == "not_ready").mean(), 0.0)
+    near_term_share = _safe_float(readiness.isin(["week_4", "week_12"]).mean(), 0.0)
+    offer_ready_share = _safe_mean(metrics_df.get("offer_ready_contender_share", pd.Series(dtype=float)))
+    provisional_offer_share = _safe_mean(metrics_df.get("provisional_offer_share", pd.Series(dtype=float)))
+    high_risk_share = _safe_float(
+        metrics_df.get("risk_band", pd.Series(dtype=object)).fillna("").astype(str).eq("high").mean(),
+        0.0,
+    )
+    top_blocker_code, top_blocker_title = _top_operator_blocker(operator_briefing)
+    blocker_signal = int(
+        top_blocker_code in {"driver:expected_readiness_week", "reason:TIME_BLOCK", "reason:OFFER_BLOCK", "reason:NO_VALID_WINNER"}
+    )
+    score = int(not_ready_share > STRUCTURAL_HIGH_NOT_READY_SHARE) + int(
+        near_term_share < STRUCTURAL_LOW_NEAR_TERM_SHARE
+    ) + int(high_risk_share > STRUCTURAL_HIGH_RISK_SHARE) + blocker_signal
+    return {
+        "not_ready_share": _round_metric(not_ready_share),
+        "near_term_readiness_share": _round_metric(near_term_share),
+        "offer_ready_contender_share": _round_metric(offer_ready_share),
+        "provisional_offer_share": _round_metric(provisional_offer_share),
+        "high_risk_share": _round_metric(high_risk_share),
+        "top_blocker_code": top_blocker_code,
+        "top_blocker_title": top_blocker_title,
+        "signal_score": int(score),
+        "is_primary_candidate": bool(score >= 2),
+    }
+
+
+def _dominant_movement_bottleneck(
+    *,
+    trust_guardrails: Mapping[str, Any],
+    threshold_family: Mapping[str, Any],
+    outcome_family: Mapping[str, Any],
+    recommendation_space: Mapping[str, Any],
+    structural_cohort: Mapping[str, Any],
+) -> str:
+    if bool(trust_guardrails.get("regression_detected", False)):
+        return "trust_regression_blocked"
+    if _safe_str(threshold_family.get("status")) == "guardrail_blocked" and _safe_int(
+        threshold_family.get("total_positive_movement_count", 0),
+        0,
+    ) >= _safe_int(outcome_family.get("total_positive_movement_count", 0), 0):
+        return "threshold_guardrail_blocked"
+    if _safe_str(outcome_family.get("status")) == "guardrail_blocked":
+        return "offer_readiness_guardrail_blocked"
+    recommendation_score = _safe_int(recommendation_space.get("signal_score", 0), 0)
+    structural_score = _safe_int(structural_cohort.get("signal_score", 0), 0)
+    if recommendation_score > structural_score and bool(recommendation_space.get("is_primary_candidate", False)):
+        return "recommendation_space_limited"
+    if structural_score > recommendation_score and bool(structural_cohort.get("is_primary_candidate", False)):
+        return "structural_cohort_limited"
+    if recommendation_score >= 2 and structural_score < 2:
+        return "recommendation_space_limited"
+    if structural_score >= 2 and recommendation_score < 2:
+        return "structural_cohort_limited"
+    return "mixed_no_safe_uplift"
+
+
+def _promotion_blocker_summary_line(
+    *,
+    threshold_family: Mapping[str, Any],
+    outcome_family: Mapping[str, Any],
+) -> str:
+    if _safe_str(threshold_family.get("status")) == "guardrail_blocked":
+        return _safe_str(threshold_family.get("top_blocker_reason"), "Threshold candidates created movement but were blocked.")
+    if _safe_str(outcome_family.get("status")) == "guardrail_blocked":
+        return _safe_str(outcome_family.get("top_blocker_reason"), "Offer/readiness candidates created movement but were blocked.")
+    if _safe_str(threshold_family.get("status")) == "promotable":
+        return "Threshold candidate family already contains a promotable profile."
+    if _safe_str(outcome_family.get("status")) == "promotable":
+        return "Offer/readiness candidate family already contains a promotable profile."
+    return "No candidate family created promotable movement under the shipped trust and risk guardrails."
+
+
+def _movement_guardrail_summary_line(
+    *,
+    dominant_bottleneck: str,
+    threshold_family: Mapping[str, Any],
+    outcome_family: Mapping[str, Any],
+) -> str:
+    if dominant_bottleneck == "trust_regression_blocked":
+        return "Movement analysis is blocked by a trust regression and cannot be promoted."
+    if dominant_bottleneck == "threshold_guardrail_blocked":
+        return "Threshold candidates created bounded movement, but promotion guardrails still block them."
+    if dominant_bottleneck == "offer_readiness_guardrail_blocked":
+        return "Offer/readiness rules created bounded movement, but promotion guardrails still block them."
+    if dominant_bottleneck == "recommendation_space_limited":
+        return "Neither threshold nor offer/readiness candidates created safe movement; the current recommendation space looks too weak."
+    if dominant_bottleneck == "structural_cohort_limited":
+        return "Neither threshold nor offer/readiness candidates created safe movement; this cohort appears structurally too far from near-term movement."
+    threshold_status = _safe_str(threshold_family.get("status"), "no_movement")
+    outcome_status = _safe_str(outcome_family.get("status"), "no_movement")
+    return (
+        "Threshold family status="
+        f"{threshold_status}; offer/readiness family status={outcome_status}; no single dominant safe-uplift bottleneck stands out."
+    )
+
+
+def _promotion_blockers_df(
+    *,
+    policy_comparison_df: pd.DataFrame,
+    outcome_rule_comparison_df: pd.DataFrame,
+) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    configs = (
+        ("threshold_policy", policy_comparison_df, "policy_version"),
+        ("offer_readiness_rule", outcome_rule_comparison_df, "outcome_rule_profile_version"),
+    )
+    for family, frame, version_column in configs:
+        if frame.empty:
+            continue
+        candidate_rows = frame.loc[frame.get("analysis_only", pd.Series(dtype=float)).astype(int) == 1].copy()
+        for row in candidate_rows.to_dict(orient="records"):
+            rows.append(
+                {
+                    "candidate_family": family,
+                    "candidate_profile_version": _safe_str(row.get(version_column)),
+                    "recommendation_status": _safe_str(row.get("recommendation_status"), "blocked"),
+                    "recommendation_reason": _safe_str(row.get("recommendation_reason")),
+                    "blocker_code": _candidate_blocker_code(row),
+                    "movement_count_total": _positive_movement_count(row),
+                    "movement_created": int(
+                        _positive_movement_count(row) > 0
+                        or _safe_float(row.get("approve_plus_conditional_share_delta"), 0.0) > SHORTLIST_MIN_APPROVE_PLUS_CONDITIONAL_DELTA
+                    ),
+                    "guardrail_blocked": int(_candidate_guardrail_blocked(row)),
+                    "approve_plus_conditional_share_delta": _round_metric(row.get("approve_plus_conditional_share_delta")),
+                    "false_positive_proxy_delta": _round_metric(row.get("false_positive_proxy_delta")),
+                    "internal_needs_review_share_delta": _round_metric(row.get("internal_needs_review_share_delta")),
+                    "north_star_pass": bool(row.get("north_star_pass", False)),
+                    "rejected_to_conditional_count": _safe_int(row.get("rejected_to_conditional_count", 0), 0),
+                    "conditional_to_approved_count": _safe_int(row.get("conditional_to_approved_count", 0), 0),
+                    "direct_rejected_to_approved_count": _safe_int(row.get("direct_rejected_to_approved_count", 0), 0),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def _bottleneck_breakdown_df(
+    *,
+    threshold_family: Mapping[str, Any],
+    outcome_family: Mapping[str, Any],
+    recommendation_space: Mapping[str, Any],
+    structural_cohort: Mapping[str, Any],
+    trust_guardrails: Mapping[str, Any],
+    dominant_bottleneck: str,
+) -> pd.DataFrame:
+    rows = [
+        {
+            "diagnosis_family": "threshold_policy",
+            "status": _safe_str(threshold_family.get("status")),
+            "movement_profile_count": _safe_int(threshold_family.get("movement_profile_count", 0), 0),
+            "guardrail_blocked_profile_count": _safe_int(threshold_family.get("guardrail_blocked_profile_count", 0), 0),
+            "primary_reason": _safe_str(threshold_family.get("top_blocker_reason")),
+            "dominant": int(dominant_bottleneck == "threshold_guardrail_blocked"),
+        },
+        {
+            "diagnosis_family": "offer_readiness",
+            "status": _safe_str(outcome_family.get("status")),
+            "movement_profile_count": _safe_int(outcome_family.get("movement_profile_count", 0), 0),
+            "guardrail_blocked_profile_count": _safe_int(outcome_family.get("guardrail_blocked_profile_count", 0), 0),
+            "primary_reason": _safe_str(outcome_family.get("top_blocker_reason")),
+            "dominant": int(dominant_bottleneck == "offer_readiness_guardrail_blocked"),
+        },
+        {
+            "diagnosis_family": "recommendation_space",
+            "status": "signal",
+            "movement_profile_count": 0,
+            "guardrail_blocked_profile_count": 0,
+            "primary_reason": _safe_str(recommendation_space.get("top_blocker_title")),
+            "dominant": int(dominant_bottleneck == "recommendation_space_limited"),
+        },
+        {
+            "diagnosis_family": "structural_cohort",
+            "status": "signal",
+            "movement_profile_count": 0,
+            "guardrail_blocked_profile_count": 0,
+            "primary_reason": _safe_str(structural_cohort.get("top_blocker_title")),
+            "dominant": int(dominant_bottleneck == "structural_cohort_limited"),
+        },
+        {
+            "diagnosis_family": "trust_guardrails",
+            "status": "blocked" if bool(trust_guardrails.get("regression_detected", False)) else "clean",
+            "movement_profile_count": 0,
+            "guardrail_blocked_profile_count": 0,
+            "primary_reason": "Trust regression detected" if bool(trust_guardrails.get("regression_detected", False)) else "Trust guardrails stayed clean",
+            "dominant": int(dominant_bottleneck == "trust_regression_blocked"),
+        },
+    ]
+    return pd.DataFrame(rows)
+
+
+def _ceiling_breakdown_df(
+    *,
+    recommendation_space: Mapping[str, Any],
+    structural_cohort: Mapping[str, Any],
+) -> pd.DataFrame:
+    rows = [
+        {
+            "ceiling_family": "recommendation_space",
+            "metric_name": "non_empty_contender_share",
+            "metric_value": _round_metric(recommendation_space.get("non_empty_contender_share")),
+        },
+        {
+            "ceiling_family": "recommendation_space",
+            "metric_name": "approval_shell_only_share",
+            "metric_value": _round_metric(recommendation_space.get("approval_shell_only_share")),
+        },
+        {
+            "ceiling_family": "recommendation_space",
+            "metric_name": "signal_score",
+            "metric_value": float(_safe_int(recommendation_space.get("signal_score", 0), 0)),
+        },
+        {
+            "ceiling_family": "structural_cohort",
+            "metric_name": "not_ready_share",
+            "metric_value": _round_metric(structural_cohort.get("not_ready_share")),
+        },
+        {
+            "ceiling_family": "structural_cohort",
+            "metric_name": "near_term_readiness_share",
+            "metric_value": _round_metric(structural_cohort.get("near_term_readiness_share")),
+        },
+        {
+            "ceiling_family": "structural_cohort",
+            "metric_name": "offer_ready_contender_share",
+            "metric_value": _round_metric(structural_cohort.get("offer_ready_contender_share")),
+        },
+        {
+            "ceiling_family": "structural_cohort",
+            "metric_name": "provisional_offer_share",
+            "metric_value": _round_metric(structural_cohort.get("provisional_offer_share")),
+        },
+        {
+            "ceiling_family": "structural_cohort",
+            "metric_name": "high_risk_share",
+            "metric_value": _round_metric(structural_cohort.get("high_risk_share")),
+        },
+        {
+            "ceiling_family": "structural_cohort",
+            "metric_name": "signal_score",
+            "metric_value": float(_safe_int(structural_cohort.get("signal_score", 0), 0)),
+        },
+    ]
+    return pd.DataFrame(rows)
+
+
+def build_movement_guardrail_evidence(
+    metrics_df: pd.DataFrame,
+    *,
+    policy_comparison_df: pd.DataFrame,
+    policy_recommendation_summary: Mapping[str, Any] | None = None,
+    outcome_rule_comparison_df: pd.DataFrame | None = None,
+    outcome_rule_recommendation_summary: Mapping[str, Any] | None = None,
+    operator_briefing: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    work = prepare_metrics_for_calibration(metrics_df)
+    operator_briefing = dict(operator_briefing or {})
+    threshold_family = _candidate_family_summary(
+        policy_comparison_df,
+        family="threshold_policy",
+        version_column="policy_version",
+    )
+    outcome_family = _candidate_family_summary(
+        outcome_rule_comparison_df if outcome_rule_comparison_df is not None else pd.DataFrame(),
+        family="offer_readiness_rule",
+        version_column="outcome_rule_profile_version",
+    )
+    trust_guardrails = _trust_guardrail_summary(work)
+    recommendation_space = _recommendation_space_signals(work, operator_briefing)
+    structural_cohort = _structural_cohort_signals(work, operator_briefing)
+    dominant_bottleneck = _dominant_movement_bottleneck(
+        trust_guardrails=trust_guardrails,
+        threshold_family=threshold_family,
+        outcome_family=outcome_family,
+        recommendation_space=recommendation_space,
+        structural_cohort=structural_cohort,
+    )
+    promotion_blocker_summary = _promotion_blocker_summary_line(
+        threshold_family=threshold_family,
+        outcome_family=outcome_family,
+    )
+    movement_guardrail_summary = _movement_guardrail_summary_line(
+        dominant_bottleneck=dominant_bottleneck,
+        threshold_family=threshold_family,
+        outcome_family=outcome_family,
+    )
+    promotion_blockers = _promotion_blockers_df(
+        policy_comparison_df=policy_comparison_df,
+        outcome_rule_comparison_df=outcome_rule_comparison_df if outcome_rule_comparison_df is not None else pd.DataFrame(),
+    )
+    bottleneck_breakdown = _bottleneck_breakdown_df(
+        threshold_family=threshold_family,
+        outcome_family=outcome_family,
+        recommendation_space=recommendation_space,
+        structural_cohort=structural_cohort,
+        trust_guardrails=trust_guardrails,
+        dominant_bottleneck=dominant_bottleneck,
+    )
+    ceiling_breakdown = _ceiling_breakdown_df(
+        recommendation_space=recommendation_space,
+        structural_cohort=structural_cohort,
+    )
+    summary = {
+        "movement_guardrail_version": MOVEMENT_GUARDRAIL_VERSION,
+        "policy_recommendation_status": _safe_str(
+            (policy_recommendation_summary or {}).get("recommended_candidate_status"),
+            "no_safe_uplift",
+        ),
+        "outcome_rule_recommendation_status": _safe_str(
+            (outcome_rule_recommendation_summary or {}).get("recommended_outcome_rule_status"),
+            "no_safe_uplift",
+        ),
+        "threshold_family": threshold_family,
+        "offer_readiness_family": outcome_family,
+        "trust_guardrails": trust_guardrails,
+        "recommendation_space": recommendation_space,
+        "structural_cohort": structural_cohort,
+        "dominant_movement_bottleneck": dominant_bottleneck,
+        "movement_guardrail_summary": movement_guardrail_summary,
+        "promotion_blocker_summary": promotion_blocker_summary,
+    }
+    return {
+        "movement_guardrail_summary": summary,
+        "movement_promotion_blockers": promotion_blockers,
+        "movement_bottleneck_breakdown": bottleneck_breakdown,
+        "movement_ceiling_breakdown": ceiling_breakdown,
+    }
+
+
+def build_movement_guardrail_review_markdown(summary: Mapping[str, Any]) -> str:
+    threshold_family = dict(summary.get("threshold_family", {}) or {})
+    outcome_family = dict(summary.get("offer_readiness_family", {}) or {})
+    trust_guardrails = dict(summary.get("trust_guardrails", {}) or {})
+    recommendation_space = dict(summary.get("recommendation_space", {}) or {})
+    structural_cohort = dict(summary.get("structural_cohort", {}) or {})
+    lines = [
+        "# Movement Guardrail Review",
+        "",
+        f"- Guardrail evidence version: {_safe_str(summary.get('movement_guardrail_version')) or 'n/a'}",
+        f"- Dominant bottleneck: {_safe_str(summary.get('dominant_movement_bottleneck')) or 'mixed_no_safe_uplift'}",
+        f"- Summary: {_safe_str(summary.get('movement_guardrail_summary')) or 'n/a'}",
+        f"- Promotion blocker summary: {_safe_str(summary.get('promotion_blocker_summary')) or 'n/a'}",
+        "",
+        "## Candidate Families",
+        f"- Threshold family status: {_safe_str(threshold_family.get('status')) or 'n/a'}",
+        f"- Threshold movement profiles: {_safe_int(threshold_family.get('movement_profile_count', 0), 0)}",
+        f"- Threshold blocked profiles: {_safe_int(threshold_family.get('guardrail_blocked_profile_count', 0), 0)}",
+        f"- Offer/readiness family status: {_safe_str(outcome_family.get('status')) or 'n/a'}",
+        f"- Offer/readiness movement profiles: {_safe_int(outcome_family.get('movement_profile_count', 0), 0)}",
+        f"- Offer/readiness blocked profiles: {_safe_int(outcome_family.get('guardrail_blocked_profile_count', 0), 0)}",
+        "",
+        "## Trust Guardrails",
+        f"- Regression detected: {bool(trust_guardrails.get('regression_detected', False))}",
+        f"- Selected invalid winner count: {_safe_int(trust_guardrails.get('selected_invalid_winner_count', 0), 0)}",
+        f"- Selected DICE valid rate: {_safe_float(trust_guardrails.get('selected_dice_valid_rate'), 1.0):.4f}",
+        f"- Selected decision mismatch count: {_safe_int(trust_guardrails.get('selected_decision_mismatch_count', 0), 0)}",
+        "",
+        "## Recommendation Space Signals",
+        f"- Non-empty contender share: {_safe_float(recommendation_space.get('non_empty_contender_share'), 0.0):.4f}",
+        f"- Approval-shell-only share: {_safe_float(recommendation_space.get('approval_shell_only_share'), 0.0):.4f}",
+        f"- Top blocker: {_safe_str(recommendation_space.get('top_blocker_title')) or 'n/a'}",
+        f"- Signal score: {_safe_int(recommendation_space.get('signal_score', 0), 0)}",
+        "",
+        "## Structural Cohort Signals",
+        f"- Not-ready share: {_safe_float(structural_cohort.get('not_ready_share'), 0.0):.4f}",
+        f"- Near-term readiness share: {_safe_float(structural_cohort.get('near_term_readiness_share'), 0.0):.4f}",
+        f"- Offer-ready contender share: {_safe_float(structural_cohort.get('offer_ready_contender_share'), 0.0):.4f}",
+        f"- High-risk share: {_safe_float(structural_cohort.get('high_risk_share'), 0.0):.4f}",
+        f"- Top blocker: {_safe_str(structural_cohort.get('top_blocker_title')) or 'n/a'}",
+        f"- Signal score: {_safe_int(structural_cohort.get('signal_score', 0), 0)}",
+    ]
     return "\n".join(lines) + "\n"

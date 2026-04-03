@@ -503,6 +503,28 @@ def test_collection_summary_markdown_reports_dice_lane_rates() -> None:
         calibration_summary={"policy_version_evaluated": "v2.2", "candidate_policy_versions_compared": [], "baseline_policy_metrics": {}},
         outcome_rule_summary={"candidate_outcome_rule_versions_compared": [], "recommended_outcome_rule_status": "no_safe_uplift"},
         operator_briefing={"priority_queues": [], "dominant_blockers": [], "conditional_hotspots": [], "offer_hotspots": [], "review_guidance": [], "health_note": ""},
+        movement_guardrail_summary={
+            "dominant_movement_bottleneck": "structural_cohort_limited",
+            "movement_guardrail_summary": "The cohort is structurally too far from near-term movement.",
+            "promotion_blocker_summary": "No candidate family created promotable movement under the shipped trust and risk guardrails.",
+            "threshold_family": {"status": "no_movement"},
+            "offer_readiness_family": {"status": "no_movement"},
+            "trust_guardrails": {"regression_detected": False},
+            "recommendation_space": {
+                "signal_score": 1,
+                "top_blocker_title": "Expected impact is still too small",
+                "non_empty_contender_share": 0.6667,
+                "approval_shell_only_share": 0.0,
+            },
+            "structural_cohort": {
+                "signal_score": 3,
+                "top_blocker_title": "Most files are too far from near-term readiness",
+                "not_ready_share": 1.0,
+                "near_term_readiness_share": 0.0,
+                "offer_ready_contender_share": 0.0,
+                "high_risk_share": 0.0,
+            },
+        },
     )
 
     assert "## DICE Lane" in markdown
@@ -512,6 +534,9 @@ def test_collection_summary_markdown_reports_dice_lane_rates() -> None:
     assert "Approved with blocker count: 0" in markdown
     assert "Recommended candidate status: no_safe_uplift" in markdown
     assert "## Outcome Rules" in markdown
+    assert "## Funnel Guardrails" in markdown
+    assert "Dominant movement bottleneck: structural_cohort_limited" in markdown
+    assert "## Movement Diagnosis" in markdown
     assert "Policy profile catalog:" in markdown
     assert "Policy recommendation summary:" in markdown
 
@@ -959,6 +984,11 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert (collection_root / "calibration" / "outcome_rule_customer_effects.csv").exists()
     assert (collection_root / "calibration" / "outcome_rule_profile_catalog.json").exists()
     assert (collection_root / "calibration" / "outcome_rule_recommendation_summary.json").exists()
+    assert (collection_root / "calibration" / "movement_guardrail_summary.json").exists()
+    assert (collection_root / "calibration" / "movement_promotion_blockers.csv").exists()
+    assert (collection_root / "calibration" / "movement_bottleneck_breakdown.csv").exists()
+    assert (collection_root / "calibration" / "movement_ceiling_breakdown.csv").exists()
+    assert (collection_root / "calibration" / "movement_guardrail_review.md").exists()
     assert (collection_root / "calibration" / "calibration_review.md").exists()
     assert set(metrics_df["decision_status"]) == {"CONDITIONAL"}
     assert set(metrics_df["decision_status_internal"]) == {"CONDITIONAL"}
@@ -1046,6 +1076,9 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "candidate_outcome_rule_versions_compared" in manifest
     assert "recommended_outcome_rule_status" in manifest
     assert "outcome_rule_summary" in manifest
+    assert "dominant_movement_bottleneck" in manifest
+    assert "movement_guardrail_summary" in manifest
+    assert "promotion_blocker_summary" in manifest
     assert set(manifest["funnel_summary"]).issuperset(
         {"approved_share", "conditional_share", "rejected_share", "internal_needs_review_share"}
     )
@@ -1063,15 +1096,23 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
             "fallback_blocker_suppressed_count",
         }
     )
+    assert "movement_guardrail_summary_json" in manifest["calibration_files"]
+    assert "movement_promotion_blockers_csv" in manifest["calibration_files"]
+    assert "movement_bottleneck_breakdown_csv" in manifest["calibration_files"]
+    assert "movement_ceiling_breakdown_csv" in manifest["calibration_files"]
+    assert "movement_guardrail_review_md" in manifest["calibration_files"]
 
     summary_md = (collection_root / "collection_summary.md").read_text(encoding="utf-8")
     review_md = (collection_root / "calibration" / "calibration_review.md").read_text(encoding="utf-8")
+    movement_review_md = (collection_root / "calibration" / "movement_guardrail_review.md").read_text(encoding="utf-8")
     assert "## Contract Health" in summary_md
     assert "Decision status distribution" in summary_md
     assert "## Decision Funnel" in summary_md
     assert "## Readiness" in summary_md
     assert "## Calibration" in summary_md
     assert "## Outcome Rules" in summary_md
+    assert "## Funnel Guardrails" in summary_md
+    assert "## Movement Diagnosis" in summary_md
     assert "## Planner Source Mix" in summary_md
     assert "## Planner Quality" in summary_md
     assert "Hard-invalid plan rate" in summary_md
@@ -1081,6 +1122,7 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "Likely-to-upgrade-soon queue" in summary_md
     assert "analysis-only" in review_md
     assert "## Outcome Rules" in review_md
+    assert "# Movement Guardrail Review" in movement_review_md
 
 
 def test_run_customer_artifact_collection_falls_back_to_sample_csv_when_processed_missing(

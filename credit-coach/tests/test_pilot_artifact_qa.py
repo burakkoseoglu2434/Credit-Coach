@@ -77,6 +77,11 @@ def _build_collection_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
         "calibration/outcome_rule_customer_effects.csv",
         "calibration/outcome_rule_profile_catalog.json",
         "calibration/outcome_rule_recommendation_summary.json",
+        "calibration/movement_guardrail_summary.json",
+        "calibration/movement_promotion_blockers.csv",
+        "calibration/movement_bottleneck_breakdown.csv",
+        "calibration/movement_ceiling_breakdown.csv",
+        "calibration/movement_guardrail_review.md",
         "calibration/calibration_review.md",
         "operator_review_briefing.md",
     ]:
@@ -132,6 +137,9 @@ def _build_collection_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
         "recommended_outcome_rule_profile_version": "analysis_offer_readiness_combo_v2_3b",
         "recommended_outcome_rule_status": "shortlisted",
         "recommended_outcome_rule_reason": "Offer/readiness-driven uplift is positive while Phase 50 guardrails remain within limits.",
+        "dominant_movement_bottleneck": "structural_cohort_limited",
+        "movement_guardrail_summary": "Neither threshold nor offer/readiness candidates created safe movement; this cohort appears structurally too far from near-term movement.",
+        "promotion_blocker_summary": "No candidate family created promotable movement under the shipped trust and risk guardrails.",
         "contract_health": {
             "critical_field_null_rate": 0.0,
             "raw_flat_mismatch_count": 0,
@@ -156,6 +164,11 @@ def _build_collection_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
             "outcome_rule_customer_effects_csv": "tables/customer_artifact_collection/calibration/outcome_rule_customer_effects.csv",
             "outcome_rule_profile_catalog_json": "tables/customer_artifact_collection/calibration/outcome_rule_profile_catalog.json",
             "outcome_rule_recommendation_summary_json": "tables/customer_artifact_collection/calibration/outcome_rule_recommendation_summary.json",
+            "movement_guardrail_summary_json": "tables/customer_artifact_collection/calibration/movement_guardrail_summary.json",
+            "movement_promotion_blockers_csv": "tables/customer_artifact_collection/calibration/movement_promotion_blockers.csv",
+            "movement_bottleneck_breakdown_csv": "tables/customer_artifact_collection/calibration/movement_bottleneck_breakdown.csv",
+            "movement_ceiling_breakdown_csv": "tables/customer_artifact_collection/calibration/movement_ceiling_breakdown.csv",
+            "movement_guardrail_review_md": "tables/customer_artifact_collection/calibration/movement_guardrail_review.md",
             "calibration_review_md": "tables/customer_artifact_collection/calibration/calibration_review.md",
         },
         "operator_files": {
@@ -186,6 +199,8 @@ def test_evaluate_pilot_artifact_qa_passes_for_complete_package(tmp_path: Path) 
     assert summary["recommended_candidate_policy_version"] == "analysis_mild_relax_v2_3a"
     assert summary["recommended_outcome_rule_status"] == "shortlisted"
     assert summary["recommended_outcome_rule_profile_version"] == "analysis_offer_readiness_combo_v2_3b"
+    assert summary["dominant_movement_bottleneck"] == "structural_cohort_limited"
+    assert "structurally too far" in summary["movement_guardrail_summary"]
 
 
 def test_evaluate_pilot_artifact_qa_degrades_when_optional_inputs_are_missing(tmp_path: Path) -> None:

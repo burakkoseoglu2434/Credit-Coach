@@ -177,7 +177,15 @@ def test_build_policy_comparison_emits_analysis_only_candidates_and_shift_matrix
     recommendation = payload["policy_recommendation_summary"]
     catalog = payload["policy_profile_catalog"]
 
-    assert {"policy_version", "analysis_only", "false_positive_proxy_delta", "approve_plus_conditional_share_delta"}.issubset(comparison.columns)
+    assert {
+        "policy_version",
+        "analysis_only",
+        "false_positive_proxy_delta",
+        "approve_plus_conditional_share_delta",
+        "rejected_to_conditional_count",
+        "conditional_to_approved_count",
+        "direct_rejected_to_approved_count",
+    }.issubset(comparison.columns)
     assert "v2.1_phase_40_5" in set(comparison["policy_version"])
     assert set(comparison.loc[comparison["analysis_only"] == 1, "policy_version"]) == {
         "analysis_mild_relax_v2_3a",
@@ -191,6 +199,172 @@ def test_build_policy_comparison_emits_analysis_only_candidates_and_shift_matrix
     assert recommendation["recommended_candidate_status"] in {"shortlisted", "no_safe_uplift"}
     assert catalog["catalog_version"] == cal.POLICY_PROFILE_CATALOG_VERSION
     assert catalog["profiles"][0]["policy_version"] == "v2.1_phase_40_5"
+
+
+def test_build_movement_guardrail_evidence_identifies_structural_bottleneck() -> None:
+    metrics_df = pd.DataFrame(
+        [
+            {
+                "decision_status": "REJECTED",
+                "selected_decision_status": "REJECTED",
+                "expected_readiness": "not_ready",
+                "risk_band": "high",
+                "candidate_pool_count": 2,
+                "candidate_non_empty_count": 1,
+                "approval_shell_only_share": 0.10,
+                "offer_ready_contender_share": 0.0,
+                "provisional_offer_share": 0.0,
+                "selected_invalid_winner_flag": 0,
+                "selected_dice_flag": 0,
+                "selected_dice_valid_flag": 0,
+                "operator_selected_decision_status": "REJECTED",
+                "operator_rendered_blocker_count": 1,
+                "operator_rendered_action_count": 0,
+                "operator_upgrade_condition_text": "",
+                "operator_top_blocker_codes_json": "[]",
+                "operator_first_action_blocker_codes_json": "[]",
+                "operator_readiness_render_mode": "rejected_not_ready",
+                "selection_outcome": "selected_valid_winner",
+            },
+            {
+                "decision_status": "REJECTED",
+                "selected_decision_status": "REJECTED",
+                "expected_readiness": "not_ready",
+                "risk_band": "high",
+                "candidate_pool_count": 2,
+                "candidate_non_empty_count": 1,
+                "approval_shell_only_share": 0.20,
+                "offer_ready_contender_share": 0.0,
+                "provisional_offer_share": 0.0,
+                "selected_invalid_winner_flag": 0,
+                "selected_dice_flag": 0,
+                "selected_dice_valid_flag": 0,
+                "operator_selected_decision_status": "REJECTED",
+                "operator_rendered_blocker_count": 1,
+                "operator_rendered_action_count": 0,
+                "operator_upgrade_condition_text": "",
+                "operator_top_blocker_codes_json": "[]",
+                "operator_first_action_blocker_codes_json": "[]",
+                "operator_readiness_render_mode": "rejected_not_ready",
+                "selection_outcome": "selected_valid_winner",
+            },
+            {
+                "decision_status": "REJECTED",
+                "selected_decision_status": "REJECTED",
+                "expected_readiness": "week_24",
+                "risk_band": "near",
+                "candidate_pool_count": 2,
+                "candidate_non_empty_count": 1,
+                "approval_shell_only_share": 0.10,
+                "offer_ready_contender_share": 0.0,
+                "provisional_offer_share": 0.0,
+                "selected_invalid_winner_flag": 0,
+                "selected_dice_flag": 0,
+                "selected_dice_valid_flag": 0,
+                "operator_selected_decision_status": "REJECTED",
+                "operator_rendered_blocker_count": 1,
+                "operator_rendered_action_count": 0,
+                "operator_upgrade_condition_text": "",
+                "operator_top_blocker_codes_json": "[]",
+                "operator_first_action_blocker_codes_json": "[]",
+                "operator_readiness_render_mode": "rejected_not_ready",
+                "selection_outcome": "selected_valid_winner",
+            },
+        ]
+    )
+    policy_comparison_df = pd.DataFrame(
+        [
+            {
+                "policy_version": "v2.1_phase_40_5",
+                "analysis_only": 0,
+                "recommendation_status": "baseline",
+                "recommendation_reason": "baseline",
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 0,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+                "north_star_pass": False,
+            },
+            {
+                "policy_version": "analysis_mild_relax_v2_3a",
+                "analysis_only": 1,
+                "recommendation_status": "blocked",
+                "recommendation_reason": "No bounded APPROVED + CONDITIONAL uplift over the shipped baseline.",
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 0,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+                "north_star_pass": False,
+            },
+        ]
+    )
+    outcome_rule_comparison_df = pd.DataFrame(
+        [
+            {
+                "outcome_rule_profile_version": "v2.1_phase_40_5",
+                "analysis_only": 0,
+                "recommendation_status": "baseline",
+                "recommendation_reason": "baseline",
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 0,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+                "north_star_pass": False,
+            },
+            {
+                "outcome_rule_profile_version": "analysis_offer_support_v2_3b",
+                "analysis_only": 1,
+                "recommendation_status": "blocked",
+                "recommendation_reason": "No bounded offer/readiness-driven outcome movement was created.",
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 0,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+                "north_star_pass": False,
+            },
+        ]
+    )
+
+    payload = cal.build_movement_guardrail_evidence(
+        metrics_df,
+        policy_comparison_df=policy_comparison_df,
+        policy_recommendation_summary={"recommended_candidate_status": "no_safe_uplift"},
+        outcome_rule_comparison_df=outcome_rule_comparison_df,
+        outcome_rule_recommendation_summary={"recommended_outcome_rule_status": "no_safe_uplift"},
+        operator_briefing={
+            "dominant_blockers": [
+                {
+                    "blocker_code": "reason:TIME_BLOCK",
+                    "title": "Most files are too far from near-term readiness.",
+                }
+            ]
+        },
+    )
+
+    summary = payload["movement_guardrail_summary"]
+    assert summary["movement_guardrail_version"] == cal.MOVEMENT_GUARDRAIL_VERSION
+    assert summary["dominant_movement_bottleneck"] == "structural_cohort_limited"
+    assert summary["threshold_family"]["status"] == "no_movement"
+    assert summary["offer_readiness_family"]["status"] == "no_movement"
+    assert summary["structural_cohort"]["signal_score"] >= 2
+    assert payload["movement_promotion_blockers"].shape[0] == 2
+    assert set(payload["movement_bottleneck_breakdown"]["diagnosis_family"]) == {
+        "threshold_policy",
+        "offer_readiness",
+        "recommendation_space",
+        "structural_cohort",
+        "trust_guardrails",
+    }
+    review_md = cal.build_movement_guardrail_review_markdown(summary)
+    assert "Dominant bottleneck: structural_cohort_limited" in review_md
 
 
 def test_build_policy_profile_catalog_mirrors_shipped_baseline_and_locked_candidates() -> None:
