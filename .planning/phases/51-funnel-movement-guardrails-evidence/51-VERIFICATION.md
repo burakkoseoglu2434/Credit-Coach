@@ -7,8 +7,8 @@ score: 4/4 must-haves verified
 
 # Phase 51: Funnel Movement Guardrails & Evidence Verification Report
 
-**Phase Goal:** Explain why `APPROVED` and `CONDITIONAL` movement is still absent without reopening trust, policy ownership, or action semantics.  
-**Verified:** 2026-04-03T13:08:59+03:00  
+**Phase Goal:** Explain why `APPROVED` and `CONDITIONAL` movement is still absent without reopening trust, policy ownership, or action semantics.
+**Verified:** 2026-04-03T13:08:59+03:00
 **Status:** passed
 
 ## Goal Achievement
@@ -80,9 +80,9 @@ Carry-forward note:
 
 ## Verification Metadata
 
-**Verification approach:** Goal-backward from plans `51-01`, `51-02`, and `51-03`  
-**Automated checks:** compile, full regression pytest, three-cohort rerun proof, and diff hygiene passed  
-**Human checks required:** collection summaries, movement guardrail reviews, and cohort JSON summaries reviewed for all three runs  
+**Verification approach:** Goal-backward from plans `51-01`, `51-02`, and `51-03`
+**Automated checks:** compile, full regression pytest, three-cohort rerun proof, and diff hygiene passed
+**Human checks required:** collection summaries, movement guardrail reviews, and cohort JSON summaries reviewed for all three runs
 **Total verification time:** manual execution session
 
 ---
