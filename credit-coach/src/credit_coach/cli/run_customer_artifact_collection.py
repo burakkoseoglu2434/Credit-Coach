@@ -39,6 +39,8 @@ from credit_coach.evaluation.decision_calibration import (
     build_movement_guardrail_evidence,
     build_movement_guardrail_review_markdown,
     build_outcome_rule_comparison,
+    build_policy_baseline_selection,
+    build_policy_candidate_disposition,
     build_policy_comparison,
     build_readiness_distribution,
     build_selection_work_frame,
@@ -260,6 +262,11 @@ def _validate_customer_artifact_parity(
     summary = _normalized_roadmap_summary(bundle)
     metrics_summary = dict(bundle.metrics_summary)
     mismatch_fields: list[str] = []
+    optional_render_fields = {
+        "selected_path_customer_summary",
+        "selected_path_operator_summary",
+        "selected_path_render_version",
+    }
     field_names = (
         "customer_id",
         "best_plan_id",
@@ -272,6 +279,9 @@ def _validate_customer_artifact_parity(
         "selected_recommendation_source",
         "selected_action_count",
         "selected_recommendation_projection_version",
+        "selected_path_customer_summary",
+        "selected_path_operator_summary",
+        "selected_path_render_version",
         "credit_readiness_stage",
         "plan_execution_probability",
         "approval_dependent_plan_probability",
@@ -315,6 +325,8 @@ def _validate_customer_artifact_parity(
     for field in field_names:
         expected = source_pairs.get(field, metrics_summary.get(field))
         actual = metrics_row.get(field)
+        if field in optional_render_fields and not _safe_text(expected) and not _safe_text(actual):
+            continue
         if not _is_close_contract_value(expected, actual):
             mismatch_fields.append(field)
     if int(_safe_int(summary.get("best_action_count", 0), 0)) != int(len(steps_df)):
@@ -712,6 +724,18 @@ def _augment_plans_df(
     out = plans_df.copy()
     if "plan_source" not in out.columns:
         out["plan_source"] = ""
+    if "path_id" not in out.columns:
+        out["path_id"] = ""
+    if "path_type" not in out.columns:
+        out["path_type"] = ""
+    if "path_signature" not in out.columns:
+        out["path_signature"] = ""
+    if "path_rankable_flag" not in out.columns:
+        out["path_rankable_flag"] = 0
+    if "path_representative_flag" not in out.columns:
+        out["path_representative_flag"] = 0
+    if "path_rank" not in out.columns:
+        out["path_rank"] = pd.Series([pd.NA] * len(out), index=out.index, dtype="object")
     if "contender_bucket" not in out.columns:
         out["contender_bucket"] = ""
     if "empty_candidate_reason" not in out.columns:
@@ -764,14 +788,20 @@ def _augment_plans_df(
         _safe_text(summary.get("selected_recommendation_projection_version")),
     )
     out.insert(17, "selected_action_count", int(_safe_int(summary.get("selected_action_count", 0), 0)))
+    out.insert(18, "selected_path_id", _safe_text(summary.get("selected_path_id")))
+    out.insert(19, "selected_path_type", _safe_text(summary.get("selected_path_type")))
+    out.insert(20, "selected_path_rank", int(_safe_int(summary.get("selected_path_rank", 0), 0)))
+    out.insert(21, "selected_path_customer_summary", _safe_text(summary.get("selected_path_customer_summary")))
+    out.insert(22, "selected_path_operator_summary", _safe_text(summary.get("selected_path_operator_summary")))
+    out.insert(23, "selected_path_render_version", _safe_text(summary.get("selected_path_render_version")))
     if "action_count" in out.columns:
-        out.insert(18, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
+        out.insert(24, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
     else:
-        out.insert(18, "plan_step_count", 0)
+        out.insert(24, "plan_step_count", 0)
     plan_contract_pass = pd.Series([pd.NA] * len(out), index=out.index, dtype="object")
     selected_mask = out["selected_best_flag"].astype(int) == 1
     plan_contract_pass.loc[selected_mask] = int(_safe_int(summary.get("plan_contract_pass", 0), 0))
-    out.insert(19, "plan_contract_pass", plan_contract_pass)
+    out.insert(25, "plan_contract_pass", plan_contract_pass)
     return out
 
 
@@ -836,6 +866,7 @@ def _collection_summary_markdown(
     outcome_rule_summary: Mapping[str, Any],
     operator_briefing: Mapping[str, Any],
     movement_guardrail_summary: Mapping[str, Any] | None = None,
+    policy_baseline_selection: Mapping[str, Any] | None = None,
 ) -> str:
     decision_status_counts = (
         metrics_df.get("decision_status", metrics_df.get("best_status", pd.Series(dtype=object)))
@@ -1033,6 +1064,7 @@ def _collection_summary_markdown(
         pd.to_numeric(metrics_df.get("selected_outcome_rule_applied", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum()
     )
     movement_guardrail_summary = dict(movement_guardrail_summary or {})
+    policy_baseline_selection = dict(policy_baseline_selection or {})
     threshold_family = dict(movement_guardrail_summary.get("threshold_family", {}) or {})
     outcome_family = dict(movement_guardrail_summary.get("offer_readiness_family", {}) or {})
     trust_guardrails = dict(movement_guardrail_summary.get("trust_guardrails", {}) or {})
@@ -1093,6 +1125,15 @@ def _collection_summary_markdown(
             f"- Recommended outcome-rule profile: {_safe_text(outcome_rule_summary.get('recommended_outcome_rule_profile_version'), 'n/a') or 'n/a'}",
             f"- Recommended outcome-rule reason: {_safe_text(outcome_rule_summary.get('recommended_outcome_rule_reason'), 'n/a') or 'n/a'}",
             f"- Selected outcome-rule note count: {selected_outcome_rule_applied_count}",
+            "",
+            "## Baseline Selection",
+            f"- Preferred demo profile: {_safe_text(policy_baseline_selection.get('preferred_demo_profile'), 'n/a') or 'n/a'}",
+            f"- Fallback demo profile: {_safe_text(policy_baseline_selection.get('fallback_demo_profile'), 'n/a') or 'n/a'}",
+            f"- Preferred runtime policy: {_safe_text(policy_baseline_selection.get('preferred_runtime_policy_version'), 'n/a') or 'n/a'}",
+            f"- Selection reason: {_safe_text(policy_baseline_selection.get('policy_baseline_selection_reason'), 'n/a') or 'n/a'}",
+            f"- Threshold family promotion status: {_safe_text(policy_baseline_selection.get('threshold_family_promotion_status'), 'n/a') or 'n/a'}",
+            f"- Outcome-rule family promotion status: {_safe_text(policy_baseline_selection.get('outcome_rule_family_promotion_status'), 'n/a') or 'n/a'}",
+            f"- Next milestone focus: {_safe_text(policy_baseline_selection.get('next_milestone_focus'), 'n/a') or 'n/a'}",
             "",
             "## Funnel Guardrails",
             f"- Dominant movement bottleneck: {_safe_text(movement_guardrail_summary.get('dominant_movement_bottleneck'), 'n/a') or 'n/a'}",
@@ -1188,6 +1229,8 @@ def _collection_summary_markdown(
             f"- Outcome-rule customer effects: `{manifest_rel_root}/calibration/outcome_rule_customer_effects.csv`",
             f"- Outcome-rule profile catalog: `{manifest_rel_root}/calibration/outcome_rule_profile_catalog.json`",
             f"- Outcome-rule recommendation summary: `{manifest_rel_root}/calibration/outcome_rule_recommendation_summary.json`",
+            f"- Policy baseline selection: `{manifest_rel_root}/calibration/policy_baseline_selection.json`",
+            f"- Policy candidate disposition: `{manifest_rel_root}/calibration/policy_candidate_disposition.csv`",
             f"- Movement guardrail summary: `{manifest_rel_root}/calibration/movement_guardrail_summary.json`",
             f"- Movement promotion blockers: `{manifest_rel_root}/calibration/movement_promotion_blockers.csv`",
             f"- Movement bottleneck breakdown: `{manifest_rel_root}/calibration/movement_bottleneck_breakdown.csv`",
@@ -1455,15 +1498,34 @@ def main(argv: Sequence[str] | None = None):
             for record in pre_customer_records
         ]
     ).sort_values(["batch_index", "customer_id"]).reset_index(drop=True)
+    def _concat_collection_frames(frames: list[pd.DataFrame], *, default_columns: list[str]) -> pd.DataFrame:
+        column_order: list[str] = []
+        prepared_frames: list[pd.DataFrame] = []
+        for frame in frames:
+            if frame.empty:
+                continue
+            for column in frame.columns:
+                if column not in column_order:
+                    column_order.append(column)
+            cleaned_frame = frame.dropna(axis=1, how="all")
+            if cleaned_frame.empty:
+                continue
+            prepared_frames.append(cleaned_frame)
+        if not prepared_frames:
+            return pd.DataFrame(columns=default_columns)
+        return pd.concat(prepared_frames, ignore_index=True).reindex(columns=column_order)
+
     customer_plans_df = (
-        pd.concat(plan_frames, ignore_index=True)
-        if plan_frames
-        else pd.DataFrame(columns=["collection_run_id", "batch_index", "source_row_index", "customer_id", "plan_id"])
+        _concat_collection_frames(
+            plan_frames,
+            default_columns=["collection_run_id", "batch_index", "source_row_index", "customer_id", "plan_id"],
+        )
     )
     customer_steps_df = (
-        pd.concat(step_frames, ignore_index=True)
-        if step_frames
-        else pd.DataFrame(columns=["collection_run_id", "batch_index", "source_row_index", "customer_id"])
+        _concat_collection_frames(
+            step_frames,
+            default_columns=["collection_run_id", "batch_index", "source_row_index", "customer_id"],
+        )
     )
     calibration_input_df = prepare_metrics_for_calibration(pre_metrics_df)
     funnel_summary = build_funnel_summary(calibration_input_df)
@@ -1582,6 +1644,18 @@ def main(argv: Sequence[str] | None = None):
     movement_promotion_blockers_df = movement_guardrail_payload["movement_promotion_blockers"]
     movement_bottleneck_breakdown_df = movement_guardrail_payload["movement_bottleneck_breakdown"]
     movement_ceiling_breakdown_df = movement_guardrail_payload["movement_ceiling_breakdown"]
+    policy_candidate_disposition_df = build_policy_candidate_disposition(
+        policy_comparison_df=policy_comparison_df,
+        outcome_rule_comparison_df=outcome_rule_comparison_df,
+    )
+    policy_baseline_selection = build_policy_baseline_selection(
+        policy_version_evaluated=policy_version_evaluated,
+        policy_recommendation_summary=calibration_summary,
+        outcome_rule_recommendation_summary=outcome_rule_summary,
+        movement_guardrail_summary=movement_guardrail_summary,
+        policy_comparison_df=policy_comparison_df,
+        outcome_rule_comparison_df=outcome_rule_comparison_df,
+    )
 
     funnel_json = calibration_root / "funnel_summary.json"
     readiness_csv = calibration_root / "readiness_distribution.csv"
@@ -1596,6 +1670,8 @@ def main(argv: Sequence[str] | None = None):
     outcome_rule_customer_effects_csv = calibration_root / "outcome_rule_customer_effects.csv"
     outcome_rule_catalog_json = calibration_root / "outcome_rule_profile_catalog.json"
     outcome_rule_recommendation_json = calibration_root / "outcome_rule_recommendation_summary.json"
+    policy_baseline_selection_json = calibration_root / "policy_baseline_selection.json"
+    policy_candidate_disposition_csv = calibration_root / "policy_candidate_disposition.csv"
     movement_guardrail_summary_json = calibration_root / "movement_guardrail_summary.json"
     movement_promotion_blockers_csv = calibration_root / "movement_promotion_blockers.csv"
     movement_bottleneck_breakdown_csv = calibration_root / "movement_bottleneck_breakdown.csv"
@@ -1626,6 +1702,11 @@ def main(argv: Sequence[str] | None = None):
         json.dumps(outcome_rule_recommendation_summary, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+    policy_baseline_selection_json.write_text(
+        json.dumps(policy_baseline_selection, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    policy_candidate_disposition_df.to_csv(policy_candidate_disposition_csv, index=False)
     movement_guardrail_summary_json.write_text(
         json.dumps(movement_guardrail_summary, indent=2, ensure_ascii=False),
         encoding="utf-8",
@@ -1685,6 +1766,15 @@ def main(argv: Sequence[str] | None = None):
         "recommended_outcome_rule_status": _safe_text(outcome_rule_summary.get("recommended_outcome_rule_status")),
         "recommended_outcome_rule_reason": _safe_text(outcome_rule_summary.get("recommended_outcome_rule_reason")),
         "outcome_rule_recommendation_summary": dict(outcome_rule_recommendation_summary),
+        "preferred_demo_profile": _safe_text(policy_baseline_selection.get("preferred_demo_profile")),
+        "fallback_demo_profile": _safe_text(policy_baseline_selection.get("fallback_demo_profile")),
+        "policy_baseline_selection_reason": _safe_text(policy_baseline_selection.get("policy_baseline_selection_reason")),
+        "threshold_family_promotion_status": _safe_text(policy_baseline_selection.get("threshold_family_promotion_status")),
+        "outcome_rule_family_promotion_status": _safe_text(
+            policy_baseline_selection.get("outcome_rule_family_promotion_status")
+        ),
+        "next_milestone_focus": _safe_text(policy_baseline_selection.get("next_milestone_focus")),
+        "policy_baseline_selection": dict(policy_baseline_selection),
         "dominant_movement_bottleneck": _safe_text(movement_guardrail_summary.get("dominant_movement_bottleneck")),
         "movement_guardrail_summary": _safe_text(movement_guardrail_summary.get("movement_guardrail_summary")),
         "promotion_blocker_summary": _safe_text(movement_guardrail_summary.get("promotion_blocker_summary")),
@@ -1694,6 +1784,7 @@ def main(argv: Sequence[str] | None = None):
         "calibration_summary": calibration_summary,
         "outcome_rule_summary": outcome_rule_summary,
         "movement_guardrail_summary_payload": movement_guardrail_summary,
+        "policy_candidate_disposition_count": int(len(policy_candidate_disposition_df)),
         "operator_briefing_summary": operator_briefing,
         "source_mix_summary": {
             "best_source_distribution": metrics_df.get("best_plan_source", pd.Series(dtype=object)).astype(str).value_counts().sort_index().to_dict(),
@@ -2010,6 +2101,8 @@ def main(argv: Sequence[str] | None = None):
             "outcome_rule_customer_effects_csv": f"{rel_root}/calibration/outcome_rule_customer_effects.csv",
             "outcome_rule_profile_catalog_json": f"{rel_root}/calibration/outcome_rule_profile_catalog.json",
             "outcome_rule_recommendation_summary_json": f"{rel_root}/calibration/outcome_rule_recommendation_summary.json",
+            "policy_baseline_selection_json": f"{rel_root}/calibration/policy_baseline_selection.json",
+            "policy_candidate_disposition_csv": f"{rel_root}/calibration/policy_candidate_disposition.csv",
             "movement_guardrail_summary_json": f"{rel_root}/calibration/movement_guardrail_summary.json",
             "movement_promotion_blockers_csv": f"{rel_root}/calibration/movement_promotion_blockers.csv",
             "movement_bottleneck_breakdown_csv": f"{rel_root}/calibration/movement_bottleneck_breakdown.csv",
@@ -2037,6 +2130,7 @@ def main(argv: Sequence[str] | None = None):
         outcome_rule_summary=outcome_rule_summary,
         operator_briefing=operator_briefing,
         movement_guardrail_summary=movement_guardrail_summary,
+        policy_baseline_selection=policy_baseline_selection,
     )
     summary_path = collection_root / "collection_summary.md"
     summary_path.write_text(summary_md, encoding="utf-8")

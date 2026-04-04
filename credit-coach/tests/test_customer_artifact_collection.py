@@ -18,6 +18,7 @@ from credit_coach.cli.run_recourse import (
 )
 from credit_coach.coaching.planner import BestPlanSelectionResult
 from credit_coach.data.schema import PlanAction, PlanRecord, TrajectoryCheckpoint, TrajectoryPhase
+from credit_coach.recourse.pathing import build_recourse_path_records
 
 
 class _DummyModel:
@@ -672,6 +673,12 @@ def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Pa
             "meta": {"explainability_confidence": 0.8, "stability_score": 0.9, "baseline_drift_l1": 0.02},
         },
     )
+    path_records = build_recourse_path_records(
+        [plan],
+        selected_plan_id=plan.plan_id,
+        base_pd=0.44,
+        tau=0.35,
+    )
     bundle = build_customer_artifact_bundle(
         customer_id="cust-bundle",
         model_version="model-001",
@@ -700,6 +707,7 @@ def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Pa
         fairness_penalty=0.0,
         decision_log_record={"decision_id": "d-1", "selection_propensity": 1.0},
         decision_log_summary={"decision_log_completeness": 1.0},
+        path_records=path_records,
     )
 
     expected_plan_row = _plan_to_row(plan)
@@ -707,12 +715,23 @@ def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Pa
     assert bundle.plans_df.to_dict(orient="records")[0] == expected_plan_row
     assert bundle.roadmap_steps_df.iloc[0]["customer_id"] == "cust-bundle"
     assert bundle.metrics_summary["best_plan_id"] == "bundle-plan"
+    assert bundle.metrics_summary["selected_path_id"] == plan.path_id
+    assert bundle.metrics_summary["selected_path_type"] == "customer_only"
+    assert bundle.metrics_summary["selected_path_customer_summary"]
+    assert bundle.metrics_summary["selected_path_operator_summary"]
+    assert bundle.metrics_summary["selected_path_render_version"] == "phase59_action_semantics_rendering_v1"
+    assert not bundle.paths_df.empty
+    first_path = bundle.paths_df.iloc[0].to_dict()
+    assert first_path["customer_summary"]["en"]
+    assert first_path["operator_summary"]["en"]
+    assert first_path["render_version"] == "phase59_action_semantics_rendering_v1"
 
     out_dir = tmp_path / "raw" / "cust-bundle"
     paths = write_customer_artifact_bundle(bundle, out_dir)
     assert paths["plans_json"].exists()
     assert paths["roadmap_json"].exists()
     assert paths["metrics_json"].exists()
+    assert paths["paths_json"].exists()
     assert paths["roadmap_steps_csv"].exists()
 
 
@@ -984,6 +1003,8 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert (collection_root / "calibration" / "outcome_rule_customer_effects.csv").exists()
     assert (collection_root / "calibration" / "outcome_rule_profile_catalog.json").exists()
     assert (collection_root / "calibration" / "outcome_rule_recommendation_summary.json").exists()
+    assert (collection_root / "calibration" / "policy_baseline_selection.json").exists()
+    assert (collection_root / "calibration" / "policy_candidate_disposition.csv").exists()
     assert (collection_root / "calibration" / "movement_guardrail_summary.json").exists()
     assert (collection_root / "calibration" / "movement_promotion_blockers.csv").exists()
     assert (collection_root / "calibration" / "movement_bottleneck_breakdown.csv").exists()
@@ -1076,6 +1097,13 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "candidate_outcome_rule_versions_compared" in manifest
     assert "recommended_outcome_rule_status" in manifest
     assert "outcome_rule_summary" in manifest
+    assert "preferred_demo_profile" in manifest
+    assert "fallback_demo_profile" in manifest
+    assert "policy_baseline_selection_reason" in manifest
+    assert "threshold_family_promotion_status" in manifest
+    assert "outcome_rule_family_promotion_status" in manifest
+    assert "next_milestone_focus" in manifest
+    assert "policy_baseline_selection" in manifest
     assert "dominant_movement_bottleneck" in manifest
     assert "movement_guardrail_summary" in manifest
     assert "promotion_blocker_summary" in manifest
@@ -1097,6 +1125,8 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
         }
     )
     assert "movement_guardrail_summary_json" in manifest["calibration_files"]
+    assert "policy_baseline_selection_json" in manifest["calibration_files"]
+    assert "policy_candidate_disposition_csv" in manifest["calibration_files"]
     assert "movement_promotion_blockers_csv" in manifest["calibration_files"]
     assert "movement_bottleneck_breakdown_csv" in manifest["calibration_files"]
     assert "movement_ceiling_breakdown_csv" in manifest["calibration_files"]
@@ -1111,6 +1141,7 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "## Readiness" in summary_md
     assert "## Calibration" in summary_md
     assert "## Outcome Rules" in summary_md
+    assert "## Baseline Selection" in summary_md
     assert "## Funnel Guardrails" in summary_md
     assert "## Movement Diagnosis" in summary_md
     assert "## Planner Source Mix" in summary_md
@@ -1123,6 +1154,7 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "analysis-only" in review_md
     assert "## Outcome Rules" in review_md
     assert "# Movement Guardrail Review" in movement_review_md
+    assert "Preferred demo profile" in summary_md
 
 
 def test_run_customer_artifact_collection_falls_back_to_sample_csv_when_processed_missing(

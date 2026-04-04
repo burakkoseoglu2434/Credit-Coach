@@ -3,10 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 from credit_coach.data.schema import PlanAction, PlanRecord
-from credit_coach.recourse.action_space import get_numeric_target_metadata
+from credit_coach.recourse.action_space import (
+    get_action_template,
+    get_dice_generatable_features,
+    get_numeric_target_metadata,
+)
 
 
-DICE_QUALITY_GATE_VERSION = "phase_46_v1"
+DICE_QUALITY_GATE_VERSION = "phase_56_v1"
 _DICE_SEMANTIC_WARNING_PENALTY_PER_CODE = 8.0
 _DICE_SEMANTIC_WARNING_PENALTY_CAP = 16.0
 _VALID_CONSTRAINT_STATUSES = {"valid", "repaired", "provisional"}
@@ -39,6 +43,7 @@ def _requires_primary_numeric_target(action: PlanAction) -> bool:
     numeric_meta = get_numeric_target_metadata(
         str(getattr(action, "feature_name", "") or ""),
         action_month=max(1, int(getattr(action, "time_months", 1) or 1)),
+        allow_mapped_feature=True,
     )
     return bool(numeric_meta.get("is_primary_target"))
 
@@ -112,6 +117,57 @@ def _generic_action_title(action: PlanAction) -> bool:
     return bool(title and key and title == key)
 
 
+def _outside_phase56_dice_contract(action: PlanAction) -> bool:
+    feature_name = str(getattr(action, "feature_name", "") or "")
+    return feature_name not in set(get_dice_generatable_features([feature_name]))
+
+
+def _categorical_transition_ambiguous(action: PlanAction) -> bool:
+    numeric_meta = get_numeric_target_metadata(
+        str(getattr(action, "feature_name", "") or ""),
+        action_month=max(1, int(getattr(action, "time_months", 1) or 1)),
+        allow_mapped_feature=True,
+    )
+    if str(numeric_meta.get("unit") or "") != "boolean_state":
+        return False
+    current_value = float(getattr(action, "current_value", 0.0) or 0.0)
+    target_value = float(getattr(action, "target_value", current_value) or current_value)
+    if abs(current_value - round(current_value)) > 1e-9:
+        return True
+    if abs(target_value - round(target_value)) > 1e-9:
+        return True
+    direction = str(numeric_meta.get("direction") or "")
+    if direction == "increase" and target_value < current_value:
+        return True
+    if direction == "decrease" and target_value > current_value:
+        return True
+    return False
+
+
+def _group_primary_semantic_codes(actionable_actions: list[PlanAction]) -> set[str]:
+    by_action_key: dict[str, set[str]] = {}
+    for action in actionable_actions:
+        action_key = str(getattr(action, "action_key", "") or "").strip()
+        feature_name = str(getattr(action, "feature_name", "") or "").strip()
+        if not action_key or not feature_name:
+            continue
+        by_action_key.setdefault(action_key, set()).add(feature_name)
+
+    semantic_codes: set[str] = set()
+    for action_key, feature_names in by_action_key.items():
+        try:
+            template = get_action_template(action_key)
+        except KeyError:
+            continue
+        if len(template.primary_features_impacted) <= 1:
+            continue
+        primary_target = str(template.primary_target_feature_name or "").strip()
+        if primary_target and primary_target not in feature_names:
+            semantic_codes.add("missing_action_group_primary_target")
+            semantic_codes.add("support_only_without_primary_target")
+    return semantic_codes
+
+
 def annotate_dice_candidate_quality(
     plan: PlanRecord,
     *,
@@ -139,6 +195,10 @@ def annotate_dice_candidate_quality(
                 semantic_codes.add("missing_primary_numeric_target")
         if _customer_institution_role_confusion(action):
             semantic_codes.add("customer_institution_role_confusion")
+        if _outside_phase56_dice_contract(action):
+            semantic_codes.add("outside_phase56_dice_contract")
+        if _categorical_transition_ambiguous(action):
+            semantic_codes.add("non_deterministic_categorical_transition")
         if not _is_non_empty_text(getattr(action, "action_title", None)) or not _is_non_empty_text(
             getattr(action, "action_family", None)
         ):
@@ -148,6 +208,8 @@ def annotate_dice_candidate_quality(
         family_key = str(getattr(action, "action_family", "") or getattr(action, "feature_name", "") or "").strip()
         if family_key:
             actionable_families.add(family_key)
+
+    semantic_codes |= _group_primary_semantic_codes(actionable_actions)
 
     if normalized_backend == "heuristic_fallback":
         warning_codes.add("heuristic_fallback_backend")

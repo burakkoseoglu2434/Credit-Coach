@@ -77,6 +77,8 @@ def _build_collection_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
         "calibration/outcome_rule_customer_effects.csv",
         "calibration/outcome_rule_profile_catalog.json",
         "calibration/outcome_rule_recommendation_summary.json",
+        "calibration/policy_baseline_selection.json",
+        "calibration/policy_candidate_disposition.csv",
         "calibration/movement_guardrail_summary.json",
         "calibration/movement_promotion_blockers.csv",
         "calibration/movement_bottleneck_breakdown.csv",
@@ -137,6 +139,12 @@ def _build_collection_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
         "recommended_outcome_rule_profile_version": "analysis_offer_readiness_combo_v2_3b",
         "recommended_outcome_rule_status": "shortlisted",
         "recommended_outcome_rule_reason": "Offer/readiness-driven uplift is positive while Phase 50 guardrails remain within limits.",
+        "preferred_demo_profile": "preferred_demo_baseline_v2_3",
+        "fallback_demo_profile": "trust_first_baseline_v2_3",
+        "policy_baseline_selection_reason": "Phase 52 keeps the shipped live baseline as the preferred runtime policy because shortlisted bounded candidates remain analysis-only and are not promoted in this milestone-close package.",
+        "threshold_family_promotion_status": "shortlisted",
+        "outcome_rule_family_promotion_status": "shortlisted",
+        "next_milestone_focus": "expand_movement_levers",
         "dominant_movement_bottleneck": "structural_cohort_limited",
         "movement_guardrail_summary": "Neither threshold nor offer/readiness candidates created safe movement; this cohort appears structurally too far from near-term movement.",
         "promotion_blocker_summary": "No candidate family created promotable movement under the shipped trust and risk guardrails.",
@@ -164,6 +172,8 @@ def _build_collection_fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
             "outcome_rule_customer_effects_csv": "tables/customer_artifact_collection/calibration/outcome_rule_customer_effects.csv",
             "outcome_rule_profile_catalog_json": "tables/customer_artifact_collection/calibration/outcome_rule_profile_catalog.json",
             "outcome_rule_recommendation_summary_json": "tables/customer_artifact_collection/calibration/outcome_rule_recommendation_summary.json",
+            "policy_baseline_selection_json": "tables/customer_artifact_collection/calibration/policy_baseline_selection.json",
+            "policy_candidate_disposition_csv": "tables/customer_artifact_collection/calibration/policy_candidate_disposition.csv",
             "movement_guardrail_summary_json": "tables/customer_artifact_collection/calibration/movement_guardrail_summary.json",
             "movement_promotion_blockers_csv": "tables/customer_artifact_collection/calibration/movement_promotion_blockers.csv",
             "movement_bottleneck_breakdown_csv": "tables/customer_artifact_collection/calibration/movement_bottleneck_breakdown.csv",
@@ -199,6 +209,8 @@ def test_evaluate_pilot_artifact_qa_passes_for_complete_package(tmp_path: Path) 
     assert summary["recommended_candidate_policy_version"] == "analysis_mild_relax_v2_3a"
     assert summary["recommended_outcome_rule_status"] == "shortlisted"
     assert summary["recommended_outcome_rule_profile_version"] == "analysis_offer_readiness_combo_v2_3b"
+    assert summary["preferred_demo_profile"] == "preferred_demo_baseline_v2_3"
+    assert summary["fallback_demo_profile"] == "trust_first_baseline_v2_3"
     assert summary["dominant_movement_bottleneck"] == "structural_cohort_limited"
     assert "structurally too far" in summary["movement_guardrail_summary"]
 

@@ -6,6 +6,7 @@ from credit_coach.coaching.messaging import (
     build_operator_offer_state,
     build_operator_readiness_note,
     build_operator_summary_line,
+    build_recourse_path_render_payload,
     build_adverse_action_payload,
     build_adverse_action_reasons,
     build_checkpoint_narrative,
@@ -72,6 +73,40 @@ def test_operator_messaging_helpers_render_numeric_driver_and_safe_states():
         decision_status="CONDITIONAL",
         conditional_type="OFFER_GATED",
     ).en
+
+
+def test_build_recourse_path_render_payload_returns_additive_render_contract() -> None:
+    payload = build_recourse_path_render_payload(
+        {"path_id": "path-1", "path_type": "customer_only"},
+        {
+            "actions": [
+                {
+                    "action_key": "limit_credit_usage",
+                    "action_title": "Limit credit usage",
+                    "business_view": {
+                        "action_key": "limit_credit_usage",
+                        "action_class": "behavioral",
+                        "action_title": "Limit credit usage",
+                        "action_group_id": "limit_credit_usage:phase_1",
+                    },
+                    "primary_numeric_target": {
+                        "metric_key": "credit_utilization_pct",
+                        "unit": "percentage_points",
+                        "current_value": 63.2,
+                        "target_value": 45.0,
+                        "delta_value": -18.2,
+                        "due_month": 3,
+                        "direction": "decrease",
+                    },
+                }
+            ]
+        },
+        customer_context={"revol_bal": 6320.0, "total_rev_hi_lim": 10000.0},
+    )
+
+    assert payload["render_version"] == "phase59_action_semantics_rendering_v1"
+    assert payload["customer_summary"] is not None
+    assert payload["operator_summary"] is not None
 
 
 def test_build_customer_roadmap_narrative_is_deterministic():

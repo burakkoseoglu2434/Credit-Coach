@@ -15,6 +15,7 @@ legacy ActionClass / ActionFamily literals.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -37,6 +38,37 @@ NumericUnit = Literal[
     "boolean_state",
     "count",
 ]
+FeatureMappingStatus = Literal["primary_actionable", "supporting_actionable", "non_actionable"]
+FeatureMappingRole = Literal["primary", "supporting", "none"]
+NonActionableReason = Literal[
+    "historical_fact",
+    "derived_outcome",
+    "identity_or_geography",
+    "descriptive_context_only",
+    "policy_or_metadata_only",
+    "no_safe_single_action_interpretation",
+]
+DiceValueKind = Literal["numeric", "ordered_state"]
+
+LEGACY_ACTION_CLASS_BY_OWNER: dict[ActionOwner, Literal["behavioral", "structural", "institutional"]] = {
+    "customer": "behavioral",
+    "hybrid": "structural",
+    "institution": "institutional",
+}
+
+LEGACY_ACTION_FAMILY_BY_ACTION_KEY: dict[str, str] = {
+    "adjust_requested_loan_amount": "application_sizing",
+    "refinance": "debt_restructuring",
+    "increase_regular_income": "income_growth",
+    "verify_income_documentation": "cashflow_management",
+    "reduce_spending": "cashflow_management",
+    "debt_consolidation": "debt_restructuring",
+    "limit_credit_usage": "utilization",
+    "improve_payment_consistency": "payment_behavior",
+    "credit_limit_adjustment": "limit_management",
+    "settlement_discount": "hardship_relief",
+    "installment_plan": "hardship_relief",
+}
 
 
 @dataclass(frozen=True)
@@ -65,12 +97,23 @@ class ActionTemplate:
     prerequisite_tags: tuple[str, ...] = field(default_factory=tuple)
     conflict_tags: tuple[str, ...] = field(default_factory=tuple)
 
+    @property
+    def action_class(self) -> Literal["behavioral", "structural", "institutional"]:
+        return LEGACY_ACTION_CLASS_BY_OWNER[self.action_owner]
+
+    @property
+    def action_family(self) -> str:
+        return LEGACY_ACTION_FAMILY_BY_ACTION_KEY[self.action_key]
+
 
 @dataclass(frozen=True)
 class ActionSpec:
     feature_name: str
     actionable: bool
     direction: Literal["decrease", "increase", "any"]
+    mapping_status: FeatureMappingStatus = "non_actionable"
+    mapping_action_key: str | None = None
+    non_actionable_reason: NonActionableReason | None = None
     min_val: float | None = None
     max_val: float | None = None
     step: float = 1.0
@@ -99,6 +142,38 @@ class ActionSpec:
     prerequisite_tags: tuple[str, ...] = field(default_factory=tuple)
     conflict_tags: tuple[str, ...] = field(default_factory=tuple)
 
+    @property
+    def mapping_role(self) -> FeatureMappingRole:
+        if self.mapping_status == "primary_actionable":
+            return "primary"
+        if self.mapping_status == "supporting_actionable":
+            return "supporting"
+        return "none"
+
+    @property
+    def action_class(self) -> Literal["behavioral", "structural", "institutional"] | None:
+        if not self.action_owner:
+            return None
+        return LEGACY_ACTION_CLASS_BY_OWNER[self.action_owner]
+
+    @property
+    def action_family(self) -> str | None:
+        key = self.action_key or self.mapping_action_key
+        if not key:
+            return None
+        return LEGACY_ACTION_FAMILY_BY_ACTION_KEY.get(key)
+
+
+@dataclass(frozen=True)
+class InstitutionRuleContract:
+    action_key: str
+    primary_anchor_feature: str
+    trigger_family: str
+    trigger_features: tuple[str, ...]
+    exclusion_reason_codes: tuple[str, ...] = field(default_factory=tuple)
+    owner: ActionOwner = "institution"
+    offer_required_flag: bool = False
+
 
 ACTION_CATALOG: dict[str, ActionTemplate] = {
     "adjust_requested_loan_amount": ActionTemplate(
@@ -110,6 +185,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
         description="Reduce the requested loan size to improve affordability and approval odds.",
         primary_features_impacted=("loan_amnt",),
         primary_target_feature_name="loan_amnt",
+        dice_eligible=True,
         requires_numeric_target=True,
     ),
     "refinance": ActionTemplate(
@@ -119,8 +195,9 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
         action_category="credit_structure",
         title="Refinance or restructure debt",
         description="Use refinancing to improve rate and installment affordability.",
-        primary_features_impacted=("int_rate", "installment"),
+        primary_features_impacted=("term", "int_rate", "installment"),
         primary_target_feature_name="installment",
+        dice_eligible=True,
         requires_numeric_target=True,
         prerequisite_tags=("stable_income",),
     ),
@@ -145,6 +222,7 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
         description="Complete documentation or verification steps to strengthen the file.",
         primary_features_impacted=("verification_status",),
         primary_target_feature_name="verification_status",
+        dice_eligible=True,
         provides_tags=("income_verified",),
     ),
     "reduce_spending": ActionTemplate(
@@ -257,6 +335,45 @@ ACTION_CATALOG: dict[str, ActionTemplate] = {
     ),
 }
 
+PHASE_57_INSTITUTION_RULE_CONTRACTS: dict[str, InstitutionRuleContract] = {
+    "credit_limit_adjustment": InstitutionRuleContract(
+        action_key="credit_limit_adjustment",
+        primary_anchor_feature="total_rev_hi_lim",
+        trigger_family="utilization_relief",
+        trigger_features=("revol_util", "revol_bal", "total_rev_hi_lim", "total_bc_limit", "tot_hi_cred_lim"),
+        exclusion_reason_codes=("missing_limit_anchor", "utilization_not_stressed"),
+        owner="institution",
+        offer_required_flag=True,
+    ),
+    "debt_consolidation": InstitutionRuleContract(
+        action_key="debt_consolidation",
+        primary_anchor_feature="revol_bal",
+        trigger_family="revolving_restructure",
+        trigger_features=("revol_bal", "tot_cur_bal", "total_bal_ex_mort", "dti"),
+        exclusion_reason_codes=("missing_primary_balance_anchor", "restructure_signal_too_weak"),
+        owner="hybrid",
+        offer_required_flag=False,
+    ),
+    "settlement_discount": InstitutionRuleContract(
+        action_key="settlement_discount",
+        primary_anchor_feature="tot_coll_amt",
+        trigger_family="collections_relief",
+        trigger_features=("tot_coll_amt", "debt_settlement_flag", "pub_rec_bankruptcies", "tax_liens"),
+        exclusion_reason_codes=("missing_collections_anchor", "installment_plan_preferred"),
+        owner="institution",
+        offer_required_flag=True,
+    ),
+    "installment_plan": InstitutionRuleContract(
+        action_key="installment_plan",
+        primary_anchor_feature="delinq_amnt",
+        trigger_family="structured_delinquency_relief",
+        trigger_features=("delinq_amnt", "acc_now_delinq", "collections_12_mths_ex_med", "annual_inc"),
+        exclusion_reason_codes=("missing_delinquency_anchor", "insufficient_payment_stability"),
+        owner="institution",
+        offer_required_flag=True,
+    ),
+}
+
 
 def _spec(
     *,
@@ -264,6 +381,9 @@ def _spec(
     actionable: bool,
     direction: Literal["decrease", "increase", "any"],
     action_key: str | None = None,
+    mapping_action_key: str | None = None,
+    mapping_status: FeatureMappingStatus | None = None,
+    non_actionable_reason: NonActionableReason | None = None,
     min_val: float | None = None,
     max_val: float | None = None,
     step: float = 1.0,
@@ -272,10 +392,23 @@ def _spec(
     description: str = "",
 ) -> ActionSpec:
     template = ACTION_CATALOG.get(action_key) if action_key else None
+    mapping_key = mapping_action_key or action_key
+    mapping_template = ACTION_CATALOG.get(mapping_key) if mapping_key else None
+    if mapping_status is None:
+        if mapping_template is not None:
+            if feature_name == mapping_template.primary_target_feature_name:
+                mapping_status = "primary_actionable"
+            else:
+                mapping_status = "supporting_actionable"
+        else:
+            mapping_status = "non_actionable"
     return ActionSpec(
         feature_name=feature_name,
         actionable=actionable,
         direction=direction,
+        mapping_status=mapping_status,
+        mapping_action_key=mapping_key,
+        non_actionable_reason=non_actionable_reason,
         min_val=min_val,
         max_val=max_val,
         step=step,
@@ -317,8 +450,18 @@ ACTION_SPACE: dict[str, ActionSpec] = {
         cost_weight=0.15,
         time_months=1,
     ),
-    "funded_amnt": _spec(feature_name="funded_amnt", actionable=False, direction="any"),
-    "term": _spec(feature_name="term", actionable=False, direction="any"),
+    "funded_amnt": _spec(
+        feature_name="funded_amnt",
+        actionable=False,
+        direction="any",
+        non_actionable_reason="historical_fact",
+    ),
+    "term": _spec(
+        feature_name="term",
+        actionable=False,
+        direction="any",
+        mapping_action_key="refinance",
+    ),
     "int_rate": _spec(
         feature_name="int_rate",
         actionable=True,
@@ -339,20 +482,90 @@ ACTION_SPACE: dict[str, ActionSpec] = {
         cost_weight=0.12,
         time_months=1,
     ),
-    "grade": _spec(feature_name="grade", actionable=False, direction="any"),
-    "sub_grade": _spec(feature_name="sub_grade", actionable=False, direction="any"),
-    "purpose": _spec(feature_name="purpose", actionable=False, direction="any"),
-    "application_type": _spec(feature_name="application_type", actionable=False, direction="any"),
-    "emp_title": _spec(feature_name="emp_title", actionable=False, direction="any"),
-    "emp_length": _spec(feature_name="emp_length", actionable=False, direction="any"),
-    "home_ownership": _spec(feature_name="home_ownership", actionable=False, direction="any"),
-    "addr_state": _spec(feature_name="addr_state", actionable=False, direction="any"),
-    "zip_code": _spec(feature_name="zip_code", actionable=False, direction="any"),
-    "earliest_cr_line": _spec(feature_name="earliest_cr_line", actionable=False, direction="any"),
-    "issue_d": _spec(feature_name="issue_d", actionable=False, direction="any"),
-    "initial_list_status": _spec(feature_name="initial_list_status", actionable=False, direction="any"),
-    "debt_settlement_flag": _spec(feature_name="debt_settlement_flag", actionable=False, direction="any"),
-    "disbursement_method": _spec(feature_name="disbursement_method", actionable=False, direction="any"),
+    "grade": _spec(
+        feature_name="grade",
+        actionable=False,
+        direction="any",
+        non_actionable_reason="derived_outcome",
+    ),
+    "sub_grade": _spec(
+        feature_name="sub_grade",
+        actionable=False,
+        direction="any",
+        non_actionable_reason="derived_outcome",
+    ),
+    "purpose": _spec(
+        feature_name="purpose",
+        actionable=False,
+        direction="any",
+        mapping_action_key="adjust_requested_loan_amount",
+    ),
+    "application_type": _spec(
+        feature_name="application_type",
+        actionable=False,
+        direction="any",
+        mapping_action_key="adjust_requested_loan_amount",
+    ),
+    "emp_title": _spec(
+        feature_name="emp_title",
+        actionable=False,
+        direction="any",
+        mapping_action_key="verify_income_documentation",
+    ),
+    "emp_length": _spec(
+        feature_name="emp_length",
+        actionable=False,
+        direction="any",
+        mapping_action_key="verify_income_documentation",
+    ),
+    "home_ownership": _spec(
+        feature_name="home_ownership",
+        actionable=False,
+        direction="any",
+        mapping_action_key="debt_consolidation",
+    ),
+    "addr_state": _spec(
+        feature_name="addr_state",
+        actionable=False,
+        direction="any",
+        non_actionable_reason="identity_or_geography",
+    ),
+    "zip_code": _spec(
+        feature_name="zip_code",
+        actionable=False,
+        direction="any",
+        non_actionable_reason="identity_or_geography",
+    ),
+    "earliest_cr_line": _spec(
+        feature_name="earliest_cr_line",
+        actionable=False,
+        direction="any",
+        non_actionable_reason="historical_fact",
+    ),
+    "issue_d": _spec(
+        feature_name="issue_d",
+        actionable=False,
+        direction="any",
+        non_actionable_reason="historical_fact",
+    ),
+    "initial_list_status": _spec(
+        feature_name="initial_list_status",
+        actionable=False,
+        direction="any",
+        non_actionable_reason="policy_or_metadata_only",
+    ),
+    "debt_settlement_flag": _spec(
+        feature_name="debt_settlement_flag",
+        actionable=False,
+        direction="any",
+        mapping_action_key="settlement_discount",
+    ),
+    "disbursement_method": _spec(
+        feature_name="disbursement_method",
+        actionable=False,
+        direction="any",
+        non_actionable_reason="policy_or_metadata_only",
+    ),
     "annual_inc": _spec(
         feature_name="annual_inc",
         actionable=True,
@@ -486,16 +699,66 @@ ACTION_SPACE: dict[str, ActionSpec] = {
         cost_weight=0.1,
         time_months=3,
     ),
-    "open_acc": _spec(feature_name="open_acc", actionable=False, direction="any"),
-    "total_acc": _spec(feature_name="total_acc", actionable=False, direction="any"),
-    "mort_acc": _spec(feature_name="mort_acc", actionable=False, direction="any"),
-    "delinq_2yrs": _spec(feature_name="delinq_2yrs", actionable=False, direction="any"),
-    "inq_last_6mths": _spec(feature_name="inq_last_6mths", actionable=False, direction="any"),
-    "pub_rec": _spec(feature_name="pub_rec", actionable=False, direction="any"),
-    "pub_rec_bankruptcies": _spec(feature_name="pub_rec_bankruptcies", actionable=False, direction="any"),
-    "chargeoff_within_12_mths": _spec(feature_name="chargeoff_within_12_mths", actionable=False, direction="any"),
-    "tax_liens": _spec(feature_name="tax_liens", actionable=False, direction="any"),
-    "acc_open_past_24mths": _spec(feature_name="acc_open_past_24mths", actionable=False, direction="any"),
+    "open_acc": _spec(
+        feature_name="open_acc",
+        actionable=False,
+        direction="any",
+        mapping_action_key="credit_limit_adjustment",
+    ),
+    "total_acc": _spec(
+        feature_name="total_acc",
+        actionable=False,
+        direction="any",
+        mapping_action_key="debt_consolidation",
+    ),
+    "mort_acc": _spec(
+        feature_name="mort_acc",
+        actionable=False,
+        direction="any",
+        mapping_action_key="debt_consolidation",
+    ),
+    "delinq_2yrs": _spec(
+        feature_name="delinq_2yrs",
+        actionable=False,
+        direction="any",
+        mapping_action_key="improve_payment_consistency",
+    ),
+    "inq_last_6mths": _spec(
+        feature_name="inq_last_6mths",
+        actionable=False,
+        direction="any",
+        mapping_action_key="limit_credit_usage",
+    ),
+    "pub_rec": _spec(
+        feature_name="pub_rec",
+        actionable=False,
+        direction="any",
+        mapping_action_key="installment_plan",
+    ),
+    "pub_rec_bankruptcies": _spec(
+        feature_name="pub_rec_bankruptcies",
+        actionable=False,
+        direction="any",
+        mapping_action_key="settlement_discount",
+    ),
+    "chargeoff_within_12_mths": _spec(
+        feature_name="chargeoff_within_12_mths",
+        actionable=False,
+        direction="any",
+        mapping_action_key="installment_plan",
+    ),
+    "tax_liens": _spec(
+        feature_name="tax_liens",
+        actionable=False,
+        direction="any",
+        mapping_action_key="settlement_discount",
+    ),
+    "acc_open_past_24mths": _spec(
+        feature_name="acc_open_past_24mths",
+        actionable=False,
+        direction="any",
+        mapping_action_key="limit_credit_usage",
+    ),
     "tot_coll_amt": _spec(
         feature_name="tot_coll_amt",
         actionable=True,
@@ -560,6 +823,7 @@ ACTION_CATEGORY_NUMERIC_DEFAULTS: dict[ActionCategory, NumericTargetRule] = {
 
 FEATURE_NUMERIC_OVERRIDES: dict[str, NumericTargetRule] = {
     "loan_amnt": NumericTargetRule(metric_key="requested_loan_amount", unit="currency"),
+    "term": NumericTargetRule(metric_key="loan_term_months", unit="months", primary_for_action=False),
     "int_rate": NumericTargetRule(metric_key="interest_rate_pct", unit="percentage_points", primary_for_action=False),
     "installment": NumericTargetRule(metric_key="monthly_payment_amount", unit="currency", primary_for_action=True),
     "annual_inc": NumericTargetRule(metric_key="documented_income_amount", unit="currency"),
@@ -586,6 +850,47 @@ FEATURE_NUMERIC_OVERRIDES: dict[str, NumericTargetRule] = {
     ),
 }
 
+PHASE_56_DICE_ACTION_KEYS: frozenset[str] = frozenset(
+    {
+        "adjust_requested_loan_amount",
+        "refinance",
+        "verify_income_documentation",
+        "installment_plan",
+    }
+)
+
+PHASE_56_DICE_FEATURES: tuple[str, ...] = (
+    "loan_amnt",
+    "term",
+    "int_rate",
+    "installment",
+    "verification_status",
+    "acc_now_delinq",
+    "delinq_amnt",
+    "collections_12_mths_ex_med",
+)
+
+_DICE_DISCRETE_TARGET_VALUES: dict[str, tuple[float, ...]] = {
+    "term": (36.0, 60.0),
+    "verification_status": (0.0, 1.0, 2.0),
+}
+
+
+def _resolve_feature_action_template(
+    feature_name: str,
+    *,
+    allow_mapped_feature: bool = False,
+) -> tuple[ActionSpec, str | None, ActionTemplate | None]:
+    spec = ACTION_SPACE.get(feature_name)
+    if spec is None:
+        raise KeyError(
+            f"'{feature_name}' ACTION_SPACE icinde tanimli degil. "
+            f"features_48.yaml ile senkron mu?"
+        )
+    action_key = spec.action_key or (spec.mapping_action_key if allow_mapped_feature else None)
+    template = ACTION_CATALOG.get(action_key) if action_key else None
+    return spec, action_key, template
+
 
 def get_actionable_features() -> list[str]:
     actionable = []
@@ -598,12 +903,7 @@ def get_actionable_features() -> list[str]:
 
 
 def get_action_spec(feature_name: str) -> ActionSpec:
-    if feature_name not in ACTION_SPACE:
-        raise KeyError(
-            f"'{feature_name}' ACTION_SPACE icinde tanimli degil. "
-            f"features_48.yaml ile senkron mu?"
-        )
-    spec = ACTION_SPACE[feature_name]
+    spec, _, _ = _resolve_feature_action_template(feature_name)
     _validate_action_mapping(feature_name, spec)
     return spec
 
@@ -651,11 +951,60 @@ def _validate_action_mapping(feature_name: str, spec: ActionSpec) -> None:
         )
 
 
+def _validate_feature_mapping(feature_name: str, spec: ActionSpec) -> None:
+    if spec.mapping_status == "non_actionable":
+        if spec.mapping_action_key:
+            raise ValueError(
+                f"Non-actionable feature '{feature_name}' mapping_action_key tasiyamaz: "
+                f"{spec.mapping_action_key!r}"
+            )
+        if not spec.non_actionable_reason:
+            raise ValueError(f"Non-actionable feature '{feature_name}' icin non_actionable_reason eksik.")
+        return
+
+    mapping_key = spec.mapping_action_key or spec.action_key
+    if not mapping_key:
+        raise ValueError(f"Mapped feature '{feature_name}' icin mapping_action_key eksik.")
+    if mapping_key not in ACTION_CATALOG:
+        raise KeyError(f"Mapped feature '{feature_name}' bilinmeyen mapping_action_key='{mapping_key}' kullaniyor.")
+    if spec.non_actionable_reason is not None:
+        raise ValueError(
+            f"Mapped feature '{feature_name}' icin non_actionable_reason ayarlanmamali: "
+            f"{spec.non_actionable_reason!r}"
+        )
+
+    template = ACTION_CATALOG[mapping_key]
+    is_primary = feature_name == template.primary_target_feature_name
+    expected_status: FeatureMappingStatus = "primary_actionable" if is_primary else "supporting_actionable"
+    if spec.mapping_status != expected_status:
+        raise ValueError(
+            f"Mapped feature '{feature_name}' icin mapping_status kontrati bozuk: "
+            f"spec={spec.mapping_status!r}, expected={expected_status!r}"
+        )
+
+
 def validate_action_space_contract() -> list[str]:
     errors: list[str] = []
     for name, spec in ACTION_SPACE.items():
         try:
             _validate_action_mapping(name, spec)
+        except (KeyError, ValueError) as exc:
+            errors.append(str(exc))
+    return errors
+
+
+def validate_feature_mapping_contract(feature_list: list[str] | None = None) -> list[str]:
+    errors: list[str] = []
+    features = feature_list or list(ACTION_SPACE.keys())
+    missing = validate_action_space_coverage(features)
+    if missing:
+        errors.append(f"Missing feature definitions: {missing}")
+    for name in features:
+        spec = ACTION_SPACE.get(name)
+        if spec is None:
+            continue
+        try:
+            _validate_feature_mapping(name, spec)
         except (KeyError, ValueError) as exc:
             errors.append(str(exc))
     return errors
@@ -689,11 +1038,19 @@ def get_action_metadata(
     action_month: int | None = None,
     action_phase: str | None = None,
     action_group_id: str | None = None,
+    allow_mapped_feature: bool = False,
 ) -> dict[str, Any]:
-    spec = get_action_spec(feature_name)
-    if not spec.action_key:
+    spec, _, template = _resolve_feature_action_template(
+        feature_name,
+        allow_mapped_feature=allow_mapped_feature,
+    )
+    if not spec.action_key and not allow_mapped_feature:
+        _validate_action_mapping(feature_name, spec)
+    if template is None:
         return {
             "action_key": None,
+            "action_family": None,
+            "action_class": None,
             "action_owner": None,
             "action_category": None,
             "action_title": "",
@@ -714,11 +1071,15 @@ def get_action_metadata(
             "conflict_tags": [],
             "primary_numeric_target": None,
         }
-    assert spec.action_key is not None
-    template = get_action_template(spec.action_key)
-    numeric_target = get_numeric_target_metadata(feature_name, action_month=action_month)
+    numeric_target = get_numeric_target_metadata(
+        feature_name,
+        action_month=action_month,
+        allow_mapped_feature=allow_mapped_feature,
+    )
     return {
         "action_key": template.action_key,
+        "action_family": template.action_family,
+        "action_class": template.action_class,
         "action_owner": template.action_owner,
         "action_category": template.action_category,
         "action_title": template.title,
@@ -746,9 +1107,15 @@ def get_numeric_target_metadata(
     feature_name: str,
     *,
     action_month: int | None = None,
+    allow_mapped_feature: bool = False,
 ) -> dict[str, Any]:
-    spec = get_action_spec(feature_name)
-    if not spec.action_key or not spec.action_category:
+    spec, action_key, template = _resolve_feature_action_template(
+        feature_name,
+        allow_mapped_feature=allow_mapped_feature,
+    )
+    if not spec.action_key and not allow_mapped_feature:
+        _validate_action_mapping(feature_name, spec)
+    if not action_key or template is None:
         return {
             "metric_key": None,
             "unit": None,
@@ -757,8 +1124,6 @@ def get_numeric_target_metadata(
             "primary_target_feature_name": None,
             "is_primary_target": False,
         }
-    action_key: str = spec.action_key
-    template = get_action_template(action_key)
     primary_target_feature_name = str(
         template.primary_target_feature_name
         or spec.primary_target_feature_name
@@ -782,6 +1147,156 @@ def get_numeric_target_metadata(
 def validate_action_space_coverage(feature_list: list[str]) -> list[str]:
     missing = [f for f in feature_list if f not in ACTION_SPACE]
     return missing
+
+
+def get_feature_mapping_metadata(feature_name: str) -> dict[str, Any]:
+    spec, mapping_key, template = _resolve_feature_action_template(
+        feature_name,
+        allow_mapped_feature=True,
+    )
+    return {
+        "feature_name": spec.feature_name,
+        "actionable": bool(spec.actionable),
+        "direction": str(spec.direction),
+        "mapping_status": spec.mapping_status,
+        "mapping_role": spec.mapping_role,
+        "action_key": mapping_key,
+        "action_title": template.title if template else "",
+        "action_type": template.action_type if template else None,
+        "action_owner": template.action_owner if template else None,
+        "action_category": template.action_category if template else None,
+        "action_family": template.action_family if template else None,
+        "action_class": template.action_class if template else None,
+        "dice_eligible": bool(template.dice_eligible) if template else False,
+        "heuristic_only": bool(template.heuristic_only) if template else False,
+        "requires_numeric_target": bool(template.requires_numeric_target) if template else False,
+        "requires_institutional_approval": bool(template.requires_institutional_approval) if template else False,
+        "primary_target_feature_name": template.primary_target_feature_name if template else None,
+        "dice_runtime_generatable": feature_name in set(get_dice_generatable_features([feature_name])),
+        "non_actionable_reason": spec.non_actionable_reason,
+    }
+
+
+def list_feature_mapping_inventory(feature_list: list[str] | None = None) -> list[dict[str, Any]]:
+    features = feature_list or list(ACTION_SPACE.keys())
+    return [get_feature_mapping_metadata(name) for name in features]
+
+
+def get_feature_mapping_coverage_summary(feature_list: list[str] | None = None) -> dict[str, Any]:
+    inventory = list_feature_mapping_inventory(feature_list)
+    counts = Counter(item["mapping_status"] for item in inventory)
+    by_action = Counter(item["action_key"] for item in inventory if item["action_key"])
+    total = len(inventory)
+    mapped = counts["primary_actionable"] + counts["supporting_actionable"]
+    return {
+        "total_features": total,
+        "mapped_feature_count": mapped,
+        "primary_feature_count": counts["primary_actionable"],
+        "supporting_feature_count": counts["supporting_actionable"],
+        "non_actionable_feature_count": counts["non_actionable"],
+        "coverage_rate": float(mapped / max(1, total)),
+        "meets_map03_threshold": mapped >= 38,
+        "runtime_actionable_count": sum(1 for item in inventory if item["actionable"]),
+        "actions_referenced": dict(sorted(by_action.items())),
+    }
+
+
+def get_dice_generatable_features(feature_list: list[str] | None = None) -> list[str]:
+    features = feature_list or list(ACTION_SPACE.keys())
+    allowed = set(PHASE_56_DICE_FEATURES)
+    generatable: list[str] = []
+    for name in features:
+        if name not in allowed:
+            continue
+        _, action_key, template = _resolve_feature_action_template(name, allow_mapped_feature=True)
+        if template is None or not action_key or template.action_key not in PHASE_56_DICE_ACTION_KEYS:
+            continue
+        generatable.append(name)
+    return generatable
+
+
+def get_institution_rule_contract(action_key: str) -> InstitutionRuleContract:
+    if action_key not in PHASE_57_INSTITUTION_RULE_CONTRACTS:
+        raise KeyError(f"Unknown Phase 57 institution rule contract: {action_key}")
+    return PHASE_57_INSTITUTION_RULE_CONTRACTS[action_key]
+
+
+def list_institution_rule_contracts() -> list[InstitutionRuleContract]:
+    return [PHASE_57_INSTITUTION_RULE_CONTRACTS[key] for key in sorted(PHASE_57_INSTITUTION_RULE_CONTRACTS)]
+
+
+def get_dice_generation_metadata(feature_name: str) -> dict[str, Any]:
+    spec, action_key, template = _resolve_feature_action_template(
+        feature_name,
+        allow_mapped_feature=True,
+    )
+    numeric_target = get_numeric_target_metadata(
+        feature_name,
+        allow_mapped_feature=True,
+    )
+    discrete_target_values = _DICE_DISCRETE_TARGET_VALUES.get(feature_name, ())
+    value_kind: DiceValueKind = (
+        "ordered_state"
+        if str(numeric_target.get("unit") or "") == "boolean_state"
+        else "numeric"
+    )
+    is_primary_target = bool(
+        template is not None and feature_name == str(template.primary_target_feature_name or "")
+    )
+    return {
+        "feature_name": feature_name,
+        "dice_generatable": feature_name in set(get_dice_generatable_features([feature_name])),
+        "action_key": action_key,
+        "action_title": template.title if template else "",
+        "action_class": template.action_class if template else None,
+        "action_family": template.action_family if template else None,
+        "mapping_status": spec.mapping_status,
+        "primary_target_feature_name": template.primary_target_feature_name if template else None,
+        "is_primary_target_feature": is_primary_target,
+        "requires_primary_group_member": bool(
+            template is not None
+            and len(template.primary_features_impacted) > 1
+            and not is_primary_target
+        ),
+        "value_kind": value_kind,
+        "numeric_target_unit": numeric_target.get("unit"),
+        "discrete_target_values": list(discrete_target_values),
+    }
+
+
+def normalize_dice_target_value(
+    feature_name: str,
+    *,
+    current_value: float,
+    target_value: float,
+) -> float:
+    spec = ACTION_SPACE.get(feature_name)
+    if spec is None:
+        raise KeyError(
+            f"'{feature_name}' ACTION_SPACE icinde tanimli degil. "
+            f"features_48.yaml ile senkron mu?"
+        )
+    out = float(target_value)
+    discrete_target_values = _DICE_DISCRETE_TARGET_VALUES.get(feature_name, ())
+    if discrete_target_values:
+        candidates = [value for value in discrete_target_values if abs(float(value) - float(current_value)) > 1e-9]
+        if not candidates:
+            candidates = list(discrete_target_values)
+        out = min(candidates, key=lambda value: abs(float(value) - out))
+    else:
+        unit = str(get_numeric_target_metadata(feature_name, allow_mapped_feature=True).get("unit") or "")
+        if unit in {"boolean_state", "count", "months"}:
+            out = float(round(out))
+
+    if spec.min_val is not None:
+        out = max(float(spec.min_val), out)
+    if spec.max_val is not None:
+        out = min(float(spec.max_val), out)
+    if spec.direction == "increase":
+        out = max(float(current_value), out)
+    elif spec.direction == "decrease":
+        out = min(float(current_value), out)
+    return float(out)
 
 
 def estimate_action_cost_usd(current_value: float, target_value: float, spec: ActionSpec) -> float:

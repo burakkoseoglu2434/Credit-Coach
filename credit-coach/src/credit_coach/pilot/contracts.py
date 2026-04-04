@@ -282,6 +282,10 @@ class PilotRefreshManifest(BaseModel):
     smoke_summary_path: str = Field(default="", description="Path to the release-smoke summary JSON")
     artifact_qa_status: PilotArtifactQAStatus = Field(..., description="Artifact QA status for the refresh package")
     portfolio_smoke_status: str = Field(default="", description="Portfolio smoke release decision/status")
+    preferred_demo_profile: str = Field(default="", description="Preferred Phase 52 demo profile label")
+    fallback_demo_profile: str = Field(default="", description="Fallback Phase 52 demo profile label")
+    policy_baseline_selection_reason: str = Field(default="", description="Why the preferred baseline was selected")
+    next_milestone_focus: str = Field(default="", description="Bounded next-step focus carried from Phase 52")
     reference_run_id: str | None = Field(default=None, description="Canonical or explicit reference run id")
     reference_label: str | None = Field(default=None, description="Human label for the chosen reference run")
     comparison_is_canonical: bool = Field(

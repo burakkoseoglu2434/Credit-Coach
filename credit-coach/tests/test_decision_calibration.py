@@ -668,3 +668,187 @@ def test_recommend_outcome_rule_returns_no_safe_uplift_when_guardrails_fail() ->
 
     assert summary["recommended_outcome_rule_status"] == "no_safe_uplift"
     assert summary["recommended_outcome_rule_profile_version"] == ""
+
+
+def test_build_policy_baseline_selection_prefers_shipped_baseline_for_no_safe_uplift() -> None:
+    policy_comparison_df = pd.DataFrame(
+        [
+            {
+                "policy_version": "v2.1_phase_40_5",
+                "analysis_only": 0,
+                "recommendation_status": "baseline",
+                "recommendation_reason": "baseline",
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 0,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+                "promotion_target": False,
+                "profile_role": "baseline",
+            },
+            {
+                "policy_version": "analysis_mild_relax_v2_3a",
+                "analysis_only": 1,
+                "recommendation_status": "blocked",
+                "recommendation_reason": "No bounded APPROVED + CONDITIONAL uplift over the shipped baseline.",
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 0,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+                "promotion_target": True,
+                "profile_role": "candidate",
+            },
+        ]
+    )
+    outcome_rule_comparison_df = pd.DataFrame(
+        [
+            {
+                "outcome_rule_profile_version": "v2.1_phase_40_5",
+                "analysis_only": 0,
+                "recommendation_status": "baseline",
+                "recommendation_reason": "baseline",
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 0,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+                "promotion_target": False,
+                "profile_role": "baseline",
+            },
+            {
+                "outcome_rule_profile_version": "analysis_offer_support_v2_3b",
+                "analysis_only": 1,
+                "recommendation_status": "blocked",
+                "recommendation_reason": "No bounded offer/readiness-driven outcome movement was created.",
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 0,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+                "promotion_target": True,
+                "profile_role": "candidate",
+            },
+        ]
+    )
+
+    selection = cal.build_policy_baseline_selection(
+        policy_version_evaluated="v2.1_phase_40_5",
+        policy_recommendation_summary={
+            "candidate_policy_versions_compared": ["analysis_mild_relax_v2_3a"],
+            "recommended_candidate_status": "no_safe_uplift",
+            "recommended_candidate_policy_version": "",
+        },
+        outcome_rule_recommendation_summary={
+            "candidate_outcome_rule_versions_compared": ["analysis_offer_support_v2_3b"],
+            "recommended_outcome_rule_status": "no_safe_uplift",
+            "recommended_outcome_rule_profile_version": "",
+        },
+        movement_guardrail_summary={
+            "dominant_movement_bottleneck": "structural_cohort_limited",
+            "movement_guardrail_summary": "Neither threshold nor offer/readiness candidates created safe movement; this cohort appears structurally too far from near-term movement.",
+            "promotion_blocker_summary": "No candidate family created promotable movement under the shipped trust and risk guardrails.",
+        },
+        policy_comparison_df=policy_comparison_df,
+        outcome_rule_comparison_df=outcome_rule_comparison_df,
+    )
+
+    assert selection["policy_baseline_selection_version"] == cal.POLICY_BASELINE_SELECTION_VERSION
+    assert selection["preferred_demo_profile"] == cal.PREFERRED_DEMO_PROFILE
+    assert selection["fallback_demo_profile"] == cal.FALLBACK_DEMO_PROFILE
+    assert selection["selection_mode"] == "shared_runtime_baseline"
+    assert selection["preferred_runtime_policy_version"] == "v2.1_phase_40_5"
+    assert selection["threshold_family_promotion_status"] == "no_safe_uplift"
+    assert selection["outcome_rule_family_promotion_status"] == "no_safe_uplift"
+    assert selection["dominant_movement_bottleneck"] == "structural_cohort_limited"
+    assert "shipped live baseline" in selection["policy_baseline_selection_reason"]
+    assert selection["next_milestone_focus"] == "expand_movement_levers"
+    assert selection["candidate_disposition_count"] == 2
+
+
+def test_build_policy_candidate_disposition_marks_shortlisted_candidates_as_not_adopted() -> None:
+    policy_comparison_df = pd.DataFrame(
+        [
+            {
+                "policy_version": "v2.1_phase_40_5",
+                "analysis_only": 0,
+                "recommendation_status": "baseline",
+                "recommendation_reason": "baseline",
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 0,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+                "profile_role": "baseline",
+                "promotion_target": False,
+            },
+            {
+                "policy_version": "analysis_relaxed_v2_3a",
+                "analysis_only": 1,
+                "recommendation_status": "shortlisted",
+                "recommendation_reason": "Bounded yield uplift is positive while Phase 49 proxy guardrails remain within limits.",
+                "approve_plus_conditional_share_delta": 0.02,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 1,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+                "profile_role": "candidate",
+                "promotion_target": True,
+                "north_star_pass": True,
+            },
+        ]
+    )
+    outcome_rule_comparison_df = pd.DataFrame(
+        [
+            {
+                "outcome_rule_profile_version": "v2.1_phase_40_5",
+                "analysis_only": 0,
+                "recommendation_status": "baseline",
+                "recommendation_reason": "baseline",
+                "approve_plus_conditional_share_delta": 0.0,
+                "false_positive_proxy_delta": 0.0,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 0,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+                "profile_role": "baseline",
+                "promotion_target": False,
+            },
+            {
+                "outcome_rule_profile_version": "analysis_offer_support_v2_3b",
+                "analysis_only": 1,
+                "recommendation_status": "blocked",
+                "recommendation_reason": "False-positive proxy regression exceeds the Phase 50 guardrail.",
+                "approve_plus_conditional_share_delta": 0.02,
+                "false_positive_proxy_delta": 0.02,
+                "internal_needs_review_share_delta": 0.0,
+                "rejected_to_conditional_count": 1,
+                "conditional_to_approved_count": 0,
+                "direct_rejected_to_approved_count": 0,
+                "profile_role": "candidate",
+                "promotion_target": True,
+            },
+        ]
+    )
+
+    disposition = cal.build_policy_candidate_disposition(
+        policy_comparison_df=policy_comparison_df,
+        outcome_rule_comparison_df=outcome_rule_comparison_df,
+    )
+
+    assert set(disposition["candidate_family"]) == {"threshold_policy", "offer_readiness_rule"}
+    shortlisted = disposition.loc[disposition["candidate_profile_version"] == "analysis_relaxed_v2_3a"].iloc[0]
+    blocked = disposition.loc[disposition["candidate_profile_version"] == "analysis_offer_support_v2_3b"].iloc[0]
+
+    assert int(shortlisted["movement_created"]) == 1
+    assert int(shortlisted["guardrail_blocked"]) == 0
+    assert "analysis-only" in shortlisted["non_adoption_reason"]
+    assert blocked["blocker_code"] == "false_positive_proxy_guardrail"
+    assert int(blocked["guardrail_blocked"]) == 1
+    assert blocked["non_adoption_reason"] == "False-positive proxy regression exceeds the Phase 50 guardrail."

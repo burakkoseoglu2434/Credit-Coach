@@ -8,6 +8,7 @@ from credit_coach.coaching.planner import (
     choose_best_plan,
     classify_plan_contender,
     filter_empty_contenders,
+    filter_selectable_contenders,
 )
 from credit_coach.data.schema import PlanAction, PlanRecord
 
@@ -122,6 +123,31 @@ def test_filter_empty_contenders_removes_zero_and_semantic_empty_but_keeps_appro
     assert classify_plan_contender(zero_action) == ("EMPTY", "ZERO_ACTION")
     assert classify_plan_contender(semantic_empty) == ("EMPTY", "SEMANTIC_EMPTY")
     assert classify_plan_contender(approval_shell) == ("APPROVAL_SHELL_ONLY", None)
+
+
+def test_filter_selectable_contenders_excludes_approval_shell_only_candidates() -> None:
+    approval_shell = _plan(
+        "approval-shell",
+        plan_source="rule",
+        actions=[_action(action_class="institutional", approval_pending_semantic_only=True)],
+        predicted_pd=0.39,
+        expected_pd_improvement=0.02,
+        executable_action_count=0,
+        approval_pending_action_count=1,
+        offer_plan=True,
+    )
+    actionable = _plan(
+        "actionable",
+        plan_source="internal",
+        actions=[_action()],
+        predicted_pd=0.33,
+        expected_pd_improvement=0.04,
+    )
+
+    kept, removed = filter_selectable_contenders([approval_shell, actionable])
+
+    assert [plan.plan_id for plan in kept] == ["actionable"]
+    assert [plan.plan_id for plan in removed] == ["approval-shell"]
 
 
 def test_choose_best_plan_prefers_internal_on_near_tie() -> None:

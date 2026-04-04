@@ -158,9 +158,27 @@ def evaluate_pilot_artifact_qa(
         "no_safe_uplift",
     )
     recommended_outcome_rule_reason = _safe_text(collection_manifest.get("recommended_outcome_rule_reason"))
+    preferred_demo_profile = _safe_text(collection_manifest.get("preferred_demo_profile"))
+    fallback_demo_profile = _safe_text(collection_manifest.get("fallback_demo_profile"))
+    policy_baseline_selection_reason = _safe_text(collection_manifest.get("policy_baseline_selection_reason"))
+    threshold_family_promotion_status = _safe_text(collection_manifest.get("threshold_family_promotion_status"))
+    outcome_rule_family_promotion_status = _safe_text(collection_manifest.get("outcome_rule_family_promotion_status"))
+    next_milestone_focus = _safe_text(collection_manifest.get("next_milestone_focus"))
     dominant_movement_bottleneck = _safe_text(collection_manifest.get("dominant_movement_bottleneck"))
     movement_guardrail_summary = _safe_text(collection_manifest.get("movement_guardrail_summary"))
     promotion_blocker_summary = _safe_text(collection_manifest.get("promotion_blocker_summary"))
+    if not preferred_demo_profile:
+        fail_findings.append("missing_preferred_demo_profile")
+    if not fallback_demo_profile:
+        fail_findings.append("missing_fallback_demo_profile")
+    if not policy_baseline_selection_reason:
+        fail_findings.append("missing_policy_baseline_selection_reason")
+    if not threshold_family_promotion_status:
+        fail_findings.append("missing_threshold_family_promotion_status")
+    if not outcome_rule_family_promotion_status:
+        fail_findings.append("missing_outcome_rule_family_promotion_status")
+    if not next_milestone_focus:
+        fail_findings.append("missing_next_milestone_focus")
     if expected_policy_version and collection_policy_version and collection_policy_version != expected_policy_version:
         fail_findings.append("collection_policy_version_mismatch")
 
@@ -222,6 +240,12 @@ def evaluate_pilot_artifact_qa(
         "recommended_outcome_rule_profile_version": recommended_outcome_rule_profile_version,
         "recommended_outcome_rule_status": recommended_outcome_rule_status,
         "recommended_outcome_rule_reason": recommended_outcome_rule_reason,
+        "preferred_demo_profile": preferred_demo_profile,
+        "fallback_demo_profile": fallback_demo_profile,
+        "policy_baseline_selection_reason": policy_baseline_selection_reason,
+        "threshold_family_promotion_status": threshold_family_promotion_status,
+        "outcome_rule_family_promotion_status": outcome_rule_family_promotion_status,
+        "next_milestone_focus": next_milestone_focus,
         "dominant_movement_bottleneck": dominant_movement_bottleneck,
         "movement_guardrail_summary": movement_guardrail_summary,
         "promotion_blocker_summary": promotion_blocker_summary,
@@ -238,11 +262,17 @@ def _render_summary_markdown(summary: Mapping[str, Any]) -> str:
         f"- Operator packets: {int(summary.get('operator_packet_count', 0))}",
         f"- Decision explanation packs: {int(summary.get('decision_explanation_pack_count', 0))}",
         f"- Candidate policies compared: {', '.join(summary.get('candidate_policy_versions_compared', []) or []) or 'n/a'}",
+        f"- Preferred demo profile: {_safe_text(summary.get('preferred_demo_profile')) or 'n/a'}",
+        f"- Fallback demo profile: {_safe_text(summary.get('fallback_demo_profile')) or 'n/a'}",
+        f"- Baseline selection reason: {_safe_text(summary.get('policy_baseline_selection_reason')) or 'n/a'}",
         f"- Recommended candidate status: {_safe_text(summary.get('recommended_candidate_status')) or 'no_safe_uplift'}",
         f"- Recommended candidate policy: {_safe_text(summary.get('recommended_candidate_policy_version')) or 'n/a'}",
         f"- Candidate outcome rules compared: {', '.join(summary.get('candidate_outcome_rule_versions_compared', []) or []) or 'n/a'}",
         f"- Recommended outcome-rule status: {_safe_text(summary.get('recommended_outcome_rule_status')) or 'no_safe_uplift'}",
         f"- Recommended outcome-rule profile: {_safe_text(summary.get('recommended_outcome_rule_profile_version')) or 'n/a'}",
+        f"- Threshold family promotion status: {_safe_text(summary.get('threshold_family_promotion_status')) or 'n/a'}",
+        f"- Outcome-rule family promotion status: {_safe_text(summary.get('outcome_rule_family_promotion_status')) or 'n/a'}",
+        f"- Next milestone focus: {_safe_text(summary.get('next_milestone_focus')) or 'n/a'}",
         f"- Dominant movement bottleneck: {_safe_text(summary.get('dominant_movement_bottleneck')) or 'n/a'}",
         f"- Movement guardrail summary: {_safe_text(summary.get('movement_guardrail_summary')) or 'n/a'}",
         f"- Promotion blocker summary: {_safe_text(summary.get('promotion_blocker_summary')) or 'n/a'}",

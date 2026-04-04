@@ -166,6 +166,13 @@ def filter_empty_contenders(plans: list[PlanRecord]) -> tuple[list[PlanRecord], 
     return kept, removed
 
 
+def filter_selectable_contenders(plans: list[PlanRecord]) -> tuple[list[PlanRecord], list[PlanRecord]]:
+    annotated = [annotate_plan_planner_quality(plan) for plan in plans]
+    kept = [plan for plan in annotated if str(getattr(plan, "contender_bucket", "") or "").upper() == "ACTIONABLE"]
+    removed = [plan for plan in annotated if str(getattr(plan, "contender_bucket", "") or "").upper() != "ACTIONABLE"]
+    return kept, removed
+
+
 def candidate_source_counts(plans: list[PlanRecord]) -> dict[str, int]:
     counts = {source: 0 for source in CANDIDATE_SOURCE_CATALOG}
     for plan in plans:

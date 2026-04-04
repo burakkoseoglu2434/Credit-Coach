@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from credit_coach.cli.run_recourse import _build_customer_roadmap, build_customer_artifact_bundle
-from credit_coach.coaching.planner import choose_best_plan
+from credit_coach.coaching.planner import choose_best_plan, filter_selectable_contenders
 from credit_coach.data.schema import PlanAction, PlanRecord, PrimaryNumericTarget
 from credit_coach.recourse.recommendation_validity import annotate_plan_recommendation_validity
 
@@ -222,7 +222,63 @@ def test_build_customer_artifact_bundle_preserves_no_valid_winner_integrity() ->
     assert bundle.roadmap["summary"]["selected_recommendation_text"] is None
     assert bundle.roadmap["summary"]["selected_recommendation_source"] == "empty_state"
     assert bundle.roadmap["summary"]["selected_action_count"] == 0
+    assert bundle.roadmap["summary"]["selected_path_customer_summary"] == ""
+    assert bundle.roadmap["summary"]["selected_path_operator_summary"] == ""
+    assert bundle.roadmap["summary"]["selected_path_render_version"] == ""
     assert bundle.roadmap_steps_df.empty
     assert bundle.metrics_summary["selection_outcome"] == "no_valid_winner"
     assert bundle.metrics_summary["best_plan_id"] == ""
     assert bundle.metrics_summary["selected_recommendation_source"] == "empty_state"
+    assert bundle.metrics_summary["selected_path_customer_summary"] == ""
+    assert bundle.metrics_summary["selected_path_operator_summary"] == ""
+    assert bundle.metrics_summary["selected_path_render_version"] == ""
+    assert bundle.paths_df.empty
+
+
+def test_rule_approval_shell_does_not_displace_actionable_winner_candidates() -> None:
+    approval_shell = _plan(
+        "rule-shell",
+        PlanAction(
+            feature_name="total_rev_hi_lim",
+            current_value=6000.0,
+            target_value=7200.0,
+            delta=1200.0,
+            time_months=3,
+            estimated_cost_usd=12.0,
+            action_key="credit_limit_adjustment",
+            action_class="institutional",
+            action_family="limit_management",
+            action_title="Request credit limit adjustment",
+            action_group_id="credit_limit_adjustment:phase_2_build",
+            requires_institutional_approval=True,
+            institutional_approval_state="pending",
+            approval_pending_semantic_only=True,
+        ),
+        plan_source="rule",
+        predicted_pd=0.27,
+        constraint_status="provisional",
+    )
+    approval_shell.executable_action_count = 0
+    approval_shell.approval_pending_action_count = 1
+    actionable = _plan(
+        "internal-valid",
+        _action(
+            feature_name="revol_util",
+            metric_key="credit_utilization_pct",
+            current_value=72.0,
+            target_value=52.0,
+            direction="decrease",
+            action_key="limit_credit_usage",
+            action_class="behavioral",
+        ),
+        plan_source="internal",
+        predicted_pd=0.30,
+    )
+
+    selectable, removed = filter_selectable_contenders([approval_shell, actionable])
+    result = choose_best_plan(selectable, base_pd=0.40, tau=0.35)
+
+    assert [plan.plan_id for plan in selectable] == ["internal-valid"]
+    assert [plan.plan_id for plan in removed] == ["rule-shell"]
+    assert result.best_plan is not None
+    assert result.best_plan.plan_id == "internal-valid"

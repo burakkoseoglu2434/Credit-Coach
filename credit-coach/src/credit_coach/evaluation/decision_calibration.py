@@ -123,6 +123,9 @@ DEFAULT_OUTCOME_RULE_PROFILES: tuple[Mapping[str, Any], ...] = (
 )
 OUTCOME_RULE_CATALOG_VERSION = "v2.3_phase_50"
 MOVEMENT_GUARDRAIL_VERSION = "v2.3_phase_51"
+POLICY_BASELINE_SELECTION_VERSION = "v2.3_phase_52"
+PREFERRED_DEMO_PROFILE = "preferred_demo_baseline_v2_3"
+FALLBACK_DEMO_PROFILE = "trust_first_baseline_v2_3"
 SHORTLIST_MAX_FALSE_POSITIVE_PROXY_DELTA = 0.01
 SHORTLIST_MAX_INTERNAL_REVIEW_DELTA = 0.02
 SHORTLIST_MIN_APPROVE_PLUS_CONDITIONAL_DELTA = 0.000001
@@ -2387,3 +2390,186 @@ def build_movement_guardrail_review_markdown(summary: Mapping[str, Any]) -> str:
         f"- Signal score: {_safe_int(structural_cohort.get('signal_score', 0), 0)}",
     ]
     return "\n".join(lines) + "\n"
+
+
+def _next_milestone_focus(dominant_bottleneck: str) -> str:
+    mapping = {
+        "trust_regression_blocked": "restore_trust_integrity",
+        "threshold_guardrail_blocked": "revisit_threshold_guardrails",
+        "offer_readiness_guardrail_blocked": "revisit_offer_readiness_guardrails",
+        "recommendation_space_limited": "expand_movement_levers",
+        "structural_cohort_limited": "expand_movement_levers",
+        "mixed_no_safe_uplift": "expand_movement_levers",
+    }
+    return mapping.get(_safe_str(dominant_bottleneck), "expand_movement_levers")
+
+
+def _baseline_selection_reason(
+    *,
+    recommended_candidate_status: str,
+    recommended_outcome_rule_status: str,
+    dominant_bottleneck: str,
+    movement_guardrail_summary: str,
+) -> str:
+    if recommended_candidate_status == "shortlisted" or recommended_outcome_rule_status == "shortlisted":
+        return (
+            "Phase 52 keeps the shipped live baseline as the preferred runtime policy because shortlisted bounded candidates "
+            "remain analysis-only and are not promoted in this milestone-close package."
+        )
+    if dominant_bottleneck == "structural_cohort_limited":
+        return (
+            "Phase 52 keeps the shipped live baseline as the preferred runtime policy because both bounded candidate "
+            "families remained no_safe_uplift while the standard cohorts were structurally too far from near-term movement."
+        )
+    if dominant_bottleneck == "recommendation_space_limited":
+        return (
+            "Phase 52 keeps the shipped live baseline as the preferred runtime policy because both bounded candidate "
+            "families remained no_safe_uplift and the current recommendation space did not create strong enough movement."
+        )
+    if dominant_bottleneck == "trust_regression_blocked":
+        return (
+            "Phase 52 keeps the shipped live baseline as the preferred runtime policy because trust regressions block "
+            "any candidate promotion."
+        )
+    summary_text = _safe_str(movement_guardrail_summary)
+    if summary_text:
+        return (
+            "Phase 52 keeps the shipped live baseline as the preferred runtime policy because bounded candidates were "
+            f"not adopted. {summary_text}"
+        )
+    return (
+        "Phase 52 keeps the shipped live baseline as the preferred runtime policy because bounded candidates were not "
+        "adopted in the milestone-close package."
+    )
+
+
+def _candidate_non_adoption_reason(
+    *,
+    family: str,
+    row: Mapping[str, Any],
+) -> str:
+    recommendation_status = _safe_str(row.get("recommendation_status"), "blocked")
+    recommendation_reason = _safe_str(row.get("recommendation_reason"))
+    if recommendation_status == "shortlisted":
+        return (
+            "Phase 52 keeps this candidate analysis-only; the shipped live baseline remains the preferred runtime "
+            "policy for demos and pilots."
+        )
+    if recommendation_reason:
+        return recommendation_reason
+    if _candidate_guardrail_blocked(row):
+        return f"{family} candidate was not adopted because a promotion guardrail blocked it."
+    if _positive_movement_count(row) <= 0:
+        return f"{family} candidate was not adopted because it did not create bounded movement."
+    return f"{family} candidate was not adopted in the Phase 52 baseline package."
+
+
+def build_policy_candidate_disposition(
+    *,
+    policy_comparison_df: pd.DataFrame,
+    outcome_rule_comparison_df: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    configs = (
+        ("threshold_policy", policy_comparison_df, "policy_version"),
+        (
+            "offer_readiness_rule",
+            outcome_rule_comparison_df if outcome_rule_comparison_df is not None else pd.DataFrame(),
+            "outcome_rule_profile_version",
+        ),
+    )
+    for family, frame, version_column in configs:
+        if frame.empty:
+            continue
+        candidate_rows = frame.loc[frame.get("analysis_only", pd.Series(dtype=float)).astype(int) == 1].copy()
+        for row in candidate_rows.to_dict(orient="records"):
+            movement_count = _positive_movement_count(row)
+            rows.append(
+                {
+                    "candidate_family": family,
+                    "candidate_profile_version": _safe_str(row.get(version_column)),
+                    "profile_role": _safe_str(row.get("profile_role"), "candidate"),
+                    "promotion_target": bool(row.get("promotion_target", True)),
+                    "recommendation_status": _safe_str(row.get("recommendation_status"), "blocked"),
+                    "recommendation_reason": _safe_str(row.get("recommendation_reason")),
+                    "non_adoption_reason": _candidate_non_adoption_reason(family=family, row=row),
+                    "blocker_code": _candidate_blocker_code(row),
+                    "movement_count_total": movement_count,
+                    "movement_created": int(
+                        movement_count > 0
+                        or _safe_float(row.get("approve_plus_conditional_share_delta"), 0.0)
+                        > SHORTLIST_MIN_APPROVE_PLUS_CONDITIONAL_DELTA
+                    ),
+                    "guardrail_blocked": int(_candidate_guardrail_blocked(row)),
+                    "approve_plus_conditional_share_delta": _round_metric(row.get("approve_plus_conditional_share_delta")),
+                    "false_positive_proxy_delta": _round_metric(row.get("false_positive_proxy_delta")),
+                    "internal_needs_review_share_delta": _round_metric(row.get("internal_needs_review_share_delta")),
+                    "rejected_to_conditional_count": _safe_int(row.get("rejected_to_conditional_count", 0), 0),
+                    "conditional_to_approved_count": _safe_int(row.get("conditional_to_approved_count", 0), 0),
+                    "direct_rejected_to_approved_count": _safe_int(row.get("direct_rejected_to_approved_count", 0), 0),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def build_policy_baseline_selection(
+    *,
+    policy_version_evaluated: str,
+    policy_recommendation_summary: Mapping[str, Any] | None = None,
+    outcome_rule_recommendation_summary: Mapping[str, Any] | None = None,
+    movement_guardrail_summary: Mapping[str, Any] | None = None,
+    policy_comparison_df: pd.DataFrame | None = None,
+    outcome_rule_comparison_df: pd.DataFrame | None = None,
+) -> dict[str, Any]:
+    policy_recommendation_summary = dict(policy_recommendation_summary or {})
+    outcome_rule_recommendation_summary = dict(outcome_rule_recommendation_summary or {})
+    movement_guardrail_summary = dict(movement_guardrail_summary or {})
+    recommended_candidate_status = _safe_str(
+        policy_recommendation_summary.get("recommended_candidate_status"),
+        "no_safe_uplift",
+    )
+    recommended_outcome_rule_status = _safe_str(
+        outcome_rule_recommendation_summary.get("recommended_outcome_rule_status"),
+        "no_safe_uplift",
+    )
+    dominant_bottleneck = _safe_str(movement_guardrail_summary.get("dominant_movement_bottleneck"))
+    movement_summary_text = _safe_str(movement_guardrail_summary.get("movement_guardrail_summary"))
+    candidate_disposition_df = build_policy_candidate_disposition(
+        policy_comparison_df=policy_comparison_df if policy_comparison_df is not None else pd.DataFrame(),
+        outcome_rule_comparison_df=outcome_rule_comparison_df if outcome_rule_comparison_df is not None else pd.DataFrame(),
+    )
+    selection_reason = _baseline_selection_reason(
+        recommended_candidate_status=recommended_candidate_status,
+        recommended_outcome_rule_status=recommended_outcome_rule_status,
+        dominant_bottleneck=dominant_bottleneck,
+        movement_guardrail_summary=movement_summary_text,
+    )
+    return {
+        "policy_baseline_selection_version": POLICY_BASELINE_SELECTION_VERSION,
+        "preferred_demo_profile": PREFERRED_DEMO_PROFILE,
+        "fallback_demo_profile": FALLBACK_DEMO_PROFILE,
+        "selection_mode": "shared_runtime_baseline",
+        "preferred_runtime_policy_version": _safe_str(policy_version_evaluated, DECISION_POLICY_VERSION),
+        "decision_policy_version": _safe_str(policy_version_evaluated, DECISION_POLICY_VERSION),
+        "policy_version_evaluated": _safe_str(policy_version_evaluated, DECISION_POLICY_VERSION),
+        "policy_baseline_selection_reason": selection_reason,
+        "threshold_family_promotion_status": recommended_candidate_status,
+        "outcome_rule_family_promotion_status": recommended_outcome_rule_status,
+        "recommended_candidate_status": recommended_candidate_status,
+        "recommended_candidate_policy_version": _safe_str(
+            policy_recommendation_summary.get("recommended_candidate_policy_version")
+        ),
+        "recommended_outcome_rule_status": recommended_outcome_rule_status,
+        "recommended_outcome_rule_profile_version": _safe_str(
+            outcome_rule_recommendation_summary.get("recommended_outcome_rule_profile_version")
+        ),
+        "dominant_movement_bottleneck": dominant_bottleneck,
+        "movement_guardrail_summary": movement_summary_text,
+        "promotion_blocker_summary": _safe_str(movement_guardrail_summary.get("promotion_blocker_summary")),
+        "next_milestone_focus": _next_milestone_focus(dominant_bottleneck),
+        "candidate_policy_versions_compared": list(policy_recommendation_summary.get("candidate_policy_versions_compared", [])),
+        "candidate_outcome_rule_versions_compared": list(
+            outcome_rule_recommendation_summary.get("candidate_outcome_rule_versions_compared", [])
+        ),
+        "candidate_disposition_count": int(len(candidate_disposition_df)),
+    }

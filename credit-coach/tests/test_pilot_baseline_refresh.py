@@ -175,6 +175,8 @@ def _build_collection_run(tmp_path: Path, artifact_root: str, customer_ids: list
         "calibration/outcome_rule_customer_effects.csv",
         "calibration/outcome_rule_profile_catalog.json",
         "calibration/outcome_rule_recommendation_summary.json",
+        "calibration/policy_baseline_selection.json",
+        "calibration/policy_candidate_disposition.csv",
         "calibration/movement_guardrail_summary.json",
         "calibration/movement_promotion_blockers.csv",
         "calibration/movement_bottleneck_breakdown.csv",
@@ -212,6 +214,12 @@ def _build_collection_run(tmp_path: Path, artifact_root: str, customer_ids: list
         "recommended_outcome_rule_profile_version": "analysis_offer_readiness_combo_v2_3b",
         "recommended_outcome_rule_status": "shortlisted",
         "recommended_outcome_rule_reason": "Offer/readiness-driven uplift is positive while Phase 50 guardrails remain within limits.",
+        "preferred_demo_profile": "preferred_demo_baseline_v2_3",
+        "fallback_demo_profile": "trust_first_baseline_v2_3",
+        "policy_baseline_selection_reason": "Phase 52 keeps the shipped live baseline as the preferred runtime policy because shortlisted bounded candidates remain analysis-only and are not promoted in this milestone-close package.",
+        "threshold_family_promotion_status": "shortlisted",
+        "outcome_rule_family_promotion_status": "shortlisted",
+        "next_milestone_focus": "expand_movement_levers",
         "dominant_movement_bottleneck": "structural_cohort_limited",
         "movement_guardrail_summary": "Neither threshold nor offer/readiness candidates created safe movement; this cohort appears structurally too far from near-term movement.",
         "promotion_blocker_summary": "No candidate family created promotable movement under the shipped trust and risk guardrails.",
@@ -246,6 +254,8 @@ def _build_collection_run(tmp_path: Path, artifact_root: str, customer_ids: list
             "outcome_rule_customer_effects_csv": "tables/customer_artifact_collection/calibration/outcome_rule_customer_effects.csv",
             "outcome_rule_profile_catalog_json": "tables/customer_artifact_collection/calibration/outcome_rule_profile_catalog.json",
             "outcome_rule_recommendation_summary_json": "tables/customer_artifact_collection/calibration/outcome_rule_recommendation_summary.json",
+            "policy_baseline_selection_json": "tables/customer_artifact_collection/calibration/policy_baseline_selection.json",
+            "policy_candidate_disposition_csv": "tables/customer_artifact_collection/calibration/policy_candidate_disposition.csv",
             "movement_guardrail_summary_json": "tables/customer_artifact_collection/calibration/movement_guardrail_summary.json",
             "movement_promotion_blockers_csv": "tables/customer_artifact_collection/calibration/movement_promotion_blockers.csv",
             "movement_bottleneck_breakdown_csv": "tables/customer_artifact_collection/calibration/movement_bottleneck_breakdown.csv",
@@ -396,16 +406,25 @@ def test_run_pilot_baseline_refresh_writes_dual_lane_summary_and_canonical_refer
     assert manifest["portfolio_smoke_status"] == "LIMITED_GO"
     assert manifest["comparison_is_canonical"] is True
     assert manifest["reference_run_id"] == "reference_run"
+    assert manifest["preferred_demo_profile"] == "preferred_demo_baseline_v2_3"
+    assert manifest["fallback_demo_profile"] == "trust_first_baseline_v2_3"
     assert manifest["overlay_provenance"]["institution_policy"]["cadence_mode"] == "weekly_during_pilot"
     assert manifest["resolved_runtime_config"]["resolved"]["cohort_policy"] == "pilot_mixed"
     assert manifest["comparison_summary"]["recommended_candidate_policy_version"] == "analysis_mild_relax_v2_3a"
     assert manifest["comparison_summary"]["recommended_candidate_status"] == "shortlisted"
     assert manifest["comparison_summary"]["recommended_outcome_rule_profile_version"] == "analysis_offer_readiness_combo_v2_3b"
     assert manifest["comparison_summary"]["recommended_outcome_rule_status"] == "shortlisted"
+    assert manifest["comparison_summary"]["preferred_demo_profile"] == "preferred_demo_baseline_v2_3"
+    assert manifest["comparison_summary"]["fallback_demo_profile"] == "trust_first_baseline_v2_3"
     assert manifest["comparison_summary"]["dominant_movement_bottleneck"] == "structural_cohort_limited"
     assert (run_ctx.tables_dir / "policy_version_comparison.csv").exists()
     assert (run_ctx.tables_dir / "policy_version_comparison.md").exists()
+    assert (run_ctx.tables_dir / "demo_policy_proof.md").exists()
+    assert (run_ctx.tables_dir / "next_milestone_handoff.md").exists()
+    assert manifest["output_artifacts"]["demo_policy_proof_md"] == "tables/demo_policy_proof.md"
     assert "Recommended candidate status: shortlisted" in summary_md
+    assert "Preferred demo profile: preferred_demo_baseline_v2_3" in summary_md
+    assert "Fallback demo profile: trust_first_baseline_v2_3" in summary_md
     assert "Recommended candidate policy: analysis_mild_relax_v2_3a" in summary_md
     assert "Recommended outcome-rule status: shortlisted" in summary_md
     assert "Recommended outcome-rule profile: analysis_offer_readiness_combo_v2_3b" in summary_md

@@ -30,6 +30,7 @@ from credit_coach.utils.time import utc_now
 
 ActionClass = Literal["behavioral", "structural", "institutional"]
 PlanSource = Literal["internal", "dice", "rule", "fallback"]
+PathType = Literal["customer_only", "institution_assisted", "hybrid"]
 PlanContenderBucket = Literal["ACTIONABLE", "APPROVAL_SHELL_ONLY", "EMPTY"]
 PlanEmptyReason = Literal["ZERO_ACTION", "SEMANTIC_EMPTY"]
 ConstraintFamily = Literal["capacity", "policy", "dependency", "interaction", "semantic", "documentation"]
@@ -45,6 +46,7 @@ DecisionReasonPrimary = Literal["NO_PATH", "LOW_IMPACT", "LOW_EXECUTION", "OFFER
 DecisionRejectionType = Literal["NO_PATH", "LOW_IMPACT", "LOW_EXECUTION"]
 DecisionConditionalType = Literal["EXECUTION_GATED", "TIME_GATED", "OFFER_GATED", "DATA_ISSUE"]
 OfferMaturity = Literal["none", "inactive", "provisional", "active_rankable"]
+OfferFeasibility = Literal["not_applicable", "inactive", "provisional", "active_rankable"]
 RecommendationValidityStatus = Literal["valid", "warning", "invalid"]
 DiceBackendClass = Literal["native", "heuristic_fallback", "skipped"]
 TrajectoryCheckpointStatus = Literal["on_track", "at_risk", "missed", "unknown"]
@@ -276,6 +278,46 @@ class OfferContract(BaseModel):
         )
 
 
+def _offer_required_flag_from_contract(contract: OfferContract | None, action: "PlanAction") -> bool:
+    if contract is not None and contract.is_present():
+        return True
+    return bool(
+        action.requires_institutional_approval
+        or action.requires_acceptance
+        or action.approval_pending_semantic_only
+        or action.offer_type
+        or action.offer_family
+        or action.offer_policy_arm
+    )
+
+
+def _offer_feasibility_from_contract(contract: OfferContract | None, action: "PlanAction") -> OfferFeasibility:
+    if not _offer_required_flag_from_contract(contract, action):
+        return "not_applicable"
+
+    approval_state = str(
+        getattr(contract, "institutional_approval_state", None)
+        if contract is not None
+        else getattr(action, "institutional_approval_state", None)
+        or "unknown"
+    ).strip().lower()
+    offer_terms_complete = bool(
+        getattr(contract, "offer_terms_complete", False)
+        if contract is not None
+        else getattr(action, "offer_terms_complete", False)
+    )
+    if approval_state in {"approved", "not_required"} and offer_terms_complete:
+        return "active_rankable"
+    if (
+        approval_state in {"pending", "unknown"}
+        or action.approval_pending_semantic_only
+        or action.dependency_gate
+        or str(action.action_status or "").strip().lower() == "provisional"
+    ):
+        return "provisional"
+    return "inactive"
+
+
 # ------------------------------------------------------------------ #
 # PlanAction — tek bir aksiyon
 # ------------------------------------------------------------------ #
@@ -407,6 +449,14 @@ class PlanAction(BaseModel):
     offer_policy_arm: str | None = Field(
         default=None,
         description="Offer optimizer icinde bu aksiyonun bagli oldugu policy arm",
+    )
+    offer_required_flag: bool = Field(
+        default=False,
+        description="Aksiyonun semantik olarak institution-side offer veya approval truth gerektirip gerektirmedigi",
+    )
+    offer_feasibility: OfferFeasibility | None = Field(
+        default=None,
+        description="Offer/approval truth'unun deterministic feasibility etiketi",
     )
     prerequisite_tags: list[str] = Field(
         default_factory=list,
@@ -596,6 +646,8 @@ class PlanAction(BaseModel):
                 self.institutional_approval_state = contract.institutional_approval_state
             if not self.requires_institutional_approval:
                 self.requires_institutional_approval = bool(contract.requires_institutional_approval)
+        self.offer_required_flag = _offer_required_flag_from_contract(self.offer_contract, self)
+        self.offer_feasibility = _offer_feasibility_from_contract(self.offer_contract, self)
         return self
 
 
@@ -1148,6 +1200,31 @@ class PlanRecord(BaseModel):
         default=None,
         description="Canonical planner/source provenance lane",
     )
+    path_id: str | None = Field(
+        default=None,
+        description="Deterministic grouped-path identifier for this plan",
+    )
+    path_type: PathType | None = Field(
+        default=None,
+        description="Deterministic grouped-path type derived from canonical ownership semantics",
+    )
+    path_signature: str | None = Field(
+        default=None,
+        description="Stable grouped-path signature for duplicate-resistant identity",
+    )
+    path_rankable_flag: bool = Field(
+        default=False,
+        description="Whether the plan belongs to a rankable actionable grouped path",
+    )
+    path_representative_flag: bool = Field(
+        default=False,
+        description="Whether the plan is the representative of its grouped path",
+    )
+    path_rank: int | None = Field(
+        default=None,
+        ge=1,
+        description="Global rank of the grouped path among rankable representatives",
+    )
     contender_bucket: PlanContenderBucket | None = Field(
         default=None,
         description="Planner-quality contender bucket classification",
@@ -1190,6 +1267,31 @@ class PlanRecord(BaseModel):
         default=0.0,
         ge=0.0,
         description="Total warning penalty derived from numeric recommendation validity",
+    )
+    rule_annotation_complete: bool = Field(
+        default=False,
+        description="Rule-lane typed-action annotation completeness gate",
+    )
+    rule_semantic_quality_status: RecommendationValidityStatus | None = Field(
+        default=None,
+        description="Lane-specific institution/rule semantic contender-worthiness status",
+    )
+    rule_semantic_quality_codes: list[str] = Field(
+        default_factory=list,
+        description="Lane-specific institution/rule semantic quality and completeness codes",
+    )
+    rule_contender_eligible: bool = Field(
+        default=False,
+        description="Whether the rule candidate may enter planner contention",
+    )
+    rule_semantic_warning_penalty: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Bounded additive planner penalty for institution/rule semantic warnings",
+    )
+    rule_quality_gate_version: str | None = Field(
+        default=None,
+        description="Version string for the institution/rule quality gate contract",
     )
     dice_backend_class: DiceBackendClass | None = Field(
         default=None,
@@ -1420,6 +1522,91 @@ class PlanRecord(BaseModel):
         if v not in (3, 6, 12):
             raise ValueError(f"horizon_months {v} geçersiz — yalnızca 3, 6, 12 kabul edilir.")
         return v
+
+
+class RecoursePathRecord(BaseModel):
+    """
+    Deterministic grouped-path record built on top of already-validated plan objects.
+    """
+
+    path_id: str = Field(..., description="Deterministic grouped-path identifier")
+    customer_id: str = Field(..., description="Customer identifier")
+    path_type: PathType = Field(..., description="Canonical grouped-path type")
+    path_signature: str = Field(..., description="Stable grouped-path signature")
+    rankable_flag: bool = Field(
+        default=False,
+        description="Whether the path contains at least one actionable contender",
+    )
+    path_rank: int | None = Field(
+        default=None,
+        ge=1,
+        description="Global rank among rankable path representatives",
+    )
+    representative_plan_id: str | None = Field(
+        default=None,
+        description="Representative plan selected for this path",
+    )
+    representative_plan_source: PlanSource | None = Field(
+        default=None,
+        description="Source lane of the representative plan",
+    )
+    representative_contender_bucket: PlanContenderBucket | None = Field(
+        default=None,
+        description="Planner-quality contender bucket of the representative plan",
+    )
+    member_plan_ids: list[str] = Field(
+        default_factory=list,
+        description="Plan ids grouped into this path",
+    )
+    member_plan_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of plans grouped into this path",
+    )
+    member_source_counts: dict[str, int] = Field(
+        default_factory=dict,
+        description="Per-source counts among grouped plan members",
+    )
+    action_keys: list[str] = Field(
+        default_factory=list,
+        description="Normalized canonical action keys defining the path thesis",
+    )
+    action_owners: list[str] = Field(
+        default_factory=list,
+        description="Normalized action-owner mix defining the path thesis",
+    )
+    action_categories: list[str] = Field(
+        default_factory=list,
+        description="Normalized action-category mix defining the path thesis",
+    )
+    primary_metric_keys: list[str] = Field(
+        default_factory=list,
+        description="Primary numeric target metric keys defining the path thesis",
+    )
+    offer_plan: bool = Field(
+        default=False,
+        description="Whether the grouped path depends on institution-side offer semantics",
+    )
+    offer_maturity: OfferMaturity | None = Field(
+        default=None,
+        description="Dominant offer maturity truth for the grouped path",
+    )
+    selected_path_flag: bool = Field(
+        default=False,
+        description="Whether this path contains the selected winner plan",
+    )
+    customer_summary: LocalizedText | None = Field(
+        default=None,
+        description="Localized customer-facing path summary rendered from representative-plan truth",
+    )
+    operator_summary: LocalizedText | None = Field(
+        default=None,
+        description="Localized operator-facing path summary rendered from representative-plan truth",
+    )
+    render_version: str | None = Field(
+        default=None,
+        description="Optional render-version traceability tag for the path summary contract",
+    )
 
 
 # ------------------------------------------------------------------ #

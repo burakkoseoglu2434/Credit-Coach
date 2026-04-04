@@ -330,6 +330,12 @@ def _write_policy_comparison(
     )
     recommended_outcome_rule_reason = _safe_text(current_collection_manifest.get("recommended_outcome_rule_reason"))
     candidate_outcome_rule_versions = list(current_collection_manifest.get("candidate_outcome_rule_versions_compared", []) or [])
+    preferred_demo_profile = _safe_text(current_collection_manifest.get("preferred_demo_profile"))
+    fallback_demo_profile = _safe_text(current_collection_manifest.get("fallback_demo_profile"))
+    policy_baseline_selection_reason = _safe_text(current_collection_manifest.get("policy_baseline_selection_reason"))
+    threshold_family_promotion_status = _safe_text(current_collection_manifest.get("threshold_family_promotion_status"))
+    outcome_rule_family_promotion_status = _safe_text(current_collection_manifest.get("outcome_rule_family_promotion_status"))
+    next_milestone_focus = _safe_text(current_collection_manifest.get("next_milestone_focus"))
     dominant_movement_bottleneck = _safe_text(current_collection_manifest.get("dominant_movement_bottleneck"))
     movement_guardrail_summary = _safe_text(current_collection_manifest.get("movement_guardrail_summary"))
     promotion_blocker_summary = _safe_text(current_collection_manifest.get("promotion_blocker_summary"))
@@ -346,6 +352,12 @@ def _write_policy_comparison(
         f"- Recommended outcome-rule status: {recommended_outcome_rule_status or 'no_safe_uplift'}",
         f"- Recommended outcome-rule profile: {recommended_outcome_rule_profile_version or 'n/a'}",
         f"- Recommended outcome-rule reason: {recommended_outcome_rule_reason or 'n/a'}",
+        f"- Preferred demo profile: {preferred_demo_profile or 'n/a'}",
+        f"- Fallback demo profile: {fallback_demo_profile or 'n/a'}",
+        f"- Baseline selection reason: {policy_baseline_selection_reason or 'n/a'}",
+        f"- Threshold family promotion status: {threshold_family_promotion_status or 'n/a'}",
+        f"- Outcome-rule family promotion status: {outcome_rule_family_promotion_status or 'n/a'}",
+        f"- Next milestone focus: {next_milestone_focus or 'n/a'}",
         f"- Dominant movement bottleneck: {dominant_movement_bottleneck or 'n/a'}",
         f"- Movement guardrail summary: {movement_guardrail_summary or 'n/a'}",
         f"- Promotion blocker summary: {promotion_blocker_summary or 'n/a'}",
@@ -372,10 +384,88 @@ def _write_policy_comparison(
         "recommended_outcome_rule_profile_version": recommended_outcome_rule_profile_version,
         "recommended_outcome_rule_status": recommended_outcome_rule_status or "no_safe_uplift",
         "recommended_outcome_rule_reason": recommended_outcome_rule_reason,
+        "preferred_demo_profile": preferred_demo_profile,
+        "fallback_demo_profile": fallback_demo_profile,
+        "policy_baseline_selection_reason": policy_baseline_selection_reason,
+        "threshold_family_promotion_status": threshold_family_promotion_status,
+        "outcome_rule_family_promotion_status": outcome_rule_family_promotion_status,
+        "next_milestone_focus": next_milestone_focus,
         "dominant_movement_bottleneck": dominant_movement_bottleneck,
         "movement_guardrail_summary": movement_guardrail_summary,
         "promotion_blocker_summary": promotion_blocker_summary,
     }
+
+
+def _render_demo_policy_proof(
+    *,
+    collection_manifest: Mapping[str, Any],
+    artifact_qa_status: str,
+    portfolio_smoke_status: str,
+) -> str:
+    recommended_candidate_status = _safe_text(collection_manifest.get("recommended_candidate_status"), "no_safe_uplift")
+    recommended_outcome_rule_status = _safe_text(
+        collection_manifest.get("recommended_outcome_rule_status"),
+        "no_safe_uplift",
+    )
+    lines = [
+        "# Demo Policy Proof",
+        "",
+        "## Preferred Profile",
+        f"- Preferred demo profile: {_safe_text(collection_manifest.get('preferred_demo_profile')) or 'n/a'}",
+        f"- Preferred runtime policy: {_safe_text(collection_manifest.get('policy_version_evaluated')) or 'n/a'}",
+        f"- Selection reason: {_safe_text(collection_manifest.get('policy_baseline_selection_reason')) or 'n/a'}",
+        "",
+        "## Fallback Profile",
+        f"- Fallback demo profile: {_safe_text(collection_manifest.get('fallback_demo_profile')) or 'n/a'}",
+        f"- Fallback posture: same shipped runtime baseline, narrower trust-first communication mode",
+        "",
+        "## Candidate Non-Adoption",
+        f"- Threshold family status: {_safe_text(collection_manifest.get('threshold_family_promotion_status')) or recommended_candidate_status or 'n/a'}",
+        f"- Threshold recommendation status: {recommended_candidate_status or 'no_safe_uplift'}",
+        f"- Threshold recommendation reason: {_safe_text(collection_manifest.get('recommended_candidate_reason')) or 'n/a'}",
+        f"- Outcome-rule family status: {_safe_text(collection_manifest.get('outcome_rule_family_promotion_status')) or recommended_outcome_rule_status or 'n/a'}",
+        f"- Outcome-rule recommendation status: {recommended_outcome_rule_status or 'no_safe_uplift'}",
+        f"- Outcome-rule recommendation reason: {_safe_text(collection_manifest.get('recommended_outcome_rule_reason')) or 'n/a'}",
+        f"- Dominant movement bottleneck: {_safe_text(collection_manifest.get('dominant_movement_bottleneck')) or 'n/a'}",
+        f"- Movement guardrail summary: {_safe_text(collection_manifest.get('movement_guardrail_summary')) or 'n/a'}",
+        f"- Promotion blocker summary: {_safe_text(collection_manifest.get('promotion_blocker_summary')) or 'n/a'}",
+        "",
+        "## Allowed Claims",
+        "- The shipped trust baseline remains clean.",
+        "- Bounded threshold and outcome-rule candidates were evaluated explicitly.",
+        "- No bounded candidate was adopted into the runtime demo baseline in Phase 52.",
+        "",
+        "## Disallowed Claims",
+        "- Do not claim that a new uplift policy has been promoted.",
+        "- Do not claim that bounded threshold or outcome-rule changes safely improved production decisions.",
+        "- Do not claim that the current cohort bottleneck is solved.",
+        "",
+        "## Current Package Health",
+        f"- Artifact QA status: {artifact_qa_status or 'n/a'}",
+        f"- Portfolio smoke status: {portfolio_smoke_status or 'n/a'}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _render_next_milestone_handoff(collection_manifest: Mapping[str, Any]) -> str:
+    lines = [
+        "# Next Milestone Handoff",
+        "",
+        f"- Current preferred runtime baseline: {_safe_text(collection_manifest.get('policy_version_evaluated')) or 'n/a'}",
+        f"- Dominant bottleneck: {_safe_text(collection_manifest.get('dominant_movement_bottleneck')) or 'n/a'}",
+        f"- Current next-milestone focus: {_safe_text(collection_manifest.get('next_milestone_focus')) or 'n/a'}",
+        "",
+        "## Why Phase 52 Stops Here",
+        f"- Threshold family promotion status: {_safe_text(collection_manifest.get('threshold_family_promotion_status')) or 'n/a'}",
+        f"- Outcome-rule family promotion status: {_safe_text(collection_manifest.get('outcome_rule_family_promotion_status')) or 'n/a'}",
+        f"- Baseline selection reason: {_safe_text(collection_manifest.get('policy_baseline_selection_reason')) or 'n/a'}",
+        "",
+        "## Guidance",
+        "- Do not reopen the same bounded threshold ladder as a default next step.",
+        "- Do not reopen the same bounded offer/readiness ladder as a default next step.",
+        "- Use the next milestone to investigate broader movement leverage while preserving the shipped trust baseline.",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def _apply_qa_to_explanation_packs(
@@ -402,10 +492,16 @@ def _render_refresh_summary(summary: Mapping[str, Any]) -> str:
         f"- Cadence mode: {_safe_text(summary.get('cadence_mode'))}",
         f"- Institution profile key: {_safe_text(summary.get('institution_profile_key'))}",
         f"- Policy version: {_safe_text(summary.get('policy_version_evaluated')) or 'n/a'}",
+        f"- Preferred demo profile: {_safe_text(summary.get('preferred_demo_profile')) or 'n/a'}",
+        f"- Fallback demo profile: {_safe_text(summary.get('fallback_demo_profile')) or 'n/a'}",
+        f"- Baseline selection reason: {_safe_text(summary.get('policy_baseline_selection_reason')) or 'n/a'}",
         f"- Recommended candidate status: {_safe_text(summary.get('recommended_candidate_status')) or 'no_safe_uplift'}",
         f"- Recommended candidate policy: {_safe_text(summary.get('recommended_candidate_policy_version')) or 'n/a'}",
         f"- Recommended outcome-rule status: {_safe_text(summary.get('recommended_outcome_rule_status')) or 'no_safe_uplift'}",
         f"- Recommended outcome-rule profile: {_safe_text(summary.get('recommended_outcome_rule_profile_version')) or 'n/a'}",
+        f"- Threshold family promotion status: {_safe_text(summary.get('threshold_family_promotion_status')) or 'n/a'}",
+        f"- Outcome-rule family promotion status: {_safe_text(summary.get('outcome_rule_family_promotion_status')) or 'n/a'}",
+        f"- Next milestone focus: {_safe_text(summary.get('next_milestone_focus')) or 'n/a'}",
         f"- Dominant movement bottleneck: {_safe_text(summary.get('dominant_movement_bottleneck')) or 'n/a'}",
         f"- Movement guardrail summary: {_safe_text(summary.get('movement_guardrail_summary')) or 'n/a'}",
         f"- Promotion blocker summary: {_safe_text(summary.get('promotion_blocker_summary')) or 'n/a'}",
@@ -623,6 +719,20 @@ def main(argv: Sequence[str] | None = None):
         output_md=comparison_md,
         reference_label=_safe_text(args.reference_label, _safe_text((reference_manifest or {}).get("run_id"), "none")),
     )
+    demo_policy_proof_path = run_ctx.tables_dir / "demo_policy_proof.md"
+    next_milestone_handoff_path = run_ctx.tables_dir / "next_milestone_handoff.md"
+    demo_policy_proof_path.write_text(
+        _render_demo_policy_proof(
+            collection_manifest=collection_manifest,
+            artifact_qa_status=_safe_text(artifact_qa_summary.get("artifact_qa_status")),
+            portfolio_smoke_status=_safe_text(release_smoke_summary.get("release_decision")),
+        ),
+        encoding="utf-8",
+    )
+    next_milestone_handoff_path.write_text(
+        _render_next_milestone_handoff(collection_manifest),
+        encoding="utf-8",
+    )
 
     refresh_context = {
         "cadence_mode": cadence_mode,
@@ -660,6 +770,10 @@ def main(argv: Sequence[str] | None = None):
         smoke_summary_path=str(release_smoke_summary_path),
         artifact_qa_status=_safe_text(artifact_qa_summary.get("artifact_qa_status"), "FAIL"),
         portfolio_smoke_status=_safe_text(release_smoke_summary.get("release_decision")),
+        preferred_demo_profile=_safe_text(collection_manifest.get("preferred_demo_profile")),
+        fallback_demo_profile=_safe_text(collection_manifest.get("fallback_demo_profile")),
+        policy_baseline_selection_reason=_safe_text(collection_manifest.get("policy_baseline_selection_reason")),
+        next_milestone_focus=_safe_text(collection_manifest.get("next_milestone_focus")),
         reference_run_id=_safe_text((reference_manifest or {}).get("run_id")) or None,
         reference_label=_safe_text(args.reference_label, _safe_text((reference_manifest or {}).get("run_id"))) or None,
         comparison_is_canonical=bool(comparison_is_canonical),
@@ -680,6 +794,8 @@ def main(argv: Sequence[str] | None = None):
             "pilot_refresh_summary_md": "tables/pilot_refresh_summary.md",
             "policy_version_comparison_csv": "tables/policy_version_comparison.csv",
             "policy_version_comparison_md": "tables/policy_version_comparison.md",
+            "demo_policy_proof_md": "tables/demo_policy_proof.md",
+            "next_milestone_handoff_md": "tables/next_milestone_handoff.md",
             "artifact_qa_summary_json": "tables/artifact_qa_summary.json",
             "release_smoke_summary_json": "tables/release_smoke_summary.json",
             "refresh_context_json": "tables/refresh_context.json",
@@ -693,10 +809,16 @@ def main(argv: Sequence[str] | None = None):
         "cadence_mode": cadence_mode,
         "institution_profile_key": institution_profile_key,
         "policy_version_evaluated": _safe_text(collection_manifest.get("policy_version_evaluated")),
+        "preferred_demo_profile": _safe_text(collection_manifest.get("preferred_demo_profile")),
+        "fallback_demo_profile": _safe_text(collection_manifest.get("fallback_demo_profile")),
+        "policy_baseline_selection_reason": _safe_text(collection_manifest.get("policy_baseline_selection_reason")),
         "recommended_candidate_policy_version": _safe_text(collection_manifest.get("recommended_candidate_policy_version")),
         "recommended_candidate_status": _safe_text(collection_manifest.get("recommended_candidate_status"), "no_safe_uplift"),
         "recommended_outcome_rule_profile_version": _safe_text(collection_manifest.get("recommended_outcome_rule_profile_version")),
         "recommended_outcome_rule_status": _safe_text(collection_manifest.get("recommended_outcome_rule_status"), "no_safe_uplift"),
+        "threshold_family_promotion_status": _safe_text(collection_manifest.get("threshold_family_promotion_status")),
+        "outcome_rule_family_promotion_status": _safe_text(collection_manifest.get("outcome_rule_family_promotion_status")),
+        "next_milestone_focus": _safe_text(collection_manifest.get("next_milestone_focus")),
         "dominant_movement_bottleneck": _safe_text(collection_manifest.get("dominant_movement_bottleneck")),
         "movement_guardrail_summary": _safe_text(collection_manifest.get("movement_guardrail_summary")),
         "promotion_blocker_summary": _safe_text(collection_manifest.get("promotion_blocker_summary")),

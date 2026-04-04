@@ -4,9 +4,9 @@ import argparse
 import json
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import pandas as pd
 
@@ -16,6 +16,7 @@ from credit_coach.causality.rex_runner import run_rex_adapter
 from credit_coach.coaching.messaging import (
     build_adverse_action_reasons,
     build_customer_roadmap_narrative,
+    build_recourse_path_render_payload,
 )
 from credit_coach.coaching.planner import (
     BestPlanSelectionResult,
@@ -29,9 +30,10 @@ from credit_coach.coaching.planner import (
     contender_bucket_counts,
     execution_aware_value,
     filter_empty_contenders,
+    filter_selectable_contenders,
 )
 from credit_coach.data.ingest import load_feature_contract
-from credit_coach.data.schema import PlanAction, PlanRecord
+from credit_coach.data.schema import PlanAction, PlanRecord, RecoursePathRecord
 from credit_coach.decision.ownership import build_customer_decision_payload
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.macro.impact import dynamic_alpha
@@ -42,8 +44,9 @@ from credit_coach.model.registry import load_model_bundle
 from credit_coach.recourse.action_space import (
     estimate_action_cost_usd,
     get_action_metadata,
+    get_dice_generatable_features,
     get_action_spec,
-    get_actionable_features,
+    normalize_dice_target_value,
 )
 from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions
@@ -59,7 +62,13 @@ from credit_coach.recourse.dice_quality import (
 from credit_coach.recourse.execution_probability import annotate_plan_execution_probability
 from credit_coach.recourse.feasibility import apply_target_feasibility_with_details
 from credit_coach.recourse.generator import build_canonical_plan_action, generate_nine_plans
-from credit_coach.recourse.offer_optimization import annotate_offer_optimization, build_offer_contract
+from credit_coach.recourse.institution_quality import (
+    annotate_rule_candidate_quality,
+    split_rule_planner_eligible,
+)
+from credit_coach.recourse.institution_rules import generate_institution_rule_action_sets
+from credit_coach.recourse.offer_optimization import annotate_offer_optimization
+from credit_coach.recourse.pathing import build_recourse_path_records, summarize_path_metrics
 from credit_coach.recourse.recommendation_validity import (
     annotate_action_recommendation_validity,
     annotate_plan_recommendation_validity,
@@ -155,6 +164,7 @@ class CustomerArtifactBundle:
     roadmap: dict[str, Any]
     roadmap_steps_df: pd.DataFrame
     metrics_summary: dict[str, Any]
+    paths_df: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 
 @dataclass
@@ -314,6 +324,80 @@ def _selection_meta_dict(selection_result: BestPlanSelectionResult | None) -> di
         "no_valid_candidate_available": int(bool(selection_result.no_valid_candidate_available)),
         "selected_from_widened_valid_pool": int(bool(selection_result.selected_from_widened_valid_pool)),
     }
+
+
+def _path_records_to_df(path_records: list[RecoursePathRecord]) -> pd.DataFrame:
+    rows = [record.model_dump(mode="json") for record in path_records]
+    if not rows:
+        return pd.DataFrame(
+            columns=[
+                "path_id",
+                "customer_id",
+                "path_type",
+                "path_signature",
+                "rankable_flag",
+                "path_rank",
+                "representative_plan_id",
+                "representative_plan_source",
+                "representative_contender_bucket",
+                "member_plan_ids",
+                "member_plan_count",
+                "member_source_counts",
+                "action_keys",
+                "action_owners",
+                "action_categories",
+                "primary_metric_keys",
+                "offer_plan",
+                "offer_maturity",
+                "selected_path_flag",
+            ]
+        )
+    return pd.DataFrame(rows)
+
+
+def _attach_path_summary_to_roadmap(
+    roadmap: dict[str, Any],
+    *,
+    path_records: list[RecoursePathRecord],
+) -> dict[str, Any]:
+    out = dict(roadmap or {})
+    summary = dict(out.get("summary", {}) or {})
+    path_metrics = summarize_path_metrics(path_records)
+    summary.update(path_metrics)
+    summary["available_path_ids"] = [record.path_id for record in path_records]
+    summary["available_path_types"] = [str(record.path_type) for record in path_records]
+    summary["available_path_count"] = int(len(path_records))
+    summary["available_rankable_path_count"] = int(sum(1 for record in path_records if record.rankable_flag))
+    summary["alternative_path_count"] = max(0, int(path_metrics.get("rankable_path_count", 0)) - 1)
+    selected_path = next((record for record in path_records if record.selected_path_flag), None)
+    if selected_path is not None:
+        summary["selected_path_customer_summary"] = _safe_text(
+            getattr(getattr(selected_path, "customer_summary", None), "en", None)
+        )
+        summary["selected_path_operator_summary"] = _safe_text(
+            getattr(getattr(selected_path, "operator_summary", None), "en", None)
+        )
+        summary["selected_path_render_version"] = _safe_text(getattr(selected_path, "render_version", ""))
+    else:
+        summary["selected_path_customer_summary"] = ""
+        summary["selected_path_operator_summary"] = ""
+        summary["selected_path_render_version"] = ""
+    out["summary"] = summary
+    out["paths"] = [record.model_dump(mode="json") for record in path_records]
+    return out
+
+
+def _attach_path_render_summaries(
+    path_records: list[RecoursePathRecord],
+    *,
+    plan_lookup: Mapping[str, PlanRecord],
+) -> None:
+    for record in path_records:
+        representative_plan = plan_lookup.get(_safe_text(record.representative_plan_id))
+        payload = build_recourse_path_render_payload(record, representative_plan)
+        record.customer_summary = payload.get("customer_summary")
+        record.operator_summary = payload.get("operator_summary")
+        record.render_version = payload.get("render_version")
 
 
 def _selected_plan_id(best: PlanRecord | None) -> str:
@@ -633,6 +717,21 @@ def _sync_metrics_summary_with_roadmap_summary(
                 summary.get("selected_recommendation_projection_version"),
                 "",
             ),
+            "path_count": int(_safe_int(summary.get("path_count", 0), 0)),
+            "rankable_path_count": int(_safe_int(summary.get("rankable_path_count", 0), 0)),
+            "multi_path_flag": int(_safe_int(summary.get("multi_path_flag", 0), 0)),
+            "customer_only_path_count": int(_safe_int(summary.get("customer_only_path_count", 0), 0)),
+            "institution_assisted_path_count": int(_safe_int(summary.get("institution_assisted_path_count", 0), 0)),
+            "hybrid_path_count": int(_safe_int(summary.get("hybrid_path_count", 0), 0)),
+            "action_diversity_index": _safe_float(summary.get("action_diversity_index", 0.0), 0.0),
+            "non_utilization_action_rate": _safe_float(summary.get("non_utilization_action_rate", 0.0), 0.0),
+            "institution_action_rate": _safe_float(summary.get("institution_action_rate", 0.0), 0.0),
+            "selected_path_id": _safe_text(summary.get("selected_path_id"), ""),
+            "selected_path_type": _safe_text(summary.get("selected_path_type"), ""),
+            "selected_path_rank": int(_safe_int(summary.get("selected_path_rank", 0), 0)),
+            "selected_path_customer_summary": _safe_text(summary.get("selected_path_customer_summary"), ""),
+            "selected_path_operator_summary": _safe_text(summary.get("selected_path_operator_summary"), ""),
+            "selected_path_render_version": _safe_text(summary.get("selected_path_render_version"), ""),
             "decision_policy_version": _safe_text(summary.get("decision_policy_version"), ""),
             "decision_confidence": _safe_float(summary.get("decision_confidence", 0.0), 0.0),
             "expected_readiness": _safe_text(summary.get("expected_readiness"), ""),
@@ -1518,6 +1617,8 @@ def _plan_to_row(plan: PlanRecord) -> dict:
                 "recommendation_validity_status": str(getattr(action, "recommendation_validity_status", "") or ""),
                 "recommendation_validity_codes": list(getattr(action, "recommendation_validity_codes", []) or []),
                 "recommendation_sanity_flag": int(bool(getattr(action, "recommendation_sanity_flag", False))),
+                "offer_required_flag": int(bool(getattr(action, "offer_required_flag", False))),
+                "offer_feasibility": str(getattr(action, "offer_feasibility", "") or ""),
             }
         )
     canonical_phases = list(getattr(plan, "phases", [])) or build_canonical_phases(
@@ -1535,6 +1636,16 @@ def _plan_to_row(plan: PlanRecord) -> dict:
     return {
         "plan_id": plan.plan_id,
         "plan_source": str(getattr(plan, "plan_source", "") or ""),
+        "path_id": str(getattr(plan, "path_id", "") or ""),
+        "path_type": str(getattr(plan, "path_type", "") or ""),
+        "path_signature": str(getattr(plan, "path_signature", "") or ""),
+        "path_rankable_flag": int(bool(getattr(plan, "path_rankable_flag", False))),
+        "path_representative_flag": int(bool(getattr(plan, "path_representative_flag", False))),
+        "path_rank": (
+            int(getattr(plan, "path_rank", 0) or 0)
+            if getattr(plan, "path_rank", None) is not None
+            else None
+        ),
         "contender_bucket": str(getattr(plan, "contender_bucket", "") or ""),
         "empty_candidate_reason": str(getattr(plan, "empty_candidate_reason", "") or ""),
         "approval_shell_only_flag": int(bool(getattr(plan, "approval_shell_only_flag", False))),
@@ -1547,6 +1658,15 @@ def _plan_to_row(plan: PlanRecord) -> dict:
             ensure_ascii=False,
         ),
         "recommendation_sanity_flag": int(bool(getattr(plan, "recommendation_sanity_flag", False))),
+        "rule_annotation_complete": int(bool(getattr(plan, "rule_annotation_complete", False))),
+        "rule_semantic_quality_status": str(getattr(plan, "rule_semantic_quality_status", "") or ""),
+        "rule_semantic_quality_codes_json": json.dumps(
+            list(getattr(plan, "rule_semantic_quality_codes", []) or []),
+            ensure_ascii=False,
+        ),
+        "rule_contender_eligible": int(bool(getattr(plan, "rule_contender_eligible", False))),
+        "rule_semantic_warning_penalty": _safe_float(getattr(plan, "rule_semantic_warning_penalty", 0.0), 0.0),
+        "rule_quality_gate_version": str(getattr(plan, "rule_quality_gate_version", "") or ""),
         "dice_backend_class": str(getattr(plan, "dice_backend_class", "") or ""),
         "dice_annotation_complete": int(bool(getattr(plan, "dice_annotation_complete", False))),
         "dice_semantic_quality_status": str(getattr(plan, "dice_semantic_quality_status", "") or ""),
@@ -1672,6 +1792,7 @@ def _dice_plan_record(
     causal_weight: float = 0.3,
     feasibility_profile: dict | None = None,
     segment_context: dict | None = None,
+    source_tag: str = "dice",
 ) -> PlanRecord:
     customer_context = {str(k): row.get(k) for k in row.index}
     plan_actions: list[PlanAction] = []
@@ -1681,14 +1802,25 @@ def _dice_plan_record(
         spec = get_action_spec(feature)
         action_month = max(1, int(spec.time_months))
         current = float(a["current_value"])
+        action_meta = get_action_metadata(
+            feature,
+            action_month=action_month,
+            action_phase=phase_id_for_month(action_month),
+            allow_mapped_feature=True,
+        )
+        requested_target = normalize_dice_target_value(
+            feature,
+            current_value=current,
+            target_value=float(a["target_value"]),
+        )
         detail = apply_target_feasibility_with_details(
             feature_name=feature,
             current_value=current,
-            target_value=float(a["target_value"]),
+            target_value=requested_target,
             horizon_months=6,
             profile=feasibility_profile,
             segment_context=segment_context,
-            action_class=spec.action_class,
+            action_class=action_meta.get("action_class"),
             action_context=customer_context,
         )
         target = float(detail["target_value"])
@@ -1699,7 +1831,7 @@ def _dice_plan_record(
                 feature_name=feature,
                 current_value=current,
                 target_value=target,
-                requested_target_value=float(a["target_value"]),
+                requested_target_value=requested_target,
                 action_month=action_month,
                 action_context=customer_context,
                 action_status=str(detail["status"]),
@@ -1709,6 +1841,7 @@ def _dice_plan_record(
                 was_clipped=bool(detail.get("was_clipped", False)),
                 semantic_preserved=detail.get("semantic_preserved"),
                 diagnostic_flags=list(detail.get("reason_codes", [])),
+                allow_mapped_feature=True,
             )
         )
 
@@ -1733,13 +1866,13 @@ def _dice_plan_record(
     base_input = pd.DataFrame([row[feature_cols].values], columns=feature_cols)
     base_pd = float(predict_proba_pd(model, calibrator, base_input)[0])
     plan = PlanRecord(
-        plan_id=f"{run_id}_{customer_id}_dice_{idx}",
+        plan_id=f"{run_id}_{customer_id}_{source_tag}_{idx}",
         customer_id=customer_id,
         run_id=run_id,
         horizon_months=6,
         strategy="balanced",
         actions=plan_actions,
-        plan_source="dice",
+        plan_source=str(source_tag),
         predicted_pd=pred_pd,
         causal_penalty=cpen,
         score=score,
@@ -1906,6 +2039,8 @@ def main(argv: Sequence[str] | None = None):
 
     roadmap_json = run_ctx.tables_dir / "customer_roadmap.json"
     roadmap_json.write_text(json.dumps(result.bundle.roadmap, indent=2, ensure_ascii=False), encoding="utf-8")
+    paths_json = run_ctx.tables_dir / "customer_paths.json"
+    paths_json.write_text(result.bundle.paths_df.to_json(orient="records", indent=2), encoding="utf-8")
     roadmap_steps_csv = run_ctx.tables_dir / "customer_roadmap_steps.csv"
     result.bundle.roadmap_steps_df.to_csv(roadmap_steps_csv, index=False)
 
@@ -1930,7 +2065,7 @@ def main(argv: Sequence[str] | None = None):
     logger.info("Plan outputs: %s %s", plans_csv, plans_json)
     logger.info("DiCE outputs: %s %s %s backend=%s", dice_csv, dice_json, dice_tel_json, result.dice_backend)
     logger.info("Candidate pool outputs: %s %s", pool_csv, pool_json)
-    logger.info("Roadmap outputs: %s %s", roadmap_json, roadmap_steps_csv)
+    logger.info("Roadmap outputs: %s %s %s", roadmap_json, paths_json, roadmap_steps_csv)
     logger.info("Decision logging outputs: %s %s", decision_log_out, decision_log_summary_out)
     logger.info("Adverse action reasons: %s", adverse_out)
     return run_ctx
@@ -2033,7 +2168,7 @@ def main(argv: Sequence[str] | None = None):
         gate_obj["uncertainty"] = unc_cfg
         robust_cfg_base["gate_objective"] = gate_obj
 
-    actionable = set(get_actionable_features())
+    actionable = set(get_dice_generatable_features(feature_cols))
     local_reasons = local_reason_bundle.get("reasons", [])
     candidate_features = [r for r in local_reasons if str(r.get("feature", "")) in actionable]
 
@@ -2254,19 +2389,71 @@ def main(argv: Sequence[str] | None = None):
     dice_tel_json = run_ctx.tables_dir / "dice_telemetry.json"
     dice_tel_json.write_text(json.dumps(dice_telemetry, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    candidate_pool = validated + dice_records
+    rule_cfg = rec_cfg.get("rule_generator", {}) if isinstance(rec_cfg.get("rule_generator", {}), dict) else {}
+    rule_action_sets = (
+        generate_institution_rule_action_sets(
+            row=row,
+            feature_cols=feature_cols,
+            max_candidates=int(rule_cfg.get("max_actions", 4)),
+        )
+        if bool(rule_cfg.get("enabled", True))
+        else []
+    )
+    rule_records: list[PlanRecord] = []
+    for ridx, actions in enumerate(rule_action_sets, start=1):
+        rp = _dice_plan_record(
+            idx=ridx,
+            customer_id=args.customer_id,
+            run_id=run_ctx.run_id,
+            row=row,
+            feature_cols=feature_cols,
+            actions=actions,
+            model=model,
+            calibrator=calibrator,
+            tau=tau,
+            graph=graph,
+            causal_weight=float(c_cfg.get("penalty_weight", 0.3)),
+            feasibility_profile=feasibility_dice_profile,
+            segment_context=segment_context,
+            source_tag="rule",
+        )
+        rp = validate_plan(
+            rp,
+            tau=tau,
+            alpha=alpha,
+            bootstrap_b=b,
+            scenarios=scenarios,
+            threshold_shift_per_msi_unit=threshold_shift,
+            robust_objective=robust_objective,
+            robust_cvar_quantile=robust_cvar_quantile,
+            min_reliability=min_reliability_f,
+            min_worst_risk_margin=min_worst_margin_f,
+            uncertainty_cfg=uncertainty_cfg,
+            segment_context=segment_context,
+        )
+        rp = annotate_rule_candidate_quality(rp)
+        rule_records.append(rp)
+        save_plan(rp)
+
+    rule_df = pd.DataFrame([_plan_to_row(annotate_plan_planner_quality(plan)) for plan in rule_records])
+    rule_csv = run_ctx.tables_dir / "rule_plans.csv"
+    rule_json = run_ctx.tables_dir / "rule_plans.json"
+    rule_df.to_csv(rule_csv, index=False)
+    rule_json.write_text(rule_df.to_json(orient="records", indent=2), encoding="utf-8")
+
+    candidate_pool = validated + dice_records + rule_records
     planner_candidate_pool, _ineligible_dice_candidates = split_dice_planner_eligible(candidate_pool)
+    planner_candidate_pool, _ineligible_rule_candidates = split_rule_planner_eligible(planner_candidate_pool)
     candidate_pool_max_size = int(search_cfg.get("candidate_pool_max_size", 0))
     candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
     planner_candidate_pool = _prune_candidate_pool(planner_candidate_pool, candidate_pool_max_size)
     planner_candidate_pool = [annotate_plan_planner_quality(plan) for plan in planner_candidate_pool]
-    pool_df = pd.DataFrame([_plan_to_row(plan) for plan in candidate_pool])
-    pool_csv = run_ctx.tables_dir / "candidate_pool.csv"
-    pool_json = run_ctx.tables_dir / "candidate_pool.json"
-    pool_df.to_csv(pool_csv, index=False)
-    pool_json.write_text(pool_df.to_json(orient="records", indent=2), encoding="utf-8")
 
     candidate_pool_for_best, _removed_empty_candidates = filter_empty_contenders(planner_candidate_pool)
+    if candidate_pool_for_best:
+        selectable_candidate_pool, _non_selectable = filter_selectable_contenders(candidate_pool_for_best)
+        if selectable_candidate_pool:
+            candidate_pool_for_best = selectable_candidate_pool
     if not candidate_pool_for_best:
         candidate_pool_for_best = planner_candidate_pool
 
@@ -2283,6 +2470,23 @@ def main(argv: Sequence[str] | None = None):
     )
     best = selection_result.best_plan
     best_source = _selected_plan_source(best)
+    path_records = build_recourse_path_records(
+        planner_candidate_pool,
+        selected_plan_id=_selected_plan_id(best),
+        base_pd=base_pd,
+        tau=tau,
+        min_reliability=min_reliability_f,
+        min_worst_risk_margin=min_worst_margin_f,
+        fairness_penalty=fairness_penalty,
+        denied_mode=bool(search_profile.get("is_denied_target", False)),
+        segment_context=segment_context,
+        denied_objective_cfg=robust_cfg.get("denied_objective", {}),
+    )
+    pool_df = pd.DataFrame([_plan_to_row(plan) for plan in candidate_pool])
+    pool_csv = run_ctx.tables_dir / "candidate_pool.csv"
+    pool_json = run_ctx.tables_dir / "candidate_pool.json"
+    pool_df.to_csv(pool_csv, index=False)
+    pool_json.write_text(pool_df.to_json(orient="records", indent=2), encoding="utf-8")
     roadmap = _build_customer_roadmap(
         customer_id=args.customer_id,
         base_pd=base_pd,
@@ -2296,6 +2500,7 @@ def main(argv: Sequence[str] | None = None):
         feature_cols=feature_cols,
         local_reason_bundle=local_reason_bundle,
     )
+    roadmap = _attach_path_summary_to_roadmap(roadmap, path_records=path_records)
     roadmap_json = run_ctx.tables_dir / "customer_roadmap.json"
     roadmap_json.write_text(json.dumps(roadmap, indent=2, ensure_ascii=False), encoding="utf-8")
     roadmap_steps_rows: list[dict] = []
@@ -2700,8 +2905,17 @@ def build_customer_artifact_bundle(
     fairness_penalty: float,
     decision_log_record: dict[str, Any],
     decision_log_summary: dict[str, Any],
+    path_records: list[RecoursePathRecord] | None = None,
 ) -> CustomerArtifactBundle:
     roadmap = _normalize_customer_roadmap_contract(roadmap)
+    if path_records:
+        plan_lookup = {
+            _safe_text(getattr(plan, "plan_id", "")): plan
+            for plan in [*validated, *candidate_pool]
+            if _safe_text(getattr(plan, "plan_id", ""))
+        }
+        _attach_path_render_summaries(path_records, plan_lookup=plan_lookup)
+    roadmap = _attach_path_summary_to_roadmap(roadmap, path_records=path_records or [])
     roadmap = _inject_decision_inputs_into_roadmap(
         roadmap,
         best=best,
@@ -2742,12 +2956,14 @@ def build_customer_artifact_bundle(
         decision_log_record=decision_log_record,
         decision_log_summary=decision_log_summary,
     )
+    paths_df = _path_records_to_df(path_records or [])
     return CustomerArtifactBundle(
         customer_id=str(customer_id),
         plans_df=plans_df,
         roadmap=roadmap,
         roadmap_steps_df=roadmap_steps_df,
         metrics_summary=metrics_summary,
+        paths_df=paths_df,
     )
 
 
@@ -2764,15 +2980,18 @@ def write_customer_artifact_bundle(bundle: CustomerArtifactBundle, output_dir: P
     plans_json = output_dir / "plans.json"
     roadmap_json = output_dir / "customer_roadmap.json"
     metrics_json = output_dir / "metrics.json"
+    paths_json = output_dir / "customer_paths.json"
     roadmap_steps_csv = output_dir / "customer_roadmap_steps.csv"
     plans_json.write_text(bundle.plans_df.to_json(orient="records", indent=2), encoding="utf-8")
     roadmap_json.write_text(json.dumps(bundle.roadmap, indent=2, ensure_ascii=False), encoding="utf-8")
     metrics_json.write_text(json.dumps(bundle.metrics_summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    paths_json.write_text(bundle.paths_df.to_json(orient="records", indent=2), encoding="utf-8")
     bundle.roadmap_steps_df.to_csv(roadmap_steps_csv, index=False)
     return {
         "plans_json": plans_json,
         "roadmap_json": roadmap_json,
         "metrics_json": metrics_json,
+        "paths_json": paths_json,
         "roadmap_steps_csv": roadmap_steps_csv,
     }
 
@@ -2846,7 +3065,7 @@ def generate_customer_recourse_artifacts(
         gate_obj["uncertainty"] = unc_cfg
         robust_cfg_base["gate_objective"] = gate_obj
 
-    actionable = set(get_actionable_features())
+    actionable = set(get_dice_generatable_features(feature_cols))
     local_reasons = local_reason_bundle.get("reasons", [])
     candidate_features = [r for r in local_reasons if str(r.get("feature", "")) in actionable]
 
@@ -3070,15 +3289,66 @@ def generate_customer_recourse_artifacts(
                 save_plan(plan)
 
     dice_df = pd.DataFrame([_plan_to_row(annotate_plan_planner_quality(plan)) for plan in dice_records])
-    candidate_pool = validated + dice_records
+    rule_cfg = rec_cfg.get("rule_generator", {}) if isinstance(rec_cfg.get("rule_generator", {}), dict) else {}
+    rule_action_sets = (
+        generate_institution_rule_action_sets(
+            row=row,
+            feature_cols=feature_cols,
+            max_candidates=int(rule_cfg.get("max_actions", 4)),
+        )
+        if bool(rule_cfg.get("enabled", True))
+        else []
+    )
+    rule_records: list[PlanRecord] = []
+    for ridx, actions in enumerate(rule_action_sets, start=1):
+        plan = _dice_plan_record(
+            idx=ridx,
+            customer_id=customer_id,
+            run_id=run_id,
+            row=row,
+            feature_cols=feature_cols,
+            actions=actions,
+            model=model,
+            calibrator=calibrator,
+            tau=tau,
+            graph=graph,
+            causal_weight=float(c_cfg.get("penalty_weight", 0.3)),
+            feasibility_profile=feasibility_dice_profile,
+            segment_context=segment_context,
+            source_tag="rule",
+        )
+        plan = validate_plan(
+            plan,
+            tau=tau,
+            alpha=alpha,
+            bootstrap_b=bootstrap_b,
+            scenarios=scenarios,
+            threshold_shift_per_msi_unit=threshold_shift,
+            robust_objective=robust_objective,
+            robust_cvar_quantile=robust_cvar_quantile,
+            min_reliability=min_reliability_f,
+            min_worst_risk_margin=min_worst_margin_f,
+            uncertainty_cfg=uncertainty_cfg,
+            segment_context=segment_context,
+        )
+        plan = annotate_rule_candidate_quality(plan)
+        rule_records.append(plan)
+        if persist_repository_records:
+            save_plan(plan)
+
+    candidate_pool = validated + dice_records + rule_records
     planner_candidate_pool, _ineligible_dice_candidates = split_dice_planner_eligible(candidate_pool)
+    planner_candidate_pool, _ineligible_rule_candidates = split_rule_planner_eligible(planner_candidate_pool)
     candidate_pool_max_size = int(search_cfg.get("candidate_pool_max_size", 0))
     candidate_pool = [annotate_plan_planner_quality(plan) for plan in candidate_pool]
     planner_candidate_pool = _prune_candidate_pool(planner_candidate_pool, candidate_pool_max_size)
     planner_candidate_pool = [annotate_plan_planner_quality(plan) for plan in planner_candidate_pool]
-    candidate_pool_df = pd.DataFrame([_plan_to_row(plan) for plan in candidate_pool])
 
     candidate_pool_for_best, _removed_empty_candidates = filter_empty_contenders(planner_candidate_pool)
+    if candidate_pool_for_best:
+        selectable_candidate_pool, _non_selectable = filter_selectable_contenders(candidate_pool_for_best)
+        if selectable_candidate_pool:
+            candidate_pool_for_best = selectable_candidate_pool
     if not candidate_pool_for_best:
         candidate_pool_for_best = planner_candidate_pool
 
@@ -3095,6 +3365,19 @@ def generate_customer_recourse_artifacts(
     )
     best = selection_result.best_plan
     best_source = _selected_plan_source(best)
+    path_records = build_recourse_path_records(
+        planner_candidate_pool,
+        selected_plan_id=_selected_plan_id(best),
+        base_pd=base_pd,
+        tau=tau,
+        min_reliability=min_reliability_f,
+        min_worst_risk_margin=min_worst_margin_f,
+        fairness_penalty=fairness_penalty,
+        denied_mode=bool(search_profile.get("is_denied_target", False)),
+        segment_context=segment_context,
+        denied_objective_cfg=robust_cfg.get("denied_objective", {}),
+    )
+    candidate_pool_df = pd.DataFrame([_plan_to_row(plan) for plan in candidate_pool])
     roadmap = _build_customer_roadmap(
         customer_id=customer_id,
         base_pd=base_pd,
@@ -3139,6 +3422,7 @@ def generate_customer_recourse_artifacts(
         fairness_penalty=fairness_penalty,
         decision_log_record=decision_log_record,
         decision_log_summary=decision_log_summary,
+        path_records=path_records,
     )
     decision_log_record = _sync_decision_log_with_roadmap_summary(
         decision_log_record,

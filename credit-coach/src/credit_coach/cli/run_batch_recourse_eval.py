@@ -26,6 +26,7 @@ from credit_coach.coaching.planner import (
     contender_bucket_counts,
     execution_aware_value,
     filter_empty_contenders,
+    filter_selectable_contenders,
 )
 from credit_coach.data.ingest import load_feature_contract
 from credit_coach.data.schema import PlanAction, PlanRecord
@@ -48,8 +49,9 @@ from credit_coach.model.registry import build_frozen_model_manifest, load_model_
 from credit_coach.recourse.action_space import (
     estimate_action_cost_usd,
     get_action_metadata,
+    get_dice_generatable_features,
     get_action_spec,
-    get_actionable_features,
+    normalize_dice_target_value,
 )
 from credit_coach.recourse.action_constraints import enforce_action_constraints
 from credit_coach.recourse.dice_baseline import generate_dice_counterfactual_actions, generate_dice_like_baseline
@@ -70,7 +72,13 @@ from credit_coach.recourse.generator import (
     generate_nine_plans,
     generate_plan_record,
 )
+from credit_coach.recourse.institution_quality import (
+    annotate_rule_candidate_quality,
+    split_rule_planner_eligible,
+)
+from credit_coach.recourse.institution_rules import generate_institution_rule_action_sets
 from credit_coach.recourse.offer_optimization import annotate_offer_optimization
+from credit_coach.recourse.pathing import build_recourse_path_records, summarize_path_metrics
 from credit_coach.recourse.recommendation_validity import (
     annotate_action_recommendation_validity,
     annotate_plan_recommendation_validity,
@@ -2740,18 +2748,26 @@ def _candidate_quality_metrics_for_population(rows: pd.DataFrame) -> dict[str, f
         return {
             "candidate_pool_diversity_index": 0.0,
             "candidate_source_entropy": 0.0,
+            "multi_path_rate": 0.0,
+            "action_diversity_index": 0.0,
+            "non_utilization_action_rate": 0.0,
+            "institution_action_rate": 0.0,
             "non_empty_contender_share": 0.0,
             "approved_or_conditional_contender_share": 0.0,
             "mean_execution_aware_value": 0.0,
             "offer_ready_contender_share": 0.0,
             "provisional_offer_share": 0.0,
             "approval_shell_only_share": 0.0,
+            "selected_plan_category_customer_only_rate": 0.0,
+            "selected_plan_category_institution_assisted_rate": 0.0,
+            "selected_plan_category_hybrid_rate": 0.0,
             **{f"best_source_{source}_rate": 0.0 for source in _CANDIDATE_SOURCE_CATALOG},
         }
     best_source = rows.get("best_source", pd.Series([""] * len(rows))).astype(str).str.strip().str.lower()
     contender_bucket = rows.get("best_contender_bucket", pd.Series([""] * len(rows))).astype(str).str.strip().str.upper()
     best_status = rows.get("best_status", pd.Series([""] * len(rows))).astype(str).str.strip().str.upper()
     offer_maturity = rows.get("best_offer_maturity", pd.Series(["none"] * len(rows))).astype(str).str.strip().str.lower()
+    selected_path_type = rows.get("selected_path_type", pd.Series([""] * len(rows))).astype(str).str.strip().str.lower()
     metrics = {
         "candidate_pool_diversity_index": _round_metric(
             pd.to_numeric(rows.get("candidate_pool_diversity_index", pd.Series([0.0] * len(rows))), errors="coerce")
@@ -2760,6 +2776,24 @@ def _candidate_quality_metrics_for_population(rows: pd.DataFrame) -> dict[str, f
         ),
         "candidate_source_entropy": _round_metric(
             pd.to_numeric(rows.get("candidate_source_entropy", pd.Series([0.0] * len(rows))), errors="coerce")
+            .fillna(0.0)
+            .mean()
+        ),
+        "multi_path_rate": _round_metric(
+            pd.to_numeric(rows.get("multi_path_flag", pd.Series([0.0] * len(rows))), errors="coerce").fillna(0.0).mean()
+        ),
+        "action_diversity_index": _round_metric(
+            pd.to_numeric(rows.get("action_diversity_index", pd.Series([0.0] * len(rows))), errors="coerce")
+            .fillna(0.0)
+            .mean()
+        ),
+        "non_utilization_action_rate": _round_metric(
+            pd.to_numeric(rows.get("non_utilization_action_rate", pd.Series([0.0] * len(rows))), errors="coerce")
+            .fillna(0.0)
+            .mean()
+        ),
+        "institution_action_rate": _round_metric(
+            pd.to_numeric(rows.get("institution_action_rate", pd.Series([0.0] * len(rows))), errors="coerce")
             .fillna(0.0)
             .mean()
         ),
@@ -2773,6 +2807,11 @@ def _candidate_quality_metrics_for_population(rows: pd.DataFrame) -> dict[str, f
         "offer_ready_contender_share": _round_metric((offer_maturity == "active_rankable").mean()),
         "provisional_offer_share": _round_metric((offer_maturity == "provisional").mean()),
         "approval_shell_only_share": _round_metric((contender_bucket == "APPROVAL_SHELL_ONLY").mean()),
+        "selected_plan_category_customer_only_rate": _round_metric((selected_path_type == "customer_only").mean()),
+        "selected_plan_category_institution_assisted_rate": _round_metric(
+            (selected_path_type == "institution_assisted").mean()
+        ),
+        "selected_plan_category_hybrid_rate": _round_metric((selected_path_type == "hybrid").mean()),
     }
     for source in _CANDIDATE_SOURCE_CATALOG:
         metrics[f"best_source_{source}_rate"] = _round_metric((best_source == source).mean())
@@ -2795,6 +2834,18 @@ def _build_candidate_quality_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str
         },
         "canonical_metrics": canonical_metrics,
         "secondary_metrics": secondary_metrics,
+        "selected_plan_category_distribution": {
+            "canonical": {
+                "customer_only": float(canonical_metrics["selected_plan_category_customer_only_rate"]),
+                "institution_assisted": float(canonical_metrics["selected_plan_category_institution_assisted_rate"]),
+                "hybrid": float(canonical_metrics["selected_plan_category_hybrid_rate"]),
+            },
+            "secondary": {
+                "customer_only": float(secondary_metrics["selected_plan_category_customer_only_rate"]),
+                "institution_assisted": float(secondary_metrics["selected_plan_category_institution_assisted_rate"]),
+                "hybrid": float(secondary_metrics["selected_plan_category_hybrid_rate"]),
+            },
+        },
     }
 
     breakdown_rows: list[dict[str, Any]] = []
@@ -3643,26 +3694,37 @@ def _dice_plan_record(
         feature = str(a["feature_name"])
         spec = get_action_spec(feature)
         current = float(a["current_value"])
+        action_month = max(1, int(spec.time_months))
+        action_meta = get_action_metadata(
+            feature,
+            action_month=action_month,
+            action_phase=phase_id_for_month(action_month),
+            allow_mapped_feature=True,
+        )
+        requested_target = normalize_dice_target_value(
+            feature,
+            current_value=current,
+            target_value=float(a["target_value"]),
+        )
         detail = apply_target_feasibility_with_details(
             feature_name=feature,
             current_value=current,
-            target_value=float(a["target_value"]),
+            target_value=requested_target,
             horizon_months=6,
             profile=feasibility_profile,
             segment_context=segment_context,
-            action_class=spec.action_class,
+            action_class=action_meta.get("action_class"),
             action_context=action_context,
         )
         target = float(detail["target_value"])
         if str(detail["status"]) == "invalid":
             continue
-        action_month = max(1, int(spec.time_months))
         plan_actions.append(
             build_canonical_plan_action(
                 feature_name=feature,
                 current_value=current,
                 target_value=target,
-                requested_target_value=float(a["target_value"]),
+                requested_target_value=requested_target,
                 action_month=action_month,
                 action_context=action_context,
                 action_status=str(detail["status"]),
@@ -3672,6 +3734,7 @@ def _dice_plan_record(
                 was_clipped=bool(detail.get("was_clipped", False)),
                 semantic_preserved=detail.get("semantic_preserved"),
                 diagnostic_flags=list(detail.get("reason_codes", [])),
+                allow_mapped_feature=True,
             )
         )
 
@@ -3844,7 +3907,7 @@ def main(argv: Sequence[str] | None = None):
     bootstrap_b = int(s_cfg.get("bootstrap", {}).get("B", 500))
 
     dice_cfg_base = rec_cfg.get("dice", {}) if isinstance(rec_cfg.get("dice", {}), dict) else {}
-    actionable = [f for f in sorted(get_actionable_features()) if f in feature_cols]
+    actionable = [f for f in get_dice_generatable_features(feature_cols) if f in feature_cols]
     topk_default = int(rec_cfg.get("shap", {}).get("topk_features", 10))
     shap_cfg = rec_cfg.get("shap", {}) if isinstance(rec_cfg.get("shap", {}), dict) else {}
     local_reason_background_df: pd.DataFrame | None = None
@@ -4658,15 +4721,11 @@ def main(argv: Sequence[str] | None = None):
             ):
                 rule_skipped_reason = "time_budget_exceeded"
             if bool(rule_cfg.get("enabled", True)) and not rule_skipped_reason:
-                rule_action_sets: list[list[dict[str, Any]]] = []
-                base_rule_actions = generate_dice_like_baseline(
+                rule_action_sets = generate_institution_rule_action_sets(
                     row=row,
                     feature_cols=feature_cols,
-                    actionable_features=actionable,
-                    max_actions=int(rule_cfg.get("max_actions", 2)),
+                    max_candidates=int(rule_cfg.get("max_actions", 4)),
                 )
-                if base_rule_actions:
-                    rule_action_sets.append(base_rule_actions)
                 for ridx, actions in enumerate(rule_action_sets, start=1):
                     rp = _dice_plan_record(
                         idx=ridx,
@@ -4697,7 +4756,8 @@ def main(argv: Sequence[str] | None = None):
                         min_worst_risk_margin=min_worst_margin_f,
                         uncertainty_cfg=uncertainty_cfg,
                         segment_context=segment_context,
-                        )
+                    )
+                    rp = annotate_rule_candidate_quality(rp)
                     rule_records.append(rp)
             else:
                 out["rule_skipped_reason"] = rule_skipped_reason
@@ -4707,6 +4767,7 @@ def main(argv: Sequence[str] | None = None):
 
             candidate_pool = validated + dice_records + rule_records
             planner_candidate_pool, _ineligible_dice_candidates = split_dice_planner_eligible(candidate_pool)
+            planner_candidate_pool, _ineligible_rule_candidates = split_rule_planner_eligible(planner_candidate_pool)
             candidate_pool_max_size = int(search_cfg.get("candidate_pool_max_size", 0))
             stage1_filter_multiplier = max(1.0, float(search_cfg.get("stage1_filter_multiplier", 1.0)))
             stage1_per_source_cap = int(search_cfg.get("stage1_per_source_cap", 0))
@@ -4852,6 +4913,9 @@ def main(argv: Sequence[str] | None = None):
             filtered_candidate_pool, removed_empty_candidates = filter_empty_contenders(candidate_pool_for_best)
             if filtered_candidate_pool:
                 candidate_pool_for_best = filtered_candidate_pool
+            selectable_candidate_pool, _non_selectable = filter_selectable_contenders(candidate_pool_for_best)
+            if selectable_candidate_pool:
+                candidate_pool_for_best = selectable_candidate_pool
             out["candidate_empty_removed_count"] = max(
                 int(out.get("candidate_empty_removed_count", 0)),
                 int(len(removed_empty_candidates)),
@@ -4869,12 +4933,37 @@ def main(argv: Sequence[str] | None = None):
                 denied_objective_cfg=robust_cfg.get("denied_objective", {}),
             )
             best = selection_result.best_plan
+            path_records = build_recourse_path_records(
+                planner_candidate_pool,
+                selected_plan_id=_safe_str(getattr(best, "plan_id", "")),
+                base_pd=base_pd_i,
+                tau=tau,
+                min_reliability=min_reliability_f,
+                min_worst_risk_margin=min_worst_margin_f,
+                fairness_penalty=float(fairness_penalty),
+                denied_mode=bool(search_profile.get("is_denied_target", False)),
+                segment_context=segment_context,
+                denied_objective_cfg=robust_cfg.get("denied_objective", {}),
+            )
+            path_metrics = summarize_path_metrics(path_records)
             out["selection_outcome"] = str(selection_result.selection_outcome)
             out["selection_stage"] = str(selection_result.selection_stage)
             out["invalid_candidates_removed_count"] = int(selection_result.invalid_candidates_removed_count)
             out["preferred_pool_invalid_exhausted"] = int(bool(selection_result.preferred_pool_invalid_exhausted))
             out["no_valid_candidate_available"] = int(bool(selection_result.no_valid_candidate_available))
             out["selected_from_widened_valid_pool"] = int(bool(selection_result.selected_from_widened_valid_pool))
+            out["path_count"] = int(path_metrics["path_count"])
+            out["rankable_path_count"] = int(path_metrics["rankable_path_count"])
+            out["multi_path_flag"] = int(path_metrics["multi_path_flag"])
+            out["customer_only_path_count"] = int(path_metrics["customer_only_path_count"])
+            out["institution_assisted_path_count"] = int(path_metrics["institution_assisted_path_count"])
+            out["hybrid_path_count"] = int(path_metrics["hybrid_path_count"])
+            out["action_diversity_index"] = float(path_metrics["action_diversity_index"])
+            out["non_utilization_action_rate"] = float(path_metrics["non_utilization_action_rate"])
+            out["institution_action_rate"] = float(path_metrics["institution_action_rate"])
+            out["selected_path_id"] = str(path_metrics["selected_path_id"])
+            out["selected_path_type"] = str(path_metrics["selected_path_type"])
+            out["selected_path_rank"] = int(path_metrics["selected_path_rank"])
             selected_dice_quality = summarize_dice_candidate_metrics(dice_records, selected_plan=best)
             out["selected_dice_flag"] = int(selected_dice_quality["selected_dice_flag"])
             out["selected_dice_valid_flag"] = int(selected_dice_quality["selected_dice_valid_flag"])
@@ -4894,6 +4983,9 @@ def main(argv: Sequence[str] | None = None):
                 out["best_status_reason"] = ""
                 out["best_constraint_status"] = ""
                 out["best_source"] = ""
+                out["best_path_id"] = ""
+                out["best_path_type"] = ""
+                out["best_path_rank"] = 0
                 out["best_contender_bucket"] = ""
                 out["best_offer_maturity"] = ""
                 out["best_plan_id"] = ""
@@ -4957,6 +5049,9 @@ def main(argv: Sequence[str] | None = None):
                 out["best_status_reason"] = str(best.status_reason or "")
                 out["best_constraint_status"] = str(getattr(best, "constraint_status", "valid") or "valid")
                 out["best_source"] = _plan_source(best)
+                out["best_path_id"] = _safe_str(getattr(best, "path_id", ""))
+                out["best_path_type"] = _safe_str(getattr(best, "path_type", ""))
+                out["best_path_rank"] = int(getattr(best, "path_rank", 0) or 0)
                 out["best_contender_bucket"] = str(getattr(best, "contender_bucket", "") or "")
                 out["best_offer_maturity"] = str(getattr(best, "offer_maturity", "none") or "none")
                 out["best_plan_id"] = str(best.plan_id)

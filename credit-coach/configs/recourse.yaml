@@ -254,7 +254,7 @@ high_risk_profile:
 rule_generator:
   enabled: true
   max_actions: 3
-  only_last_resort: true
+  only_last_resort: false
 
 feasibility:
   enabled: true

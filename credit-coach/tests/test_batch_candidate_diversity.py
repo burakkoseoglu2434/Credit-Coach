@@ -162,6 +162,11 @@ def test_build_candidate_quality_artifacts_uses_denied_as_canonical_population()
                 "best_source": "internal",
                 "candidate_pool_diversity_index": 0.60,
                 "candidate_source_entropy": 0.40,
+                "multi_path_flag": 1,
+                "action_diversity_index": 0.55,
+                "non_utilization_action_rate": 0.50,
+                "institution_action_rate": 0.50,
+                "selected_path_type": "customer_only",
             },
             {
                 "denied_base": 1,
@@ -169,6 +174,11 @@ def test_build_candidate_quality_artifacts_uses_denied_as_canonical_population()
                 "best_source": "dice",
                 "candidate_pool_diversity_index": 0.30,
                 "candidate_source_entropy": 0.20,
+                "multi_path_flag": 0,
+                "action_diversity_index": 0.10,
+                "non_utilization_action_rate": 0.25,
+                "institution_action_rate": 0.25,
+                "selected_path_type": "institution_assisted",
             },
             {
                 "denied_base": 0,
@@ -176,6 +186,11 @@ def test_build_candidate_quality_artifacts_uses_denied_as_canonical_population()
                 "best_source": "rule",
                 "candidate_pool_diversity_index": 0.90,
                 "candidate_source_entropy": 0.80,
+                "multi_path_flag": 1,
+                "action_diversity_index": 0.90,
+                "non_utilization_action_rate": 1.00,
+                "institution_action_rate": 1.00,
+                "selected_path_type": "hybrid",
             },
         ]
     )
@@ -188,9 +203,18 @@ def test_build_candidate_quality_artifacts_uses_denied_as_canonical_population()
     assert summary["population_sizes"]["high_risk_denied"] == 1
     assert summary["canonical_metrics"]["candidate_pool_diversity_index"] == 0.45
     assert summary["canonical_metrics"]["candidate_source_entropy"] == 0.30
+    assert summary["canonical_metrics"]["multi_path_rate"] == 0.5
+    assert summary["canonical_metrics"]["action_diversity_index"] == 0.325
+    assert summary["canonical_metrics"]["non_utilization_action_rate"] == 0.375
+    assert summary["canonical_metrics"]["institution_action_rate"] == 0.375
     assert summary["canonical_metrics"]["best_source_internal_rate"] == 0.5
     assert summary["canonical_metrics"]["best_source_dice_rate"] == 0.5
+    assert summary["canonical_metrics"]["selected_plan_category_customer_only_rate"] == 0.5
+    assert summary["canonical_metrics"]["selected_plan_category_institution_assisted_rate"] == 0.5
     assert summary["secondary_metrics"]["candidate_pool_diversity_index"] == 0.60
+    assert summary["secondary_metrics"]["multi_path_rate"] == 1.0
+    assert summary["selected_plan_category_distribution"]["canonical"]["customer_only"] == 0.5
+    assert summary["selected_plan_category_distribution"]["canonical"]["institution_assisted"] == 0.5
     assert summary["secondary_metrics"]["best_source_internal_rate"] == 1.0
     assert set(breakdown["population"]) == {"denied", "high_risk_denied"}
     assert set(breakdown["candidate_source"]) == {"internal", "dice", "rule", "fallback"}

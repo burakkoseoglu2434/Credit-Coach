@@ -1178,3 +1178,351 @@ Son Net Cevap
 .planning formatında yazayım
 
 Bu milestone’un en kritik giriş noktası orası.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 03.04.2026
+
+Harika — şimdi bunu gerçekten ürün seviyesine indireceğiz.
+Aşağıdaki şeyler “fikir” değil → direkt uygulayabileceğin blueprint.
+
+⸻
+
+✅ 1) v2.5 / v2.6 / v3.0 — NET ve PRAGMATİK PLAN
+
+⸻
+
+🔵 v2.5 — DEMO ONLY (1 hafta)
+
+🎯 Amaç
+
+“Birisi 30 saniyede anlasın ve ‘bunu istiyorum’ desin”
+
+⸻
+
+🧱 Build edeceğin şey
+
+👉 Tek ekran (single page)
+
+Input:
+	•	48 feature (veya simplified form)
+
+Output:
+	•	Decision
+	•	Gap
+	•	2–3 action
+	•	Outcome
+
+⸻
+
+🔥 v2.5 scope (kesin sınır)
+
+✔ Dahil
+	•	deterministic output
+	•	5–10 curated case
+	•	güçlü narrative
+	•	temiz UI (çok basit)
+
+⸻
+
+❌ Dahil değil
+	•	API
+	•	metric dashboard
+	•	cohort analysis
+	•	ML improvement
+	•	yeni feature
+
+⸻
+
+🧠 Başarı kriteri
+	•	biri bakınca:
+	•	“anladım”
+	•	“mantıklı”
+	•	“işe yarar”
+
+⸻
+
+⸻
+
+🟣 v2.6 — TRUST LAYER (1 hafta)
+
+🎯 Amaç
+
+“Bu şey doğru mu?” sorusunu öldürmek
+
+⸻
+
+Yapılacaklar
+
+1. Metrics (çok basit)
+	•	% approval uplift (simulated)
+	•	avg improvement
+	•	success rate
+
+⸻
+
+2. Sanity checks
+	•	impossible action yok
+	•	contradiction yok
+	•	empty output yok
+
+⸻
+
+3. Failure cases
+	•	“neden çalışmadı” örnekleri
+
+👉 bu seni güvenilir yapar
+
+⸻
+
+🧠 Başarı kriteri
+	•	biri sorunca:
+“neden güveneyim?”
+
+👉 cevabın hazır
+
+⸻
+
+⸻
+
+🟢 v3.0 — SALES READY (2–4 hafta)
+
+🎯 Amaç
+
+“Bunu biri satın alabilir mi?”
+
+⸻
+
+Yapılacaklar
+
+1. API
+
+{
+  "input": {...},
+  "output": {
+    "decision": "...",
+    "actions": [...],
+    "probability": ...
+  }
+}
+
+
+⸻
+
+2. Basit UI
+	•	form → sonuç
+	•	(Streamlit yeter)
+
+⸻
+
+3. Positioning (çok kritik)
+
+Sen:
+
+❌ credit scoring tool değilsin
+❌ ML model değilsin
+
+👉 Approval Optimization Engine
+
+⸻
+
+4. Tek use-case seç
+
+Örnek:
+	•	BNPL onboarding
+	•	bank loan pre-check
+
+👉 herkese değil, tek buyer persona
+
+⸻
+
+⸻
+
+🔥 2) DEMO EKRANI — EXACT TEXT + LAYOUT
+
+Şimdi en kritik kısım.
+
+⸻
+
+🧱 SAYFA LAYOUT
+
+[HEADER]
+---------------------------------
+Credit Coach — Approval Optimizer
+
+[INPUT PANEL]
+---------------------------------
+User profile (or preloaded case)
+
+[RESULT PANEL]
+---------------------------------
+Decision
+Gap
+Actions
+Outcome
+
+[FOOTER]
+---------------------------------
+“Based on your current profile”
+
+
+⸻
+
+🎯 RESULT PANEL (en kritik)
+
+⸻
+
+1. DECISION BLOCK
+
+❌ Currently: Not Approved
+
+veya:
+
+⚠ Conditional Approval Possible
+
+
+⸻
+
+2. GAP BLOCK
+
+You are 12% below the approval threshold.
+
+veya:
+
+Your profile is close to approval, but blocked by 2 factors.
+
+
+⸻
+
+3. ACTION BLOCK (EN ÖNEMLİ)
+
+👉 max 3 action
+
+⸻
+
+Format:
+
+1. Reduce your credit card utilization
+   from 78% → 45%
+
+2. Pay off delinquent balance
+   1,200 TL → 0 TL
+
+3. Reduce requested loan amount
+   20,000 TL → 15,000 TL
+
+
+⸻
+
+Kural:
+	•	her action:
+	•	metric içerir
+	•	before → after içerir
+	•	kısa
+
+⸻
+
+4. OUTCOME BLOCK
+
+If you complete these steps:
+
+✔ Approval probability increases from 32% → 71%
+✔ You move into the approved risk band
+
+
+⸻
+
+5. NARRATIVE (tek paragraf)
+
+You were rejected due to high utilization and an active delinquency.
+If you reduce your utilization and clear the overdue balance,
+your profile becomes eligible for approval under current policy.
+
+
+⸻
+
+🧠 Altın kurallar
+
+1. Max 3 action
+
+fazla action = kafa karışıklığı
+
+⸻
+
+2. Her action numeric
+
+“improve credit” ❌
+“78% → 45%” ✔
+
+⸻
+
+3. Output deterministic
+
+aynı input → aynı output
+
+⸻
+
+4. Teknik dil yok
+
+❌ “DTI threshold exceeded”
+✔ “monthly payment burden is too high”
+
+⸻
+
+🔥 Bonus: WOW EFFECT
+
+Şunu eklersen demo uçurur:
+
+"With these changes, you could be approved today."
+
+
+⸻
+
+🚀 SONUÇ
+
+✔ Senin planın doğru
+
+Ama doğru uygulama:
+
+v2.5
+
+👉 sadece demo
+
+v2.6
+
+👉 güven
+
+v3.0
+
+👉 satış
+
+⸻
+
+🔥 En kritik şey
+
+Demo = ürün
+

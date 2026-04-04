@@ -402,6 +402,21 @@ _OFFER_NARRATIVE_TEMPLATES: dict[str, dict[str, tuple[str, str]]] = {
     },
 }
 
+_PATH_RENDER_VERSION = "phase59_action_semantics_rendering_v1"
+_PATH_TYPE_LABELS: dict[str, tuple[str, str]] = {
+    "customer_only": ("yalniz musteri yolu", "customer-only path"),
+    "institution_assisted": ("kurum destekli yol", "institution-assisted path"),
+    "hybrid": ("hibrit yol", "hybrid path"),
+}
+_PATH_RENDER_GENERIC_PHRASES = {
+    "improve profile",
+    "take action",
+    "follow the plan",
+    "make progress",
+    "recommended path",
+    "improve outcome",
+}
+
 
 def _lt(tr: str, en: str) -> LocalizedText:
     return LocalizedText(tr=str(tr), en=str(en))
@@ -410,6 +425,63 @@ def _lt(tr: str, en: str) -> LocalizedText:
 def _localized_pair(values: tuple[str, str]) -> LocalizedText:
     tr, en = values
     return _lt(tr, en)
+
+
+def _combine_localized_texts(parts: Sequence[LocalizedText | None]) -> LocalizedText | None:
+    tr_parts = [part.tr.strip() for part in parts if part is not None and str(part.tr or "").strip()]
+    en_parts = [part.en.strip() for part in parts if part is not None and str(part.en or "").strip()]
+    if not tr_parts and not en_parts:
+        return None
+    return _lt(" ".join(tr_parts), " ".join(en_parts))
+
+
+def _prepend_localized_prefix(prefix: LocalizedText, text: LocalizedText | None) -> LocalizedText | None:
+    if text is None:
+        return None
+    return _combine_localized_texts([prefix, text])
+
+
+def _payload_from_model(value: Any) -> Mapping[str, Any] | None:
+    if isinstance(value, Mapping):
+        return value
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        dumped = model_dump(mode="python")
+        if isinstance(dumped, Mapping):
+            return dumped
+    return None
+
+
+def _representative_action_payload(representative_plan: Any) -> Mapping[str, Any] | None:
+    payload = _payload_from_model(representative_plan)
+    if payload is None:
+        return None
+    actions = payload.get("actions", [])
+    if isinstance(actions, Sequence):
+        for action in actions:
+            action_payload = _payload_from_model(action)
+            if action_payload is not None and (
+                str(action_payload.get("action_key", "") or "").strip()
+                or str(action_payload.get("feature_name", "") or "").strip()
+                or _primary_numeric_target(action_payload)
+            ):
+                return action_payload
+    if (
+        str(payload.get("action_key", "") or "").strip()
+        or str(payload.get("feature_name", "") or "").strip()
+        or _primary_numeric_target(payload)
+    ):
+        return payload
+    return None
+
+
+def _contains_generic_weak_language(text: LocalizedText | None) -> bool:
+    if text is None:
+        return False
+    combined = f"{text.tr} {text.en}".strip().lower()
+    if not combined:
+        return True
+    return any(phrase in combined for phrase in _PATH_RENDER_GENERIC_PHRASES)
 
 
 def _card(label_tr: str, label_en: str, desc_tr: str, desc_en: str) -> NarrativeCard:
@@ -1422,6 +1494,83 @@ def build_step_narrative(
         ),
         offer_narrative=offer_narrative if action_class == "institutional" or offer_narrative else None,
     )
+
+
+def build_recourse_path_render_payload(
+    path: Any,
+    representative_plan: Any | None = None,
+    *,
+    customer_context: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Render deterministic customer/operator summaries for a grouped recourse path.
+    """
+
+    path_payload = _payload_from_model(path) or {}
+    path_type = str(path_payload.get("path_type", "") or "").strip().lower()
+    path_id = str(path_payload.get("path_id", "") or "path_summary").strip()
+    representative_action = _representative_action_payload(representative_plan)
+    if representative_action is None:
+        return {
+            "customer_summary": None,
+            "operator_summary": None,
+            "render_version": _PATH_RENDER_VERSION,
+        }
+
+    step_narrative = build_step_narrative(
+        representative_action,
+        step_id=f"{path_id}:representative",
+        phase_id=path_type or "path_summary",
+        customer_context=customer_context,
+    )
+    path_label_tr, path_label_en = _PATH_TYPE_LABELS.get(path_type, ("path", "path"))
+    path_label = _lt(path_label_tr, path_label_en)
+
+    primary_recommendation = step_narrative.primary_recommendation
+    target_sentence = step_narrative.expected_outcome
+    institution_condition = step_narrative.institution_condition
+    action_summary = step_narrative.action_summary
+    if path_type == "customer_only":
+        customer_summary = primary_recommendation or action_summary or target_sentence
+        operator_summary = _combine_localized_texts([path_label, customer_summary, target_sentence])
+    elif path_type == "institution_assisted":
+        customer_summary = _prepend_localized_prefix(
+            _lt("Onaylanirsa,", "If approved,"),
+            primary_recommendation or institution_condition or target_sentence or action_summary,
+        )
+        operator_summary = _combine_localized_texts([path_label, customer_summary, institution_condition])
+    else:
+        core_summary = primary_recommendation or action_summary or target_sentence
+        if core_summary is None:
+            customer_summary = None
+            operator_summary = None
+        else:
+            customer_summary = _combine_localized_texts(
+                [
+                    core_summary,
+                    institution_condition
+                    or _lt(
+                        "Pair it with institution support so the path stays sustainable.",
+                        "Pair it with institution support so the path stays sustainable.",
+                    ),
+                ]
+            )
+            operator_summary = _combine_localized_texts([path_label, customer_summary, institution_condition])
+
+    if (
+        customer_summary is None
+        or operator_summary is None
+        or _contains_generic_weak_language(customer_summary)
+        or _contains_generic_weak_language(operator_summary)
+    ):
+        customer_summary = None
+        operator_summary = None
+
+    return {
+        "customer_summary": customer_summary,
+        "operator_summary": operator_summary,
+        "render_version": _PATH_RENDER_VERSION,
+    }
 
 
 def _offer_terms_summary(offer_terms: Mapping[str, Any]) -> LocalizedText | None:

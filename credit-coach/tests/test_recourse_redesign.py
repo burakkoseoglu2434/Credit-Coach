@@ -14,7 +14,7 @@ from credit_coach.cli.run_recourse import (
     build_customer_artifact_bundle,
 )
 from credit_coach.coaching.planner import BestPlanSelectionResult
-from credit_coach.data.schema import OfferContract, PlanAction, PlanRecord, TrajectoryCheckpoint, TrajectoryPhase
+from credit_coach.data.schema import OfferContract, PlanAction, PlanRecord, PrimaryNumericTarget, TrajectoryCheckpoint, TrajectoryPhase
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.recourse.generator import PlanGenConfig, generate_plan_record
 from credit_coach.recourse.execution_probability import (
@@ -1160,18 +1160,27 @@ def test_build_customer_artifact_bundle_captures_dice_lane_metrics() -> None:
         recommendation_validity_status="valid",
     )
     dice_action = PlanAction(
-        feature_name="revol_util",
-        current_value=64.0,
-        target_value=46.0,
-        delta=-18.0,
+        feature_name="loan_amnt",
+        current_value=12000.0,
+        target_value=10000.0,
+        delta=-2000.0,
         time_months=1,
         estimated_cost_usd=16.0,
-        action_key="limit_credit_usage",
+        action_key="adjust_requested_loan_amount",
         action_class="behavioral",
-        action_family="credit_utilization",
-        action_title="Limit credit usage",
-        action_group_id="limit_credit_usage:phase_1_stabilize",
-        checkpoint_metric="revol_util -> 46.000000",
+        action_family="application_sizing",
+        action_title="Reduce requested loan amount",
+        action_group_id="adjust_requested_loan_amount:phase_1_stabilize",
+        checkpoint_metric="loan_amnt -> 10000.000000",
+        primary_numeric_target=PrimaryNumericTarget(
+            metric_key="requested_loan_amount",
+            unit="currency",
+            current_value=12000.0,
+            target_value=10000.0,
+            delta_value=-2000.0,
+            due_month=1,
+            direction="decrease",
+        ),
         recommendation_validity_status="valid",
     )
     internal_plan = PlanRecord(
@@ -1216,10 +1225,10 @@ def test_build_customer_artifact_bundle_captures_dice_lane_metrics() -> None:
         best=internal_plan,
         best_source="internal",
         selection_result=_selection_result(internal_plan),
-        row=pd.Series({"annual_inc": 55_000.0, "revol_util": 64.0}),
+        row=pd.Series({"annual_inc": 55_000.0, "loan_amnt": 12000.0}),
         model=_DummyModel(),
         calibrator=None,
-        feature_cols=["annual_inc", "revol_util"],
+        feature_cols=["annual_inc", "loan_amnt"],
         local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.82}},
     )
 

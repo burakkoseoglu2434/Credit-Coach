@@ -32,12 +32,18 @@ from credit_coach.recourse.action_space import (
     derive_action_group_id,
     estimate_action_cost_usd,
     get_action_metadata,
+    get_dice_generatable_features,
+    get_dice_generation_metadata,
+    get_feature_mapping_coverage_summary,
+    get_feature_mapping_metadata,
     get_numeric_target_metadata,
     get_actionable_features,
     get_action_spec,
     get_action_template,
+    normalize_dice_target_value,
     validate_action_space_contract,
     validate_action_space_coverage,
+    validate_feature_mapping_contract,
 )
 
 VALID_DIRECTIONS = {"decrease", "increase", "any"}
@@ -166,6 +172,10 @@ class TestActionSpecValues:
         """Actionable feature mapping kontrati Phase 30 sonrasinda temiz olmali."""
         assert validate_action_space_contract() == []
 
+    def test_runtime_actionable_count_stays_frozen_for_phase_55(self) -> None:
+        """Phase 55 mapping coverage, runtime actionable seti sessizce buyutmemeli."""
+        assert len(get_actionable_features()) == 21
+
 
 class TestTypedActionCatalog:
     """Phase 12 typed action taxonomy kontratini test eder."""
@@ -252,6 +262,20 @@ class TestTypedActionCatalog:
         assert installment_meta["offer_type"] == "installment_terms"
         assert installment_meta["requires_acceptance"] is True
         assert installment_meta["institutional_approval_state"] == "approved"
+
+    def test_catalog_exposes_legacy_compatibility_aliases(self) -> None:
+        limit_usage = get_action_template("limit_credit_usage")
+        refinance = get_action_template("refinance")
+        assert limit_usage.action_class == "behavioral"
+        assert limit_usage.action_family == "utilization"
+        assert refinance.action_class == "structural"
+        assert refinance.action_family == "debt_restructuring"
+
+    def test_action_metadata_keeps_legacy_family_and_class_for_brownfield_consumers(self) -> None:
+        meta = get_action_metadata("revol_util", action_month=1)
+        assert meta["action_key"] == "limit_credit_usage"
+        assert meta["action_class"] == "behavioral"
+        assert meta["action_family"] == "utilization"
 
     def test_enforce_action_constraints_repairs_conflicting_groups(self) -> None:
         conflicting = [
@@ -440,6 +464,95 @@ class TestHelperFunctions:
         assert not missing, (
             f"ACTION_SPACE'te şu feature'lar eksik: {missing}"
         )
+
+    def test_feature_mapping_contract_has_no_errors(self, feature_list_48: list[str]) -> None:
+        """Phase 55 feature mapping inventory kontrati tum modeled feature'larda temiz olmali."""
+        assert validate_feature_mapping_contract(feature_list_48) == []
+
+    def test_feature_mapping_metadata_marks_primary_supporting_and_non_actionable(self) -> None:
+        installment = get_feature_mapping_metadata("installment")
+        term = get_feature_mapping_metadata("term")
+        funded_amnt = get_feature_mapping_metadata("funded_amnt")
+
+        assert installment["mapping_status"] == "primary_actionable"
+        assert installment["mapping_role"] == "primary"
+        assert installment["action_key"] == "refinance"
+
+        assert term["mapping_status"] == "supporting_actionable"
+        assert term["mapping_role"] == "supporting"
+        assert term["action_key"] == "refinance"
+        assert term["actionable"] is False
+
+        assert funded_amnt["mapping_status"] == "non_actionable"
+        assert funded_amnt["mapping_role"] == "none"
+        assert funded_amnt["non_actionable_reason"] == "historical_fact"
+
+    def test_feature_mapping_coverage_summary_meets_map03(self, feature_list_48: list[str]) -> None:
+        summary = get_feature_mapping_coverage_summary(feature_list_48)
+        assert summary["total_features"] == len(feature_list_48) == 47
+        assert summary["mapped_feature_count"] >= 38
+        assert summary["coverage_rate"] >= 0.80
+        assert summary["meets_map03_threshold"] is True
+        assert summary["runtime_actionable_count"] == 21
+        assert summary["actions_referenced"]["refinance"] >= 3
+
+    def test_supporting_mapping_inherits_canonical_semantics(self) -> None:
+        title = get_feature_mapping_metadata("emp_title")
+        inquiries = get_feature_mapping_metadata("inq_last_6mths")
+        assert title["action_key"] == "verify_income_documentation"
+        assert title["action_owner"] == "customer"
+        assert title["action_category"] == "income_trust"
+        assert title["heuristic_only"] is False
+
+        assert inquiries["action_key"] == "limit_credit_usage"
+        assert inquiries["action_family"] == "utilization"
+        assert inquiries["action_class"] == "behavioral"
+
+    def test_phase56_dice_runtime_contract_is_explicit_and_conservative(self) -> None:
+        dice_features = get_dice_generatable_features()
+        assert dice_features == [
+            "loan_amnt",
+            "term",
+            "int_rate",
+            "installment",
+            "verification_status",
+            "acc_now_delinq",
+            "delinq_amnt",
+            "collections_12_mths_ex_med",
+        ]
+        assert "dti" not in dice_features
+        assert "total_rev_hi_lim" not in dice_features
+
+    def test_dice_generation_metadata_marks_grouped_support_and_primary_features(self) -> None:
+        term = get_dice_generation_metadata("term")
+        installment = get_dice_generation_metadata("installment")
+        verification = get_dice_generation_metadata("verification_status")
+        assert term["dice_generatable"] is True
+        assert term["action_key"] == "refinance"
+        assert term["requires_primary_group_member"] is True
+        assert term["is_primary_target_feature"] is False
+        assert term["discrete_target_values"] == [36.0, 60.0]
+
+        assert installment["action_key"] == "refinance"
+        assert installment["requires_primary_group_member"] is False
+        assert installment["is_primary_target_feature"] is True
+
+        assert verification["action_key"] == "verify_income_documentation"
+        assert verification["value_kind"] == "ordered_state"
+
+    def test_allow_mapped_feature_metadata_bridge_keeps_legacy_fields(self) -> None:
+        term_meta = get_action_metadata("term", action_month=3, allow_mapped_feature=True)
+        term_numeric = get_numeric_target_metadata("term", action_month=3, allow_mapped_feature=True)
+        assert term_meta["action_key"] == "refinance"
+        assert term_meta["action_class"] == "structural"
+        assert term_meta["action_family"] == "debt_restructuring"
+        assert term_numeric["metric_key"] == "loan_term_months"
+        assert term_numeric["unit"] == "months"
+        assert term_numeric["is_primary_target"] is False
+
+    def test_normalize_dice_target_value_snaps_discrete_features(self) -> None:
+        assert normalize_dice_target_value("verification_status", current_value=1.0, target_value=1.7) == 2.0
+        assert normalize_dice_target_value("term", current_value=60.0, target_value=58.0) == 36.0
 
     def test_estimate_action_cost_usd_is_scale_normalized(self) -> None:
         """Ayni relatif degisim farkli olceklerde benzer maliyet uretmeli."""

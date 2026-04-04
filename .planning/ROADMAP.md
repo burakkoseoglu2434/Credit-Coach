@@ -187,9 +187,9 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 52. Preferred Policy Baseline & Demo Proof | v2.3 | 3/3 | Complete | 2026-04-03 |
 | 53. Formal Phase 52 Verification | v2.3 | 1/1 | Complete | 2026-04-03 |
 | 54. Action Semantics Taxonomy | v2.4 | 1/1 | Complete    | 2026-04-03 |
-| 55. Feature → Action Mapping | v2.4 | 0/3 | Pending | - |
-| 56. DICE Action Space Expansion | v2.4 | 0/3 | Pending | - |
-| 57. Heuristic / Institution Action Lane | v2.4 | 0/3 | Pending | - |
-| 58. Multi-Path Recourse Generation | v2.4 | 0/3 | Pending | - |
-| 59. Action Semantics Rendering | v2.4 | 0/3 | Pending | - |
+| 55. Feature → Action Mapping | v2.4 | 3/3 | Complete | 2026-04-04 |
+| 56. DICE Action Space Expansion | v2.4 | 3/3 | Complete | 2026-04-04 |
+| 57. Heuristic / Institution Action Lane | v2.4 | 3/3 | Complete | 2026-04-04 |
+| 58. Multi-Path Recourse Generation | v2.4 | 3/3 | Complete | 2026-04-04 |
+| 59. Action Semantics Rendering | v2.4 | 3/3 | Complete | 2026-04-04 |
 | 60. Validation & Cohort Evaluation | v2.4 | 0/3 | Pending | - |

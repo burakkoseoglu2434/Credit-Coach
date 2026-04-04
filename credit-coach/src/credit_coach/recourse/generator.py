@@ -107,11 +107,17 @@ def _make_plan_action(
     dependency_gate: bool = False,
     semantic_preserved: bool | None = None,
     diagnostic_flags: list[str] | None = None,
+    allow_mapped_feature: bool = False,
 ) -> PlanAction:
     spec = get_action_spec(feature_name)
     phase_id = _phase_id_for_month(action_month)
     week_start, week_end = _week_window_for_month(action_month)
-    action_meta = get_action_metadata(feature_name, action_month=action_month, action_phase=phase_id)
+    action_meta = get_action_metadata(
+        feature_name,
+        action_month=action_month,
+        action_phase=phase_id,
+        allow_mapped_feature=allow_mapped_feature,
+    )
     offer_contract = build_offer_contract(
         action_meta,
         current_value=float(current_value),
@@ -124,6 +130,7 @@ def _make_plan_action(
         current_value=float(current_value),
         requested_target_value=float(requested_target_value if requested_target_value is not None else target_value),
         action_month=int(action_month),
+        allow_mapped_feature=allow_mapped_feature,
     )
     return PlanAction(
         feature_name=feature_name,
@@ -178,6 +185,7 @@ def build_canonical_plan_action(
     dependency_gate: bool = False,
     semantic_preserved: bool | None = None,
     diagnostic_flags: list[str] | None = None,
+    allow_mapped_feature: bool = False,
 ) -> PlanAction:
     return _make_plan_action(
         feature_name=feature_name,
@@ -195,6 +203,7 @@ def build_canonical_plan_action(
         dependency_gate=dependency_gate,
         semantic_preserved=semantic_preserved,
         diagnostic_flags=diagnostic_flags,
+        allow_mapped_feature=allow_mapped_feature,
     )
 
 
@@ -219,8 +228,13 @@ def _build_primary_numeric_target(
     current_value: float,
     requested_target_value: float,
     action_month: int,
+    allow_mapped_feature: bool = False,
 ) -> PrimaryNumericTarget | None:
-    numeric_meta = get_numeric_target_metadata(feature_name, action_month=action_month)
+    numeric_meta = get_numeric_target_metadata(
+        feature_name,
+        action_month=action_month,
+        allow_mapped_feature=allow_mapped_feature,
+    )
     if not bool(numeric_meta.get("is_primary_target")):
         return None
     direction = str(numeric_meta.get("direction") or "")

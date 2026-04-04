@@ -9,7 +9,11 @@ import numpy as np
 import pandas as pd
 
 from credit_coach.model.predict import predict_proba_pd
-from credit_coach.recourse.action_space import get_action_spec
+from credit_coach.recourse.action_space import (
+    get_action_spec,
+    get_dice_generation_metadata,
+    normalize_dice_target_value,
+)
 
 _ALLOWED_DICE_METHODS = ("random", "genetic", "kdtree")
 _ALLOWED_DICE_METHOD_SET = set(_ALLOWED_DICE_METHODS)
@@ -55,9 +59,10 @@ def _heuristic_actions(
             continue
         try:
             spec = get_action_spec(feat)
+            dice_meta = get_dice_generation_metadata(feat)
         except Exception:
             continue
-        if not bool(spec.actionable):
+        if not bool(dice_meta["dice_generatable"]):
             continue
         current = float(row[feat])
         base_step = max(abs(float(spec.step)), max(1.0, abs(current) * 0.05))
@@ -71,6 +76,11 @@ def _heuristic_actions(
             target = max(float(spec.min_val), float(target))
         if spec.max_val is not None:
             target = min(float(spec.max_val), float(target))
+        target = normalize_dice_target_value(
+            feat,
+            current_value=current,
+            target_value=float(target),
+        )
         if abs(float(target) - current) <= 1e-9:
             continue
         actions.append(
@@ -254,8 +264,18 @@ def _extract_action_sets(
         for feat in actionable_features:
             if feat not in cf_row.index:
                 continue
+            try:
+                dice_meta = get_dice_generation_metadata(feat)
+            except Exception:
+                continue
+            if not bool(dice_meta["dice_generatable"]):
+                continue
             current = float(base[feat])
-            target = float(cf_row[feat])
+            target = normalize_dice_target_value(
+                feat,
+                current_value=current,
+                target_value=float(cf_row[feat]),
+            )
             if abs(target - current) < 1e-9:
                 continue
             actions.append(

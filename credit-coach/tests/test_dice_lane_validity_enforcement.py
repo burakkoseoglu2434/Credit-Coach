@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from credit_coach.cli.run_recourse import _plan_to_row
-from credit_coach.data.schema import PlanAction, PlanRecord
+from credit_coach.data.schema import PlanAction, PlanRecord, PrimaryNumericTarget
 from credit_coach.recourse.dice_quality import (
     annotate_dice_candidate_quality,
     classify_dice_backend_class,
@@ -14,18 +14,27 @@ from credit_coach.recourse.dice_quality import (
 
 def _make_action() -> PlanAction:
     return PlanAction(
-        feature_name="revol_util",
-        current_value=62.0,
-        target_value=44.0,
-        delta=-18.0,
+        feature_name="loan_amnt",
+        current_value=12000.0,
+        target_value=10000.0,
+        delta=-2000.0,
         time_months=1,
         estimated_cost_usd=12.0,
-        action_key="limit_credit_usage",
+        action_key="adjust_requested_loan_amount",
         action_class="behavioral",
-        action_family="credit_utilization",
-        action_title="Reduce utilization pressure",
-        action_group_id="limit_credit_usage:phase_1_stabilize",
-        checkpoint_metric="revol_util -> 44.000000",
+        action_family="application_sizing",
+        action_title="Reduce requested loan amount",
+        action_group_id="adjust_requested_loan_amount:phase_1_stabilize",
+        checkpoint_metric="loan_amnt -> 10000.000000",
+        primary_numeric_target=PrimaryNumericTarget(
+            metric_key="requested_loan_amount",
+            unit="currency",
+            current_value=12000.0,
+            target_value=10000.0,
+            delta_value=-2000.0,
+            due_month=1,
+            direction="decrease",
+        ),
         recommendation_validity_status="valid",
         recommendation_validity_codes=[],
     )
@@ -122,3 +131,66 @@ def test_summarize_dice_candidate_metrics_and_plan_row_emit_phase_46_truth() -> 
     assert int(row["dice_annotation_complete"]) == 1
     assert row["dice_semantic_quality_status"] == "warning"
     assert int(row["dice_contender_eligible"]) == 1
+
+
+def test_annotate_dice_candidate_quality_rejects_support_only_group_candidate() -> None:
+    support_only = PlanAction(
+        feature_name="term",
+        current_value=60.0,
+        target_value=36.0,
+        delta=-24.0,
+        time_months=3,
+        estimated_cost_usd=20.0,
+        action_key="refinance",
+        action_class="structural",
+        action_family="debt_restructuring",
+        action_title="Refinance or restructure debt",
+        action_group_id="refinance:phase_2_build",
+        checkpoint_metric="term -> 36.000000",
+        recommendation_validity_status="valid",
+        recommendation_validity_codes=[],
+    )
+    plan = _make_plan(plan_id="dice-support-only", actions=[support_only])
+
+    annotated = annotate_dice_candidate_quality(plan, backend_class="native")
+
+    assert annotated.dice_annotation_complete is True
+    assert annotated.dice_semantic_quality_status == "invalid"
+    assert annotated.dice_contender_eligible is False
+    assert "missing_action_group_primary_target" in annotated.dice_semantic_quality_codes
+    assert "support_only_without_primary_target" in annotated.dice_semantic_quality_codes
+
+
+def test_annotate_dice_candidate_quality_accepts_deterministic_verification_state_candidate() -> None:
+    verification = PlanAction(
+        feature_name="verification_status",
+        current_value=1.0,
+        target_value=2.0,
+        delta=1.0,
+        time_months=1,
+        estimated_cost_usd=5.0,
+        action_key="verify_income_documentation",
+        action_class="behavioral",
+        action_family="cashflow_management",
+        action_title="Complete income verification",
+        action_group_id="verify_income_documentation:phase_1_stabilize",
+        checkpoint_metric="verification_status -> 2.000000",
+        primary_numeric_target=PrimaryNumericTarget(
+            metric_key="income_verification_state",
+            unit="boolean_state",
+            current_value=1.0,
+            target_value=2.0,
+            delta_value=1.0,
+            due_month=1,
+            direction="increase",
+        ),
+        recommendation_validity_status="valid",
+        recommendation_validity_codes=[],
+    )
+    plan = _make_plan(plan_id="dice-verification", actions=[verification])
+
+    annotated = annotate_dice_candidate_quality(plan, backend_class="native")
+
+    assert annotated.dice_annotation_complete is True
+    assert annotated.dice_semantic_quality_status == "valid"
+    assert annotated.dice_contender_eligible is True
