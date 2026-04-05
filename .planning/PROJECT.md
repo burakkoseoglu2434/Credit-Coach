@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Credit Coach is a credit-risk, recourse, and decision-intelligence platform for financial institutions. It now turns model-native recourse outputs into customer-specific, numeric, feasible, execution-aware, and institution-aware action plans, then carries those plans through product-safe narratives, typed buyer and analyst surfaces, portfolio proof, calibration review, pilot-facing package delivery, and winner-safe consumer surfaces.
+Credit Coach is a credit-risk, recourse, and decision-intelligence platform for financial institutions. It now turns model-native recourse outputs into customer-specific, numeric, feasible, execution-aware, institution-aware, and path-aware action plans, then carries those plans through product-safe narratives, typed buyer and analyst surfaces, portfolio proof, calibration review, pilot-facing package delivery, deterministic grouped-path artifacts, and winner-safe consumer surfaces.
 
 ## Core Value
 
@@ -10,21 +10,33 @@ Generate customer-specific credit action plans that are actionable, behaviorally
 
 ## Current State
 
-`v2.3 Threshold & Outcome Optimization` shipped on `2026-04-03` and passed milestone audit. Credit Coach now supports:
-- deterministic threshold-policy comparison layer that proves honesty
-- explicit offer and readiness outcome-rule pathways with additive provenance
-- diagnostic funnel filters that identify `structural_cohort_limited` safely
-- one packaged pilot-facing proof surface (preferred demo and fallback)
-- full gap closure on Phase 52 verification and traceability
+`v2.4 Recourse Capability Expansion & Action Semantics` shipped on `2026-04-05` and passed milestone audit. Credit Coach now supports:
+- canonical action semantics with explicit `action_owner` and `action_category`
+- deterministic feature → action mapping with explicit non-actionable reasoning and coverage accounting
+- safely expanded DICE and institution/hybrid generation lanes under the locked `v2.2` trust baseline
+- deterministic multi-path grouping and deterministic selected/path rendering across customer and operator artifacts
+- cohort-level evidence for movement potential, path diversity, institution/hybrid rates, and selected-path distribution
 
-The system has definitively proven that bounded optimization on the current action space and signals cannot create safe business lift. The next milestone will pivot to **movement capability expansion** to test richer action semantics and signals.
+The system now proves that it can expand the recourse surface without regressing winner integrity, contender quality, selected-surface consistency, or operator packet coherence.
 
-`v2.4 Recourse Capability Expansion & Action Semantics` is now **in progress**. Phase 54 (Action Semantics Taxonomy) shipped 2026-04-03 — canonical `ActionOwner` / `ActionCategory` taxonomy replaces legacy `ActionClass` / `ActionFamily` literals; all 11 ACTION_CATALOG entries remapped; downstream constraint telemetry updated.
+The remaining open question is business lift. `v2.4` did **not** prove that the richer solution space softens `structural_cohort_limited` or creates safe approval/conditional uplift in real denied cohorts.
 
+## Next Milestone Goals
 
-## Current Milestone: v2.4 Recourse Capability Expansion & Action Semantics
+**Direction:** movement-outcome proof on top of the shipped `v2.4` surface.
 
-**Goal:** For each customer, the system produces ≥ 2–3 distinct, valid, actionable solution paths covering customer-driven, institution-assisted, and hybrid solutions.
+**Next goals:**
+- freeze the shipped `v2.2` trust semantics and `v2.4` action/path semantics as the operating baseline
+- use the Phase 60 evidence layer to evaluate denied, high-risk denied, and `pilot_mixed` cohorts explicitly
+- measure whether non-utilization and institution/hybrid paths create execution-aware movement rather than recommendation variety alone
+- identify the next bottleneck honestly if uplift still does not appear
+
+No new milestone is open yet. The next milestone should start from this shipped baseline rather than expanding semantics again by default.
+
+<details>
+<summary>Archived Milestone Context: v2.4 Recourse Capability Expansion & Action Semantics</summary>
+
+**Goal:** Expand the recourse solution space with richer action semantics, safer lane diversity, deterministic multi-path organization, and honest cohort-level evidence while preserving the `v2.2` trust baseline.
 
 **Target features:**
 - Phase 54 — Action Semantics Taxonomy
@@ -34,6 +46,8 @@ The system has definitively proven that bounded optimization on the current acti
 - Phase 58 — Multi-Path Recourse Generation
 - Phase 59 — Action Semantics Rendering
 - Phase 60 — Validation & Cohort Evaluation
+
+</details>
 
 <details>
 <summary>Archived Milestone Context: v2.3 Threshold & Outcome Optimization</summary>
@@ -103,25 +117,28 @@ The system has definitively proven that bounded optimization on the current acti
 - ✓ Deterministic decision ownership, contract trust repair, cohort calibration, operator review packs, planner source-mix honesty, and repeatable pilot refresh now ship together as one audited baseline - v2.1
 - ✓ Winner selection is now fail-closed, DICE contenders obey shared validity standards, selected consumer truth is aligned across raw and derived surfaces, and operator packets are coherence-safe on the tracked invariants - v2.2
 - ✓ Phase 53 verified 52 to officially close milestone auditable chain for POL-01 and POL-02 gaps - v2.3
-
 - ✓ Bounded threshold profiles were evaluated without breaking the shipped winner and consumer-truth invariants - v2.3
 - ✓ Existing offer and readiness signals were evaluated for explicit decision movement - v2.3
 - ✓ Standard cohorts measured `REJECTED -> CONDITIONAL -> APPROVED` movement limiters - v2.3
 - ✓ One preferred policy profile and one fallback profile refreshed the pilot baseline for demos - v2.3
-- ✓ SEM-01: Canonical action categories (ActionCategory) defined and all 11 catalog entries classified - Phase 54 (v2.4)
-- ✓ SEM-02: action_owner field (customer/institution/hybrid) added to ActionTemplate and ActionSpec; propagated to constraint telemetry - Phase 54 (v2.4)
-- ✓ SEM-03: All 11 existing actions mapped to ActionOwner + ActionCategory with zero unclassified actions - Phase 54 (v2.4)
+- ✓ v2.4 established canonical action ownership/category semantics and deterministic feature → action mapping for the current recommendation surface - v2.4
+- ✓ v2.4 safely expanded the DICE lane and added institution/hybrid rule-lane generation without regressing the shipped trust baseline - v2.4
+- ✓ v2.4 added deterministic multi-path grouping and deterministic action/path rendering across customer and operator artifacts - v2.4
+- ✓ v2.4 added cohort-level evidence for movement potential, diversity, and selected-path mix while preserving winner integrity, contender quality, selected-surface consistency, and operator packet coherence - v2.4
 
 ### Active
 
-- [ ] Milestone v2.4: Recourse Capability Expansion & Action Semantics
+- [ ] Prove whether the shipped `v2.4` surface meaningfully softens `structural_cohort_limited` in denied, high-risk denied, and `pilot_mixed` cohorts
+- [ ] Prove whether non-utilization and institution/hybrid paths create execution-aware movement rather than recommendation variety alone
+- [ ] If lift still does not materialize, identify whether execution realism, data richness, or offer availability is the dominant next bottleneck
 
 ### Out of Scope
 
 - Redesigns of Phases `40`, `40.5`, `41`, `42`, `42.5`, `43`, `45`, `46`, `47`, or `48` rather than consuming their shipped semantics as fixed baselines
-- Expanding action semantics, adding new feature space, or broadening the mathematical recommendation space in this milestone
+- Further action-taxonomy expansion, planner-semantic redesign, or broadening the recommendation space again before movement proof is gathered
 - Full borrower-facing self-serve or mobile experiences until a future milestone explicitly opens them
 - Legal or compliance opinion automation or live institution integration expansion beyond the shipped pilot baseline
+- Claiming approval or conditional uplift from `v2.4` without explicit cohort evidence
 
 ## Context
 
@@ -136,7 +153,8 @@ The system has definitively proven that bounded optimization on the current acti
 - Phase `47` aligned selected overlays across raw, flat, operator, and explanation outputs.
 - Phase `48` proved operator packet coherence on the tracked blocker/action/readiness invariants across three large-sample reruns.
 - `v2.3 Threshold & Outcome Optimization` is now shipped and audited. It operated as a truth-finding milestone that proved bounded thresholds and outcome rules cannot yield safe uplift on standard cohorts, firmly establishing `structural_cohort_limited` as the bottleneck.
-- The next milestone should build forward from this shipped trust baseline by expanding action-space and movement-lever capabilities rather than reopening winner-integrity layers or continuing bounded parameter search.
+- `v2.4 Recourse Capability Expansion & Action Semantics` is now shipped and audited. It safely expanded the recourse surface but did not yet prove business lift.
+- The next milestone should build forward from the shipped trust and action/path baseline by proving movement outcomes before expanding semantics again.
 
 ## Constraints
 
@@ -146,8 +164,8 @@ The system has definitively proven that bounded optimization on the current acti
 - **Proof Before Hype**: Demo, proof, and pilot claims should stay anchored to portfolio evidence and explicit trust cues
 - **Brownfield**: Existing CLI runners, artifacts, website stack, and review surfaces should be evolved rather than replaced
 - **Milestone Continuity**: Phase numbering continues across milestones rather than resetting
-- **Existing Signal Scope Only**: `v2.3` must operate strictly on current signals, current outputs, and current action space rather than introducing new feature domains
-- **Trust Layers Frozen**: Decision ownership, calibration math, planner-quality measurement, recommendation validity semantics, winner hard-stop, selected-surface projection, and operator packet semantics remain inherited baselines for this milestone
+- **Outcome Proof Before Expansion**: The next milestone should measure movement on the shipped `v2.4` surface before adding more action semantics or planner complexity
+- **Trust Layers Frozen**: Decision ownership, calibration math, planner-quality measurement, recommendation validity semantics, winner hard-stop, selected-surface projection, operator packet semantics, deterministic pathing, and deterministic render semantics remain inherited baselines
 
 ## Key Decisions
 
@@ -165,7 +183,8 @@ The system has definitively proven that bounded optimization on the current acti
 | Treat calibration, operator review, planner quality, and pilot refresh as additive consumers of one decision owner | This preserved deterministic ownership while still making the system measurable, reviewable, and packageable | ✓ Good |
 | Open `v2.2 Winner Integrity & Consumer Consistency` before any threshold widening | Large-sample reruns showed that invalid selected winners and contradictory consumer surfaces were the real bottleneck, not approval aggressiveness | ✓ Good |
 | Open `v2.3 Threshold & Outcome Optimization` after `v2.2` shipped cleanly | Pilot demos now need measurable funnel movement and outcome lift more than more trust repair or action-space expansion | ✓ Good |
-| Open new milestone around action-space or movement-lever expansion | Bounded optimization tests proved the current parameter space is exhausted without yielding lift | — Pending |
+| Open new milestone around action-space or movement-lever expansion | Bounded optimization tests proved the current parameter space is exhausted without yielding lift | ✓ Good |
+| Treat `v2.4` as a capability-expansion milestone rather than a business-lift claim | Audit evidence separated richer path space and evidence packaging from proven cohort movement | ✓ Good |
 
 <details>
 <summary>Archived Milestone Context: v2.2 Winner Integrity & Consumer Consistency</summary>
@@ -198,4 +217,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-03 — Milestone v2.4 started*
+*Last updated: 2026-04-05 after v2.4 milestone completion*

@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.4
 milestone_name: milestone
 status: ready
-stopped_at: Phase 60 completed; v2.4 ready for milestone closeout
-last_updated: "2026-04-05T00:25:00+03:00"
+stopped_at: v2.4 completed and archived; ready to start next milestone
+last_updated: "2026-04-05T17:11:49+03:00"
 last_activity: 2026-04-05
 progress:
   total_phases: 58
@@ -17,16 +17,16 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-03)
+See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** v2.4 milestone closeout
+**Current focus:** planning next milestone
 
 ## Current Position
 
-Phase: 60
-Plan: Phase 60 complete
-Status: Ready for milestone closeout
+Phase: milestone closeout
+Plan: v2.4 archived
+Status: Ready to start next milestone
 Last activity: 2026-04-05
 
 ## Performance Metrics
@@ -50,19 +50,14 @@ Last activity: 2026-04-05
 | post-v2.1 carry-forward hardening | 3 | phase 42.5 complete | n/a |
 | v2.2 completed milestone | 12 | phases 45-48 complete; archived | n/a |
 | v2.3 completed milestone | 12 | phases 49-52 complete; archived | n/a |
-| v2.4 active milestone | 19 | phases 54-60 complete | n/a |
+| v2.4 completed milestone | 19 | phases 54-60 complete; archived | n/a |
 
 **Recent Trend:**
 
-- Milestone \`v2.3\` is now archived as the shipped trust baseline.
-- Phase \`54 Action Semantics Taxonomy\` completed on 2026-04-03 and is recorded as complete in \`ROADMAP.md\`.
-- Phase \`55 Feature → Action Mapping\` completed on 2026-04-04 with deterministic 47-feature classification, 38 mapped features, and MAP-03 coverage passed at 80.85%.
-- Phase \`56 DICE Action Space Expansion\` completed on 2026-04-04 with an explicit DICE runtime contract, first-wave action expansion, and full trust-regression proof.
-- Phase \`57 Heuristic / Institution Action Lane\` completed on 2026-04-04 with a deterministic rule-source institution lane, explicit offer truth, and shared-pool trust gating.
-- Phase \`58 Multi-Path Recourse Generation\` completed on 2026-04-04 with deterministic path typing, near-duplicate collapse, additive path artifacts, and trust-regression proof.
-- Phase \`59 Action Semantics Rendering\` completed on 2026-04-04 with deterministic action/path rendering, shared selected/path render payloads, and full render trust-regression proof.
-- Phase \`60 Validation & Cohort Evaluation\` completed on 2026-04-05 with canonical cohort-evidence packaging, denied/high-risk/pilot-mixed evidence exports, and full trust-regression proof.
-- Milestone \`v2.4\` now has all planned phases complete and is ready for milestone closeout.
+- Milestone \`v2.3\` remains the shipped proof that bounded threshold and outcome tuning cannot create safe uplift on the old surface.
+- Milestone \`v2.4\` is now archived as a shipped capability-expansion milestone with phases \`54-60\` complete.
+- The shipped system now has canonical action semantics, deterministic feature mapping, safe DICE/rule-lane expansion, deterministic pathing/rendering, and cohort-level evidence packaging.
+- The next milestone focus is movement-outcome proof on top of the shipped `v2.4` surface rather than more semantic expansion by default.
 
 ## Accumulated Context
 
@@ -88,9 +83,10 @@ Recent decisions affecting the shipped baseline:
 - Phase \`57 Heuristic / Institution Action Lane\` adds a deterministic institution/hybrid rule lane, explicit rule-quality gating, and actionable-only winner selection while preserving shared trust surfaces
 - Phase \`58 Multi-Path Recourse Generation\` adds deterministic path identity, grouped alternative-path artifacts, selected-path traceability, and duplicate-resistant path metrics above the existing validated candidate pool
 - Phase \`59 Action Semantics Rendering\` adds one deterministic render core for selected actions and grouped paths, propagates shared render payloads through artifacts, and keeps empty-state trust behavior explicit
+- Phase \`60 Validation & Cohort Evaluation\` adds one cohort-evidence seam for denied, high-risk denied, and pilot-mixed population reporting while keeping trust proof separate from diversity evidence
 - The website remains a typed consumer of engine artifacts.
 - Pilot integration remains export-first and controlled.
-- New milestone \`v2.4\` pivots to movement capability expansion and semantics testing rather than bounded threshold/offer policy tweaking, since the limits of the shipped policy were verified in \`v2.3\`.
+- The next milestone should focus on outcome proof over the shipped \`v2.4\` surface rather than broadening semantics again immediately.
 
 ### Pending Todos
 
@@ -109,5 +105,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-05T00:25:00+03:00
-Stopped at: Phase 60 completed; v2.4 ready for milestone closeout
+Stopped at: v2.4 completed and archived; ready to start next milestone
 Resume file: .planning/ROADMAP.md

@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🔄 **v2.4 Recourse Capability Expansion & Action Semantics** - Phases 54-60 (Active)
+- ✅ **v2.4 Recourse Capability Expansion & Action Semantics** - Phases 54-60 (shipped 2026-04-05; archive: `.planning/milestones/v2.4-ROADMAP.md`)
 - ✅ **v2.3 Threshold & Outcome Optimization** - Phases 49-53 (shipped 2026-04-03; archive: `.planning/milestones/v2.3-ROADMAP.md`)
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
 - ✅ **v1.1 Fairness Stability & KPI Hardening** - Phases 8-11 (completed 2026-03-15)
@@ -15,6 +15,21 @@
 ## Inter-Milestone Carry-Forward
 
 - ✅ **Phase 42.5 Recommendation Validity Layer** - post-v2.1 carry-forward hardening (completed 2026-03-24; code validation passed, and large-sample reruns now execute locally via deterministic sample-CSV fallback while processed-data-specific reruns still depend on `credit-coach/data/processed/test.parquet`)
+
+<details>
+<summary>✅ v2.4 Recourse Capability Expansion & Action Semantics (Phases 54-60) - SHIPPED 2026-04-05</summary>
+
+Historical archive: `.planning/milestones/v2.4-ROADMAP.md`
+
+- Phase 54: Action Semantics Taxonomy
+- Phase 55: Feature → Action Mapping
+- Phase 56: DICE Action Space Expansion
+- Phase 57: Heuristic / Institution Action Lane
+- Phase 58: Multi-Path Recourse Generation
+- Phase 59: Action Semantics Rendering
+- Phase 60: Validation & Cohort Evaluation
+
+</details>
 
 <details>
 <summary>✅ v2.3 Threshold & Outcome Optimization (Phases 49-53) - SHIPPED 2026-04-03</summary>
