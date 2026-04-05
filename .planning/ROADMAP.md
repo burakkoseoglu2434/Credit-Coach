@@ -2,6 +2,7 @@
 
 ## Milestones
 
+- 🚧 **v2.5 Recoverable Customer Targeting & Movement Optimization** - Phases 61-66 (planning started 2026-04-05)
 - ✅ **v2.4 Recourse Capability Expansion & Action Semantics** - Phases 54-60 (shipped 2026-04-05; archive: `.planning/milestones/v2.4-ROADMAP.md`)
 - ✅ **v2.3 Threshold & Outcome Optimization** - Phases 49-53 (shipped 2026-04-03; archive: `.planning/milestones/v2.3-ROADMAP.md`)
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
@@ -15,6 +16,79 @@
 ## Inter-Milestone Carry-Forward
 
 - ✅ **Phase 42.5 Recommendation Validity Layer** - post-v2.1 carry-forward hardening (completed 2026-03-24; code validation passed, and large-sample reruns now execute locally via deterministic sample-CSV fallback while processed-data-specific reruns still depend on `credit-coach/data/processed/test.parquet`)
+
+## Active Milestone
+
+### 🚧 v2.5 Recoverable Customer Targeting & Movement Optimization (Phases 61-66)
+
+**Goal:** Identify realistically recoverable denied customers, focus full recourse generation on them, and keep structurally limited customers in an honest limited-guidance mode.
+
+**Acceptance checks:**
+- recoverable customers are deterministically identified from shipped scores and path evidence
+- movement rate in the recoverable cohort is materially higher than the global denied baseline
+- structurally limited customers do not receive fake high-yield multi-path treatment
+- `selected_invalid_winner_count = 0`
+- no selected-surface drift
+- no operator packet contradictions
+
+**Planned phases:**
+- Phase 61: Recoverability Signal Definition
+- Phase 62: Recoverable Customer Classifier
+- Phase 63: Recourse Gating By Recoverability
+- Phase 64: Movement-Focused Path Ranking
+- Phase 65: Targeted Cohort Evaluation
+- Phase 66: Demo & Narrative Alignment
+
+**Phase details:**
+
+**Phase 61: Recoverability Signal Definition**
+Goal: derive deterministic recoverability fields from current score distance and shipped structural signals.
+Requirements: `RECV-01`, `RECV-02`, `RECV-03`, `RECV-04`
+Success criteria:
+- `approval_gap` is emitted per customer from current score vs threshold
+- `normalized_gap` and `recoverability_score` are deterministic and explainable
+- `risk_band` and `recoverability_bucket` classify customers into `near_threshold`, `mid_risk`, or `structural_limited`
+- the new fields appear in customer and cohort evaluation artifacts without model retraining
+
+**Phase 62: Recoverable Customer Classifier**
+Goal: turn recoverability signals and path evidence into an explicit recoverable customer decision.
+Requirements: `CLSF-01`, `CLSF-02`, `CLSF-03`
+Success criteria:
+- `recoverable_flag` is true only when approval gap, valid-path existence, and structural-limit checks all pass
+- `recoverable_reason_codes` explain positive and negative outcomes
+- reruns remain deterministic for the same inputs
+
+**Phase 63: Recourse Gating By Recoverability**
+Goal: use recoverability to decide whether each customer receives full recourse or limited informational mode.
+Requirements: `GATE-01`, `GATE-02`, `GATE-03`
+Success criteria:
+- recoverable customers enter `recourse_mode=full`
+- non-recoverable customers enter `recourse_mode=limited`
+- limited mode avoids aggressive low-yield path generation while preserving trust and planner validity contracts
+
+**Phase 64: Movement-Focused Path Ranking**
+Goal: rank plans for realistic progress toward threshold instead of generic best-plan selection alone.
+Requirements: `MOVE-01`, `MOVE-02`, `MOVE-03`
+Success criteria:
+- `movement_score` favors threshold progress, feasibility, and simpler action sets
+- heuristic `threshold_reach_probability` is emitted for ranked or selected paths
+- ranking changes preserve valid winner selection and do not regress trust counters
+
+**Phase 65: Targeted Cohort Evaluation**
+Goal: prove whether recoverability targeting improves movement concentration relative to the global denied baseline.
+Requirements: `EVAL-01`, `EVAL-02`, `EVAL-03`
+Success criteria:
+- cohort evaluation compares global denied vs recoverable-only populations
+- required metrics are published, including movement, recommendation mode, and threshold-gap distributions
+- the report explicitly distinguishes capability concentration from business uplift claims
+
+**Phase 66: Demo & Narrative Alignment**
+Goal: make recoverable vs structural-limited outcomes visible and honest in narratives and demo surfaces.
+Requirements: `NARR-01`, `NARR-02`, `NARR-03`
+Success criteria:
+- recoverable customers get `narrative_type=actionable`
+- non-recoverable customers get `narrative_type=informational`
+- customer and demo-facing artifacts stay aligned with recoverability and recourse mode decisions
 
 <details>
 <summary>✅ v2.4 Recourse Capability Expansion & Action Semantics (Phases 54-60) - SHIPPED 2026-04-05</summary>
@@ -208,3 +282,9 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 58. Multi-Path Recourse Generation | v2.4 | 3/3 | Complete | 2026-04-04 |
 | 59. Action Semantics Rendering | v2.4 | 3/3 | Complete | 2026-04-04 |
 | 60. Validation & Cohort Evaluation | v2.4 | 3/3 | Complete | 2026-04-05 |
+| 61. Recoverability Signal Definition | v2.5 | 0/0 | Planned | — |
+| 62. Recoverable Customer Classifier | v2.5 | 0/0 | Planned | — |
+| 63. Recourse Gating By Recoverability | v2.5 | 0/0 | Planned | — |
+| 64. Movement-Focused Path Ranking | v2.5 | 0/0 | Planned | — |
+| 65. Targeted Cohort Evaluation | v2.5 | 0/0 | Planned | — |
+| 66. Demo & Narrative Alignment | v2.5 | 0/0 | Planned | — |

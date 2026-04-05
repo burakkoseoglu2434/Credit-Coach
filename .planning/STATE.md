@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.4
-milestone_name: milestone
-status: ready
-stopped_at: v2.4 completed and archived; ready to start next milestone
-last_updated: "2026-04-05T17:11:49+03:00"
+milestone: v2.5
+milestone_name: Recoverable Customer Targeting & Movement Optimization
+status: planning
+stopped_at: defining requirements and roadmap for v2.5
+last_updated: "2026-04-05T18:45:00+03:00"
 last_activity: 2026-04-05
 progress:
-  total_phases: 58
+  total_phases: 64
   completed_phases: 58
-  total_plans: 170
-  completed_plans: 170
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** planning next milestone
+**Current focus:** milestone v2.5 requirements and roadmap definition
 
 ## Current Position
 
-Phase: milestone closeout
-Plan: v2.4 archived
-Status: Ready to start next milestone
-Last activity: 2026-04-05
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-05 — Milestone v2.5 started
 
 ## Performance Metrics
 
@@ -57,7 +57,7 @@ Last activity: 2026-04-05
 - Milestone \`v2.3\` remains the shipped proof that bounded threshold and outcome tuning cannot create safe uplift on the old surface.
 - Milestone \`v2.4\` is now archived as a shipped capability-expansion milestone with phases \`54-60\` complete.
 - The shipped system now has canonical action semantics, deterministic feature mapping, safe DICE/rule-lane expansion, deterministic pathing/rendering, and cohort-level evidence packaging.
-- The next milestone focus is movement-outcome proof on top of the shipped `v2.4` surface rather than more semantic expansion by default.
+- Milestone \`v2.5\` now opens as a targeting and movement-optimization milestone focused on recoverable customers rather than broad recommendation expansion.
 
 ## Accumulated Context
 
@@ -90,7 +90,8 @@ Recent decisions affecting the shipped baseline:
 
 ### Pending Todos
 
-None yet.
+- Plan Phase `61` with `$gsd-plan-phase 61`
+- Keep recoverability deterministic and explainable; do not reopen model retraining or new action-type scope during v2.5
 
 ### Tooling / Tech Debt
 
@@ -104,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T00:25:00+03:00
-Stopped at: v2.4 completed and archived; ready to start next milestone
+Last session: 2026-04-05T18:45:00+03:00
+Stopped at: requirements and roadmap drafted for v2.5
 Resume file: .planning/ROADMAP.md

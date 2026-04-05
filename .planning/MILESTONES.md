@@ -139,43 +139,46 @@
 
 ---
 
-**Current active milestone:** v2.3 Threshold & Outcome Optimization
+**Current active milestone:** v2.5 Recoverable Customer Targeting & Movement Optimization
 
-## v2.3 Threshold & Outcome Optimization (Active)
+## v2.5 Recoverable Customer Targeting & Movement Optimization (Active)
 
-**Goal:** Improve approval and conditional yield from the shipped `v2.2` trust baseline by tuning bounded thresholds and making existing offer/readiness signals produce real funnel movement.
+**Goal:** Identify which denied customers are realistically recoverable, focus full multi-path recourse on them, and avoid pretending to help structurally limited customers with low-yield aggressive recommendations.
 
 **Why this milestone exists now:**
 
-- `v2.2` closed the remaining winner-integrity and consumer-consistency trust repairs, so the next bottleneck is business lift rather than trust repair
-- pilot-facing demos are now credible, but the decision funnel still needs stronger `APPROVED + CONDITIONAL` movement to support customer conversations
-- offer maturity and readiness are currently measured well but remain too descriptive rather than outcome-producing
-- the system should first optimize results using existing signals before expanding action semantics or feature space
+- `v2.4` proved the recourse engine is rich, deterministic, and trustworthy, but broad denied cohorts still show low meaningful movement
+- the dominant bottleneck is now customer distance to threshold and recoverability targeting rather than action-surface richness
+- the system needs an honest split between customers who can realistically move and customers who currently need informational guidance only
+- business lift should be pursued through better customer selection and movement concentration, not by expanding semantics again by default
 
-**Planned phases:** 49-52
+**Planned phases:** 61-66
 
 **Workstreams:**
 
-- Phase 49: Threshold Policy Evaluation & Provenance
-- Phase 50: Offer & Readiness Outcome Rules
-- Phase 51: Funnel Movement Guardrails & Evidence
-- Phase 52: Preferred Policy Baseline & Demo Proof
+- Phase 61: Recoverability Signal Definition
+- Phase 62: Recoverable Customer Classifier
+- Phase 63: Recourse Gating By Recoverability
+- Phase 64: Movement-Focused Path Ranking
+- Phase 65: Targeted Cohort Evaluation
+- Phase 66: Demo & Narrative Alignment
 
 **Acceptance checks:**
 
-- at least one bounded policy profile improves `APPROVED + CONDITIONAL` yield versus the shipped `v2.2` baseline on the standard cohorts
-- `offer_needed_balanced` shows explicit outcome movement attributable to offer/readiness rules rather than descriptive-only diagnostics
-- yield proof can separate threshold-driven movement from offer/readiness-driven movement
-- all shipped `v2.2` trust counters remain clean while candidate and promoted policies are evaluated
-- one preferred policy profile and one fallback profile are ready for pilot demos and first customer conversations
+- recoverable customers are deterministically identified from existing shipped scores and signals only
+- movement rate in the recoverable cohort is materially higher than the global denied baseline
+- structurally limited customers do not receive fake high-yield multi-path treatment
+- all shipped `v2.2` and `v2.4` trust counters remain clean while recoverability targeting is introduced
+- customer and demo surfaces honestly distinguish actionable versus informational outcomes
 
 **Not in this milestone:**
 
-- expanding action semantics or opening new recommendation feature space
-- redesign of Phases `40`, `40.5`, `41`, `42`, `42.5`, `43`, `45`, `46`, `47`, or `48`
-- new borrower-facing channels, live institution integrations, or compliance automation
+- model retraining or black-box recoverability prediction
+- threshold policy redesign or reopening the `v2.3` policy ladder
+- new action types or external data integration
+- broad recommendation expansion for structurally limited customers
 
-**Current status:** Phases 49-51 complete. Bounded threshold-only evaluation and bounded offer/readiness-only evaluation both ended in explicit `no_safe_uplift`, and Phase 51 now proves the dominant diagnosis is `structural_cohort_limited` across all three standard cohorts, so the milestone continues toward honest demo-proof packaging rather than premature policy promotion.
+**Current status:** Milestone opened on 2026-04-05. Requirements, roadmap, and state are drafted; Phase 61 planning is the next step.
 
 ## v2.2 Winner Integrity & Consumer Consistency (Shipped: 2026-04-02)
 

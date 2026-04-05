@@ -19,19 +19,26 @@ Generate customer-specific credit action plans that are actionable, behaviorally
 
 The system now proves that it can expand the recourse surface without regressing winner integrity, contender quality, selected-surface consistency, or operator packet coherence.
 
-The remaining open question is business lift. `v2.4` did **not** prove that the richer solution space softens `structural_cohort_limited` or creates safe approval/conditional uplift in real denied cohorts.
+The remaining open question is movement concentration. The latest cohort evaluation showed rich and trustworthy path generation, but only a small minority of denied customers exhibited meaningful movement while the vast majority remained structurally limited. That shifts the bottleneck from "more actions" to "better customer targeting and honest recourse mode selection."
 
-## Next Milestone Goals
+## Current Milestone: v2.5 Recoverable Customer Targeting & Movement Optimization
 
-**Direction:** movement-outcome proof on top of the shipped `v2.4` surface.
+**Goal:** Identify which denied customers are realistically recoverable, focus full recourse generation on them, and avoid pretending to help structurally limited customers with low-yield aggressive recommendations.
 
-**Next goals:**
-- freeze the shipped `v2.2` trust semantics and `v2.4` action/path semantics as the operating baseline
-- use the Phase 60 evidence layer to evaluate denied, high-risk denied, and `pilot_mixed` cohorts explicitly
-- measure whether non-utilization and institution/hybrid paths create execution-aware movement rather than recommendation variety alone
-- identify the next bottleneck honestly if uplift still does not appear
+**Target features:**
+- Phase 61 — Recoverability Signal Definition
+- Phase 62 — Recoverable Customer Classifier
+- Phase 63 — Recourse Gating By Recoverability
+- Phase 64 — Movement-Focused Path Ranking
+- Phase 65 — Targeted Cohort Evaluation
+- Phase 66 — Demo & Narrative Alignment
 
-No new milestone is open yet. The next milestone should start from this shipped baseline rather than expanding semantics again by default.
+**Milestone direction:**
+- derive deterministic recoverability signals from existing scores and shipped path evidence only
+- classify customers into recoverable versus structural-limited segments with explicit reason codes
+- route recoverable customers into full multi-path recourse and non-recoverable customers into limited, honest guidance
+- concentrate movement where it is realistic instead of maximizing recommendation volume
+- prove whether targeted movement concentration improves relative to the global denied baseline without breaking trust
 
 <details>
 <summary>Archived Milestone Context: v2.4 Recourse Capability Expansion & Action Semantics</summary>
@@ -128,17 +135,22 @@ No new milestone is open yet. The next milestone should start from this shipped 
 
 ### Active
 
-- [ ] Prove whether the shipped `v2.4` surface meaningfully softens `structural_cohort_limited` in denied, high-risk denied, and `pilot_mixed` cohorts
-- [ ] Prove whether non-utilization and institution/hybrid paths create execution-aware movement rather than recommendation variety alone
-- [ ] If lift still does not materialize, identify whether execution realism, data richness, or offer availability is the dominant next bottleneck
+- [ ] Deterministically derive recoverability signals (`approval_gap`, `normalized_gap`, `risk_band`, `recoverability_score`, `recoverability_bucket`) from existing shipped scores and signals only
+- [ ] Deterministically classify customers into recoverable versus non-recoverable with explicit reason codes and structural-limit logic
+- [ ] Gate recourse mode so recoverable customers receive full multi-path generation while non-recoverable customers receive limited, honest guidance
+- [ ] Re-rank paths toward threshold movement, feasibility, and simplicity without regressing winner integrity or surface trust
+- [ ] Prove whether recoverable-only targeting materially improves movement concentration versus the global denied baseline
+- [ ] Align narratives and demo surfaces so recoverable customers receive actionable advice and structurally limited customers receive informational honesty
 
 ### Out of Scope
 
 - Redesigns of Phases `40`, `40.5`, `41`, `42`, `42.5`, `43`, `45`, `46`, `47`, or `48` rather than consuming their shipped semantics as fixed baselines
 - Further action-taxonomy expansion, planner-semantic redesign, or broadening the recommendation space again before movement proof is gathered
+- Model retraining, threshold policy redesign, or any new black-box recoverability predictor
+- New action types or external data integrations during this milestone
 - Full borrower-facing self-serve or mobile experiences until a future milestone explicitly opens them
 - Legal or compliance opinion automation or live institution integration expansion beyond the shipped pilot baseline
-- Claiming approval or conditional uplift from `v2.4` without explicit cohort evidence
+- Claiming approval or conditional uplift from recoverability targeting without explicit cohort evidence
 
 ## Context
 
@@ -154,7 +166,8 @@ No new milestone is open yet. The next milestone should start from this shipped 
 - Phase `48` proved operator packet coherence on the tracked blocker/action/readiness invariants across three large-sample reruns.
 - `v2.3 Threshold & Outcome Optimization` is now shipped and audited. It operated as a truth-finding milestone that proved bounded thresholds and outcome rules cannot yield safe uplift on standard cohorts, firmly establishing `structural_cohort_limited` as the bottleneck.
 - `v2.4 Recourse Capability Expansion & Action Semantics` is now shipped and audited. It safely expanded the recourse surface but did not yet prove business lift.
-- The next milestone should build forward from the shipped trust and action/path baseline by proving movement outcomes before expanding semantics again.
+- The latest denied-cohort evaluation showed roughly 90% multi-path coverage but only about 10% meaningful movement, with structural limitation still dominating the population.
+- The current milestone should build forward from the shipped trust and action/path baseline by targeting recoverable customers rather than expanding semantics again.
 
 ## Constraints
 
@@ -185,6 +198,8 @@ No new milestone is open yet. The next milestone should start from this shipped 
 | Open `v2.3 Threshold & Outcome Optimization` after `v2.2` shipped cleanly | Pilot demos now need measurable funnel movement and outcome lift more than more trust repair or action-space expansion | ✓ Good |
 | Open new milestone around action-space or movement-lever expansion | Bounded optimization tests proved the current parameter space is exhausted without yielding lift | ✓ Good |
 | Treat `v2.4` as a capability-expansion milestone rather than a business-lift claim | Audit evidence separated richer path space and evidence packaging from proven cohort movement | ✓ Good |
+| Open `v2.5 Recoverable Customer Targeting & Movement Optimization` as a targeting milestone rather than another action-expansion milestone | `v2.4` proved the engine is rich and trustworthy, but the dominant bottleneck is still customer distance to threshold | ✓ Good |
+| Keep recoverability deterministic and explainable | The system already has trusted scores, path evidence, and structural signals; a black-box recoverability layer would weaken operator trust without adding governed leverage | ✓ Good |
 
 <details>
 <summary>Archived Milestone Context: v2.2 Winner Integrity & Consumer Consistency</summary>
@@ -217,4 +232,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-05 after v2.4 milestone completion*
+*Last updated: 2026-04-05 after starting milestone v2.5 Recoverable Customer Targeting & Movement Optimization*
