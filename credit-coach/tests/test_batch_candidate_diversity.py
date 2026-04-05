@@ -163,6 +163,8 @@ def test_build_candidate_quality_artifacts_uses_denied_as_canonical_population()
                 "candidate_pool_diversity_index": 0.60,
                 "candidate_source_entropy": 0.40,
                 "multi_path_flag": 1,
+                "path_count": 2,
+                "rankable_path_count": 1,
                 "action_diversity_index": 0.55,
                 "non_utilization_action_rate": 0.50,
                 "institution_action_rate": 0.50,
@@ -175,6 +177,8 @@ def test_build_candidate_quality_artifacts_uses_denied_as_canonical_population()
                 "candidate_pool_diversity_index": 0.30,
                 "candidate_source_entropy": 0.20,
                 "multi_path_flag": 0,
+                "path_count": 1,
+                "rankable_path_count": 1,
                 "action_diversity_index": 0.10,
                 "non_utilization_action_rate": 0.25,
                 "institution_action_rate": 0.25,
@@ -187,6 +191,8 @@ def test_build_candidate_quality_artifacts_uses_denied_as_canonical_population()
                 "candidate_pool_diversity_index": 0.90,
                 "candidate_source_entropy": 0.80,
                 "multi_path_flag": 1,
+                "path_count": 3,
+                "rankable_path_count": 2,
                 "action_diversity_index": 0.90,
                 "non_utilization_action_rate": 1.00,
                 "institution_action_rate": 1.00,
@@ -204,6 +210,8 @@ def test_build_candidate_quality_artifacts_uses_denied_as_canonical_population()
     assert summary["canonical_metrics"]["candidate_pool_diversity_index"] == 0.45
     assert summary["canonical_metrics"]["candidate_source_entropy"] == 0.30
     assert summary["canonical_metrics"]["multi_path_rate"] == 0.5
+    assert summary["canonical_metrics"]["path_count"] == 1.5
+    assert summary["canonical_metrics"]["rankable_path_count"] == 1.0
     assert summary["canonical_metrics"]["action_diversity_index"] == 0.325
     assert summary["canonical_metrics"]["non_utilization_action_rate"] == 0.375
     assert summary["canonical_metrics"]["institution_action_rate"] == 0.375
@@ -216,6 +224,8 @@ def test_build_candidate_quality_artifacts_uses_denied_as_canonical_population()
     assert summary["selected_plan_category_distribution"]["canonical"]["customer_only"] == 0.5
     assert summary["selected_plan_category_distribution"]["canonical"]["institution_assisted"] == 0.5
     assert summary["secondary_metrics"]["best_source_internal_rate"] == 1.0
+    assert len(summary["cohort_evidence_packages"]) == 2
+    assert summary["cohort_evidence_packages"][0]["population"] == "denied"
     assert set(breakdown["population"]) == {"denied", "high_risk_denied"}
     assert set(breakdown["candidate_source"]) == {"internal", "dice", "rule", "fallback"}
 

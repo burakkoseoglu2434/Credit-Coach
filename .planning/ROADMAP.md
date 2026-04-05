@@ -192,4 +192,4 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 57. Heuristic / Institution Action Lane | v2.4 | 3/3 | Complete | 2026-04-04 |
 | 58. Multi-Path Recourse Generation | v2.4 | 3/3 | Complete | 2026-04-04 |
 | 59. Action Semantics Rendering | v2.4 | 3/3 | Complete | 2026-04-04 |
-| 60. Validation & Cohort Evaluation | v2.4 | 0/3 | Pending | - |
+| 60. Validation & Cohort Evaluation | v2.4 | 3/3 | Complete | 2026-04-05 |

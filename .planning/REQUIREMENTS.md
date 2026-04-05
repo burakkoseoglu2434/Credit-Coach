@@ -38,9 +38,9 @@
 - [x] **REND-03**: Verify selected plans all produce a coherent narrative summary
 
 ### Validation & Cohort Evaluation
-- [ ] **EVAL-01**: Implement multi_path_rate, action_diversity_index, non_utilization_action_rate, institution_action_rate, selected_plan_category_distribution metrics
-- [ ] **EVAL-02**: Measure structural_cohort_limited reduction effect
-- [ ] **EVAL-03**: Ensure no regression in selected_invalid_winner_count, dice_contender_rules, selected-surface consistency, or operator packet coherence
+- [x] **EVAL-01**: Implement multi_path_rate, action_diversity_index, non_utilization_action_rate, institution_action_rate, selected_plan_category_distribution metrics
+- [x] **EVAL-02**: Measure structural_cohort_limited reduction effect
+- [x] **EVAL-03**: Ensure no regression in selected_invalid_winner_count, dice_contender_rules, selected-surface consistency, or operator packet coherence
 
 ## v2 Requirements
 
@@ -80,9 +80,9 @@ None.
 | REND-01 | Phase 59 | Complete |
 | REND-02 | Phase 59 | Complete |
 | REND-03 | Phase 59 | Complete |
-| EVAL-01 | Phase 60 | Pending |
-| EVAL-02 | Phase 60 | Pending |
-| EVAL-03 | Phase 60 | Pending |
+| EVAL-01 | Phase 60 | Complete |
+| EVAL-02 | Phase 60 | Complete |
+| EVAL-03 | Phase 60 | Complete |
 
 **Coverage:**
 - v1 requirements: 23 total
@@ -91,4 +91,4 @@ None.
 
 ---
 *Requirements defined: 2026-04-03*
-*Last updated: 2026-04-04 after Phase 59 completion tracking*
+*Last updated: 2026-04-05 after Phase 60 completion tracking*

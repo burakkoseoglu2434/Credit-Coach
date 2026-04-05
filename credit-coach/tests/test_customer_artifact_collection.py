@@ -1027,6 +1027,13 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "offer_needed_flag" in metrics_df.columns
     assert "candidate_pool_diversity_index" in metrics_df.columns
     assert "candidate_source_entropy" in metrics_df.columns
+    assert "path_count" in metrics_df.columns
+    assert "rankable_path_count" in metrics_df.columns
+    assert "multi_path_flag" in metrics_df.columns
+    assert "action_diversity_index" in metrics_df.columns
+    assert "non_utilization_action_rate" in metrics_df.columns
+    assert "institution_action_rate" in metrics_df.columns
+    assert "best_execution_aware_value" in metrics_df.columns
     assert "candidate_source_internal_count" in metrics_df.columns
     assert "candidate_source_internal_present" in metrics_df.columns
     assert "candidate_non_empty_count" in metrics_df.columns
@@ -1107,6 +1114,10 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "dominant_movement_bottleneck" in manifest
     assert "movement_guardrail_summary" in manifest
     assert "promotion_blocker_summary" in manifest
+    assert "phase_60_evidence_version" in manifest
+    assert "phase_60_overall_movement_conclusion" in manifest
+    assert "phase_60_overall_trust_conclusion" in manifest
+    assert "phase_60_files" in manifest
     assert set(manifest["funnel_summary"]).issuperset(
         {"approved_share", "conditional_share", "rejected_share", "internal_needs_review_share"}
     )
@@ -1131,6 +1142,10 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "movement_bottleneck_breakdown_csv" in manifest["calibration_files"]
     assert "movement_ceiling_breakdown_csv" in manifest["calibration_files"]
     assert "movement_guardrail_review_md" in manifest["calibration_files"]
+    assert "cohort_evidence_summary_json" in manifest["phase_60_files"]
+    assert "trust_regression_table_csv" in manifest["phase_60_files"]
+    assert (collection_root / "phase_60" / "phase_60_collection_cohort_evidence_summary.json").exists()
+    assert (collection_root / "phase_60" / "phase_60_collection_cohort_evidence_summary.md").exists()
 
     summary_md = (collection_root / "collection_summary.md").read_text(encoding="utf-8")
     review_md = (collection_root / "calibration" / "calibration_review.md").read_text(encoding="utf-8")
@@ -1148,6 +1163,7 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "## Planner Quality" in summary_md
     assert "Hard-invalid plan rate" in summary_md
     assert "Numeric warning rate" in summary_md
+    assert "## Phase 60 Cohort Evidence" in summary_md
     assert "## Operator Packet Coherence" in summary_md
     assert "## Operator Review" in summary_md
     assert "Likely-to-upgrade-soon queue" in summary_md

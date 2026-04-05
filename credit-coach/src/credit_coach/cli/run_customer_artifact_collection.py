@@ -50,6 +50,12 @@ from credit_coach.evaluation.decision_calibration import (
     select_initial_cohort,
     summarize_readiness,
 )
+from credit_coach.evaluation.cohort_evidence import (
+    build_cohort_evidence_package,
+    build_phase60_evidence_summary,
+    summarize_population_metrics_from_rows,
+    write_phase60_evidence_artifacts,
+)
 from credit_coach.model.predict import predict_proba_pd
 from credit_coach.model.registry import load_model_bundle
 from credit_coach.ops.operator_review import (
@@ -561,11 +567,32 @@ def _augment_metrics_row(
             ),
             "best_contender_bucket": str(metrics.get("best_contender_bucket", "") or ""),
             "best_offer_maturity": str(metrics.get("best_offer_maturity", roadmap_summary.get("offer_maturity", "none")) or "none"),
+            "best_execution_aware_value": _safe_float(metrics.get("best_execution_aware_value", 0.0), 0.0),
             "candidate_pool_diversity_index": _safe_float(metrics.get("candidate_pool_diversity_index", 0.0), 0.0),
             "candidate_source_entropy": _safe_float(metrics.get("candidate_source_entropy", 0.0), 0.0),
             "candidate_non_empty_count": non_empty_count,
             "candidate_approval_shell_only_count": approval_shell_only_count,
             "candidate_empty_removed_count": empty_removed_count,
+            "path_count": int(_safe_int(metrics.get("path_count", roadmap_summary.get("path_count", 0)), 0)),
+            "rankable_path_count": int(_safe_int(metrics.get("rankable_path_count", roadmap_summary.get("rankable_path_count", 0)), 0)),
+            "multi_path_flag": int(_safe_int(metrics.get("multi_path_flag", roadmap_summary.get("multi_path_flag", 0)), 0)),
+            "customer_only_path_count": int(_safe_int(metrics.get("customer_only_path_count", roadmap_summary.get("customer_only_path_count", 0)), 0)),
+            "institution_assisted_path_count": int(
+                _safe_int(metrics.get("institution_assisted_path_count", roadmap_summary.get("institution_assisted_path_count", 0)), 0)
+            ),
+            "hybrid_path_count": int(_safe_int(metrics.get("hybrid_path_count", roadmap_summary.get("hybrid_path_count", 0)), 0)),
+            "action_diversity_index": _safe_float(
+                metrics.get("action_diversity_index", roadmap_summary.get("action_diversity_index", 0.0)),
+                0.0,
+            ),
+            "non_utilization_action_rate": _safe_float(
+                metrics.get("non_utilization_action_rate", roadmap_summary.get("non_utilization_action_rate", 0.0)),
+                0.0,
+            ),
+            "institution_action_rate": _safe_float(
+                metrics.get("institution_action_rate", roadmap_summary.get("institution_action_rate", 0.0)),
+                0.0,
+            ),
             "recommendation_validity_status": str(metrics.get("recommendation_validity_status", roadmap_summary.get("recommendation_validity_status", "")) or ""),
             "recommendation_invalid_action_count": int(_safe_int(metrics.get("recommendation_invalid_action_count", roadmap_summary.get("recommendation_invalid_action_count", 0)), 0)),
             "recommendation_warning_action_count": int(_safe_int(metrics.get("recommendation_warning_action_count", roadmap_summary.get("recommendation_warning_action_count", 0)), 0)),
@@ -607,6 +634,9 @@ def _augment_metrics_row(
                 )
                 or ""
             ),
+            "selected_path_id": str(metrics.get("selected_path_id", roadmap_summary.get("selected_path_id", "")) or ""),
+            "selected_path_type": str(metrics.get("selected_path_type", roadmap_summary.get("selected_path_type", "")) or ""),
+            "selected_path_rank": int(_safe_int(metrics.get("selected_path_rank", roadmap_summary.get("selected_path_rank", 0)), 0)),
             "selected_outcome_rule_applied": int(
                 _safe_int(
                     metrics.get(
@@ -867,6 +897,8 @@ def _collection_summary_markdown(
     operator_briefing: Mapping[str, Any],
     movement_guardrail_summary: Mapping[str, Any] | None = None,
     policy_baseline_selection: Mapping[str, Any] | None = None,
+    phase_60_files: Mapping[str, Any] | None = None,
+    phase_60_summary: Mapping[str, Any] | None = None,
 ) -> str:
     decision_status_counts = (
         metrics_df.get("decision_status", metrics_df.get("best_status", pd.Series(dtype=object)))
@@ -1065,6 +1097,8 @@ def _collection_summary_markdown(
     )
     movement_guardrail_summary = dict(movement_guardrail_summary or {})
     policy_baseline_selection = dict(policy_baseline_selection or {})
+    phase_60_files = dict(phase_60_files or {})
+    phase_60_summary = dict(phase_60_summary or {})
     threshold_family = dict(movement_guardrail_summary.get("threshold_family", {}) or {})
     outcome_family = dict(movement_guardrail_summary.get("offer_readiness_family", {}) or {})
     trust_guardrails = dict(movement_guardrail_summary.get("trust_guardrails", {}) or {})
@@ -1197,6 +1231,12 @@ def _collection_summary_markdown(
             f"- Mean selected action count: {mean_selected_action_count:.2f}",
             f"- Selected recommendation projection versions: {selected_projection_versions or '{}'}",
             "",
+            "## Phase 60 Cohort Evidence",
+            f"- Phase 60 evidence version: {_safe_text(phase_60_summary.get('phase_60_evidence_version'), 'n/a') or 'n/a'}",
+            f"- Overall movement conclusion: {_safe_text(phase_60_summary.get('overall_movement_conclusion'), 'n/a') or 'n/a'}",
+            f"- Overall trust conclusion: {_safe_text(phase_60_summary.get('overall_trust_conclusion'), 'n/a') or 'n/a'}",
+            f"- Pilot-mixed bottleneck: {_safe_text(dict(phase_60_summary.get('population_bottlenecks', {}) or {}).get('pilot_mixed'), 'n/a') or 'n/a'}",
+            "",
             "## Operator Packet Coherence",
             f"- Approved with blocker count: {approved_with_blocker_count}",
             f"- Approved with action count: {approved_with_action_count}",
@@ -1237,6 +1277,13 @@ def _collection_summary_markdown(
             f"- Movement ceiling breakdown: `{manifest_rel_root}/calibration/movement_ceiling_breakdown.csv`",
             f"- Movement guardrail review: `{manifest_rel_root}/calibration/movement_guardrail_review.md`",
             f"- Calibration review: `{manifest_rel_root}/calibration/calibration_review.md`",
+            f"- Phase 60 cohort evidence summary: `{manifest_rel_root}/phase_60/{_safe_text(phase_60_files.get('cohort_evidence_summary_json'))}`",
+            f"- Phase 60 cohort evidence markdown: `{manifest_rel_root}/phase_60/{_safe_text(phase_60_files.get('cohort_evidence_summary_md'))}`",
+            f"- Phase 60 movement table: `{manifest_rel_root}/phase_60/{_safe_text(phase_60_files.get('movement_potential_table_csv'))}`",
+            f"- Phase 60 path diversity table: `{manifest_rel_root}/phase_60/{_safe_text(phase_60_files.get('path_diversity_table_csv'))}`",
+            f"- Phase 60 action coverage table: `{manifest_rel_root}/phase_60/{_safe_text(phase_60_files.get('action_coverage_table_csv'))}`",
+            f"- Phase 60 selected-path table: `{manifest_rel_root}/phase_60/{_safe_text(phase_60_files.get('selected_path_distribution_table_csv'))}`",
+            f"- Phase 60 trust regression table: `{manifest_rel_root}/phase_60/{_safe_text(phase_60_files.get('trust_regression_table_csv'))}`",
             f"- Operator briefing: `{manifest_rel_root}/operator_review_briefing.md`",
             f"- Operator packets: `{manifest_rel_root}/operator_packets/`",
         ]
@@ -1735,6 +1782,19 @@ def main(argv: Sequence[str] | None = None):
         render_collection_operator_briefing_markdown(operator_briefing),
         encoding="utf-8",
     )
+    phase_60_root = collection_root / "phase_60"
+    phase_60_collection_package = build_cohort_evidence_package(
+        population_name="pilot_mixed",
+        population_metrics=summarize_population_metrics_from_rows(metrics_df),
+        movement_summary=movement_guardrail_summary,
+        trust_regression_status=[],
+    )
+    phase_60_collection_summary = build_phase60_evidence_summary([phase_60_collection_package])
+    phase_60_files = write_phase60_evidence_artifacts(
+        phase_60_root,
+        phase_60_collection_summary,
+        prefix="phase_60_collection",
+    )
     manifest_payload = {
         "collection_run_id": run_ctx.run_id,
         "cohort_policy": str(args.cohort_policy),
@@ -1778,6 +1838,9 @@ def main(argv: Sequence[str] | None = None):
         "dominant_movement_bottleneck": _safe_text(movement_guardrail_summary.get("dominant_movement_bottleneck")),
         "movement_guardrail_summary": _safe_text(movement_guardrail_summary.get("movement_guardrail_summary")),
         "promotion_blocker_summary": _safe_text(movement_guardrail_summary.get("promotion_blocker_summary")),
+        "phase_60_evidence_version": _safe_text(phase_60_collection_summary.get("phase_60_evidence_version")),
+        "phase_60_overall_movement_conclusion": _safe_text(phase_60_collection_summary.get("overall_movement_conclusion")),
+        "phase_60_overall_trust_conclusion": _safe_text(phase_60_collection_summary.get("overall_trust_conclusion")),
         "raw_root": f"{rel_root}/raw",
         "funnel_summary": funnel_summary,
         "readiness_summary": readiness_summary,
@@ -2110,6 +2173,10 @@ def main(argv: Sequence[str] | None = None):
             "movement_guardrail_review_md": f"{rel_root}/calibration/movement_guardrail_review.md",
             "calibration_review_md": f"{rel_root}/calibration/calibration_review.md",
         },
+        "phase_60_files": {
+            key: f"{rel_root}/phase_60/{value}"
+            for key, value in phase_60_files.items()
+        },
         "operator_files": {
             "operator_briefing_md": f"{rel_root}/operator_review_briefing.md",
             "operator_packets_root": f"{rel_root}/operator_packets",
@@ -2131,6 +2198,8 @@ def main(argv: Sequence[str] | None = None):
         operator_briefing=operator_briefing,
         movement_guardrail_summary=movement_guardrail_summary,
         policy_baseline_selection=policy_baseline_selection,
+        phase_60_files=phase_60_files,
+        phase_60_summary=phase_60_collection_summary,
     )
     summary_path = collection_root / "collection_summary.md"
     summary_path.write_text(summary_md, encoding="utf-8")

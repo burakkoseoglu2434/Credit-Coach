@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.4
 milestone_name: milestone
 status: ready
-stopped_at: Phase 59 completed; ready to start Phase 60
-last_updated: "2026-04-04T22:35:54+03:00"
-last_activity: 2026-04-04
+stopped_at: Phase 60 completed; v2.4 ready for milestone closeout
+last_updated: "2026-04-05T00:25:00+03:00"
+last_activity: 2026-04-05
 progress:
   total_phases: 58
-  completed_phases: 57
+  completed_phases: 58
   total_plans: 170
-  completed_plans: 167
+  completed_plans: 170
 ---
 
 # Project State
@@ -20,20 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 60 — validation & cohort evaluation
+**Current focus:** v2.4 milestone closeout
 
 ## Current Position
 
 Phase: 60
-Plan: Not started
-Status: Ready to start Phase 60
-Last activity: 2026-04-04
+Plan: Phase 60 complete
+Status: Ready for milestone closeout
+Last activity: 2026-04-05
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 167 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-59)
+- Total plans completed: 170 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-60)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -50,7 +50,7 @@ Last activity: 2026-04-04
 | post-v2.1 carry-forward hardening | 3 | phase 42.5 complete | n/a |
 | v2.2 completed milestone | 12 | phases 45-48 complete; archived | n/a |
 | v2.3 completed milestone | 12 | phases 49-52 complete; archived | n/a |
-| v2.4 active milestone | 16 | phases 54-59 complete; phase 60 pending | n/a |
+| v2.4 active milestone | 19 | phases 54-60 complete | n/a |
 
 **Recent Trend:**
 
@@ -61,7 +61,8 @@ Last activity: 2026-04-04
 - Phase \`57 Heuristic / Institution Action Lane\` completed on 2026-04-04 with a deterministic rule-source institution lane, explicit offer truth, and shared-pool trust gating.
 - Phase \`58 Multi-Path Recourse Generation\` completed on 2026-04-04 with deterministic path typing, near-duplicate collapse, additive path artifacts, and trust-regression proof.
 - Phase \`59 Action Semantics Rendering\` completed on 2026-04-04 with deterministic action/path rendering, shared selected/path render payloads, and full render trust-regression proof.
-- Milestone \`v2.4\` now advances to Phase \`60 Validation & Cohort Evaluation\`.
+- Phase \`60 Validation & Cohort Evaluation\` completed on 2026-04-05 with canonical cohort-evidence packaging, denied/high-risk/pilot-mixed evidence exports, and full trust-regression proof.
+- Milestone \`v2.4\` now has all planned phases complete and is ready for milestone closeout.
 
 ## Accumulated Context
 
@@ -107,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04T22:35:54+03:00
-Stopped at: Phase 59 completed; ready to start Phase 60
+Last session: 2026-04-05T00:25:00+03:00
+Stopped at: Phase 60 completed; v2.4 ready for milestone closeout
 Resume file: .planning/ROADMAP.md

@@ -30,6 +30,12 @@ from credit_coach.coaching.planner import (
 )
 from credit_coach.data.ingest import load_feature_contract
 from credit_coach.data.schema import PlanAction, PlanRecord
+from credit_coach.evaluation.cohort_evidence import (
+    build_cohort_evidence_package,
+    build_phase60_evidence_summary,
+    summarize_population_metrics_from_rows,
+    write_phase60_evidence_artifacts,
+)
 from credit_coach.evaluation.fairness import (
     build_canonical_segment_key,
     compute_multi_segment_fairness,
@@ -1844,6 +1850,9 @@ def _build_trajectory_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any],
         )
 
     work = batch_df.copy()
+    for c in ["trajectory_next_review_week", "trajectory_soft_regression_penalty", "trajectory_weak_4w_health", "trajectory_jump_flag", "trajectory_non_monotonic_flag", "trajectory_checkpoint_inconsistency_flag"]:
+        if c not in work.columns:
+            work[c] = 0.0
     work["risk_band"] = work.get("risk_band", pd.Series(dtype=object)).fillna("").astype(str)
     work["trajectory_status"] = work.get("trajectory_status", pd.Series(dtype=object)).fillna("degraded").astype(str)
     work["current_phase"] = work.get("trajectory_current_phase", pd.Series(dtype=object)).fillna("").astype(str)
@@ -2744,78 +2753,7 @@ def _build_denied_diagnostics(
 
 
 def _candidate_quality_metrics_for_population(rows: pd.DataFrame) -> dict[str, float]:
-    if rows.empty:
-        return {
-            "candidate_pool_diversity_index": 0.0,
-            "candidate_source_entropy": 0.0,
-            "multi_path_rate": 0.0,
-            "action_diversity_index": 0.0,
-            "non_utilization_action_rate": 0.0,
-            "institution_action_rate": 0.0,
-            "non_empty_contender_share": 0.0,
-            "approved_or_conditional_contender_share": 0.0,
-            "mean_execution_aware_value": 0.0,
-            "offer_ready_contender_share": 0.0,
-            "provisional_offer_share": 0.0,
-            "approval_shell_only_share": 0.0,
-            "selected_plan_category_customer_only_rate": 0.0,
-            "selected_plan_category_institution_assisted_rate": 0.0,
-            "selected_plan_category_hybrid_rate": 0.0,
-            **{f"best_source_{source}_rate": 0.0 for source in _CANDIDATE_SOURCE_CATALOG},
-        }
-    best_source = rows.get("best_source", pd.Series([""] * len(rows))).astype(str).str.strip().str.lower()
-    contender_bucket = rows.get("best_contender_bucket", pd.Series([""] * len(rows))).astype(str).str.strip().str.upper()
-    best_status = rows.get("best_status", pd.Series([""] * len(rows))).astype(str).str.strip().str.upper()
-    offer_maturity = rows.get("best_offer_maturity", pd.Series(["none"] * len(rows))).astype(str).str.strip().str.lower()
-    selected_path_type = rows.get("selected_path_type", pd.Series([""] * len(rows))).astype(str).str.strip().str.lower()
-    metrics = {
-        "candidate_pool_diversity_index": _round_metric(
-            pd.to_numeric(rows.get("candidate_pool_diversity_index", pd.Series([0.0] * len(rows))), errors="coerce")
-            .fillna(0.0)
-            .mean()
-        ),
-        "candidate_source_entropy": _round_metric(
-            pd.to_numeric(rows.get("candidate_source_entropy", pd.Series([0.0] * len(rows))), errors="coerce")
-            .fillna(0.0)
-            .mean()
-        ),
-        "multi_path_rate": _round_metric(
-            pd.to_numeric(rows.get("multi_path_flag", pd.Series([0.0] * len(rows))), errors="coerce").fillna(0.0).mean()
-        ),
-        "action_diversity_index": _round_metric(
-            pd.to_numeric(rows.get("action_diversity_index", pd.Series([0.0] * len(rows))), errors="coerce")
-            .fillna(0.0)
-            .mean()
-        ),
-        "non_utilization_action_rate": _round_metric(
-            pd.to_numeric(rows.get("non_utilization_action_rate", pd.Series([0.0] * len(rows))), errors="coerce")
-            .fillna(0.0)
-            .mean()
-        ),
-        "institution_action_rate": _round_metric(
-            pd.to_numeric(rows.get("institution_action_rate", pd.Series([0.0] * len(rows))), errors="coerce")
-            .fillna(0.0)
-            .mean()
-        ),
-        "non_empty_contender_share": _round_metric((contender_bucket != "EMPTY").mean()),
-        "approved_or_conditional_contender_share": _round_metric(best_status.isin(["APPROVED", "NEEDS_REVIEW"]).mean()),
-        "mean_execution_aware_value": _round_metric(
-            pd.to_numeric(rows.get("best_execution_aware_value", pd.Series([0.0] * len(rows))), errors="coerce")
-            .fillna(0.0)
-            .mean()
-        ),
-        "offer_ready_contender_share": _round_metric((offer_maturity == "active_rankable").mean()),
-        "provisional_offer_share": _round_metric((offer_maturity == "provisional").mean()),
-        "approval_shell_only_share": _round_metric((contender_bucket == "APPROVAL_SHELL_ONLY").mean()),
-        "selected_plan_category_customer_only_rate": _round_metric((selected_path_type == "customer_only").mean()),
-        "selected_plan_category_institution_assisted_rate": _round_metric(
-            (selected_path_type == "institution_assisted").mean()
-        ),
-        "selected_plan_category_hybrid_rate": _round_metric((selected_path_type == "hybrid").mean()),
-    }
-    for source in _CANDIDATE_SOURCE_CATALOG:
-        metrics[f"best_source_{source}_rate"] = _round_metric((best_source == source).mean())
-    return metrics
+    return summarize_population_metrics_from_rows(rows, source_catalog=_CANDIDATE_SOURCE_CATALOG)
 
 
 def _build_candidate_quality_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str, Any], pd.DataFrame]:
@@ -2846,6 +2784,20 @@ def _build_candidate_quality_artifacts(batch_df: pd.DataFrame) -> tuple[dict[str
                 "hybrid": float(secondary_metrics["selected_plan_category_hybrid_rate"]),
             },
         },
+        "cohort_evidence_packages": [
+            build_cohort_evidence_package(
+                population_name="denied",
+                population_metrics=canonical_metrics,
+                movement_summary={},
+                trust_regression_status=[]
+            ),
+            build_cohort_evidence_package(
+                population_name="high_risk_denied",
+                population_metrics=secondary_metrics,
+                movement_summary={},
+                trust_regression_status=[]
+            )
+        ]
     }
 
     breakdown_rows: list[dict[str, Any]] = []
@@ -5908,6 +5860,8 @@ def main(argv: Sequence[str] | None = None):
     )
     candidate_source_breakdown_out = run_ctx.tables_dir / "candidate_source_breakdown.csv"
     candidate_source_breakdown.to_csv(candidate_source_breakdown_out, index=False)
+    phase_60_batch_evidence = build_phase60_evidence_summary(candidate_quality_summary["cohort_evidence_packages"])
+    phase_60_batch_files = write_phase60_evidence_artifacts(run_ctx.tables_dir, phase_60_batch_evidence, prefix="phase_60")
     behavior_aware_summary, execution_probability_breakdown, partial_execution_breakdown = _build_behavior_aware_artifacts(
         batch_df
     )
@@ -6709,6 +6663,10 @@ def main(argv: Sequence[str] | None = None):
     )
     summary["candidate_set_coverage"] = float(decision_logging_summary.get("candidate_set_coverage", 0.0))
     summary["reason_code_coverage"] = float(decision_logging_summary.get("reason_code_coverage", 0.0))
+    summary["phase_60_evidence_version"] = str(phase_60_batch_evidence["phase_60_evidence_version"])
+    summary["phase_60_overall_movement_conclusion"] = str(phase_60_batch_evidence["overall_movement_conclusion"])
+    summary["phase_60_overall_trust_conclusion"] = str(phase_60_batch_evidence["overall_trust_conclusion"])
+    summary["phase_60_cohort_evidence_summary_json"] = f"tables/{phase_60_batch_files['cohort_evidence_summary_json']}"
 
     summary_json = run_ctx.tables_dir / "batch_summary.json"
     summary_json.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
