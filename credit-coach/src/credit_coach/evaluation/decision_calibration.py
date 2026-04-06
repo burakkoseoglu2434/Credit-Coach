@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
@@ -243,6 +244,21 @@ def _round_metric(value: Any, digits: int = 6) -> float:
     return round(_safe_float(value, 0.0), digits)
 
 
+def _normalize_reason_code_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [_safe_str(item) for item in value if _safe_str(item)]
+    text = _safe_str(value)
+    if not text:
+        return []
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return [text]
+    if not isinstance(parsed, list):
+        return [text]
+    return [_safe_str(item) for item in parsed if _safe_str(item)]
+
+
 def _normalize_decision_status(value: Any) -> str:
     normalized = _safe_str(value).upper()
     return normalized if normalized in EXTERNAL_STATUS_ORDER else "CONDITIONAL"
@@ -396,6 +412,24 @@ def build_selection_work_frame(
     work["recoverability_score"] = work["normalized_gap"].map(
         lambda value: recoverability_score(normalized_gap=float(value))
     )
+    if "recoverable_flag" in work.columns:
+        work["recoverable_flag"] = work["recoverable_flag"].map(lambda value: bool(_safe_int(value, 0)))
+    if "recoverability_classifier_version" in work.columns:
+        work["recoverability_classifier_version"] = work["recoverability_classifier_version"].map(_safe_str)
+    if "recoverable_reason_codes" in work.columns or "recoverable_reason_codes_json" in work.columns:
+        reason_source = (
+            work["recoverable_reason_codes"]
+            if "recoverable_reason_codes" in work.columns
+            else work["recoverable_reason_codes_json"]
+        )
+        work["recoverable_reason_codes"] = reason_source.map(_normalize_reason_code_list)
+    if "recoverability_signal_reason_codes" in work.columns or "recoverability_signal_reason_codes_json" in work.columns:
+        signal_reason_source = (
+            work["recoverability_signal_reason_codes"]
+            if "recoverability_signal_reason_codes" in work.columns
+            else work["recoverability_signal_reason_codes_json"]
+        )
+        work["recoverability_signal_reason_codes"] = signal_reason_source.map(_normalize_reason_code_list)
     risk_cfg = (
         dict(segment_caps_cfg.get("risk_band_thresholds", {}))
         if isinstance(segment_caps_cfg.get("risk_band_thresholds", {}), Mapping)

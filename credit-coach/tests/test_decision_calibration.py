@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pandas as pd
 
 from credit_coach.evaluation import decision_calibration as cal
@@ -113,6 +115,74 @@ def test_build_selection_work_frame_adds_phase_61_gap_fields() -> None:
     assert list(work["normalized_gap"].round(6)) == [0.2, 0.68, 1.0]
     assert list(work["recoverability_bucket"]) == ["near_threshold", "mid_risk", "structural_limited"]
     assert list(work["recoverability_score"].round(6)) == [0.8, 0.32, 0.0]
+
+
+def test_build_selection_work_frame_preserves_classifier_fields_when_present() -> None:
+    input_df = pd.DataFrame(
+        [
+            {
+                "customer_id": "c-near",
+                "recoverable_flag": 1,
+                "recoverability_classifier_version": "phase_62_v1",
+                "recoverable_reason_codes_json": json.dumps(
+                    [
+                        "WITHIN_RECOVERABLE_BAND",
+                        "HAS_RANKABLE_PATH",
+                        "THRESHOLD_REACHABLE",
+                        "RECOVERABLE",
+                    ]
+                ),
+                "recoverability_signal_reason_codes_json": json.dumps(
+                    ["LOW_APPROVAL_GAP", "HAS_VALID_PATH", "HAS_RANKABLE_PATH", "THRESHOLD_REACHABLE"]
+                ),
+            },
+            {
+                "customer_id": "c-mid",
+                "recoverable_flag": 0,
+                "recoverability_classifier_version": "phase_62_v1",
+                "recoverable_reason_codes_json": json.dumps(
+                    [
+                        "OUTSIDE_RECOVERABLE_BAND",
+                        "HAS_RANKABLE_PATH",
+                        "THRESHOLD_REACHABLE",
+                        "NOT_RECOVERABLE",
+                    ]
+                ),
+                "recoverability_signal_reason_codes_json": json.dumps(
+                    ["MID_APPROVAL_GAP", "HAS_VALID_PATH", "HAS_RANKABLE_PATH", "THRESHOLD_REACHABLE"]
+                ),
+            },
+        ]
+    )
+    base_pd = pd.Series([0.40, 0.52], dtype=float)
+
+    work = cal.build_selection_work_frame(
+        input_df=input_df,
+        base_pd=base_pd,
+        tau=0.35,
+        risk_band_fn=lambda value, tau, segment_caps_cfg: recoverability_risk_band(
+            approval_gap=max(0.0, float(value) - float(tau)),
+            near_upper=float(segment_caps_cfg["risk_band_thresholds"]["near_upper"]),
+            mid_upper=float(segment_caps_cfg["risk_band_thresholds"]["mid_upper"]),
+        ),
+        segment_caps_cfg={"risk_band_thresholds": {"near_upper": 0.10, "mid_upper": 0.25}},
+        customer_id_getter=lambda row, fallback: str(row.get("customer_id") or fallback),
+    )
+
+    assert list(work["recoverable_flag"]) == [True, False]
+    assert list(work["recoverability_classifier_version"]) == ["phase_62_v1", "phase_62_v1"]
+    assert work.loc[0, "recoverable_reason_codes"] == [
+        "WITHIN_RECOVERABLE_BAND",
+        "HAS_RANKABLE_PATH",
+        "THRESHOLD_REACHABLE",
+        "RECOVERABLE",
+    ]
+    assert work.loc[1, "recoverability_signal_reason_codes"] == [
+        "MID_APPROVAL_GAP",
+        "HAS_VALID_PATH",
+        "HAS_RANKABLE_PATH",
+        "THRESHOLD_REACHABLE",
+    ]
 
 
 def test_build_funnel_and_status_by_readiness_reuses_phase_40_5_taxonomy() -> None:

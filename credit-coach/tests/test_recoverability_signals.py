@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import json
+from types import SimpleNamespace
+
+from credit_coach.cli.run_recourse import (
+    _attach_recoverability_signal_to_roadmap,
+    _sync_metrics_summary_with_roadmap_summary,
+)
 from credit_coach.evaluation import recoverability as recv
 
 
@@ -204,3 +211,55 @@ def test_classifier_decision_does_not_depend_on_recoverability_score() -> None:
         ],
         "recoverability_classifier_version": recv.RECOVERABILITY_CLASSIFIER_VERSION,
     }
+
+
+def test_runtime_summary_and_metrics_sync_emit_shared_classifier_truth() -> None:
+    roadmap = {
+        "summary": {
+            "selection_outcome": "selected_valid_winner",
+            "expected_readiness": "week_4",
+            "credit_readiness_stage": "week_4",
+            "offer_maturity": "none",
+            "offer_plan": 0,
+        }
+    }
+    path_records = [SimpleNamespace(representative_plan_id="plan-1", rankable_flag=True)]
+    plan_lookup = {"plan-1": SimpleNamespace(predicted_pd=0.34)}
+
+    updated = _attach_recoverability_signal_to_roadmap(
+        roadmap,
+        base_pd=0.42,
+        tau=0.35,
+        segment_context={"recoverability_near_upper": 0.10, "recoverability_mid_upper": 0.25},
+        path_records=path_records,
+        plan_lookup=plan_lookup,
+    )
+    summary = updated["summary"]
+    signal = recv.build_recoverability_signal(
+        base_pd=0.42,
+        tau=0.35,
+        thresholds={"near_upper": 0.10, "mid_upper": 0.25},
+        has_valid_path_flag=True,
+        has_rankable_path_flag=True,
+        best_possible_pd_improvement=0.08,
+        selection_outcome="selected_valid_winner",
+        expected_readiness="week_4",
+        credit_readiness_stage="week_4",
+        offer_maturity="none",
+        offer_plan=False,
+    )
+
+    assert summary["recoverable_flag"] is True
+    assert summary["recoverability_classifier_version"] == recv.RECOVERABILITY_CLASSIFIER_VERSION
+    assert summary["recoverable_reason_codes"] == signal["recoverable_reason_codes"]
+    assert json.loads(summary["recoverability_signal_reason_codes_json"]) == signal["recoverability_signal_reason_codes"]
+    assert json.loads(summary["recoverable_reason_codes_json"]) == signal["recoverable_reason_codes"]
+
+    metrics = _sync_metrics_summary_with_roadmap_summary({}, roadmap=updated)
+
+    assert metrics["recoverable_flag"] == 1
+    assert metrics["recoverability_classifier_version"] == recv.RECOVERABILITY_CLASSIFIER_VERSION
+    assert metrics["recoverability_signal_reason_codes"] == signal["recoverability_signal_reason_codes"]
+    assert metrics["recoverable_reason_codes"] == signal["recoverable_reason_codes"]
+    assert json.loads(metrics["recoverability_signal_reason_codes_json"]) == signal["recoverability_signal_reason_codes"]
+    assert json.loads(metrics["recoverable_reason_codes_json"]) == signal["recoverable_reason_codes"]

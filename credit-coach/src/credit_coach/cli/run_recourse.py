@@ -460,6 +460,10 @@ def _attach_recoverability_signal_to_roadmap(
         offer_plan=bool(_safe_int(summary.get("offer_plan", 0), 0)),
     )
     summary.update(signal)
+    summary["recoverability_signal_reason_codes_json"] = json.dumps(
+        signal["recoverability_signal_reason_codes"],
+        ensure_ascii=False,
+    )
     summary["recoverable_reason_codes_json"] = json.dumps(signal["recoverable_reason_codes"], ensure_ascii=False)
     out["summary"] = summary
     return out
@@ -843,6 +847,13 @@ def _sync_metrics_summary_with_roadmap_summary(
             "hard_structural_blockers_json": json.dumps(summary.get("hard_structural_blockers", []), ensure_ascii=False),
             "soft_structural_blockers": list(summary.get("soft_structural_blockers", [])),
             "soft_structural_blockers_json": json.dumps(summary.get("soft_structural_blockers", []), ensure_ascii=False),
+            "recoverable_flag": int(bool(summary.get("recoverable_flag", False))),
+            "recoverability_classifier_version": _safe_text(summary.get("recoverability_classifier_version"), ""),
+            "recoverability_signal_reason_codes": list(summary.get("recoverability_signal_reason_codes", [])),
+            "recoverability_signal_reason_codes_json": json.dumps(
+                summary.get("recoverability_signal_reason_codes", []),
+                ensure_ascii=False,
+            ),
             "recoverable_reason_codes": list(summary.get("recoverable_reason_codes", [])),
             "recoverable_reason_codes_json": json.dumps(summary.get("recoverable_reason_codes", []), ensure_ascii=False),
             "realization_anchor": _safe_float(summary.get("realization_anchor", 0.0), 0.0),
