@@ -11,6 +11,12 @@ import pandas as pd
 
 from credit_coach.cli.run_recourse import generate_customer_recourse_artifacts
 from credit_coach.data.ingest import load_feature_contract
+from credit_coach.evaluation.cohort_evidence import (
+    build_cohort_evidence_package,
+    build_phase60_evidence_summary,
+    summarize_population_metrics_from_rows,
+    write_phase60_evidence_artifacts,
+)
 from credit_coach.evaluation.recoverability import (
     best_possible_pd_improvement_from_predictions,
     build_recoverability_signal,
@@ -586,6 +592,39 @@ def _summarize_examples(customer_df: pd.DataFrame) -> dict[str, dict[str, Any]]:
     return examples
 
 
+def _build_trust_regression_rows(
+    *,
+    population_name: str,
+    metrics: dict[str, Any],
+) -> list[dict[str, Any]]:
+    evidence_source = f"{population_name}:cohort_metrics"
+    return [
+        {
+            "suite": "winner_integrity",
+            "status": "clean" if _safe_int(metrics.get("selected_invalid_winner_count", 0), 0) == 0 else "regression",
+            "evidence_source": evidence_source,
+            "notes": f"selected_invalid_winner_count={_safe_int(metrics.get('selected_invalid_winner_count', 0), 0)}",
+        },
+        {
+            "suite": "selected_surface_consistency",
+            "status": "clean" if _safe_int(metrics.get("selected_surface_drift_count", 0), 0) == 0 else "regression",
+            "evidence_source": evidence_source,
+            "notes": f"selected_surface_drift_count={_safe_int(metrics.get('selected_surface_drift_count', 0), 0)}",
+        },
+        {
+            "suite": "operator_packet_coherence",
+            "status": "clean"
+            if _safe_int(metrics.get("operator_packet_contradiction_count", 0), 0) == 0
+            else "regression",
+            "evidence_source": evidence_source,
+            "notes": (
+                f"operator_packet_contradiction_count="
+                f"{_safe_int(metrics.get('operator_packet_contradiction_count', 0), 0)}"
+            ),
+        },
+    ]
+
+
 def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
     if customer_df.empty:
         return {
@@ -596,7 +635,10 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
             "mean_approval_gap": 0.0,
             "mean_recoverability_score": 0.0,
             "threshold_reach_possible_rate": 0.0,
+            "recoverable_customer_rate": 0.0,
             "recoverability_bucket_distribution": {},
+            "recoverable_flag_distribution": {},
+            "recoverability_classifier_version_distribution": {},
             "non_utilization_action_rate": 0.0,
             "action_category_distribution": {},
             "unique_action_count_per_customer": 0.0,
@@ -611,6 +653,14 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
             "movement_potential_distribution": {},
         }
 
+    recoverable_flag = pd.to_numeric(
+        customer_df.get("recoverable_flag", pd.Series([0] * len(customer_df))),
+        errors="coerce",
+    ).fillna(0).astype(int)
+    classifier_version = customer_df.get(
+        "recoverability_classifier_version",
+        pd.Series([""] * len(customer_df), dtype=object),
+    ).astype(str).str.strip()
     metrics = {
         "sample_size": int(len(customer_df)),
         "multi_path_rate": round(float((customer_df["path_count"].astype(int) > 1).mean()), 6),
@@ -622,6 +672,7 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
             float(customer_df["threshold_reach_possible"].astype(int).mean()),
             6,
         ),
+        "recoverable_customer_rate": round(float(recoverable_flag.mean()), 6),
         "non_utilization_action_rate": round(float(customer_df["uses_non_utilization_action"].astype(int).mean()), 6),
         "unique_action_count_per_customer": round(
             float(customer_df["unique_action_count_per_customer"].astype(float).mean()),
@@ -653,6 +704,14 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
         "recoverability_bucket_distribution": {
             key: round(float(value), 6)
             for key, value in customer_df["recoverability_bucket"].astype(str).value_counts(normalize=True).sort_index().items()
+        },
+        "recoverable_flag_distribution": {
+            "recoverable": round(float((recoverable_flag == 1).mean()), 6),
+            "not_recoverable": round(float((recoverable_flag == 0).mean()), 6),
+        },
+        "recoverability_classifier_version_distribution": {
+            key: round(float(value), 6)
+            for key, value in classifier_version[classifier_version != ""].value_counts(normalize=True).sort_index().items()
         },
     }
 
@@ -1136,13 +1195,50 @@ def main() -> None:
                 "selected_plan_id": selected_plan_id,
                 "selected_plan_status": _safe_text(roadmap_summary.get("selected_plan_status_internal"), _safe_text(roadmap_summary.get("decision_status_internal"))),
                 "best_source": selected_plan_source or _safe_text(roadmap_summary.get("selected_recommendation_source")),
+                "best_contender_bucket": _safe_text(metrics_summary.get("best_contender_bucket")),
+                "best_status": _safe_text(metrics_summary.get("best_status"), selected_status or decision_status),
+                "best_offer_maturity": _safe_text(
+                    metrics_summary.get("best_offer_maturity"),
+                    _safe_text(roadmap_summary.get("offer_maturity"), "none"),
+                ),
+                "best_execution_aware_value": _safe_float(metrics_summary.get("best_execution_aware_value"), 0.0),
+                "candidate_pool_diversity_index": _safe_float(
+                    metrics_summary.get("candidate_pool_diversity_index"),
+                    0.0,
+                ),
+                "candidate_source_entropy": _safe_float(metrics_summary.get("candidate_source_entropy"), 0.0),
                 "path_count": _safe_int(metrics_summary.get("available_path_count"), len(result.bundle.paths_df)),
                 "rankable_path_count": _safe_int(metrics_summary.get("available_rankable_path_count"), len(rankable_paths)),
+                "multi_path_flag": _safe_int(
+                    metrics_summary.get("multi_path_flag"),
+                    int(len(result.bundle.paths_df) > 1),
+                ),
                 "path_types_json": _json_dumps(path_types),
                 "action_categories_json": _json_dumps(action_categories),
                 "action_keys_json": _json_dumps(action_keys),
+                "action_diversity_index": _safe_float(metrics_summary.get("action_diversity_index"), 0.0),
                 "unique_action_count_per_customer": len(action_keys),
                 "uses_non_utilization_action": uses_non_utilization_action,
+                "non_utilization_action_rate": _safe_float(
+                    metrics_summary.get("non_utilization_action_rate"),
+                    float(uses_non_utilization_action),
+                ),
+                "institution_action_rate": _safe_float(
+                    metrics_summary.get("institution_action_rate"),
+                    float(int("institution" in path_types or "hybrid" in path_types)),
+                ),
+                "selected_path_type": _safe_text(
+                    metrics_summary.get("selected_path_type"),
+                    _safe_text(roadmap_summary.get("selected_path_type")),
+                ),
+                "offer_ready_contender_share": _safe_float(
+                    metrics_summary.get("offer_ready_contender_share"),
+                    0.0,
+                ),
+                "approval_shell_only_share": _safe_float(
+                    metrics_summary.get("approval_shell_only_share"),
+                    0.0,
+                ),
                 "movement_potential": movement["movement_potential"],
                 "max_path_pd_improvement": movement["max_path_pd_improvement"],
                 "max_gap_closure_rate": movement["max_gap_closure_rate"],
@@ -1206,6 +1302,37 @@ def main() -> None:
     examples = _summarize_examples(customer_df)
     diagnosis = _diagnosis_text(overall=overall_metrics, by_cohort=by_cohort_metrics)
     top_insights = _top_five_insights(overall=overall_metrics, by_cohort=by_cohort_metrics)
+    phase_60_packages = [
+        build_cohort_evidence_package(
+            population_name="overall",
+            population_metrics=summarize_population_metrics_from_rows(customer_df),
+            movement_summary={},
+            trust_regression_status=_build_trust_regression_rows(
+                population_name="overall",
+                metrics=overall_metrics,
+            ),
+        )
+    ]
+    for cohort in COHORT_ORDER:
+        cohort_df = customer_df[customer_df["cohort_label"] == cohort].copy()
+        phase_60_packages.append(
+            build_cohort_evidence_package(
+                population_name=cohort,
+                population_metrics=summarize_population_metrics_from_rows(cohort_df),
+                movement_summary={},
+                trust_regression_status=_build_trust_regression_rows(
+                    population_name=cohort,
+                    metrics=by_cohort_metrics[cohort],
+                ),
+            )
+        )
+    phase_60_root = output_root / "phase_60"
+    phase_60_summary = build_phase60_evidence_summary(phase_60_packages)
+    phase_60_files = write_phase60_evidence_artifacts(
+        phase_60_root,
+        phase_60_summary,
+        prefix="phase_60_cohort_eval",
+    )
 
     metrics_payload = {
         "evaluation": {
@@ -1229,6 +1356,9 @@ def main() -> None:
         "cohort_comparison": comparison_rows,
         "diagnosis": diagnosis,
         "top_5_insights": top_insights,
+        "phase_60_evidence_version": _safe_text(phase_60_summary.get("phase_60_evidence_version")),
+        "phase_60_overall_movement_conclusion": _safe_text(phase_60_summary.get("overall_movement_conclusion")),
+        "phase_60_overall_trust_conclusion": _safe_text(phase_60_summary.get("overall_trust_conclusion")),
         "examples": examples,
         "artifacts": {
             "customer_level_analysis_csv": str(customer_csv_path),
@@ -1236,6 +1366,11 @@ def main() -> None:
             "candidate_plans_jsonl": str(candidate_plans_path),
             "path_groupings_jsonl": str(path_groupings_path),
             "selected_plans_jsonl": str(selected_plans_path),
+            "phase_60_root": str(phase_60_root),
+            "phase_60_files": {
+                name: str(phase_60_root / filename)
+                for name, filename in phase_60_files.items()
+            },
         },
     }
     cohort_metrics_path = output_root / "cohort_metrics.json"

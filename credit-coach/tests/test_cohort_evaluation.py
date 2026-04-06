@@ -23,6 +23,9 @@ def test_summarize_population_metrics_from_rows_handles_empty_population() -> No
     assert metrics["rankable_path_count"] == 0.0
     assert metrics["non_empty_contender_share"] == 0.0
     assert metrics["threshold_reach_possible_rate"] == 0.0
+    assert metrics["recoverable_customer_rate"] == 0.0
+    assert metrics["recoverable_flag_distribution"] == {}
+    assert metrics["recoverability_classifier_version_distribution"] == {}
     assert metrics["selected_source_distribution"] == {}
 
 
@@ -48,6 +51,8 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
                 "recoverability_score": 0.80,
                 "threshold_reach_possible": 1,
                 "recoverability_bucket": "near_threshold",
+                "recoverable_flag": 1,
+                "recoverability_classifier_version": "phase_62_v1",
             },
             {
                 "best_source": "rule",
@@ -68,6 +73,8 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
                 "recoverability_score": 0.12,
                 "threshold_reach_possible": 0,
                 "recoverability_bucket": "mid_risk",
+                "recoverable_flag": 0,
+                "recoverability_classifier_version": "phase_62_v1",
             },
         ]
     )
@@ -86,7 +93,10 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
     assert metrics["mean_approval_gap"] == 0.135
     assert metrics["mean_recoverability_score"] == 0.46
     assert metrics["threshold_reach_possible_rate"] == 0.5
+    assert metrics["recoverable_customer_rate"] == 0.5
     assert metrics["recoverability_bucket_distribution"] == {"mid_risk": 0.5, "near_threshold": 0.5}
+    assert metrics["recoverable_flag_distribution"] == {"recoverable": 0.5, "not_recoverable": 0.5}
+    assert metrics["recoverability_classifier_version_distribution"] == {"phase_62_v1": 1.0}
     assert metrics["selected_source_distribution"]["internal"] == 0.5
 
 
@@ -109,7 +119,10 @@ def test_cohort_evidence_package_infers_default_trust_rows_from_movement_summary
         "mean_approval_gap": 0.11,
         "mean_recoverability_score": 0.42,
         "threshold_reach_possible_rate": 0.18,
+        "recoverable_customer_rate": 0.12,
         "recoverability_bucket_distribution": {"mid_risk": 0.60, "near_threshold": 0.40},
+        "recoverable_flag_distribution": {"recoverable": 0.12, "not_recoverable": 0.88},
+        "recoverability_classifier_version_distribution": {"phase_62_v1": 1.0},
     }
     movement = {
         "dominant_movement_bottleneck": "structural_cohort_limited",
@@ -133,6 +146,12 @@ def test_cohort_evidence_package_infers_default_trust_rows_from_movement_summary
     assert pkg["path_diversity"]["mean_path_count"] == 2.2
     assert pkg["selected_path_distribution"]["selected_customer_only_share"] == 0.7
     assert pkg["recoverability_signal"]["threshold_reach_possible_rate"] == 0.18
+    assert pkg["recoverability_signal"]["recoverable_customer_rate"] == 0.12
+    assert pkg["recoverability_signal"]["recoverable_flag_distribution"] == {
+        "recoverable": 0.12,
+        "not_recoverable": 0.88,
+    }
+    assert pkg["recoverability_signal"]["recoverability_classifier_version_distribution"] == {"phase_62_v1": 1.0}
     assert {row["suite"] for row in pkg["trust_regression"]} == {
         "winner_integrity",
         "contender_quality",
@@ -162,7 +181,10 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
             "mean_approval_gap": 0.16,
             "mean_recoverability_score": 0.36,
             "threshold_reach_possible_rate": 0.14,
+            "recoverable_customer_rate": 0.20,
             "recoverability_bucket_distribution": {"mid_risk": 0.50, "structural_limited": 0.50},
+            "recoverable_flag_distribution": {"recoverable": 0.20, "not_recoverable": 0.80},
+            "recoverability_classifier_version_distribution": {"phase_62_v1": 1.0},
             "selected_source_distribution": {"internal": 0.50, "dice": 0.30, "rule": 0.20},
         },
         {"dominant_movement_bottleneck": "structural_cohort_limited"},
@@ -188,6 +210,10 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
     payload = json.loads((tmp_path / files["cohort_evidence_summary_json"]).read_text(encoding="utf-8"))
     assert payload["populations"] == ["denied"]
     assert payload["recoverability_signal_table"][0]["threshold_reach_possible_rate"] == 0.14
+    assert payload["recoverability_signal_table"][0]["recoverable_customer_rate"] == 0.2
+    assert payload["recoverability_signal_table"][0]["recoverability_classifier_version_distribution"] == {
+        "phase_62_v1": 1.0
+    }
 
 
 def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypatch) -> None:
@@ -263,6 +289,19 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
                 "selected_invalid_winner_flag": 0,
                 "recoverable_flag": 1,
                 "recoverability_classifier_version": "phase_62_live_test",
+                "best_contender_bucket": "ACTIONABLE",
+                "best_status": "REJECTED",
+                "best_offer_maturity": "none",
+                "best_execution_aware_value": -0.25,
+                "candidate_pool_diversity_index": 0.5,
+                "candidate_source_entropy": 0.25,
+                "multi_path_flag": 0,
+                "action_diversity_index": 0.5,
+                "non_utilization_action_rate": 1.0,
+                "institution_action_rate": 0.0,
+                "selected_path_type": "customer_only",
+                "offer_ready_contender_share": 0.0,
+                "approval_shell_only_share": 0.0,
                 "recoverability_signal_reason_codes_json": json.dumps(
                     [
                         "LOW_APPROVAL_GAP",
@@ -363,4 +402,24 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     ).all()
     assert customer_df["threshold_reach_possible"].astype(int).eq(1).all()
     assert metrics_payload["overall"]["threshold_reach_possible_rate"] == 1.0
+    assert metrics_payload["overall"]["recoverable_customer_rate"] == 1.0
+    assert metrics_payload["overall"]["recoverable_flag_distribution"] == {
+        "recoverable": 1.0,
+        "not_recoverable": 0.0,
+    }
+    assert metrics_payload["overall"]["recoverability_classifier_version_distribution"] == {
+        "phase_62_live_test": 1.0
+    }
+    assert metrics_payload["phase_60_evidence_version"] == "v2.4_phase_60"
+    assert metrics_payload["phase_60_overall_trust_conclusion"] == "trust_baseline_intact"
+    assert "cohort_evidence_summary_json" in metrics_payload["artifacts"]["phase_60_files"]
     assert "near_threshold" in metrics_payload["overall"]["recoverability_bucket_distribution"]
+
+    phase_60_payload = json.loads(
+        (
+            tmp_path / "phase_60" / "phase_60_cohort_eval_cohort_evidence_summary.json"
+        ).read_text(encoding="utf-8")
+    )
+    overall_row = next(row for row in phase_60_payload["recoverability_signal_table"] if row["population"] == "overall")
+    assert overall_row["recoverable_customer_rate"] == 1.0
+    assert overall_row["recoverability_classifier_version_distribution"] == {"phase_62_live_test": 1.0}

@@ -1398,6 +1398,14 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "trust_regression_table_csv" in manifest["phase_60_files"]
     assert (collection_root / "phase_60" / "phase_60_collection_cohort_evidence_summary.json").exists()
     assert (collection_root / "phase_60" / "phase_60_collection_cohort_evidence_summary.md").exists()
+    phase_60_summary = json.loads(
+        (collection_root / "phase_60" / "phase_60_collection_cohort_evidence_summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "recoverable_customer_rate" in phase_60_summary["recoverability_signal_table"][0]
+    assert "recoverable_flag_distribution" in phase_60_summary["recoverability_signal_table"][0]
+    assert "recoverability_classifier_version_distribution" in phase_60_summary["recoverability_signal_table"][0]
 
     summary_md = (collection_root / "collection_summary.md").read_text(encoding="utf-8")
     review_md = (collection_root / "calibration" / "calibration_review.md").read_text(encoding="utf-8")

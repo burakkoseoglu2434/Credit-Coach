@@ -87,7 +87,10 @@ def summarize_population_metrics_from_rows(
             "mean_approval_gap": 0.0,
             "mean_recoverability_score": 0.0,
             "threshold_reach_possible_rate": 0.0,
+            "recoverable_customer_rate": 0.0,
             "recoverability_bucket_distribution": {},
+            "recoverable_flag_distribution": {},
+            "recoverability_classifier_version_distribution": {},
             "selected_source_distribution": {},
         }
         for source in resolved_catalog:
@@ -99,6 +102,11 @@ def summarize_population_metrics_from_rows(
     best_status = rows.get("best_status", pd.Series([""] * len(rows))).astype(str).str.strip().str.upper()
     offer_maturity = rows.get("best_offer_maturity", pd.Series(["none"] * len(rows))).astype(str).str.strip().str.lower()
     selected_path_type = rows.get("selected_path_type", pd.Series([""] * len(rows))).astype(str).str.strip().str.lower()
+    recoverable_flag = pd.to_numeric(rows.get("recoverable_flag", pd.Series([0] * len(rows))), errors="coerce").fillna(0).astype(int)
+    classifier_version = rows.get(
+        "recoverability_classifier_version",
+        pd.Series([""] * len(rows), dtype=object),
+    ).astype(str).str.strip()
 
     metrics: dict[str, float | dict[str, float]] = {
         "candidate_pool_diversity_index": _mean_numeric(rows, "candidate_pool_diversity_index"),
@@ -125,11 +133,20 @@ def summarize_population_metrics_from_rows(
         "mean_approval_gap": _mean_numeric(rows, "approval_gap"),
         "mean_recoverability_score": _mean_numeric(rows, "recoverability_score"),
         "threshold_reach_possible_rate": _mean_numeric(rows, "threshold_reach_possible"),
+        "recoverable_customer_rate": _round_metric(recoverable_flag.mean()),
     }
     recoverability_bucket = rows.get("recoverability_bucket", pd.Series([""] * len(rows))).astype(str).str.strip().str.lower()
     metrics["recoverability_bucket_distribution"] = {
         key: _round_metric(value)
         for key, value in recoverability_bucket[recoverability_bucket != ""].value_counts(normalize=True).sort_index().items()
+    }
+    metrics["recoverable_flag_distribution"] = {
+        "recoverable": _round_metric((recoverable_flag == 1).mean()),
+        "not_recoverable": _round_metric((recoverable_flag == 0).mean()),
+    }
+    metrics["recoverability_classifier_version_distribution"] = {
+        key: _round_metric(value)
+        for key, value in classifier_version[classifier_version != ""].value_counts(normalize=True).sort_index().items()
     }
     selected_source_distribution: dict[str, float] = {}
     for source in resolved_catalog:
@@ -261,7 +278,12 @@ def build_cohort_evidence_package(
             "mean_approval_gap": _safe_float(metrics.get("mean_approval_gap", 0.0), 0.0),
             "mean_recoverability_score": _safe_float(metrics.get("mean_recoverability_score", 0.0), 0.0),
             "threshold_reach_possible_rate": _safe_float(metrics.get("threshold_reach_possible_rate", 0.0), 0.0),
+            "recoverable_customer_rate": _safe_float(metrics.get("recoverable_customer_rate", 0.0), 0.0),
             "recoverability_bucket_distribution": dict(metrics.get("recoverability_bucket_distribution", {}) or {}),
+            "recoverable_flag_distribution": dict(metrics.get("recoverable_flag_distribution", {}) or {}),
+            "recoverability_classifier_version_distribution": dict(
+                metrics.get("recoverability_classifier_version_distribution", {}) or {}
+            ),
         },
         "trust_regression": trust_rows,
     }
@@ -375,7 +397,10 @@ def render_phase60_evidence_markdown(summary: Mapping[str, Any]) -> str:
                 f"approval_gap={_safe_float(row.get('mean_approval_gap'), 0.0):.4f}, "
                 f"recoverability_score={_safe_float(row.get('mean_recoverability_score'), 0.0):.4f}, "
                 f"threshold_reach={_safe_float(row.get('threshold_reach_possible_rate'), 0.0):.4f}, "
-                f"bucket_distribution={json.dumps(bucket_distribution, ensure_ascii=False, sort_keys=True)}"
+                f"recoverable_rate={_safe_float(row.get('recoverable_customer_rate'), 0.0):.4f}, "
+                f"bucket_distribution={json.dumps(bucket_distribution, ensure_ascii=False, sort_keys=True)}, "
+                f"flag_distribution={json.dumps(dict(row.get('recoverable_flag_distribution', {}) or {}), ensure_ascii=False, sort_keys=True)}, "
+                f"classifier_versions={json.dumps(dict(row.get('recoverability_classifier_version_distribution', {}) or {}), ensure_ascii=False, sort_keys=True)}"
             )
     else:
         lines.append("- n/a")
