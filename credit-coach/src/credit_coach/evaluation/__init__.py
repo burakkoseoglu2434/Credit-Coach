@@ -25,8 +25,10 @@ from .metrics import (
 )
 from .recoverability import (
     HARD_STRUCTURAL_BLOCKERS,
+    RECOVERABILITY_CLASSIFIER_VERSION,
     SOFT_STRUCTURAL_BLOCKERS,
     best_possible_pd_improvement_from_predictions,
+    build_recoverability_classifier,
     build_recoverability_signal,
     compute_approval_gap,
     compute_normalized_gap,
@@ -67,7 +69,9 @@ __all__ = [
     "recoverability_score",
     "threshold_reach_possible",
     "best_possible_pd_improvement_from_predictions",
+    "build_recoverability_classifier",
     "build_recoverability_signal",
+    "RECOVERABILITY_CLASSIFIER_VERSION",
     "HARD_STRUCTURAL_BLOCKERS",
     "SOFT_STRUCTURAL_BLOCKERS",
 ]

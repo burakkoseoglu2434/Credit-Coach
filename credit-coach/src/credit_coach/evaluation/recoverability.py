@@ -5,6 +5,7 @@ from typing import Any, Iterable, Mapping
 
 DEFAULT_NEAR_UPPER = 0.10
 DEFAULT_MID_UPPER = 0.25
+RECOVERABILITY_CLASSIFIER_VERSION = "phase_62_v1"
 HARD_STRUCTURAL_BLOCKERS: tuple[str, ...] = (
     "NO_VALID_WINNER",
     "NO_PATH",
@@ -125,6 +126,46 @@ def threshold_reach_possible(*, approval_gap: float, best_possible_pd_improvemen
     return _safe_float(best_possible_pd_improvement, 0.0) >= gap
 
 
+def build_recoverability_classifier(signal: Mapping[str, Any]) -> dict[str, Any]:
+    approval_gap = _safe_float(signal.get("approval_gap"), 0.0)
+    bucket = _safe_text(signal.get("recoverability_bucket"))
+    has_valid_path = bool(int(_safe_float(signal.get("has_valid_path_flag"), 0)))
+    has_rankable_path = bool(int(_safe_float(signal.get("has_rankable_path_flag"), 0)))
+    threshold_reachable = bool(signal.get("threshold_reach_possible", False))
+    hard_blockers = _ordered_unique(signal.get("hard_structural_blockers", []) or [])
+    soft_blockers = _ordered_unique(signal.get("soft_structural_blockers", []) or [])
+    hard_blocked = bool(_safe_float(signal.get("hard_structural_blocker_flag"), 0) or hard_blockers)
+    soft_blocked = bool(_safe_float(signal.get("soft_structural_blocker_flag"), 0) or soft_blockers)
+    within_recoverable_band = approval_gap > 0.0 and bucket == "near_threshold"
+    no_active_blockers = not hard_blocked and not soft_blocked
+    recoverable_flag = bool(
+        within_recoverable_band
+        and has_valid_path
+        and has_rankable_path
+        and threshold_reachable
+        and no_active_blockers
+    )
+    reason_codes = _ordered_unique(
+        [
+            "WITHIN_RECOVERABLE_BAND" if within_recoverable_band else "OUTSIDE_RECOVERABLE_BAND",
+            "HAS_VALID_PATH" if has_valid_path else "NO_VALID_PATH",
+            "HAS_RANKABLE_PATH" if has_rankable_path else "NO_RANKABLE_PATH",
+            "THRESHOLD_REACHABLE" if threshold_reachable else "THRESHOLD_NOT_REACHABLE",
+            "HARD_STRUCTURAL_BLOCK" if hard_blocked else "",
+            "SOFT_STRUCTURAL_BLOCK" if soft_blocked else "",
+            "NO_ACTIVE_CLASSIFIER_BLOCKERS" if no_active_blockers else "",
+            *hard_blockers,
+            *soft_blockers,
+            "RECOVERABLE" if recoverable_flag else "NOT_RECOVERABLE",
+        ]
+    )
+    return {
+        "recoverable_flag": recoverable_flag,
+        "recoverable_reason_codes": reason_codes,
+        "recoverability_classifier_version": RECOVERABILITY_CLASSIFIER_VERSION,
+    }
+
+
 def build_recoverability_signal(
     *,
     base_pd: float,
@@ -182,7 +223,7 @@ def build_recoverability_signal(
         near_upper=resolved["near_upper"],
         mid_upper=resolved["mid_upper"],
     )
-    reasons = _ordered_unique(
+    signal_reasons = _ordered_unique(
         [
             gap_code,
             "HAS_VALID_PATH" if bool(has_valid_path_flag) else "NO_VALID_PATH",
@@ -195,7 +236,7 @@ def build_recoverability_signal(
             "STRUCTURAL_LIMIT" if bucket == "structural_limited" else "",
         ]
     )
-    return {
+    signal = {
         "approval_gap": approval_gap,
         "normalized_gap": normalized_gap,
         "risk_band": recoverability_risk_band(
@@ -213,5 +254,7 @@ def build_recoverability_signal(
         "structural_blocker_flag": int(bool(hard_codes or soft_codes)),
         "hard_structural_blockers": list(hard_codes),
         "soft_structural_blockers": list(soft_codes),
-        "recoverable_reason_codes": reasons,
+        "recoverability_signal_reason_codes": signal_reasons,
     }
+    signal.update(build_recoverability_classifier(signal))
+    return signal
