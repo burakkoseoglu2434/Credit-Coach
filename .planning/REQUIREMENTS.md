@@ -68,10 +68,10 @@ Deferred until a later milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RECV-01 | Phase 61 | Pending |
-| RECV-02 | Phase 61 | Pending |
-| RECV-03 | Phase 61 | Pending |
-| RECV-04 | Phase 61 | Pending |
+| RECV-01 | Phase 61 | Complete |
+| RECV-02 | Phase 61 | Complete |
+| RECV-03 | Phase 61 | Complete |
+| RECV-04 | Phase 61 | Complete |
 | CLSF-01 | Phase 62 | Pending |
 | CLSF-02 | Phase 62 | Pending |
 | CLSF-03 | Phase 62 | Pending |
@@ -95,4 +95,4 @@ Deferred until a later milestone.
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-05 after starting milestone v2.5 Recoverable Customer Targeting & Movement Optimization*
+*Last updated: 2026-04-06 after executing Phase 61 Recoverability Signal Definition*

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pandas as pd
 
+from credit_coach.cli.run_recourse import CustomerArtifactBundle, CustomerRecourseRunResult
+from credit_coach.cli import run_v24_cohort_evaluation as cohort_eval
 from credit_coach.evaluation.cohort_evidence import (
     build_cohort_evidence_package,
     build_phase60_evidence_summary,
@@ -19,6 +22,7 @@ def test_summarize_population_metrics_from_rows_handles_empty_population() -> No
     assert metrics["path_count"] == 0.0
     assert metrics["rankable_path_count"] == 0.0
     assert metrics["non_empty_contender_share"] == 0.0
+    assert metrics["threshold_reach_possible_rate"] == 0.0
     assert metrics["selected_source_distribution"] == {}
 
 
@@ -40,6 +44,10 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
                 "non_utilization_action_rate": 0.40,
                 "institution_action_rate": 0.20,
                 "selected_path_type": "customer_only",
+                "approval_gap": 0.05,
+                "recoverability_score": 0.80,
+                "threshold_reach_possible": 1,
+                "recoverability_bucket": "near_threshold",
             },
             {
                 "best_source": "rule",
@@ -56,6 +64,10 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
                 "non_utilization_action_rate": 0.20,
                 "institution_action_rate": 0.60,
                 "selected_path_type": "hybrid",
+                "approval_gap": 0.22,
+                "recoverability_score": 0.12,
+                "threshold_reach_possible": 0,
+                "recoverability_bucket": "mid_risk",
             },
         ]
     )
@@ -71,6 +83,10 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
     assert metrics["approved_or_conditional_contender_share"] == 1.0
     assert metrics["best_source_internal_rate"] == 0.5
     assert metrics["best_source_rule_rate"] == 0.5
+    assert metrics["mean_approval_gap"] == 0.135
+    assert metrics["mean_recoverability_score"] == 0.46
+    assert metrics["threshold_reach_possible_rate"] == 0.5
+    assert metrics["recoverability_bucket_distribution"] == {"mid_risk": 0.5, "near_threshold": 0.5}
     assert metrics["selected_source_distribution"]["internal"] == 0.5
 
 
@@ -90,6 +106,10 @@ def test_cohort_evidence_package_infers_default_trust_rows_from_movement_summary
         "selected_plan_category_customer_only_rate": 0.70,
         "selected_plan_category_institution_assisted_rate": 0.20,
         "selected_plan_category_hybrid_rate": 0.10,
+        "mean_approval_gap": 0.11,
+        "mean_recoverability_score": 0.42,
+        "threshold_reach_possible_rate": 0.18,
+        "recoverability_bucket_distribution": {"mid_risk": 0.60, "near_threshold": 0.40},
     }
     movement = {
         "dominant_movement_bottleneck": "structural_cohort_limited",
@@ -112,6 +132,7 @@ def test_cohort_evidence_package_infers_default_trust_rows_from_movement_summary
     assert pkg["movement_potential"]["dominant_movement_bottleneck"] == "structural_cohort_limited"
     assert pkg["path_diversity"]["mean_path_count"] == 2.2
     assert pkg["selected_path_distribution"]["selected_customer_only_share"] == 0.7
+    assert pkg["recoverability_signal"]["threshold_reach_possible_rate"] == 0.18
     assert {row["suite"] for row in pkg["trust_regression"]} == {
         "winner_integrity",
         "contender_quality",
@@ -138,6 +159,10 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
             "selected_plan_category_customer_only_rate": 0.60,
             "selected_plan_category_institution_assisted_rate": 0.25,
             "selected_plan_category_hybrid_rate": 0.15,
+            "mean_approval_gap": 0.16,
+            "mean_recoverability_score": 0.36,
+            "threshold_reach_possible_rate": 0.14,
+            "recoverability_bucket_distribution": {"mid_risk": 0.50, "structural_limited": 0.50},
             "selected_source_distribution": {"internal": 0.50, "dice": 0.30, "rule": 0.20},
         },
         {"dominant_movement_bottleneck": "structural_cohort_limited"},
@@ -155,9 +180,138 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
         "path_diversity_table_csv",
         "action_coverage_table_csv",
         "selected_path_distribution_table_csv",
+        "recoverability_signal_table_csv",
         "trust_regression_table_csv",
     }
     for filename in files.values():
         assert (tmp_path / filename).exists()
     payload = json.loads((tmp_path / files["cohort_evidence_summary_json"]).read_text(encoding="utf-8"))
     assert payload["populations"] == ["denied"]
+    assert payload["recoverability_signal_table"][0]["threshold_reach_possible_rate"] == 0.14
+
+
+def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypatch) -> None:
+    population_df = pd.DataFrame(
+        [
+            {"customer_id": "cust-1", "feature_a": 1.0},
+            {"customer_id": "cust-2", "feature_a": 2.0},
+            {"customer_id": "cust-3", "feature_a": 3.0},
+        ]
+    )
+    train_df = population_df.copy()
+    pd_values = pd.Series([0.39, 0.50, 0.69], dtype=float)
+
+    def _fake_load_config(path):
+        text = str(path)
+        if "default" in text:
+            return {"features_config": "configs/features_48.yaml"}
+        if "model" in text:
+            return {"decision": {"tau_0": 0.35}, "registry": {"path": "artifacts/models"}}
+        return {}
+
+    def _fake_generate_customer_recourse_artifacts(**kwargs):
+        customer_id = kwargs["customer_id"]
+        paths_df = pd.DataFrame(
+            [
+                {
+                    "path_id": f"{customer_id}-path-1",
+                    "path_type": "customer_only",
+                    "rankable_flag": 1,
+                    "representative_plan_id": f"{customer_id}-plan-1",
+                    "action_categories": ["payment_history"],
+                    "action_keys": ["reduce_delinquency"],
+                }
+            ]
+        )
+        bundle = CustomerArtifactBundle(
+            customer_id=customer_id,
+            plans_df=pd.DataFrame(),
+            roadmap={
+                "customer_id": customer_id,
+                "best_plan_id": f"{customer_id}-plan-1",
+                "best_plan_source": "internal",
+                "summary": {
+                    "decision_status": "REJECTED",
+                    "selected_decision_status": "REJECTED",
+                    "decision_status_internal": "REJECTED",
+                    "selected_plan_status_internal": "REJECTED",
+                    "selection_outcome": "selected_valid_winner",
+                    "credit_readiness_stage": "week_4",
+                    "expected_readiness": "week_4",
+                    "offer_maturity": "none",
+                    "offer_plan": 0,
+                },
+            },
+            roadmap_steps_df=pd.DataFrame(),
+            metrics_summary={"selected_invalid_winner_flag": 0},
+            paths_df=paths_df,
+        )
+        return CustomerRecourseRunResult(
+            bundle=bundle,
+            local_reason_bundle={},
+            adverse_action_reasons=[],
+            dice_df=pd.DataFrame(),
+            dice_records=[],
+            dice_backend="",
+            dice_telemetry={},
+            candidate_pool_df=pd.DataFrame(
+                [
+                    {
+                        "plan_id": f"{customer_id}-plan-1",
+                        "plan_source": "internal",
+                        "predicted_pd": 0.31,
+                    }
+                ]
+            ),
+            decision_log_record={},
+            decision_log_summary={},
+        )
+
+    monkeypatch.setattr(
+        cohort_eval,
+        "parse_args",
+        lambda: SimpleNamespace(
+            base_config="configs/default.yaml",
+            model_config="configs/model.yaml",
+            recourse_config="configs/recourse.yaml",
+            causality_config="configs/causality.yaml",
+            safety_config="configs/safety.yaml",
+            macro_config="configs/macro.yaml",
+            dataset_scope="full_processed",
+            n_customers=3,
+            sample_seed=7,
+            model_version="",
+            model_manifest="",
+            output_dir=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(cohort_eval, "load_config", _fake_load_config)
+    monkeypatch.setattr(cohort_eval, "load_feature_contract", lambda path: {"features": ["feature_a"], "target": "target"})
+    monkeypatch.setattr(cohort_eval, "_load_population", lambda **kwargs: (population_df.copy(), train_df.copy()))
+    monkeypatch.setattr(cohort_eval, "load_model_bundle", lambda **kwargs: (object(), object(), {"model_version": "test-model"}, None))
+    monkeypatch.setattr(cohort_eval, "predict_proba_pd", lambda model, calibrator, frame: pd_values.iloc[: len(frame)].reset_index(drop=True))
+    monkeypatch.setattr(cohort_eval, "generate_customer_recourse_artifacts", _fake_generate_customer_recourse_artifacts)
+    monkeypatch.setattr(cohort_eval, "build_operator_review_packet", lambda roadmap: {})
+    monkeypatch.setattr(
+        cohort_eval,
+        "operator_packet_metrics_fields",
+        lambda operator_packet, packet_relpath: {
+            "operator_selected_decision_status": "REJECTED",
+            "operator_rendered_blocker_count": 0,
+            "operator_rendered_action_count": 0,
+            "operator_readiness_render_mode": "rejected",
+            "operator_upgrade_condition_text": "",
+        },
+    )
+
+    cohort_eval.main()
+
+    customer_df = pd.read_csv(tmp_path / "customer_level_analysis.csv")
+    metrics_payload = json.loads((tmp_path / "cohort_metrics.json").read_text(encoding="utf-8"))
+
+    assert "recoverability_bucket" in customer_df.columns
+    assert "recoverable_reason_codes_json" in customer_df.columns
+    assert "threshold_reach_possible" in customer_df.columns
+    assert customer_df["threshold_reach_possible"].astype(int).eq(1).all()
+    assert metrics_payload["overall"]["threshold_reach_possible_rate"] == 1.0
+    assert "near_threshold" in metrics_payload["overall"]["recoverability_bucket_distribution"]

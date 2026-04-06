@@ -328,6 +328,91 @@ def test_validate_customer_artifact_parity_accepts_no_valid_winner_without_selec
     assert parity["parity_mismatch_fields"] == []
 
 
+def test_augment_metrics_row_preserves_recoverability_signal_fields() -> None:
+    bundle = CustomerArtifactBundle(
+        customer_id="cust-recv",
+        plans_df=pd.DataFrame([{"plan_id": "plan-a", "action_count": 1}]),
+        roadmap={
+            "customer_id": "cust-recv",
+            "best_plan_id": "plan-a",
+            "best_plan_source": "internal",
+            "phases": [],
+            "checkpoints": [],
+            "summary": {
+                "decision_status": "REJECTED",
+                "decision_status_internal": "REJECTED",
+                "selected_decision_status": "REJECTED",
+                "selected_plan_status_internal": "REJECTED",
+                "selected_recommendation_source": "selected_plan",
+                "selected_action_count": 1,
+                "approval_gap": 0.08,
+                "normalized_gap": 0.32,
+                "recoverability_bucket": "near_threshold",
+                "recoverability_score": 0.68,
+                "has_valid_path_flag": 1,
+                "has_rankable_path_flag": 1,
+                "threshold_reach_possible": 1,
+                "hard_structural_blocker_flag": 0,
+                "soft_structural_blocker_flag": 0,
+                "structural_blocker_flag": 0,
+                "hard_structural_blockers": [],
+                "soft_structural_blockers": [],
+                "recoverable_reason_codes": [
+                    "LOW_APPROVAL_GAP",
+                    "HAS_VALID_PATH",
+                    "HAS_RANKABLE_PATH",
+                    "THRESHOLD_REACHABLE",
+                ],
+            },
+        },
+        roadmap_steps_df=pd.DataFrame([{"estimated_cost_usd": 10.0}]),
+        metrics_summary={},
+        paths_df=pd.DataFrame(),
+    )
+    result = CustomerRecourseRunResult(
+        bundle=bundle,
+        local_reason_bundle={},
+        adverse_action_reasons=[],
+        dice_df=pd.DataFrame(),
+        dice_records=[],
+        dice_backend="",
+        dice_telemetry={},
+        candidate_pool_df=pd.DataFrame(),
+        decision_log_record={},
+        decision_log_summary={},
+    )
+    selection_row = pd.Series(
+        {
+            "batch_index": 0,
+            "source_row_index": 17,
+            "selection_reason": "denied",
+            "cohort_policy": "denied_only",
+            "denied_base": 1,
+            "cohort_bucket": "denied_only",
+            "selection_policy_name": "denied_only",
+            "selection_fill_behavior": "n/a",
+        }
+    )
+
+    metrics = collector._augment_metrics_row(
+        collection_run_id="collect-1",
+        selection_row=selection_row,
+        result=result,
+    )
+
+    assert metrics["approval_gap"] == 0.08
+    assert metrics["normalized_gap"] == 0.32
+    assert metrics["recoverability_bucket"] == "near_threshold"
+    assert metrics["recoverability_score"] == 0.68
+    assert metrics["threshold_reach_possible"] == 1
+    assert json.loads(metrics["recoverable_reason_codes_json"]) == [
+        "LOW_APPROVAL_GAP",
+        "HAS_VALID_PATH",
+        "HAS_RANKABLE_PATH",
+        "THRESHOLD_REACHABLE",
+    ]
+
+
 def test_validate_customer_artifact_parity_rejects_selected_dice_winner_that_is_not_eligible() -> None:
     bundle = CustomerArtifactBundle(
         customer_id="cust-dice-invalid",

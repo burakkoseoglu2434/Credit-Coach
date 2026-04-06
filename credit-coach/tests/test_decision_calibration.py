@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from credit_coach.evaluation import decision_calibration as cal
+from credit_coach.evaluation.recoverability import recoverability_risk_band
 
 
 def _work_frame() -> pd.DataFrame:
@@ -83,6 +84,35 @@ def test_rebalance_offer_needed_selection_balances_two_pass_subset() -> None:
     assert counts["offer_needed"] == 2
     assert counts["no_offer_needed"] == 2
     assert metadata["offer_needed_rebalance_applied"] is True
+
+
+def test_build_selection_work_frame_adds_phase_61_gap_fields() -> None:
+    input_df = pd.DataFrame(
+        [
+            {"customer_id": "c-near"},
+            {"customer_id": "c-mid"},
+            {"customer_id": "c-high"},
+        ]
+    )
+    base_pd = pd.Series([0.40, 0.52, 0.68], dtype=float)
+
+    work = cal.build_selection_work_frame(
+        input_df=input_df,
+        base_pd=base_pd,
+        tau=0.35,
+        risk_band_fn=lambda value, tau, segment_caps_cfg: recoverability_risk_band(
+            approval_gap=max(0.0, float(value) - float(tau)),
+            near_upper=float(segment_caps_cfg["risk_band_thresholds"]["near_upper"]),
+            mid_upper=float(segment_caps_cfg["risk_band_thresholds"]["mid_upper"]),
+        ),
+        segment_caps_cfg={"risk_band_thresholds": {"near_upper": 0.10, "mid_upper": 0.25}},
+        customer_id_getter=lambda row, fallback: str(row.get("customer_id") or fallback),
+    )
+
+    assert list(work["approval_gap"].round(6)) == [0.05, 0.17, 0.33]
+    assert list(work["normalized_gap"].round(6)) == [0.2, 0.68, 1.0]
+    assert list(work["recoverability_bucket"]) == ["near_threshold", "mid_risk", "structural_limited"]
+    assert list(work["recoverability_score"].round(6)) == [0.8, 0.32, 0.0]
 
 
 def test_build_funnel_and_status_by_readiness_reuses_phase_40_5_taxonomy() -> None:

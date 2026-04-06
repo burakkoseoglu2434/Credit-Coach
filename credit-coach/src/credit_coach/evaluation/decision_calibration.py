@@ -6,6 +6,13 @@ from typing import Any, Mapping, Sequence
 import pandas as pd
 
 from credit_coach.decision.ownership import DECISION_POLICY_VERSION
+from credit_coach.evaluation.recoverability import (
+    compute_approval_gap,
+    compute_normalized_gap,
+    recoverability_bucket,
+    recoverability_score,
+    resolve_recoverability_thresholds,
+)
 
 
 READINESS_ORDER: tuple[str, ...] = ("now", "week_4", "week_12", "week_24", "not_ready", "unknown_review")
@@ -374,6 +381,21 @@ def build_selection_work_frame(
     work["pd_distance_to_tau"] = work["base_pd"].astype(float) - float(tau)
     work["denied_base"] = work["base_pd"].astype(float) > float(tau)
     work["risk_band"] = work["base_pd"].map(lambda value: risk_band_fn(float(value), float(tau), dict(segment_caps_cfg)))
+    thresholds = resolve_recoverability_thresholds(segment_caps_cfg)
+    work["approval_gap"] = work["base_pd"].map(lambda value: compute_approval_gap(base_pd=float(value), tau=float(tau)))
+    work["normalized_gap"] = work["approval_gap"].map(
+        lambda value: compute_normalized_gap(approval_gap=float(value), mid_upper=thresholds["mid_upper"])
+    )
+    work["recoverability_bucket"] = work["approval_gap"].map(
+        lambda value: recoverability_bucket(
+            approval_gap=float(value),
+            near_upper=thresholds["near_upper"],
+            mid_upper=thresholds["mid_upper"],
+        )
+    )
+    work["recoverability_score"] = work["normalized_gap"].map(
+        lambda value: recoverability_score(normalized_gap=float(value))
+    )
     risk_cfg = (
         dict(segment_caps_cfg.get("risk_band_thresholds", {}))
         if isinstance(segment_caps_cfg.get("risk_band_thresholds", {}), Mapping)

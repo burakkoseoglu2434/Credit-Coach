@@ -36,6 +36,12 @@ from credit_coach.data.ingest import load_feature_contract
 from credit_coach.data.schema import PlanAction, PlanRecord, RecoursePathRecord
 from credit_coach.decision.ownership import build_customer_decision_payload
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
+from credit_coach.evaluation.recoverability import (
+    best_possible_pd_improvement_from_predictions,
+    build_recoverability_signal,
+    recoverability_risk_band,
+    resolve_recoverability_thresholds,
+)
 from credit_coach.macro.impact import dynamic_alpha
 from credit_coach.macro.sources import load_macro_snapshot_mock
 from credit_coach.macro.stress_index import compute_macro_stress_index
@@ -398,6 +404,65 @@ def _attach_path_render_summaries(
         record.customer_summary = payload.get("customer_summary")
         record.operator_summary = payload.get("operator_summary")
         record.render_version = payload.get("render_version")
+
+
+def _best_possible_pd_improvement_for_paths(
+    *,
+    base_pd: float,
+    path_records: list[RecoursePathRecord],
+    plan_lookup: Mapping[str, PlanRecord],
+) -> float:
+    representative_ids = [
+        _safe_text(getattr(record, "representative_plan_id", ""))
+        for record in path_records
+        if bool(getattr(record, "rankable_flag", False))
+    ]
+    predicted_pds = [
+        getattr(plan_lookup[plan_id], "predicted_pd", base_pd)
+        for plan_id in representative_ids
+        if plan_id in plan_lookup
+    ]
+    return best_possible_pd_improvement_from_predictions(
+        base_pd=base_pd,
+        predicted_pds=predicted_pds,
+    )
+
+
+def _attach_recoverability_signal_to_roadmap(
+    roadmap: dict[str, Any],
+    *,
+    base_pd: float,
+    tau: float,
+    segment_context: Mapping[str, Any],
+    path_records: list[RecoursePathRecord],
+    plan_lookup: Mapping[str, PlanRecord],
+) -> dict[str, Any]:
+    out = dict(roadmap or {})
+    summary = dict(out.get("summary", {}) or {})
+    signal = build_recoverability_signal(
+        base_pd=base_pd,
+        tau=tau,
+        thresholds={
+            "near_upper": _safe_float(segment_context.get("recoverability_near_upper", 0.10), 0.10),
+            "mid_upper": _safe_float(segment_context.get("recoverability_mid_upper", 0.25), 0.25),
+        },
+        has_valid_path_flag=bool(path_records),
+        has_rankable_path_flag=any(bool(getattr(record, "rankable_flag", False)) for record in path_records),
+        best_possible_pd_improvement=_best_possible_pd_improvement_for_paths(
+            base_pd=base_pd,
+            path_records=path_records,
+            plan_lookup=plan_lookup,
+        ),
+        selection_outcome=_safe_text(summary.get("selection_outcome")),
+        expected_readiness=_safe_text(summary.get("expected_readiness")),
+        credit_readiness_stage=_safe_text(summary.get("credit_readiness_stage")),
+        offer_maturity=_safe_text(summary.get("offer_maturity")),
+        offer_plan=bool(_safe_int(summary.get("offer_plan", 0), 0)),
+    )
+    summary.update(signal)
+    summary["recoverable_reason_codes_json"] = json.dumps(signal["recoverable_reason_codes"], ensure_ascii=False)
+    out["summary"] = summary
+    return out
 
 
 def _selected_plan_id(best: PlanRecord | None) -> str:
@@ -764,6 +829,22 @@ def _sync_metrics_summary_with_roadmap_summary(
             "preferred_pool_invalid_exhausted": int(bool(_safe_int(summary.get("preferred_pool_invalid_exhausted", 0), 0))),
             "no_valid_candidate_available": int(bool(_safe_int(summary.get("no_valid_candidate_available", 0), 0))),
             "selected_from_widened_valid_pool": int(bool(_safe_int(summary.get("selected_from_widened_valid_pool", 0), 0))),
+            "approval_gap": _safe_float(summary.get("approval_gap", 0.0), 0.0),
+            "normalized_gap": _safe_float(summary.get("normalized_gap", 0.0), 0.0),
+            "recoverability_bucket": _safe_text(summary.get("recoverability_bucket"), ""),
+            "recoverability_score": _safe_float(summary.get("recoverability_score", 0.0), 0.0),
+            "has_valid_path_flag": int(bool(_safe_int(summary.get("has_valid_path_flag", 0), 0))),
+            "has_rankable_path_flag": int(bool(_safe_int(summary.get("has_rankable_path_flag", 0), 0))),
+            "threshold_reach_possible": int(bool(summary.get("threshold_reach_possible", False))),
+            "hard_structural_blocker_flag": int(bool(_safe_int(summary.get("hard_structural_blocker_flag", 0), 0))),
+            "soft_structural_blocker_flag": int(bool(_safe_int(summary.get("soft_structural_blocker_flag", 0), 0))),
+            "structural_blocker_flag": int(bool(_safe_int(summary.get("structural_blocker_flag", 0), 0))),
+            "hard_structural_blockers": list(summary.get("hard_structural_blockers", [])),
+            "hard_structural_blockers_json": json.dumps(summary.get("hard_structural_blockers", []), ensure_ascii=False),
+            "soft_structural_blockers": list(summary.get("soft_structural_blockers", [])),
+            "soft_structural_blockers_json": json.dumps(summary.get("soft_structural_blockers", []), ensure_ascii=False),
+            "recoverable_reason_codes": list(summary.get("recoverable_reason_codes", [])),
+            "recoverable_reason_codes_json": json.dumps(summary.get("recoverable_reason_codes", []), ensure_ascii=False),
             "realization_anchor": _safe_float(summary.get("realization_anchor", 0.0), 0.0),
             "strong_execution_flag": int(bool(_safe_int(summary.get("strong_execution_flag", 0), 0))),
             "offer_maturity": _safe_text(summary.get("offer_maturity"), ""),
@@ -823,19 +904,12 @@ def _income_band_from_value(value: float, edges: tuple[float, float, float]) -> 
 
 
 def _risk_band_from_pd(base_pd: float, tau: float, segment_caps_cfg: dict) -> str:
-    risk_cfg = (
-        segment_caps_cfg.get("risk_band_thresholds", {})
-        if isinstance(segment_caps_cfg.get("risk_band_thresholds", {}), dict)
-        else {}
+    thresholds = resolve_recoverability_thresholds(segment_caps_cfg)
+    return recoverability_risk_band(
+        approval_gap=max(0.0, float(base_pd) - float(tau)),
+        near_upper=thresholds["near_upper"],
+        mid_upper=thresholds["mid_upper"],
     )
-    near_upper = max(0.01, float(risk_cfg.get("near_upper", 0.10)))
-    mid_upper = max(float(near_upper), float(risk_cfg.get("mid_upper", 0.25)))
-    d = float(base_pd) - float(tau)
-    if d <= near_upper:
-        return "near"
-    if d <= mid_upper:
-        return "mid"
-    return "high"
 
 
 def _build_segment_context(
@@ -850,6 +924,7 @@ def _build_segment_context(
     annual_inc = _safe_float(row.get("annual_inc"), 0.0)
     income_band = _income_band_from_value(annual_inc, income_edges)
     risk_band = _risk_band_from_pd(base_pd, tau, segment_caps_cfg)
+    thresholds = resolve_recoverability_thresholds(segment_caps_cfg)
 
     enabled = bool(segment_caps_cfg.get("enabled", False))
     denied_only = bool(segment_caps_cfg.get("denied_only", True))
@@ -897,6 +972,8 @@ def _build_segment_context(
     return {
         "income_band": income_band,
         "risk_band": risk_band,
+        "recoverability_near_upper": float(thresholds["near_upper"]),
+        "recoverability_mid_upper": float(thresholds["mid_upper"]),
         "segment_caps_applied": bool(can_apply and abs(m_total - 1.0) > 1e-12),
         "cap_multiplier_income": float(m_income),
         "cap_multiplier_risk": float(m_risk),
@@ -2908,12 +2985,12 @@ def build_customer_artifact_bundle(
     path_records: list[RecoursePathRecord] | None = None,
 ) -> CustomerArtifactBundle:
     roadmap = _normalize_customer_roadmap_contract(roadmap)
+    plan_lookup = {
+        _safe_text(getattr(plan, "plan_id", "")): plan
+        for plan in [*validated, *candidate_pool]
+        if _safe_text(getattr(plan, "plan_id", ""))
+    }
     if path_records:
-        plan_lookup = {
-            _safe_text(getattr(plan, "plan_id", "")): plan
-            for plan in [*validated, *candidate_pool]
-            if _safe_text(getattr(plan, "plan_id", ""))
-        }
         _attach_path_render_summaries(path_records, plan_lookup=plan_lookup)
     roadmap = _attach_path_summary_to_roadmap(roadmap, path_records=path_records or [])
     roadmap = _inject_decision_inputs_into_roadmap(
@@ -2924,6 +3001,14 @@ def build_customer_artifact_bundle(
     )
     roadmap = _apply_decision_ownership_to_roadmap(roadmap)
     roadmap = _build_selected_surface_projection(roadmap)
+    roadmap = _attach_recoverability_signal_to_roadmap(
+        roadmap,
+        base_pd=base_pd,
+        tau=_safe_float(roadmap.get("tau", 0.0), 0.0),
+        segment_context=segment_context,
+        path_records=path_records or [],
+        plan_lookup=plan_lookup,
+    )
     plans_df = _build_bundle_plans_df(validated=validated, candidate_pool=candidate_pool)
     roadmap_steps_df = _build_customer_roadmap_steps_df(
         customer_id=customer_id,

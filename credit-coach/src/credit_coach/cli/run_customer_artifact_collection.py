@@ -576,6 +576,78 @@ def _augment_metrics_row(
             "path_count": int(_safe_int(metrics.get("path_count", roadmap_summary.get("path_count", 0)), 0)),
             "rankable_path_count": int(_safe_int(metrics.get("rankable_path_count", roadmap_summary.get("rankable_path_count", 0)), 0)),
             "multi_path_flag": int(_safe_int(metrics.get("multi_path_flag", roadmap_summary.get("multi_path_flag", 0)), 0)),
+            "approval_gap": _safe_float(metrics.get("approval_gap", roadmap_summary.get("approval_gap", 0.0)), 0.0),
+            "normalized_gap": _safe_float(metrics.get("normalized_gap", roadmap_summary.get("normalized_gap", 0.0)), 0.0),
+            "recoverability_bucket": str(
+                metrics.get("recoverability_bucket", roadmap_summary.get("recoverability_bucket", "")) or ""
+            ),
+            "recoverability_score": _safe_float(
+                metrics.get("recoverability_score", roadmap_summary.get("recoverability_score", 0.0)),
+                0.0,
+            ),
+            "has_valid_path_flag": int(
+                _safe_int(metrics.get("has_valid_path_flag", roadmap_summary.get("has_valid_path_flag", 0)), 0)
+            ),
+            "has_rankable_path_flag": int(
+                _safe_int(metrics.get("has_rankable_path_flag", roadmap_summary.get("has_rankable_path_flag", 0)), 0)
+            ),
+            "threshold_reach_possible": int(
+                _safe_int(
+                    metrics.get("threshold_reach_possible", roadmap_summary.get("threshold_reach_possible", 0)),
+                    0,
+                )
+            ),
+            "hard_structural_blocker_flag": int(
+                _safe_int(
+                    metrics.get(
+                        "hard_structural_blocker_flag",
+                        roadmap_summary.get("hard_structural_blocker_flag", 0),
+                    ),
+                    0,
+                )
+            ),
+            "soft_structural_blocker_flag": int(
+                _safe_int(
+                    metrics.get(
+                        "soft_structural_blocker_flag",
+                        roadmap_summary.get("soft_structural_blocker_flag", 0),
+                    ),
+                    0,
+                )
+            ),
+            "structural_blocker_flag": int(
+                _safe_int(
+                    metrics.get("structural_blocker_flag", roadmap_summary.get("structural_blocker_flag", 0)),
+                    0,
+                )
+            ),
+            "hard_structural_blockers_json": _json_dumps_compact(
+                list(
+                    metrics.get(
+                        "hard_structural_blockers",
+                        roadmap_summary.get("hard_structural_blockers", []),
+                    )
+                    or []
+                )
+            ),
+            "soft_structural_blockers_json": _json_dumps_compact(
+                list(
+                    metrics.get(
+                        "soft_structural_blockers",
+                        roadmap_summary.get("soft_structural_blockers", []),
+                    )
+                    or []
+                )
+            ),
+            "recoverable_reason_codes_json": _json_dumps_compact(
+                list(
+                    metrics.get(
+                        "recoverable_reason_codes",
+                        roadmap_summary.get("recoverable_reason_codes", []),
+                    )
+                    or []
+                )
+            ),
             "customer_only_path_count": int(_safe_int(metrics.get("customer_only_path_count", roadmap_summary.get("customer_only_path_count", 0)), 0)),
             "institution_assisted_path_count": int(
                 _safe_int(metrics.get("institution_assisted_path_count", roadmap_summary.get("institution_assisted_path_count", 0)), 0)

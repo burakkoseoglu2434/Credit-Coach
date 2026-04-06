@@ -178,7 +178,7 @@
 - new action types or external data integration
 - broad recommendation expansion for structurally limited customers
 
-**Current status:** Milestone opened on 2026-04-05. Requirements, roadmap, and state are drafted; Phase 61 planning is the next step.
+**Current status:** Milestone is active. Phase 61 shipped on 2026-04-06 with deterministic recoverability signals now visible in runtime, collection, and cohort-evaluation artifacts; Phase 62 is the next step.
 
 ## v2.2 Winner Integrity & Consumer Consistency (Shipped: 2026-04-02)
 

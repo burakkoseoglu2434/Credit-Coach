@@ -23,6 +23,19 @@ from .metrics import (
     compute_rolling_window_recourse_metrics,
     summarize_last_k_windows,
 )
+from .recoverability import (
+    HARD_STRUCTURAL_BLOCKERS,
+    SOFT_STRUCTURAL_BLOCKERS,
+    best_possible_pd_improvement_from_predictions,
+    build_recoverability_signal,
+    compute_approval_gap,
+    compute_normalized_gap,
+    recoverability_bucket,
+    recoverability_risk_band,
+    recoverability_score,
+    resolve_recoverability_thresholds,
+    threshold_reach_possible,
+)
 
 __all__ = [
     "compute_recourse_metrics",
@@ -46,4 +59,15 @@ __all__ = [
     "recourse_success_gap",
     "recourse_cost_gap",
     "recourse_horizon_gap",
+    "resolve_recoverability_thresholds",
+    "compute_approval_gap",
+    "compute_normalized_gap",
+    "recoverability_risk_band",
+    "recoverability_bucket",
+    "recoverability_score",
+    "threshold_reach_possible",
+    "best_possible_pd_improvement_from_predictions",
+    "build_recoverability_signal",
+    "HARD_STRUCTURAL_BLOCKERS",
+    "SOFT_STRUCTURAL_BLOCKERS",
 ]

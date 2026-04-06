@@ -84,6 +84,10 @@ def summarize_population_metrics_from_rows(
             "selected_plan_category_customer_only_rate": 0.0,
             "selected_plan_category_institution_assisted_rate": 0.0,
             "selected_plan_category_hybrid_rate": 0.0,
+            "mean_approval_gap": 0.0,
+            "mean_recoverability_score": 0.0,
+            "threshold_reach_possible_rate": 0.0,
+            "recoverability_bucket_distribution": {},
             "selected_source_distribution": {},
         }
         for source in resolved_catalog:
@@ -118,6 +122,14 @@ def summarize_population_metrics_from_rows(
             (selected_path_type == "institution_assisted").mean()
         ),
         "selected_plan_category_hybrid_rate": _round_metric((selected_path_type == "hybrid").mean()),
+        "mean_approval_gap": _mean_numeric(rows, "approval_gap"),
+        "mean_recoverability_score": _mean_numeric(rows, "recoverability_score"),
+        "threshold_reach_possible_rate": _mean_numeric(rows, "threshold_reach_possible"),
+    }
+    recoverability_bucket = rows.get("recoverability_bucket", pd.Series([""] * len(rows))).astype(str).str.strip().str.lower()
+    metrics["recoverability_bucket_distribution"] = {
+        key: _round_metric(value)
+        for key, value in recoverability_bucket[recoverability_bucket != ""].value_counts(normalize=True).sort_index().items()
     }
     selected_source_distribution: dict[str, float] = {}
     for source in resolved_catalog:
@@ -244,6 +256,13 @@ def build_cohort_evidence_package(
             ),
             "selected_source_distribution": selected_source_distribution,
         },
+        "recoverability_signal": {
+            "population": population_name,
+            "mean_approval_gap": _safe_float(metrics.get("mean_approval_gap", 0.0), 0.0),
+            "mean_recoverability_score": _safe_float(metrics.get("mean_recoverability_score", 0.0), 0.0),
+            "threshold_reach_possible_rate": _safe_float(metrics.get("threshold_reach_possible_rate", 0.0), 0.0),
+            "recoverability_bucket_distribution": dict(metrics.get("recoverability_bucket_distribution", {}) or {}),
+        },
         "trust_regression": trust_rows,
     }
 
@@ -284,6 +303,7 @@ def build_phase60_evidence_summary(
     path_diversity_table = [dict(pkg.get("path_diversity", {}) or {}) for pkg in package_list]
     action_coverage_table = [dict(pkg.get("action_coverage", {}) or {}) for pkg in package_list]
     selected_path_distribution_table = [dict(pkg.get("selected_path_distribution", {}) or {}) for pkg in package_list]
+    recoverability_signal_table = [dict(pkg.get("recoverability_signal", {}) or {}) for pkg in package_list]
     if trust_regression_rows is not None:
         trust_regression_table = [dict(row) for row in trust_regression_rows]
     else:
@@ -295,6 +315,7 @@ def build_phase60_evidence_summary(
         "path_diversity_table": path_diversity_table,
         "action_coverage_table": action_coverage_table,
         "selected_path_distribution_table": selected_path_distribution_table,
+        "recoverability_signal_table": recoverability_signal_table,
         "trust_regression_table": trust_regression_table,
         "population_bottlenecks": {
             row.get("population", ""): row.get("dominant_movement_bottleneck", "")
@@ -343,6 +364,21 @@ def render_phase60_evidence_markdown(summary: Mapping[str, Any]) -> str:
             )
     else:
         lines.append("- n/a")
+    lines.extend(["", "## Recoverability Signal"])
+    recoverability_rows = list(summary.get("recoverability_signal_table", []) or [])
+    if recoverability_rows:
+        for row in recoverability_rows:
+            bucket_distribution = dict(row.get("recoverability_bucket_distribution", {}) or {})
+            lines.append(
+                "- "
+                f"{_safe_str(row.get('population'), 'unknown')}: "
+                f"approval_gap={_safe_float(row.get('mean_approval_gap'), 0.0):.4f}, "
+                f"recoverability_score={_safe_float(row.get('mean_recoverability_score'), 0.0):.4f}, "
+                f"threshold_reach={_safe_float(row.get('threshold_reach_possible_rate'), 0.0):.4f}, "
+                f"bucket_distribution={json.dumps(bucket_distribution, ensure_ascii=False, sort_keys=True)}"
+            )
+    else:
+        lines.append("- n/a")
     lines.extend(["", "## Trust Regression"])
     trust_rows = list(summary.get("trust_regression_table", []) or [])
     if trust_rows:
@@ -372,6 +408,7 @@ def write_phase60_evidence_artifacts(
     path_csv = output_root / f"{prefix}_path_diversity_table.csv"
     action_csv = output_root / f"{prefix}_action_coverage_table.csv"
     selected_csv = output_root / f"{prefix}_selected_path_distribution_table.csv"
+    recoverability_csv = output_root / f"{prefix}_recoverability_signal_table.csv"
     trust_csv = output_root / f"{prefix}_trust_regression_table.csv"
 
     json_path.write_text(json.dumps(dict(summary), indent=2, ensure_ascii=False), encoding="utf-8")
@@ -380,6 +417,7 @@ def write_phase60_evidence_artifacts(
     pd.DataFrame(list(summary.get("path_diversity_table", []) or [])).to_csv(path_csv, index=False)
     pd.DataFrame(list(summary.get("action_coverage_table", []) or [])).to_csv(action_csv, index=False)
     pd.DataFrame(list(summary.get("selected_path_distribution_table", []) or [])).to_csv(selected_csv, index=False)
+    pd.DataFrame(list(summary.get("recoverability_signal_table", []) or [])).to_csv(recoverability_csv, index=False)
     pd.DataFrame(list(summary.get("trust_regression_table", []) or [])).to_csv(trust_csv, index=False)
     return {
         "cohort_evidence_summary_json": json_path.name,
@@ -388,5 +426,6 @@ def write_phase60_evidence_artifacts(
         "path_diversity_table_csv": path_csv.name,
         "action_coverage_table_csv": action_csv.name,
         "selected_path_distribution_table_csv": selected_csv.name,
+        "recoverability_signal_table_csv": recoverability_csv.name,
         "trust_regression_table_csv": trust_csv.name,
     }
