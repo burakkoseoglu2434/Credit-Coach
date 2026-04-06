@@ -316,6 +316,10 @@ def test_validate_customer_artifact_parity_accepts_no_valid_winner_without_selec
         "preferred_pool_invalid_exhausted": 1,
         "no_valid_candidate_available": 1,
         "selected_from_widened_valid_pool": 0,
+        "recoverable_flag": 0,
+        "recoverability_classifier_version": "",
+        "recoverability_signal_reason_codes_json": "[]",
+        "recoverable_reason_codes_json": "[]",
     }
     parity = collector._validate_customer_artifact_parity(
         bundle=bundle,
@@ -328,7 +332,7 @@ def test_validate_customer_artifact_parity_accepts_no_valid_winner_without_selec
     assert parity["parity_mismatch_fields"] == []
 
 
-def test_augment_metrics_row_preserves_recoverability_signal_fields() -> None:
+def test_augment_metrics_row_preserves_runtime_classifier_truth() -> None:
     bundle = CustomerArtifactBundle(
         customer_id="cust-recv",
         plans_df=pd.DataFrame([{"plan_id": "plan-a", "action_count": 1}]),
@@ -355,13 +359,22 @@ def test_augment_metrics_row_preserves_recoverability_signal_fields() -> None:
                 "hard_structural_blocker_flag": 0,
                 "soft_structural_blocker_flag": 0,
                 "structural_blocker_flag": 0,
+                "recoverable_flag": True,
+                "recoverability_classifier_version": "phase_62_v1",
                 "hard_structural_blockers": [],
                 "soft_structural_blockers": [],
-                "recoverable_reason_codes": [
+                "recoverability_signal_reason_codes": [
                     "LOW_APPROVAL_GAP",
                     "HAS_VALID_PATH",
                     "HAS_RANKABLE_PATH",
                     "THRESHOLD_REACHABLE",
+                ],
+                "recoverable_reason_codes": [
+                    "WITHIN_RECOVERABLE_BAND",
+                    "HAS_RANKABLE_PATH",
+                    "THRESHOLD_REACHABLE",
+                    "NO_ACTIVE_CLASSIFIER_BLOCKERS",
+                    "RECOVERABLE",
                 ],
             },
         },
@@ -405,12 +418,148 @@ def test_augment_metrics_row_preserves_recoverability_signal_fields() -> None:
     assert metrics["recoverability_bucket"] == "near_threshold"
     assert metrics["recoverability_score"] == 0.68
     assert metrics["threshold_reach_possible"] == 1
-    assert json.loads(metrics["recoverable_reason_codes_json"]) == [
+    assert metrics["recoverable_flag"] == 1
+    assert metrics["recoverability_classifier_version"] == "phase_62_v1"
+    assert json.loads(metrics["recoverability_signal_reason_codes_json"]) == [
         "LOW_APPROVAL_GAP",
         "HAS_VALID_PATH",
         "HAS_RANKABLE_PATH",
         "THRESHOLD_REACHABLE",
     ]
+    assert json.loads(metrics["recoverable_reason_codes_json"]) == [
+        "WITHIN_RECOVERABLE_BAND",
+        "HAS_RANKABLE_PATH",
+        "THRESHOLD_REACHABLE",
+        "NO_ACTIVE_CLASSIFIER_BLOCKERS",
+        "RECOVERABLE",
+    ]
+
+
+def test_validate_customer_artifact_parity_requires_classifier_truth_match() -> None:
+    bundle = CustomerArtifactBundle(
+        customer_id="cust-classifier",
+        plans_df=pd.DataFrame([{"plan_id": "plan-a", "selected_best_flag": 1, "status": "REJECTED"}]),
+        roadmap={
+            "customer_id": "cust-classifier",
+            "best_plan_id": "plan-a",
+            "best_plan_source": "internal",
+            "phases": [{"phase_id": "phase_1_stabilize", "steps": [{"step_id": "step-1"}]}],
+            "checkpoints": [
+                {"week": 4, "status": "at_risk"},
+                {"week": 12, "status": "on_track"},
+                {"week": 24, "status": "on_track"},
+            ],
+            "summary": {
+                "decision_status": "REJECTED",
+                "decision_status_internal": "REJECTED",
+                "best_plan_id": "plan-a",
+                "best_status": "REJECTED",
+                "selected_decision_status": "REJECTED",
+                "selected_plan_status_internal": "REJECTED",
+                "selected_recommendation_text": "Reduce credit utilization.",
+                "selected_recommendation_source": "selected_plan",
+                "selected_action_count": 1,
+                "selected_recommendation_projection_version": "v2.2_phase_47",
+                "credit_readiness_stage": "week_12",
+                "plan_execution_probability": 0.0,
+                "approval_dependent_plan_probability": 0.0,
+                "offer_acceptance_probability": 0.0,
+                "combined_plan_realization_probability": 0.0,
+                "best_action_count": 1,
+                "zero_step_flag": 0,
+                "raw_contract_pass": 1,
+                "parity_pass": 1,
+                "data_issue_flag": 0,
+                "selection_outcome": "selected_valid_winner",
+                "selection_stage": "preferred_valid",
+                "invalid_candidates_removed_count": 0,
+                "preferred_pool_invalid_exhausted": 0,
+                "no_valid_candidate_available": 0,
+                "selected_from_widened_valid_pool": 0,
+                "recoverable_flag": False,
+                "recoverability_classifier_version": "phase_62_v1",
+                "recoverability_signal_reason_codes_json": json.dumps(
+                    ["MID_APPROVAL_GAP", "HAS_VALID_PATH", "THRESHOLD_REACHABLE"]
+                ),
+                "recoverable_reason_codes_json": json.dumps(
+                    ["OUTSIDE_RECOVERABLE_BAND", "HAS_RANKABLE_PATH", "THRESHOLD_REACHABLE", "NOT_RECOVERABLE"]
+                ),
+            },
+            "narrative": {
+                "steps": [
+                    {
+                        "step_id": "step-1",
+                        "action_key": "limit_credit_usage",
+                        "primary_recommendation": {
+                            "tr": "Kart kullanimini azalt.",
+                            "en": "Reduce credit utilization.",
+                        },
+                    }
+                ]
+            },
+        },
+        roadmap_steps_df=pd.DataFrame(
+            [{"customer_id": "cust-classifier", "best_plan_id": "plan-a", "action_key": "limit_credit_usage"}]
+        ),
+        metrics_summary={"customer_id": "cust-classifier", "best_plan_id": "plan-a", "best_plan_source": "internal"},
+        paths_df=pd.DataFrame(),
+    )
+    plans_df = pd.DataFrame(
+        [
+            {"plan_id": "plan-a", "selected_best_flag": 1, "status": "REJECTED", "recommendation_validity_status": "valid"},
+        ]
+    )
+    result = CustomerRecourseRunResult(
+        bundle=bundle,
+        local_reason_bundle={},
+        adverse_action_reasons=[],
+        dice_df=pd.DataFrame(),
+        dice_records=[],
+        dice_backend="",
+        dice_telemetry={},
+        candidate_pool_df=pd.DataFrame(),
+        decision_log_record={},
+        decision_log_summary={},
+    )
+    selection_row = pd.Series(
+        {
+            "batch_index": 0,
+            "source_row_index": 22,
+            "selection_reason": "denied",
+            "cohort_policy": "denied_only",
+            "denied_base": 1,
+            "cohort_bucket": "denied_only",
+            "selection_policy_name": "denied_only",
+            "selection_fill_behavior": "n/a",
+        }
+    )
+    metrics_row = collector._augment_metrics_row(
+        collection_run_id="collect-1",
+        selection_row=selection_row,
+        result=result,
+    )
+
+    parity = collector._validate_customer_artifact_parity(
+        bundle=bundle,
+        metrics_row=metrics_row,
+        plans_df=plans_df,
+        steps_df=bundle.roadmap_steps_df,
+    )
+
+    assert parity["parity_pass"] == 1
+
+    drifted_row = dict(metrics_row)
+    drifted_row["recoverable_flag"] = 1
+
+    drifted_parity = collector._validate_customer_artifact_parity(
+        bundle=bundle,
+        metrics_row=drifted_row,
+        plans_df=plans_df,
+        steps_df=bundle.roadmap_steps_df,
+    )
+
+    assert drifted_parity["parity_pass"] == 0
+    assert "recoverable_flag" in drifted_parity["parity_mismatch_fields"]
 
 
 def test_validate_customer_artifact_parity_rejects_selected_dice_winner_that_is_not_eligible() -> None:
@@ -977,15 +1126,29 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
                     "offer_acceptance_probability": None,
                     "combined_plan_realization_probability": None,
                     "expected_pd_improvement": 0.03,
-                    "nominal_pd_improvement": 0.05,
-                    "local_explainability_confidence": 0.75,
-                    "offer_plan": 0,
-                    "rankable_offer_count": 0,
-                    "approval_pending_action_count": 0,
-                },
-                "phases": [
-                    {
-                        "phase_id": "phase_1_stabilize",
+                "nominal_pd_improvement": 0.05,
+                "local_explainability_confidence": 0.75,
+                "offer_plan": 0,
+                "rankable_offer_count": 0,
+                "approval_pending_action_count": 0,
+                "recoverable_flag": 0,
+                "recoverability_classifier_version": "phase_62_v1",
+                "recoverability_signal_reason_codes": [
+                    "MID_APPROVAL_GAP",
+                    "HAS_VALID_PATH",
+                    "HAS_RANKABLE_PATH",
+                    "THRESHOLD_REACHABLE",
+                ],
+                "recoverable_reason_codes": [
+                    "OUTSIDE_RECOVERABLE_BAND",
+                    "HAS_RANKABLE_PATH",
+                    "THRESHOLD_REACHABLE",
+                    "NOT_RECOVERABLE",
+                ],
+            },
+            "phases": [
+                {
+                    "phase_id": "phase_1_stabilize",
                         "steps": [{"step_id": f"{customer_id}:step-1"}],
                     },
                     {
@@ -1115,6 +1278,10 @@ def test_run_customer_artifact_collection_emits_raw_and_flat_outputs(
     assert "path_count" in metrics_df.columns
     assert "rankable_path_count" in metrics_df.columns
     assert "multi_path_flag" in metrics_df.columns
+    assert "recoverable_flag" in metrics_df.columns
+    assert "recoverability_classifier_version" in metrics_df.columns
+    assert "recoverability_signal_reason_codes_json" in metrics_df.columns
+    assert "recoverable_reason_codes_json" in metrics_df.columns
     assert "action_diversity_index" in metrics_df.columns
     assert "non_utilization_action_rate" in metrics_df.columns
     assert "institution_action_rate" in metrics_df.columns

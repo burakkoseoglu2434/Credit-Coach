@@ -307,6 +307,10 @@ def _validate_customer_artifact_parity(
         "preferred_pool_invalid_exhausted",
         "no_valid_candidate_available",
         "selected_from_widened_valid_pool",
+        "recoverable_flag",
+        "recoverability_classifier_version",
+        "recoverability_signal_reason_codes_json",
+        "recoverable_reason_codes_json",
     )
     source_pairs = {
         "customer_id": bundle.customer_id,
@@ -326,6 +330,7 @@ def _validate_customer_artifact_parity(
         "selected_recommendation_projection_version",
         "selection_outcome",
         "selection_stage",
+        "recoverability_classifier_version",
     ):
         source_pairs[field] = _safe_text(source_pairs.get(field))
     for field in field_names:
@@ -529,9 +534,36 @@ def _augment_metrics_row(
     selection_row: pd.Series,
     result: CustomerRecourseRunResult,
 ) -> dict[str, Any]:
+    source_summary = dict(result.bundle.roadmap.get("summary", {}) or {})
     roadmap_summary = _normalized_roadmap_summary(result.bundle)
     best_cost = float(pd.to_numeric(result.bundle.roadmap_steps_df.get("estimated_cost_usd", pd.Series(dtype=float)), errors="coerce").fillna(0.0).sum())
     metrics = dict(result.bundle.metrics_summary)
+
+    def _reason_codes_json(field: str) -> str:
+        explicit_json = _safe_text(source_summary.get(f"{field}_json", ""))
+        if explicit_json:
+            return explicit_json
+        source_codes = source_summary.get(field, [])
+        if source_codes:
+            return _json_dumps_compact(list(source_codes))
+        explicit_json = _safe_text(
+            metrics.get(
+                f"{field}_json",
+                roadmap_summary.get(f"{field}_json", ""),
+            )
+        )
+        if explicit_json:
+            return explicit_json
+        return _json_dumps_compact(
+            list(
+                metrics.get(
+                    field,
+                    source_summary.get(field, roadmap_summary.get(field, [])),
+                )
+                or []
+            )
+        )
+
     candidate_pool_df = result.candidate_pool_df.copy()
     if "plan_source" in candidate_pool_df.columns:
         source_counts = candidate_pool_df["plan_source"].astype(str).value_counts().to_dict()
@@ -621,6 +653,16 @@ def _augment_metrics_row(
                     0,
                 )
             ),
+            "recoverable_flag": int(
+                _safe_int(metrics.get("recoverable_flag", roadmap_summary.get("recoverable_flag", 0)), 0)
+            ),
+            "recoverability_classifier_version": str(
+                metrics.get(
+                    "recoverability_classifier_version",
+                    roadmap_summary.get("recoverability_classifier_version", ""),
+                )
+                or ""
+            ),
             "hard_structural_blockers_json": _json_dumps_compact(
                 list(
                     metrics.get(
@@ -639,14 +681,11 @@ def _augment_metrics_row(
                     or []
                 )
             ),
+            "recoverability_signal_reason_codes_json": _json_dumps_compact(
+                []
+            ),
             "recoverable_reason_codes_json": _json_dumps_compact(
-                list(
-                    metrics.get(
-                        "recoverable_reason_codes",
-                        roadmap_summary.get("recoverable_reason_codes", []),
-                    )
-                    or []
-                )
+                []
             ),
             "customer_only_path_count": int(_safe_int(metrics.get("customer_only_path_count", roadmap_summary.get("customer_only_path_count", 0)), 0)),
             "institution_assisted_path_count": int(
@@ -807,6 +846,8 @@ def _augment_metrics_row(
             else "no_offer_needed",
         }
     )
+    metrics["recoverability_signal_reason_codes_json"] = _reason_codes_json("recoverability_signal_reason_codes")
+    metrics["recoverable_reason_codes_json"] = _reason_codes_json("recoverable_reason_codes")
     for source in _CANDIDATE_SOURCE_CATALOG:
         metrics[f"candidate_source_{source}_count"] = int(metrics.get(f"candidate_source_{source}_count", source_counts.get(source, 0)))
         metrics[f"candidate_source_{source}_present"] = int(
