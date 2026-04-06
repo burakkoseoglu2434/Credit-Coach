@@ -240,10 +240,48 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
                     "expected_readiness": "week_4",
                     "offer_maturity": "none",
                     "offer_plan": 0,
+                    "recoverable_flag": True,
+                    "recoverability_classifier_version": "phase_62_live_test",
+                    "recoverability_signal_reason_codes": [
+                        "LOW_APPROVAL_GAP",
+                        "HAS_VALID_PATH",
+                        "HAS_RANKABLE_PATH",
+                        "THRESHOLD_REACHABLE",
+                    ],
+                    "recoverable_reason_codes": [
+                        "WITHIN_RECOVERABLE_BAND",
+                        "HAS_VALID_PATH",
+                        "HAS_RANKABLE_PATH",
+                        "THRESHOLD_REACHABLE",
+                        "NO_ACTIVE_CLASSIFIER_BLOCKERS",
+                        "RECOVERABLE",
+                    ],
                 },
             },
             roadmap_steps_df=pd.DataFrame(),
-            metrics_summary={"selected_invalid_winner_flag": 0},
+            metrics_summary={
+                "selected_invalid_winner_flag": 0,
+                "recoverable_flag": 1,
+                "recoverability_classifier_version": "phase_62_live_test",
+                "recoverability_signal_reason_codes_json": json.dumps(
+                    [
+                        "LOW_APPROVAL_GAP",
+                        "HAS_VALID_PATH",
+                        "HAS_RANKABLE_PATH",
+                        "THRESHOLD_REACHABLE",
+                    ]
+                ),
+                "recoverable_reason_codes_json": json.dumps(
+                    [
+                        "WITHIN_RECOVERABLE_BAND",
+                        "HAS_VALID_PATH",
+                        "HAS_RANKABLE_PATH",
+                        "THRESHOLD_REACHABLE",
+                        "NO_ACTIVE_CLASSIFIER_BLOCKERS",
+                        "RECOVERABLE",
+                    ]
+                ),
+            },
             paths_df=paths_df,
         )
         return CustomerRecourseRunResult(
@@ -310,8 +348,19 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     metrics_payload = json.loads((tmp_path / "cohort_metrics.json").read_text(encoding="utf-8"))
 
     assert "recoverability_bucket" in customer_df.columns
+    assert "recoverable_flag" in customer_df.columns
+    assert "recoverability_classifier_version" in customer_df.columns
+    assert "recoverability_signal_reason_codes_json" in customer_df.columns
     assert "recoverable_reason_codes_json" in customer_df.columns
     assert "threshold_reach_possible" in customer_df.columns
+    assert customer_df["recoverable_flag"].astype(int).eq(1).all()
+    assert set(customer_df["recoverability_classifier_version"]) == {"phase_62_live_test"}
+    assert customer_df["recoverability_signal_reason_codes_json"].map(json.loads).map(
+        lambda codes: codes[-1]
+    ).eq("THRESHOLD_REACHABLE").all()
+    assert customer_df["recoverable_reason_codes_json"].map(json.loads).map(lambda codes: codes[-1]).eq(
+        "RECOVERABLE"
+    ).all()
     assert customer_df["threshold_reach_possible"].astype(int).eq(1).all()
     assert metrics_payload["overall"]["threshold_reach_possible_rate"] == 1.0
     assert "near_threshold" in metrics_payload["overall"]["recoverability_bucket_distribution"]

@@ -118,6 +118,159 @@ def _json_dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
 
 
+def _normalize_code_list(value: Any) -> list[str]:
+    values = value if isinstance(value, list) else _json_loads_list(value)
+    normalized: list[str] = []
+    for raw in values:
+        text = _safe_text(raw)
+        if text:
+            normalized.append(text)
+    return normalized
+
+
+def _select_live_value(*sources: dict[str, Any], key: str) -> Any:
+    for source in sources:
+        if key not in source:
+            continue
+        value = source.get(key)
+        if isinstance(value, str) and not value.strip():
+            continue
+        if value is not None:
+            return value
+    return None
+
+
+def _resolve_code_list(
+    *,
+    roadmap_summary: dict[str, Any],
+    metrics_summary: dict[str, Any],
+    direct_key: str,
+    json_key: str,
+    fallback: Any,
+) -> list[str]:
+    direct = _normalize_code_list(_select_live_value(roadmap_summary, metrics_summary, key=direct_key))
+    if direct:
+        return direct
+    encoded = _normalize_code_list(_select_live_value(roadmap_summary, metrics_summary, key=json_key))
+    if encoded:
+        return encoded
+    return _normalize_code_list(fallback)
+
+
+def _resolve_recoverability_signal(
+    *,
+    roadmap_summary: dict[str, Any],
+    metrics_summary: dict[str, Any],
+    fallback_signal: dict[str, Any],
+) -> dict[str, Any]:
+    signal = dict(fallback_signal)
+    signal["approval_gap"] = _safe_float(
+        _select_live_value(roadmap_summary, metrics_summary, key="approval_gap"),
+        fallback_signal["approval_gap"],
+    )
+    signal["normalized_gap"] = _safe_float(
+        _select_live_value(roadmap_summary, metrics_summary, key="normalized_gap"),
+        fallback_signal["normalized_gap"],
+    )
+    signal["risk_band"] = _safe_text(
+        _select_live_value(roadmap_summary, metrics_summary, key="risk_band"),
+        _safe_text(fallback_signal.get("risk_band")),
+    )
+    signal["recoverability_bucket"] = _safe_text(
+        _select_live_value(roadmap_summary, metrics_summary, key="recoverability_bucket"),
+        _safe_text(fallback_signal.get("recoverability_bucket")),
+    )
+    signal["recoverability_score"] = _safe_float(
+        _select_live_value(roadmap_summary, metrics_summary, key="recoverability_score"),
+        fallback_signal["recoverability_score"],
+    )
+    signal["has_valid_path_flag"] = int(
+        bool(
+            _safe_int(
+                _select_live_value(roadmap_summary, metrics_summary, key="has_valid_path_flag"),
+                _safe_int(fallback_signal.get("has_valid_path_flag", 0), 0),
+            )
+        )
+    )
+    signal["has_rankable_path_flag"] = int(
+        bool(
+            _safe_int(
+                _select_live_value(roadmap_summary, metrics_summary, key="has_rankable_path_flag"),
+                _safe_int(fallback_signal.get("has_rankable_path_flag", 0), 0),
+            )
+        )
+    )
+    signal["threshold_reach_possible"] = bool(
+        _safe_int(
+            _select_live_value(roadmap_summary, metrics_summary, key="threshold_reach_possible"),
+            int(bool(fallback_signal.get("threshold_reach_possible", False))),
+        )
+    )
+    signal["hard_structural_blocker_flag"] = int(
+        bool(
+            _safe_int(
+                _select_live_value(roadmap_summary, metrics_summary, key="hard_structural_blocker_flag"),
+                _safe_int(fallback_signal.get("hard_structural_blocker_flag", 0), 0),
+            )
+        )
+    )
+    signal["soft_structural_blocker_flag"] = int(
+        bool(
+            _safe_int(
+                _select_live_value(roadmap_summary, metrics_summary, key="soft_structural_blocker_flag"),
+                _safe_int(fallback_signal.get("soft_structural_blocker_flag", 0), 0),
+            )
+        )
+    )
+    signal["structural_blocker_flag"] = int(
+        bool(
+            _safe_int(
+                _select_live_value(roadmap_summary, metrics_summary, key="structural_blocker_flag"),
+                _safe_int(fallback_signal.get("structural_blocker_flag", 0), 0),
+            )
+        )
+    )
+    signal["hard_structural_blockers"] = _resolve_code_list(
+        roadmap_summary=roadmap_summary,
+        metrics_summary=metrics_summary,
+        direct_key="hard_structural_blockers",
+        json_key="hard_structural_blockers_json",
+        fallback=fallback_signal.get("hard_structural_blockers", []),
+    )
+    signal["soft_structural_blockers"] = _resolve_code_list(
+        roadmap_summary=roadmap_summary,
+        metrics_summary=metrics_summary,
+        direct_key="soft_structural_blockers",
+        json_key="soft_structural_blockers_json",
+        fallback=fallback_signal.get("soft_structural_blockers", []),
+    )
+    signal["recoverable_flag"] = bool(
+        _safe_int(
+            _select_live_value(roadmap_summary, metrics_summary, key="recoverable_flag"),
+            int(bool(fallback_signal.get("recoverable_flag", False))),
+        )
+    )
+    signal["recoverability_classifier_version"] = _safe_text(
+        _select_live_value(roadmap_summary, metrics_summary, key="recoverability_classifier_version"),
+        _safe_text(fallback_signal.get("recoverability_classifier_version")),
+    )
+    signal["recoverability_signal_reason_codes"] = _resolve_code_list(
+        roadmap_summary=roadmap_summary,
+        metrics_summary=metrics_summary,
+        direct_key="recoverability_signal_reason_codes",
+        json_key="recoverability_signal_reason_codes_json",
+        fallback=fallback_signal.get("recoverability_signal_reason_codes", []),
+    )
+    signal["recoverable_reason_codes"] = _resolve_code_list(
+        roadmap_summary=roadmap_summary,
+        metrics_summary=metrics_summary,
+        direct_key="recoverable_reason_codes",
+        json_key="recoverable_reason_codes_json",
+        fallback=fallback_signal.get("recoverable_reason_codes", []),
+    )
+    return signal
+
+
 def _load_population(
     *,
     project_root: Path,
@@ -893,6 +1046,7 @@ def main() -> None:
                 candidate_pool_df=result.candidate_pool_df,
                 paths_df=result.bundle.paths_df,
             )
+            metrics_summary = dict(result.bundle.metrics_summary or {})
 
             rankable_paths = _rankable_paths_df(result.bundle.paths_df)
             path_types = _collect_rankable_path_types(rankable_paths)
@@ -916,7 +1070,7 @@ def main() -> None:
                 if not selected_plan_rows.empty:
                     selected_plan_source = _safe_text(selected_plan_rows.iloc[0].get("plan_source"))
 
-            recoverability_signal = build_recoverability_signal(
+            fallback_signal = build_recoverability_signal(
                 base_pd=_safe_float(row.get("base_pd"), 0.0),
                 tau=tau,
                 has_valid_path_flag=not result.bundle.paths_df.empty,
@@ -927,6 +1081,11 @@ def main() -> None:
                 credit_readiness_stage=_safe_text(roadmap_summary.get("credit_readiness_stage")),
                 offer_maturity=_safe_text(roadmap_summary.get("offer_maturity")),
                 offer_plan=bool(_safe_int(roadmap_summary.get("offer_plan", 0), 0)),
+            )
+            recoverability_signal = _resolve_recoverability_signal(
+                roadmap_summary=roadmap_summary,
+                metrics_summary=metrics_summary,
+                fallback_signal=fallback_signal,
             )
 
             customer_row = {
@@ -961,6 +1120,13 @@ def main() -> None:
                 "soft_structural_blockers_json": _json_dumps(
                     list(recoverability_signal.get("soft_structural_blockers", []) or [])
                 ),
+                "recoverable_flag": int(bool(recoverability_signal.get("recoverable_flag", False))),
+                "recoverability_classifier_version": _safe_text(
+                    recoverability_signal.get("recoverability_classifier_version")
+                ),
+                "recoverability_signal_reason_codes_json": _json_dumps(
+                    list(recoverability_signal.get("recoverability_signal_reason_codes", []) or [])
+                ),
                 "recoverable_reason_codes_json": _json_dumps(
                     list(recoverability_signal.get("recoverable_reason_codes", []) or [])
                 ),
@@ -970,8 +1136,8 @@ def main() -> None:
                 "selected_plan_id": selected_plan_id,
                 "selected_plan_status": _safe_text(roadmap_summary.get("selected_plan_status_internal"), _safe_text(roadmap_summary.get("decision_status_internal"))),
                 "best_source": selected_plan_source or _safe_text(roadmap_summary.get("selected_recommendation_source")),
-                "path_count": _safe_int(result.bundle.metrics_summary.get("available_path_count"), len(result.bundle.paths_df)),
-                "rankable_path_count": _safe_int(result.bundle.metrics_summary.get("available_rankable_path_count"), len(rankable_paths)),
+                "path_count": _safe_int(metrics_summary.get("available_path_count"), len(result.bundle.paths_df)),
+                "rankable_path_count": _safe_int(metrics_summary.get("available_rankable_path_count"), len(rankable_paths)),
                 "path_types_json": _json_dumps(path_types),
                 "action_categories_json": _json_dumps(action_categories),
                 "action_keys_json": _json_dumps(action_keys),
@@ -983,7 +1149,7 @@ def main() -> None:
                 "best_reachable_pd": movement["best_reachable_pd"],
                 "path_reaches_threshold_flag": movement["path_reaches_threshold_flag"],
                 "structural_limit_flag": movement["structural_limit_flag"],
-                "selected_invalid_winner_flag": _safe_int(result.bundle.metrics_summary.get("selected_invalid_winner_flag", 0), 0),
+                "selected_invalid_winner_flag": _safe_int(metrics_summary.get("selected_invalid_winner_flag", 0), 0),
                 "selected_surface_drift_flag": _selected_surface_drift_flag(roadmap_summary),
                 "operator_packet_contradiction_flag": _operator_packet_contradiction_flag(
                     roadmap_summary=roadmap_summary,
