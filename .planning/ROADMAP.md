@@ -283,7 +283,7 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 59. Action Semantics Rendering | v2.4 | 3/3 | Complete | 2026-04-04 |
 | 60. Validation & Cohort Evaluation | v2.4 | 3/3 | Complete | 2026-04-05 |
 | 61. Recoverability Signal Definition | v2.5 | 3/3 | Complete | 2026-04-06 |
-| 62. Recoverable Customer Classifier | v2.5 | 0/0 | Planned | — |
+| 62. Recoverable Customer Classifier | v2.5 | 3/3 | Complete | 2026-04-07 |
 | 63. Recourse Gating By Recoverability | v2.5 | 0/0 | Planned | — |
 | 64. Movement-Focused Path Ranking | v2.5 | 0/0 | Planned | — |
 | 65. Targeted Cohort Evaluation | v2.5 | 0/0 | Planned | — |

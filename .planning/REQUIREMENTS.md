@@ -16,9 +16,9 @@ Requirements for milestone `v2.5 Recoverable Customer Targeting & Movement Optim
 
 ### Recoverable Classification
 
-- [ ] **CLSF-01**: System marks `recoverable_flag=true` only when approval gap is within the defined band, at least one valid recourse path exists, and structural blockers do not dominate.
-- [ ] **CLSF-02**: System emits `recoverable_reason_codes` explaining why a customer is or is not recoverable.
-- [ ] **CLSF-03**: Recoverable classification remains explainable and deterministic across reruns.
+- [x] **CLSF-01**: System marks `recoverable_flag=true` only when approval gap is within the defined band, at least one valid recourse path exists, and structural blockers do not dominate.
+- [x] **CLSF-02**: System emits `recoverable_reason_codes` explaining why a customer is or is not recoverable.
+- [x] **CLSF-03**: Recoverable classification remains explainable and deterministic across reruns.
 
 ### Recourse Gating
 
@@ -72,9 +72,9 @@ Deferred until a later milestone.
 | RECV-02 | Phase 61 | Complete |
 | RECV-03 | Phase 61 | Complete |
 | RECV-04 | Phase 61 | Complete |
-| CLSF-01 | Phase 62 | Pending |
-| CLSF-02 | Phase 62 | Pending |
-| CLSF-03 | Phase 62 | Pending |
+| CLSF-01 | Phase 62 | Complete |
+| CLSF-02 | Phase 62 | Complete |
+| CLSF-03 | Phase 62 | Complete |
 | GATE-01 | Phase 63 | Pending |
 | GATE-02 | Phase 63 | Pending |
 | GATE-03 | Phase 63 | Pending |
@@ -95,4 +95,4 @@ Deferred until a later milestone.
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-06 after executing Phase 61 Recoverability Signal Definition*
+*Last updated: 2026-04-07 after executing and verifying Phase 62 Recoverable Customer Classifier*

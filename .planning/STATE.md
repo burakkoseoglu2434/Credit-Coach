@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Recoverable Customer Targeting & Movement Optimization
 status: active
-stopped_at: Phase 61 complete; ready to plan Phase 62
-last_updated: "2026-04-06T18:30:00+03:00"
-last_activity: 2026-04-06
+stopped_at: Phase 62 complete; ready to plan Phase 63
+last_updated: "2026-04-07T21:32:43+03:00"
+last_activity: 2026-04-07
 progress:
   total_phases: 64
-  completed_phases: 59
+  completed_phases: 60
   total_plans: 3
   completed_plans: 3
 ---
@@ -20,20 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 62 planning after Phase 61 signal-layer execution
+**Current focus:** Phase 63 planning after Phase 62 classifier execution
 
 ## Current Position
 
-Phase: 61 complete
-Plan: 61-03 complete
-Status: Recoverability signal shipped; ready for Phase 62
-Last activity: 2026-04-06 — Phase 61 executed and verified
+Phase: 62 complete
+Plan: 62-03 complete
+Status: Recoverable classifier shipped; ready for Phase 63
+Last activity: 2026-04-07 — Phase 62 executed and verified
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 170 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-60)
+- Total plans completed: 176 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-62)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -51,6 +51,7 @@ Last activity: 2026-04-06 — Phase 61 executed and verified
 | v2.2 completed milestone | 12 | phases 45-48 complete; archived | n/a |
 | v2.3 completed milestone | 12 | phases 49-52 complete; archived | n/a |
 | v2.4 completed milestone | 19 | phases 54-60 complete; archived | n/a |
+| v2.5 active milestone | 6 | phases 61-62 complete | n/a |
 
 **Recent Trend:**
 
@@ -59,6 +60,7 @@ Last activity: 2026-04-06 — Phase 61 executed and verified
 - The shipped system now has canonical action semantics, deterministic feature mapping, safe DICE/rule-lane expansion, deterministic pathing/rendering, and cohort-level evidence packaging.
 - Milestone \`v2.5\` now opens as a targeting and movement-optimization milestone focused on recoverable customers rather than broad recommendation expansion.
 - Phase \`61 Recoverability Signal Definition\` now ships one canonical recoverability helper, additive runtime and collection propagation, and cohort-visible signal reporting without introducing recoverable classification or gating.
+- Phase \`62 Recoverable Customer Classifier\` now ships one conservative classifier seam, additive runtime/collection/cohort propagation, and analyst-auditable classifier evidence without introducing routing, planner, or narrative drift.
 
 ## Accumulated Context
 
@@ -85,14 +87,15 @@ Recent decisions affecting the shipped baseline:
 - Phase \`58 Multi-Path Recourse Generation\` adds deterministic path identity, grouped alternative-path artifacts, selected-path traceability, and duplicate-resistant path metrics above the existing validated candidate pool
 - Phase \`59 Action Semantics Rendering\` adds one deterministic render core for selected actions and grouped paths, propagates shared render payloads through artifacts, and keeps empty-state trust behavior explicit
 - Phase \`60 Validation & Cohort Evaluation\` adds one cohort-evidence seam for denied, high-risk denied, and pilot-mixed population reporting while keeping trust proof separate from diversity evidence
+- Phase \`62 Recoverable Customer Classifier\` adds one explicit recoverable decision rule over the shipped Phase 61 signal, preserves classifier truth across runtime and audit artifacts, and proves the classifier remains deterministic and fail-closed
 - The website remains a typed consumer of engine artifacts.
 - Pilot integration remains export-first and controlled.
 - The next milestone should focus on outcome proof over the shipped \`v2.4\` surface rather than broadening semantics again immediately.
 
 ### Pending Todos
 
-- Plan Phase `62` with `$gsd-discuss-phase 62`
-- Keep recoverability deterministic and explainable; do not reopen model retraining or new action-type scope during v2.5
+- Plan Phase `63` with `$gsd-discuss-phase 63`
+- Keep recoverability deterministic and explainable; do not reopen model retraining, new action-type scope, or premature narrative work during v2.5
 
 ### Tooling / Tech Debt
 
@@ -106,6 +109,6 @@ Recent decisions affecting the shipped baseline:
 
 ## Session Continuity
 
-Last session: 2026-04-06T18:30:00+03:00
-Stopped at: Phase 61 complete and verified; Phase 62 is next
+Last session: 2026-04-07T21:32:43+03:00
+Stopped at: Phase 62 complete and verified; Phase 63 is next
 Resume file: .planning/ROADMAP.md
