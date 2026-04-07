@@ -1522,6 +1522,406 @@ v3.0
 
 ⸻
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 07042026
+
+ SONRAKİ PHASE'LER NE OLMASI
+
+ 
+Şimdi burayı doğru kurarsak proje “research toy”dan çıkıp **gerçek ürün** olur.
+Ben sana hem **phase roadmap (v2.5 → MVP → post-MVP)** hem de **ne zaman “satılabilir ürün” olur** net şekilde yazıyorum.
+
+---
+
+# 🧭 0. Önce gerçeği koyalım
+
+Sen şu an:
+
+> ✅ güçlü engine
+> ❌ zayıf product
+
+Eksik olan:
+
+* targeting
+* decisioning
+* measurable ROI
+
+👉 Yani bundan sonrası artık:
+
+> **ML değil → productization**
+
+---
+
+# 🧱 1. v2.5 (şu anki milestone) — FOUNDATION SHIFT
+
+### 🎯 Amaç:
+
+**Recoverability + targeting + movement concentration**
+
+### Yapılacaklar (senin roadmap zaten doğru):
+
+* approval_gap
+* recoverability_score
+* recoverable_flag
+* recourse gating
+* movement-based ranking
+
+👉 Bu phase sonunda:
+
+## 🔥 Çıktı:
+
+```text
+“Bu müşteriye çalış / çalışma”
+```
+
+---
+
+## 📊 v2.5 başarı kriteri (kritik!)
+
+Şu metrikleri görmen lazım:
+
+* recoverable cohort size: ~10–25%
+* recoverable movement: **≥ %25**
+* global movement: düşük kalabilir (önemli değil)
+
+👉 Bu olursa:
+
+> sistem artık “signal taşıyor”
+
+---
+
+# 🚀 2. v2.6 — OUTCOME ENGINE (çok kritik phase)
+
+v2.5 sadece **kimin seçileceğini** çözer.
+v2.6 ise:
+
+> **“nasıl daha fazla hareket ettiririm”**
+
+---
+
+## 🎯 Amaç:
+
+**Movement maximization per recoverable user**
+
+---
+
+## Yapılacaklar:
+
+### 1. Path scoring upgrade
+
+```text
+movement_score =
+  f(score_delta, feasibility, action_count, time_to_effect)
+```
+
+---
+
+### 2. Time-aware planning
+
+* short-term vs mid-term paths
+* “3 ayda etki / 6 ayda etki”
+
+---
+
+### 3. Action pruning
+
+* low-impact path’leri öldür
+* noise’u azalt
+
+---
+
+### 4. “Plan quality” metriği ekle
+
+```text
+expected_score_delta
+```
+
+---
+
+## 🔥 Çıktı:
+
+> her kullanıcı için “gerçekten işe yarayan 1–2 plan”
+
+---
+
+## 📊 KPI:
+
+* recoverable movement → **%30–45**
+* avg path ↓ (ama quality ↑)
+
+---
+
+# 🧠 3. v2.7 — DECISION PRODUCT (satılabilir hale gelme)
+
+Burada sistem:
+
+> “engine” → **“ürün”**
+
+---
+
+## 🎯 Amaç:
+
+**Decision layer + explainability + business hooks**
+
+---
+
+## Yapılacaklar:
+
+### 1. Customer classification output
+
+```text
+recoverable / limited / structural
+```
+
+---
+
+### 2. Narrative system
+
+* actionable → step-by-step plan
+* limited → honest explanation
+* structural → expectation setting
+
+---
+
+### 3. Portfolio view
+
+AMC için:
+
+* % recoverable
+* expected uplift
+* segment breakdown
+
+---
+
+### 4. KPI surface
+
+* “X müşteriden Y tanesi 3 ayda yaklaşır”
+* expected approval lift
+
+---
+
+## 🔥 Çıktı:
+
+> **dashboard + decision API**
+
+---
+
+## 📊 KPI:
+
+* explainability clarity
+* segment stability
+* business interpretability
+
+---
+
+# 💰 4. v2.8 — BUSINESS INTEGRATION (MVP)
+
+Burası MVP.
+
+---
+
+## 🎯 Amaç:
+
+**gerçek müşteriyle POC yapabilecek sistem**
+
+---
+
+## Yapılacaklar:
+
+### 1. Batch + API mode
+
+* portfolio upload
+* per-customer output
+
+---
+
+### 2. KPI contract
+
+AMC ile:
+
+* recoverable rate
+* expected uplift
+* action adoption proxy
+
+---
+
+### 3. Feedback loop (light)
+
+* hangi planlar seçiliyor
+* hangi segment hareket ediyor
+
+---
+
+### 4. Simple UI / export
+
+* CSV / dashboard / PDF
+
+---
+
+## 🔥 Çıktı:
+
+> **pilot-ready product**
+
+---
+
+# 🟢 MVP tanımı (çok net)
+
+Sen MVP’ye şu noktada geliyorsun:
+
+> 🔥 **v2.8 tamamlandığında**
+
+---
+
+## MVP’nin özellikleri:
+
+* recoverable detection ✔
+* targeted recourse ✔
+* movement optimization ✔
+* portfolio analytics ✔
+* business narrative ✔
+
+---
+
+## MVP’nin satış cümlesi:
+
+> “Portföyünüzdeki krediye yaklaşabilecek %15 müşteriyi tespit ediyoruz
+> ve onları sistematik olarak yukarı taşıyoruz.”
+
+---
+
+# ⏱️ 5. Timeline (realistic)
+
+Eğer odaklı gidersen:
+
+* v2.5 → 3–5 gün
+* v2.6 → 4–7 gün
+* v2.7 → 5–7 gün
+* v2.8 → 5–10 gün
+
+👉 toplam:
+
+> ⏱️ **2–4 hafta → MVP**
+
+---
+
+# ⚠️ 6. En büyük riskler
+
+## ❌ 1. Over-engineering
+
+* model tweak’e geri dönmek
+
+## ❌ 2. Wrong KPI
+
+* global movement’a takılmak
+
+## ❌ 3. UX ihmal etmek
+
+* output’u anlaşılmaz bırakmak
+
+---
+
+# 🧭 7. En kritik stratejik karar
+
+Sen şu ürünü yapıyorsun:
+
+> ❌ “recourse generator”
+> ✅ **“recoverability + optimization engine”**
+
+---
+
+# 🔥 Final roadmap (tek bakışta)
+
+```text
+v2.5 → WHO (recoverable)
+v2.6 → HOW MUCH (movement optimization)
+v2.7 → WHAT (decision product)
+v2.8 → SELL (MVP / pilot)
+```
+
+---
+
+# 💡 Son cümle
+
+> Şu ana kadar “zeka” inşa ettin
+> bundan sonra “ürün” inşa edeceksin
+
+---
+
+
 🔥 En kritik şey
 
 Demo = ürün
