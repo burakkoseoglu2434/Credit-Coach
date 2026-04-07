@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Recoverable Customer Targeting & Movement Optimization
 status: active
-stopped_at: Completed 63-02-PLAN.md; Wave 3 is next
-last_updated: "2026-04-07T22:35:33+03:00"
+stopped_at: Completed phase 63; Phase 64 planning is next
+last_updated: "2026-04-07T22:42:50+03:00"
 last_activity: 2026-04-07
 progress:
   total_phases: 64
-  completed_phases: 60
+  completed_phases: 61
   total_plans: 3
   completed_plans: 3
 ---
@@ -20,20 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 63 execution after Wave 2 artifact propagation
+**Current focus:** Phase 63 complete; Phase 64 movement-focused ranking planning is next
 
 ## Current Position
 
-Phase: 63 in progress
-Plan: 63-02 complete
-Status: Runtime-first gate propagation now reaches collection, calibration, and operator packet seams; Wave 3 cohort evidence is next
-Last activity: 2026-04-07 — Phase 63 Wave 2 executed and verified
+Phase: 63 complete
+Plan: 63 complete
+Status: Recoverability-driven full-vs-limited gating is now aligned across runtime, flat artifacts, operator surfaces, cohort evidence, and explanation-pack consumers
+Last activity: 2026-04-07 — Phase 63 fully executed and verified
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 176 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-62)
+- Total plans completed: 179 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-63)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -51,7 +51,7 @@ Last activity: 2026-04-07 — Phase 63 Wave 2 executed and verified
 | v2.2 completed milestone | 12 | phases 45-48 complete; archived | n/a |
 | v2.3 completed milestone | 12 | phases 49-52 complete; archived | n/a |
 | v2.4 completed milestone | 19 | phases 54-60 complete; archived | n/a |
-| v2.5 active milestone | 6 | phases 61-62 complete | n/a |
+| v2.5 active milestone | 9 | phases 61-63 complete | n/a |
 
 **Recent Trend:**
 
@@ -63,6 +63,7 @@ Last activity: 2026-04-07 — Phase 63 Wave 2 executed and verified
 - Phase \`62 Recoverable Customer Classifier\` now ships one conservative classifier seam, additive runtime/collection/cohort propagation, and analyst-auditable classifier evidence without introducing routing, planner, or narrative drift.
 - Phase \`63 Recourse Gating By Recoverability\` Wave 1 now ships a binary `full|limited` runtime gate derived directly from `recoverable_flag` and reuses the trusted empty-state selected surface for limited mode without chooser redesign.
 - Phase \`63 Recourse Gating By Recoverability\` Wave 2 now propagates that gate contract through collection, calibration, and operator-facing artifact seams without recomputing routing downstream.
+- Phase \`63 Recourse Gating By Recoverability\` now closes with cohort-visible gate evidence, additive full-vs-limited posture reporting, and explanation-pack honesty proof while keeping limited mode explicitly informational.
 
 ## Accumulated Context
 
@@ -90,6 +91,7 @@ Recent decisions affecting the shipped baseline:
 - Phase \`59 Action Semantics Rendering\` adds one deterministic render core for selected actions and grouped paths, propagates shared render payloads through artifacts, and keeps empty-state trust behavior explicit
 - Phase \`60 Validation & Cohort Evaluation\` adds one cohort-evidence seam for denied, high-risk denied, and pilot-mixed population reporting while keeping trust proof separate from diversity evidence
 - Phase \`62 Recoverable Customer Classifier\` adds one explicit recoverable decision rule over the shipped Phase 61 signal, preserves classifier truth across runtime and audit artifacts, and proves the classifier remains deterministic and fail-closed
+- Phase \`63 Recourse Gating By Recoverability\` completes one honest routing contract from runtime through cohort evidence, with limited mode remaining empty-state-safe and recommendation-free downstream
 - The website remains a typed consumer of engine artifacts.
 - Pilot integration remains export-first and controlled.
 - The next milestone should focus on outcome proof over the shipped \`v2.4\` surface rather than broadening semantics again immediately.
@@ -97,7 +99,7 @@ Recent decisions affecting the shipped baseline:
 ### Pending Todos
 
 - Keep recoverability deterministic and explainable; do not reopen model retraining, new action-type scope, or premature narrative work during v2.5
-- Continue Phase `63` with `$gsd-execute-phase 63` to finish Wave 3
+- Plan Phase `64` with `$gsd-plan-phase 64`
 
 ### Tooling / Tech Debt
 
@@ -111,6 +113,6 @@ Recent decisions affecting the shipped baseline:
 
 ## Session Continuity
 
-Last session: 2026-04-07T22:35:33+03:00
-Stopped at: Phase 63 Wave 2 complete; Wave 3 is next
-Resume file: .planning/phases/63-recourse-gating-by-recoverability/63-03-PLAN.md
+Last session: 2026-04-07T22:42:50+03:00
+Stopped at: Phase 63 complete; Phase 64 planning is next
+Resume file: .planning/ROADMAP.md
