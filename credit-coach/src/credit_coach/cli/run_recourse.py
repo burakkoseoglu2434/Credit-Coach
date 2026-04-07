@@ -38,6 +38,7 @@ from credit_coach.decision.ownership import build_customer_decision_payload
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.evaluation.recoverability import (
     best_possible_pd_improvement_from_predictions,
+    build_recourse_gate,
     build_recoverability_signal,
     recoverability_risk_band,
     resolve_recoverability_thresholds,
@@ -469,6 +470,56 @@ def _attach_recoverability_signal_to_roadmap(
     return out
 
 
+def _apply_recourse_gate_to_roadmap(roadmap: dict[str, Any]) -> dict[str, Any]:
+    out = dict(roadmap or {})
+    summary = dict(out.get("summary", {}) or {})
+    gate = build_recourse_gate(summary)
+    summary.update(gate)
+    summary["recourse_gate_reason_codes_json"] = json.dumps(
+        gate["recourse_gate_reason_codes"],
+        ensure_ascii=False,
+    )
+    out["summary"] = summary
+
+    if _safe_text(gate.get("recourse_mode")) != "limited":
+        return _build_selected_surface_projection(out)
+
+    # Limited mode must reuse the trusted empty-state selected projection while
+    # keeping chooser history in the underlying audit fields.
+    out["best_plan_id"] = None
+    summary.update(
+        {
+            "best_plan_id": None,
+            "selected_path_id": "",
+            "selected_path_type": "",
+            "selected_path_rank": 0,
+            "selected_path_customer_summary": "",
+            "selected_path_operator_summary": "",
+            "selected_path_render_version": "",
+        }
+    )
+    if isinstance(out.get("narrative"), dict):
+        narrative = dict(out.get("narrative", {}) or {})
+        narrative["steps"] = []
+        out["narrative"] = narrative
+    out["phases"] = []
+    out["summary"] = summary
+    projected = _build_selected_surface_projection(out)
+    projected_summary = dict(projected.get("summary", {}) or {})
+    projected_summary.update(
+        {
+            "selected_path_id": "",
+            "selected_path_type": "",
+            "selected_path_rank": 0,
+            "selected_path_customer_summary": "",
+            "selected_path_operator_summary": "",
+            "selected_path_render_version": "",
+        }
+    )
+    projected["summary"] = projected_summary
+    return projected
+
+
 def _selected_plan_id(best: PlanRecord | None) -> str:
     return str(best.plan_id) if best is not None else ""
 
@@ -856,6 +907,14 @@ def _sync_metrics_summary_with_roadmap_summary(
             ),
             "recoverable_reason_codes": list(summary.get("recoverable_reason_codes", [])),
             "recoverable_reason_codes_json": json.dumps(summary.get("recoverable_reason_codes", []), ensure_ascii=False),
+            "recourse_mode": _safe_text(summary.get("recourse_mode"), ""),
+            "recommendation_mode": _safe_text(summary.get("recommendation_mode"), ""),
+            "recourse_gate_version": _safe_text(summary.get("recourse_gate_version"), ""),
+            "recourse_gate_reason_codes": list(summary.get("recourse_gate_reason_codes", [])),
+            "recourse_gate_reason_codes_json": json.dumps(
+                summary.get("recourse_gate_reason_codes", []),
+                ensure_ascii=False,
+            ),
             "realization_anchor": _safe_float(summary.get("realization_anchor", 0.0), 0.0),
             "strong_execution_flag": int(bool(_safe_int(summary.get("strong_execution_flag", 0), 0))),
             "offer_maturity": _safe_text(summary.get("offer_maturity"), ""),
@@ -3011,7 +3070,6 @@ def build_customer_artifact_bundle(
         local_reason_bundle=local_reason_bundle,
     )
     roadmap = _apply_decision_ownership_to_roadmap(roadmap)
-    roadmap = _build_selected_surface_projection(roadmap)
     roadmap = _attach_recoverability_signal_to_roadmap(
         roadmap,
         base_pd=base_pd,
@@ -3020,10 +3078,11 @@ def build_customer_artifact_bundle(
         path_records=path_records or [],
         plan_lookup=plan_lookup,
     )
+    roadmap = _apply_recourse_gate_to_roadmap(roadmap)
     plans_df = _build_bundle_plans_df(validated=validated, candidate_pool=candidate_pool)
     roadmap_steps_df = _build_customer_roadmap_steps_df(
         customer_id=customer_id,
-        best_plan_id=_selected_plan_id(best),
+        best_plan_id=_safe_text(dict(roadmap.get("summary", {}) or {}).get("best_plan_id")),
         roadmap=roadmap,
     )
     metrics_summary = _build_customer_metrics_summary(
@@ -3067,7 +3126,7 @@ def write_customer_artifact_bundle(bundle: CustomerArtifactBundle, output_dir: P
     bundle.roadmap = _normalize_customer_roadmap_contract(bundle.roadmap)
     if _safe_text(bundle.roadmap.get("summary", {}).get("decision_policy_version")):
         bundle.roadmap = _apply_decision_ownership_to_roadmap(bundle.roadmap)
-    bundle.roadmap = _build_selected_surface_projection(bundle.roadmap)
+    bundle.roadmap = _apply_recourse_gate_to_roadmap(bundle.roadmap)
     bundle.metrics_summary = _sync_metrics_summary_with_roadmap_summary(
         bundle.metrics_summary,
         roadmap=bundle.roadmap,

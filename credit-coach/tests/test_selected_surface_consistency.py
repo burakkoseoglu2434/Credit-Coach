@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from credit_coach.cli.run_recourse import _build_selected_surface_projection
+from credit_coach.cli.run_recourse import _apply_recourse_gate_to_roadmap, _build_selected_surface_projection
 
 
 def test_selected_surface_projection_keeps_technical_status_separate_from_consumer_decision() -> None:
@@ -69,6 +69,41 @@ def test_selected_surface_projection_promotes_no_valid_winner_to_real_empty_stat
     assert summary["selected_plan_status_internal"] is None
     assert summary["selected_recommendation_text"] is None
     assert summary["selected_institution_condition"] is None
+    assert summary["selected_recommendation_source"] == "empty_state"
+    assert summary["selected_action_count"] == 0
+    assert summary["selected_recommendation_projection_version"] == "v2.2_phase_47"
+
+
+def test_selected_surface_projection_reuses_empty_state_when_limited_mode_suppresses_promotion() -> None:
+    roadmap = {
+        "customer_id": "cust-gated",
+        "best_plan_id": "plan-1",
+        "summary": {
+            "decision_status": "CONDITIONAL",
+            "best_plan_id": "plan-1",
+            "best_action_count": 1,
+            "selection_outcome": "selected_valid_winner",
+            "selection_stage": "preferred_valid",
+            "recoverable_flag": False,
+        },
+        "narrative": {
+            "steps": [
+                {
+                    "primary_recommendation": {
+                        "en": "Reduce credit utilization from %63.2 to below %45.",
+                    }
+                }
+            ]
+        },
+        "phases": [{"phase_id": "phase-1", "steps": [{"action_key": "limit_credit_usage"}]}],
+    }
+
+    projected = _apply_recourse_gate_to_roadmap(roadmap)
+    summary = projected["summary"]
+
+    assert summary["selection_outcome"] == "selected_valid_winner"
+    assert summary["recourse_mode"] == "limited"
+    assert summary["selected_recommendation_text"] is None
     assert summary["selected_recommendation_source"] == "empty_state"
     assert summary["selected_action_count"] == 0
     assert summary["selected_recommendation_projection_version"] == "v2.2_phase_47"

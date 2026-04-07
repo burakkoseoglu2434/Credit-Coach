@@ -235,6 +235,78 @@ def test_build_customer_artifact_bundle_preserves_no_valid_winner_integrity() ->
     assert bundle.paths_df.empty
 
 
+def test_build_customer_artifact_bundle_suppresses_selected_truth_for_limited_mode() -> None:
+    valid_internal = _plan(
+        "internal-valid",
+        _action(
+            feature_name="revol_util",
+            metric_key="credit_utilization_pct",
+            current_value=68.0,
+            target_value=42.0,
+            direction="decrease",
+            action_key="limit_credit_usage",
+            action_class="behavioral",
+        ),
+        plan_source="internal",
+        predicted_pd=0.43,
+        status="REJECTED",
+    )
+    selection_result = choose_best_plan([valid_internal], base_pd=0.55, tau=0.35)
+
+    roadmap = _build_customer_roadmap(
+        customer_id="cust-limited",
+        base_pd=0.55,
+        tau=0.35,
+        best=selection_result.best_plan,
+        best_source="internal",
+        selection_result=selection_result,
+        row=pd.Series({"revol_util": 68.0}),
+        model=_DummyModel(),
+        calibrator=None,
+        feature_cols=["revol_util"],
+        local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.7}},
+    )
+    bundle = build_customer_artifact_bundle(
+        customer_id="cust-limited",
+        model_version="model-001",
+        base_pd=0.55,
+        search_profile={"is_denied_target": True, "search_cfg": {"time_budget_ms": 0}},
+        segment_context={"income_band": "q2", "risk_band": "mid", "segment_caps_applied": False},
+        validated=[valid_internal],
+        candidate_pool=[valid_internal],
+        best=selection_result.best_plan,
+        best_source="internal",
+        selection_result=selection_result,
+        roadmap=roadmap,
+        msi=0.2,
+        alpha=0.05,
+        robust_objective="cvar",
+        robust_cvar_quantile=0.9,
+        local_reason_bundle={"reasons": [], "meta": {"explainability_confidence": 0.7}},
+        adverse_action_reasons=[],
+        dice_backend="dice_ml",
+        dice_records=[],
+        dice_telemetry={"method_requested": "random", "method_used": "dice_ml", "fallback_reason": ""},
+        search_elapsed_ms=8.0,
+        fairness_penalty=0.0,
+        decision_log_record={"decision_id": "d-limited", "selection_propensity": 0.0},
+        decision_log_summary={"decision_log_completeness": 1.0},
+    )
+
+    assert selection_result.selection_outcome == "selected_valid_winner"
+    assert bundle.roadmap["summary"]["recoverable_flag"] is False
+    assert bundle.roadmap["summary"]["recourse_mode"] == "limited"
+    assert bundle.roadmap["summary"]["recommendation_mode"] == "informational"
+    assert bundle.roadmap["summary"]["best_plan_id"] is None
+    assert bundle.roadmap["summary"]["selected_recommendation_source"] == "empty_state"
+    assert bundle.roadmap["summary"]["selected_action_count"] == 0
+    assert bundle.roadmap["summary"]["selection_outcome"] == "selected_valid_winner"
+    assert bundle.metrics_summary["recourse_mode"] == "limited"
+    assert bundle.metrics_summary["recommendation_mode"] == "informational"
+    assert bundle.metrics_summary["selected_recommendation_source"] == "empty_state"
+    assert bundle.roadmap_steps_df.empty
+
+
 def test_rule_approval_shell_does_not_displace_actionable_winner_candidates() -> None:
     approval_shell = _plan(
         "rule-shell",
