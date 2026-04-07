@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Recoverable Customer Targeting & Movement Optimization
 status: active
-stopped_at: Phase 64 Wave 1 complete; Wave 2 artifact propagation is next
-last_updated: "2026-04-07T23:16:13+03:00"
+stopped_at: Phase 64 Waves 1-2 complete; Wave 3 cohort evidence is next
+last_updated: "2026-04-07T23:26:13+03:00"
 last_activity: 2026-04-07
 progress:
   total_phases: 64
   completed_phases: 61
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 64 execution is in progress; Wave 1 movement ranking core is complete and Wave 2 artifact propagation is next
+**Current focus:** Phase 64 execution is in progress; Waves 1-2 are complete and Wave 3 cohort evidence plus trust proof is next
 
 ## Current Position
 
 Phase: 64 in progress
-Plan: 64-01 complete
-Status: Recoverable/full-mode customers now use a movement-focused ranking seam that prioritizes realistic threshold reach while keeping grouped path ordering aligned with selected-plan choice
-Last activity: 2026-04-07 — Phase 64 Wave 1 executed and verified
+Plan: 64-02 complete
+Status: Recoverable/full-mode movement truth now propagates from runtime into flat customer artifacts, and limited mode clears selected-path movement residue back to empty-state-safe values
+Last activity: 2026-04-07 — Phase 64 Wave 2 executed and verified
 
 ## Performance Metrics
 
@@ -51,7 +51,7 @@ Last activity: 2026-04-07 — Phase 64 Wave 1 executed and verified
 | v2.2 completed milestone | 12 | phases 45-48 complete; archived | n/a |
 | v2.3 completed milestone | 12 | phases 49-52 complete; archived | n/a |
 | v2.4 completed milestone | 19 | phases 54-60 complete; archived | n/a |
-| v2.5 active milestone | 10 | phases 61-63 complete; phase 64 in progress (1/3 plans complete) | n/a |
+| v2.5 active milestone | 11 | phases 61-63 complete; phase 64 in progress (2/3 plans complete) | n/a |
 
 **Recent Trend:**
 
@@ -65,6 +65,7 @@ Last activity: 2026-04-07 — Phase 64 Wave 1 executed and verified
 - Phase \`63 Recourse Gating By Recoverability\` Wave 2 now propagates that gate contract through collection, calibration, and operator-facing artifact seams without recomputing routing downstream.
 - Phase \`63 Recourse Gating By Recoverability\` now closes with cohort-visible gate evidence, additive full-vs-limited posture reporting, and explanation-pack honesty proof while keeping limited mode explicitly informational.
 - Phase \`64 Movement-Focused Path Ranking\` Wave 1 now ships one deterministic movement-aware planner seam for recoverable/full-mode denied customers, plus runtime activation that keeps selected-plan and grouped-path ranking aligned.
+- Phase \`64 Movement-Focused Path Ranking\` Wave 2 now propagates selected-path movement truth through runtime summaries and flat customer artifacts while clearing those fields in limited-mode empty-state outputs.
 
 ## Accumulated Context
 
@@ -114,6 +115,6 @@ Recent decisions affecting the shipped baseline:
 
 ## Session Continuity
 
-Last session: 2026-04-07T23:16:13+03:00
-Stopped at: Phase 64 Wave 1 complete; Wave 2 artifact propagation is next
+Last session: 2026-04-07T23:26:13+03:00
+Stopped at: Phase 64 Waves 1-2 complete; Wave 3 cohort evidence is next
 Resume file: .planning/ROADMAP.md
