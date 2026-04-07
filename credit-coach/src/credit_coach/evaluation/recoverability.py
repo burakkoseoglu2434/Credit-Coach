@@ -6,6 +6,7 @@ from typing import Any, Iterable, Mapping
 DEFAULT_NEAR_UPPER = 0.10
 DEFAULT_MID_UPPER = 0.25
 RECOVERABILITY_CLASSIFIER_VERSION = "phase_62_v1"
+RECOURSE_GATE_VERSION = "phase_63_v1"
 HARD_STRUCTURAL_BLOCKERS: tuple[str, ...] = (
     "NO_VALID_WINNER",
     "NO_PATH",
@@ -166,6 +167,16 @@ def build_recoverability_classifier(signal: Mapping[str, Any]) -> dict[str, Any]
     }
 
 
+def build_recourse_gate(signal: Mapping[str, Any]) -> dict[str, Any]:
+    recoverable_flag = bool(signal.get("recoverable_flag", False))
+    return {
+        "recourse_mode": "full" if recoverable_flag else "limited",
+        "recommendation_mode": "actionable" if recoverable_flag else "informational",
+        "recourse_gate_version": RECOURSE_GATE_VERSION,
+        "recourse_gate_reason_codes": ["RECOVERABLE_FULL_MODE"] if recoverable_flag else ["NOT_RECOVERABLE_LIMITED_MODE"],
+    }
+
+
 def build_recoverability_signal(
     *,
     base_pd: float,
@@ -257,4 +268,5 @@ def build_recoverability_signal(
         "recoverability_signal_reason_codes": signal_reasons,
     }
     signal.update(build_recoverability_classifier(signal))
+    signal.update(build_recourse_gate(signal))
     return signal

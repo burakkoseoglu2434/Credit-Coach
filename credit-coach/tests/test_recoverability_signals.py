@@ -213,6 +213,24 @@ def test_classifier_decision_does_not_depend_on_recoverability_score() -> None:
     }
 
 
+def test_recourse_gate_mapping_is_binary_and_fail_closed() -> None:
+    full_gate = recv.build_recourse_gate({"recoverable_flag": True})
+    limited_gate = recv.build_recourse_gate({"recoverable_flag": False, "has_valid_path_flag": True})
+
+    assert full_gate == {
+        "recourse_mode": "full",
+        "recommendation_mode": "actionable",
+        "recourse_gate_version": recv.RECOURSE_GATE_VERSION,
+        "recourse_gate_reason_codes": ["RECOVERABLE_FULL_MODE"],
+    }
+    assert limited_gate == {
+        "recourse_mode": "limited",
+        "recommendation_mode": "informational",
+        "recourse_gate_version": recv.RECOURSE_GATE_VERSION,
+        "recourse_gate_reason_codes": ["NOT_RECOVERABLE_LIMITED_MODE"],
+    }
+
+
 def test_runtime_summary_and_metrics_sync_emit_shared_classifier_truth() -> None:
     roadmap = {
         "summary": {

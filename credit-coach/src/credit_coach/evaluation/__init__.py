@@ -25,9 +25,11 @@ from .metrics import (
 )
 from .recoverability import (
     HARD_STRUCTURAL_BLOCKERS,
+    RECOURSE_GATE_VERSION,
     RECOVERABILITY_CLASSIFIER_VERSION,
     SOFT_STRUCTURAL_BLOCKERS,
     best_possible_pd_improvement_from_predictions,
+    build_recourse_gate,
     build_recoverability_classifier,
     build_recoverability_signal,
     compute_approval_gap,
@@ -69,8 +71,10 @@ __all__ = [
     "recoverability_score",
     "threshold_reach_possible",
     "best_possible_pd_improvement_from_predictions",
+    "build_recourse_gate",
     "build_recoverability_classifier",
     "build_recoverability_signal",
+    "RECOURSE_GATE_VERSION",
     "RECOVERABILITY_CLASSIFIER_VERSION",
     "HARD_STRUCTURAL_BLOCKERS",
     "SOFT_STRUCTURAL_BLOCKERS",
