@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Recoverable Customer Targeting & Movement Optimization
 status: active
-stopped_at: Completed 63-01-PLAN.md; Wave 2 is next
-last_updated: "2026-04-07T22:11:17+03:00"
+stopped_at: Completed 63-02-PLAN.md; Wave 3 is next
+last_updated: "2026-04-07T22:35:33+03:00"
 last_activity: 2026-04-07
 progress:
   total_phases: 64
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 63 execution after Wave 1 runtime gating
+**Current focus:** Phase 63 execution after Wave 2 artifact propagation
 
 ## Current Position
 
 Phase: 63 in progress
-Plan: 63-01 complete
-Status: Runtime recoverability gating shipped; Wave 2 artifact propagation next
-Last activity: 2026-04-07 — Phase 63 Wave 1 executed and verified
+Plan: 63-02 complete
+Status: Runtime-first gate propagation now reaches collection, calibration, and operator packet seams; Wave 3 cohort evidence is next
+Last activity: 2026-04-07 — Phase 63 Wave 2 executed and verified
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Last activity: 2026-04-07 — Phase 63 Wave 1 executed and verified
 - Phase \`61 Recoverability Signal Definition\` now ships one canonical recoverability helper, additive runtime and collection propagation, and cohort-visible signal reporting without introducing recoverable classification or gating.
 - Phase \`62 Recoverable Customer Classifier\` now ships one conservative classifier seam, additive runtime/collection/cohort propagation, and analyst-auditable classifier evidence without introducing routing, planner, or narrative drift.
 - Phase \`63 Recourse Gating By Recoverability\` Wave 1 now ships a binary `full|limited` runtime gate derived directly from `recoverable_flag` and reuses the trusted empty-state selected surface for limited mode without chooser redesign.
+- Phase \`63 Recourse Gating By Recoverability\` Wave 2 now propagates that gate contract through collection, calibration, and operator-facing artifact seams without recomputing routing downstream.
 
 ## Accumulated Context
 
@@ -96,7 +97,7 @@ Recent decisions affecting the shipped baseline:
 ### Pending Todos
 
 - Keep recoverability deterministic and explainable; do not reopen model retraining, new action-type scope, or premature narrative work during v2.5
-- Continue Phase `63` with `$gsd-execute-phase 63` to finish Wave 2 and Wave 3
+- Continue Phase `63` with `$gsd-execute-phase 63` to finish Wave 3
 
 ### Tooling / Tech Debt
 
@@ -110,6 +111,6 @@ Recent decisions affecting the shipped baseline:
 
 ## Session Continuity
 
-Last session: 2026-04-07T22:11:17+03:00
-Stopped at: Phase 63 Wave 1 complete; Wave 2 is next
-Resume file: .planning/phases/63-recourse-gating-by-recoverability/63-02-PLAN.md
+Last session: 2026-04-07T22:35:33+03:00
+Stopped at: Phase 63 Wave 2 complete; Wave 3 is next
+Resume file: .planning/phases/63-recourse-gating-by-recoverability/63-03-PLAN.md
