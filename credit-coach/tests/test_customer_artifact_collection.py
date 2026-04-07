@@ -284,6 +284,11 @@ def test_validate_customer_artifact_parity_accepts_no_valid_winner_without_selec
                 "recommendation_mode": "informational",
                 "recourse_gate_version": "phase_63_v1",
                 "recourse_gate_reason_codes_json": json.dumps(["NOT_RECOVERABLE_LIMITED_MODE"]),
+                "movement_score": 0.0,
+                "threshold_reach_probability": 0.0,
+                "threshold_reach_priority_flag": 0,
+                "selected_path_movement_strength": "",
+                "movement_rank_reason_codes_json": json.dumps([]),
             },
         },
         roadmap_steps_df=pd.DataFrame(columns=["customer_id", "best_plan_id", "action_key"]),
@@ -301,6 +306,11 @@ def test_validate_customer_artifact_parity_accepts_no_valid_winner_without_selec
         "selected_recommendation_source": "empty_state",
         "selected_action_count": 0,
         "selected_recommendation_projection_version": "v2.2_phase_47",
+        "movement_score": 0.0,
+        "threshold_reach_probability": 0.0,
+        "threshold_reach_priority_flag": 0,
+        "selected_path_movement_strength": "",
+        "movement_rank_reason_codes_json": "[]",
         "credit_readiness_stage": "not_ready_yet",
         "plan_execution_probability": 0.0,
         "approval_dependent_plan_probability": 0.0,
@@ -373,6 +383,15 @@ def test_augment_metrics_row_preserves_runtime_classifier_truth() -> None:
                 "recommendation_mode": "actionable",
                 "recourse_gate_version": "phase_63_v1",
                 "recourse_gate_reason_codes": ["RECOVERABLE_FULL_MODE"],
+                "movement_score": 82.4,
+                "threshold_reach_probability": 0.74,
+                "threshold_reach_priority_flag": 1,
+                "selected_path_movement_strength": "strong",
+                "movement_rank_reason_codes": [
+                    "THRESHOLD_REACH_PRIORITY",
+                    "HIGH_EXPECTED_MOVEMENT",
+                    "CUSTOMER_ONLY_TIEBREAK",
+                ],
                 "hard_structural_blockers": [],
                 "soft_structural_blockers": [],
                 "recoverability_signal_reason_codes": [
@@ -436,6 +455,15 @@ def test_augment_metrics_row_preserves_runtime_classifier_truth() -> None:
     assert metrics["recommendation_mode"] == "actionable"
     assert metrics["recourse_gate_version"] == "phase_63_v1"
     assert json.loads(metrics["recourse_gate_reason_codes_json"]) == ["RECOVERABLE_FULL_MODE"]
+    assert metrics["movement_score"] == 82.4
+    assert metrics["threshold_reach_probability"] == 0.74
+    assert metrics["threshold_reach_priority_flag"] == 1
+    assert metrics["selected_path_movement_strength"] == "strong"
+    assert json.loads(metrics["movement_rank_reason_codes_json"]) == [
+        "THRESHOLD_REACH_PRIORITY",
+        "HIGH_EXPECTED_MOVEMENT",
+        "CUSTOMER_ONLY_TIEBREAK",
+    ]
     assert json.loads(metrics["recoverability_signal_reason_codes_json"]) == [
         "LOW_APPROVAL_GAP",
         "HAS_VALID_PATH",
@@ -498,6 +526,11 @@ def test_validate_customer_artifact_parity_requires_classifier_truth_match() -> 
                 "recommendation_mode": "informational",
                 "recourse_gate_version": "phase_63_v1",
                 "recourse_gate_reason_codes_json": json.dumps(["NOT_RECOVERABLE_LIMITED_MODE"]),
+                "movement_score": 0.0,
+                "threshold_reach_probability": 0.0,
+                "threshold_reach_priority_flag": 0,
+                "selected_path_movement_strength": "",
+                "movement_rank_reason_codes_json": json.dumps([]),
                 "recoverability_signal_reason_codes_json": json.dumps(
                     ["MID_APPROVAL_GAP", "HAS_VALID_PATH", "THRESHOLD_REACHABLE"]
                 ),
@@ -657,6 +690,11 @@ def test_validate_customer_artifact_parity_accepts_limited_mode_empty_state_with
         "selected_path_customer_summary": "",
         "selected_path_operator_summary": "",
         "selected_path_render_version": "",
+        "movement_score": 0.0,
+        "threshold_reach_probability": 0.0,
+        "threshold_reach_priority_flag": 0,
+        "selected_path_movement_strength": "",
+        "movement_rank_reason_codes_json": "[]",
         "credit_readiness_stage": "week_12",
         "plan_execution_probability": 0.0,
         "approval_dependent_plan_probability": 0.0,
@@ -1024,6 +1062,14 @@ def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Pa
         dominant_difficulty_label="moderate",
         follow_through_readiness_label="moderate",
     )
+    plan.movement_score = 0.81
+    plan.threshold_reach_probability = 0.69
+    plan.threshold_reach_priority_flag = True
+    plan.movement_rank_reason_codes = [
+        "THRESHOLD_REACH_PRIORITY",
+        "HIGH_EXPECTED_MOVEMENT",
+        "CUSTOMER_ONLY_TIEBREAK",
+    ]
 
     roadmap = _build_customer_roadmap(
         customer_id="cust-bundle",
@@ -1088,6 +1134,15 @@ def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Pa
     assert bundle.metrics_summary["selected_path_customer_summary"]
     assert bundle.metrics_summary["selected_path_operator_summary"]
     assert bundle.metrics_summary["selected_path_render_version"] == "phase59_action_semantics_rendering_v1"
+    assert bundle.metrics_summary["movement_score"] == 0.81
+    assert bundle.metrics_summary["threshold_reach_probability"] == 0.69
+    assert bundle.metrics_summary["threshold_reach_priority_flag"] == 1
+    assert bundle.metrics_summary["selected_path_movement_strength"] == "moderate"
+    assert json.loads(bundle.metrics_summary["movement_rank_reason_codes_json"]) == [
+        "THRESHOLD_REACH_PRIORITY",
+        "HIGH_EXPECTED_MOVEMENT",
+        "CUSTOMER_ONLY_TIEBREAK",
+    ]
     assert not bundle.paths_df.empty
     first_path = bundle.paths_df.iloc[0].to_dict()
     assert first_path["customer_summary"]["en"]

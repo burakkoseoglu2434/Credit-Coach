@@ -498,6 +498,12 @@ def _apply_recourse_gate_to_roadmap(roadmap: dict[str, Any]) -> dict[str, Any]:
             "selected_path_customer_summary": "",
             "selected_path_operator_summary": "",
             "selected_path_render_version": "",
+            "movement_score": 0.0,
+            "threshold_reach_probability": 0.0,
+            "threshold_reach_priority_flag": 0,
+            "movement_rank_reason_codes": [],
+            "movement_rank_reason_codes_json": json.dumps([], ensure_ascii=False),
+            "selected_path_movement_strength": "",
         }
     )
     if isinstance(out.get("narrative"), dict):
@@ -516,6 +522,12 @@ def _apply_recourse_gate_to_roadmap(roadmap: dict[str, Any]) -> dict[str, Any]:
             "selected_path_customer_summary": "",
             "selected_path_operator_summary": "",
             "selected_path_render_version": "",
+            "movement_score": 0.0,
+            "threshold_reach_probability": 0.0,
+            "threshold_reach_priority_flag": 0,
+            "movement_rank_reason_codes": [],
+            "movement_rank_reason_codes_json": json.dumps([], ensure_ascii=False),
+            "selected_path_movement_strength": "",
         }
     )
     projected["summary"] = projected_summary
@@ -528,6 +540,20 @@ def _selected_plan_id(best: PlanRecord | None) -> str:
 
 def _selected_plan_source(best: PlanRecord | None) -> str:
     return str(getattr(best, "plan_source", "") or "") if best is not None else ""
+
+
+def _selected_path_movement_strength(best: PlanRecord | None) -> str:
+    if best is None:
+        return ""
+    probability = getattr(best, "threshold_reach_probability", None)
+    if probability is None:
+        return ""
+    probability_value = _safe_float(probability, 0.0)
+    if bool(getattr(best, "threshold_reach_priority_flag", False)) and probability_value >= 0.70:
+        return "strong"
+    if probability_value >= 0.45:
+        return "moderate"
+    return "weak"
 
 
 def _ensure_plan_trajectory_context(
@@ -1046,6 +1072,15 @@ def _sync_metrics_summary_with_roadmap_summary(
             "selected_path_customer_summary": _safe_text(summary.get("selected_path_customer_summary"), ""),
             "selected_path_operator_summary": _safe_text(summary.get("selected_path_operator_summary"), ""),
             "selected_path_render_version": _safe_text(summary.get("selected_path_render_version"), ""),
+            "movement_score": _safe_float(summary.get("movement_score", 0.0), 0.0),
+            "threshold_reach_probability": _safe_float(summary.get("threshold_reach_probability", 0.0), 0.0),
+            "threshold_reach_priority_flag": int(bool(_safe_int(summary.get("threshold_reach_priority_flag", 0), 0))),
+            "movement_rank_reason_codes": list(summary.get("movement_rank_reason_codes", [])),
+            "movement_rank_reason_codes_json": json.dumps(
+                summary.get("movement_rank_reason_codes", []),
+                ensure_ascii=False,
+            ),
+            "selected_path_movement_strength": _safe_text(summary.get("selected_path_movement_strength"), ""),
             "decision_policy_version": _safe_text(summary.get("decision_policy_version"), ""),
             "decision_confidence": _safe_float(summary.get("decision_confidence", 0.0), 0.0),
             "expected_readiness": _safe_text(summary.get("expected_readiness"), ""),
@@ -1731,6 +1766,23 @@ def _build_customer_roadmap(
         "recommendation_warning_action_count": int(getattr(best, "recommendation_warning_action_count", 0) or 0),
         "recommendation_validity_codes": list(getattr(best, "recommendation_validity_codes", []) or []),
         "recommendation_sanity_flag": int(bool(getattr(best, "recommendation_sanity_flag", False))),
+        "movement_score": (
+            _safe_float(getattr(best, "movement_score", 0.0), 0.0)
+            if getattr(best, "movement_score", None) is not None
+            else 0.0
+        ),
+        "threshold_reach_probability": (
+            _safe_float(getattr(best, "threshold_reach_probability", 0.0), 0.0)
+            if getattr(best, "threshold_reach_probability", None) is not None
+            else 0.0
+        ),
+        "threshold_reach_priority_flag": int(bool(getattr(best, "threshold_reach_priority_flag", False))),
+        "movement_rank_reason_codes": list(getattr(best, "movement_rank_reason_codes", []) or []),
+        "movement_rank_reason_codes_json": json.dumps(
+            list(getattr(best, "movement_rank_reason_codes", []) or []),
+            ensure_ascii=False,
+        ),
+        "selected_path_movement_strength": _selected_path_movement_strength(best),
         "dice_backend_class": (
             str(getattr(best, "dice_backend_class", "") or "") if _selected_plan_source(best) == "dice" else None
         ),

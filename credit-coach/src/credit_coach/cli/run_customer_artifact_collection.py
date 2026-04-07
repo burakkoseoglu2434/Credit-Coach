@@ -272,6 +272,7 @@ def _validate_customer_artifact_parity(
         "recourse_gate_reason_codes_json",
         "recoverability_signal_reason_codes_json",
         "recoverable_reason_codes_json",
+        "movement_rank_reason_codes_json",
     }
     optional_render_fields = {
         "selected_path_customer_summary",
@@ -293,6 +294,10 @@ def _validate_customer_artifact_parity(
         "selected_path_customer_summary",
         "selected_path_operator_summary",
         "selected_path_render_version",
+        "movement_score",
+        "threshold_reach_probability",
+        "threshold_reach_priority_flag",
+        "selected_path_movement_strength",
         "credit_readiness_stage",
         "plan_execution_probability",
         "approval_dependent_plan_probability",
@@ -320,6 +325,7 @@ def _validate_customer_artifact_parity(
         "recourse_gate_reason_codes_json",
         "recoverability_signal_reason_codes_json",
         "recoverable_reason_codes_json",
+        "movement_rank_reason_codes_json",
     )
     source_pairs = {
         "customer_id": bundle.customer_id,
@@ -798,6 +804,42 @@ def _augment_metrics_row(
             "selected_path_id": str(metrics.get("selected_path_id", roadmap_summary.get("selected_path_id", "")) or ""),
             "selected_path_type": str(metrics.get("selected_path_type", roadmap_summary.get("selected_path_type", "")) or ""),
             "selected_path_rank": int(_safe_int(metrics.get("selected_path_rank", roadmap_summary.get("selected_path_rank", 0)), 0)),
+            "movement_score": _safe_float(
+                metrics.get("movement_score", roadmap_summary.get("movement_score", 0.0)),
+                0.0,
+            ),
+            "threshold_reach_probability": _safe_float(
+                metrics.get(
+                    "threshold_reach_probability",
+                    roadmap_summary.get("threshold_reach_probability", 0.0),
+                ),
+                0.0,
+            ),
+            "threshold_reach_priority_flag": int(
+                _safe_int(
+                    metrics.get(
+                        "threshold_reach_priority_flag",
+                        roadmap_summary.get("threshold_reach_priority_flag", 0),
+                    ),
+                    0,
+                )
+            ),
+            "selected_path_movement_strength": str(
+                metrics.get(
+                    "selected_path_movement_strength",
+                    roadmap_summary.get("selected_path_movement_strength", ""),
+                )
+                or ""
+            ),
+            "movement_rank_reason_codes_json": _json_dumps_compact(
+                list(
+                    metrics.get(
+                        "movement_rank_reason_codes",
+                        roadmap_summary.get("movement_rank_reason_codes", []),
+                    )
+                    or []
+                )
+            ),
             "selected_outcome_rule_applied": int(
                 _safe_int(
                     metrics.get(
@@ -985,17 +1027,22 @@ def _augment_plans_df(
     out.insert(18, "selected_path_id", _safe_text(summary.get("selected_path_id")))
     out.insert(19, "selected_path_type", _safe_text(summary.get("selected_path_type")))
     out.insert(20, "selected_path_rank", int(_safe_int(summary.get("selected_path_rank", 0), 0)))
-    out.insert(21, "selected_path_customer_summary", _safe_text(summary.get("selected_path_customer_summary")))
-    out.insert(22, "selected_path_operator_summary", _safe_text(summary.get("selected_path_operator_summary")))
-    out.insert(23, "selected_path_render_version", _safe_text(summary.get("selected_path_render_version")))
+    out.insert(21, "movement_score", _safe_float(summary.get("movement_score", 0.0), 0.0))
+    out.insert(22, "threshold_reach_probability", _safe_float(summary.get("threshold_reach_probability", 0.0), 0.0))
+    out.insert(23, "threshold_reach_priority_flag", int(_safe_int(summary.get("threshold_reach_priority_flag", 0), 0)))
+    out.insert(24, "selected_path_movement_strength", _safe_text(summary.get("selected_path_movement_strength")))
+    out.insert(25, "movement_rank_reason_codes_json", _json_dumps_compact(summary.get("movement_rank_reason_codes", [])))
+    out.insert(26, "selected_path_customer_summary", _safe_text(summary.get("selected_path_customer_summary")))
+    out.insert(27, "selected_path_operator_summary", _safe_text(summary.get("selected_path_operator_summary")))
+    out.insert(28, "selected_path_render_version", _safe_text(summary.get("selected_path_render_version")))
     if "action_count" in out.columns:
-        out.insert(24, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
+        out.insert(29, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
     else:
-        out.insert(24, "plan_step_count", 0)
+        out.insert(29, "plan_step_count", 0)
     plan_contract_pass = pd.Series([pd.NA] * len(out), index=out.index, dtype="object")
     selected_mask = out["selected_best_flag"].astype(int) == 1
     plan_contract_pass.loc[selected_mask] = int(_safe_int(summary.get("plan_contract_pass", 0), 0))
-    out.insert(25, "plan_contract_pass", plan_contract_pass)
+    out.insert(30, "plan_contract_pass", plan_contract_pass)
     return out
 
 
