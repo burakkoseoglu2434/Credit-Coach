@@ -430,6 +430,19 @@ def build_selection_work_frame(
             else work["recoverability_signal_reason_codes_json"]
         )
         work["recoverability_signal_reason_codes"] = signal_reason_source.map(_normalize_reason_code_list)
+    if "recourse_mode" in work.columns:
+        work["recourse_mode"] = work["recourse_mode"].map(_safe_str)
+    if "recommendation_mode" in work.columns:
+        work["recommendation_mode"] = work["recommendation_mode"].map(_safe_str)
+    if "recourse_gate_version" in work.columns:
+        work["recourse_gate_version"] = work["recourse_gate_version"].map(_safe_str)
+    if "recourse_gate_reason_codes" in work.columns or "recourse_gate_reason_codes_json" in work.columns:
+        gate_reason_source = (
+            work["recourse_gate_reason_codes"]
+            if "recourse_gate_reason_codes" in work.columns
+            else work["recourse_gate_reason_codes_json"]
+        )
+        work["recourse_gate_reason_codes"] = gate_reason_source.map(_normalize_reason_code_list)
     risk_cfg = (
         dict(segment_caps_cfg.get("risk_band_thresholds", {}))
         if isinstance(segment_caps_cfg.get("risk_band_thresholds", {}), Mapping)

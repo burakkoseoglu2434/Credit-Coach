@@ -280,6 +280,10 @@ def test_validate_customer_artifact_parity_accepts_no_valid_winner_without_selec
                 "preferred_pool_invalid_exhausted": 1,
                 "no_valid_candidate_available": 1,
                 "selected_from_widened_valid_pool": 0,
+                "recourse_mode": "limited",
+                "recommendation_mode": "informational",
+                "recourse_gate_version": "phase_63_v1",
+                "recourse_gate_reason_codes_json": json.dumps(["NOT_RECOVERABLE_LIMITED_MODE"]),
             },
         },
         roadmap_steps_df=pd.DataFrame(columns=["customer_id", "best_plan_id", "action_key"]),
@@ -318,6 +322,10 @@ def test_validate_customer_artifact_parity_accepts_no_valid_winner_without_selec
         "selected_from_widened_valid_pool": 0,
         "recoverable_flag": 0,
         "recoverability_classifier_version": "",
+        "recourse_mode": "limited",
+        "recommendation_mode": "informational",
+        "recourse_gate_version": "phase_63_v1",
+        "recourse_gate_reason_codes_json": "[\"NOT_RECOVERABLE_LIMITED_MODE\"]",
         "recoverability_signal_reason_codes_json": "[]",
         "recoverable_reason_codes_json": "[]",
     }
@@ -328,7 +336,7 @@ def test_validate_customer_artifact_parity_accepts_no_valid_winner_without_selec
         steps_df=bundle.roadmap_steps_df,
     )
 
-    assert parity["parity_pass"] == 1
+    assert parity["parity_pass"] == 1, parity
     assert parity["parity_mismatch_fields"] == []
 
 
@@ -361,6 +369,10 @@ def test_augment_metrics_row_preserves_runtime_classifier_truth() -> None:
                 "structural_blocker_flag": 0,
                 "recoverable_flag": True,
                 "recoverability_classifier_version": "phase_62_v1",
+                "recourse_mode": "full",
+                "recommendation_mode": "actionable",
+                "recourse_gate_version": "phase_63_v1",
+                "recourse_gate_reason_codes": ["RECOVERABLE_FULL_MODE"],
                 "hard_structural_blockers": [],
                 "soft_structural_blockers": [],
                 "recoverability_signal_reason_codes": [
@@ -420,6 +432,10 @@ def test_augment_metrics_row_preserves_runtime_classifier_truth() -> None:
     assert metrics["threshold_reach_possible"] == 1
     assert metrics["recoverable_flag"] == 1
     assert metrics["recoverability_classifier_version"] == "phase_62_v1"
+    assert metrics["recourse_mode"] == "full"
+    assert metrics["recommendation_mode"] == "actionable"
+    assert metrics["recourse_gate_version"] == "phase_63_v1"
+    assert json.loads(metrics["recourse_gate_reason_codes_json"]) == ["RECOVERABLE_FULL_MODE"]
     assert json.loads(metrics["recoverability_signal_reason_codes_json"]) == [
         "LOW_APPROVAL_GAP",
         "HAS_VALID_PATH",
@@ -478,6 +494,10 @@ def test_validate_customer_artifact_parity_requires_classifier_truth_match() -> 
                 "selected_from_widened_valid_pool": 0,
                 "recoverable_flag": False,
                 "recoverability_classifier_version": "phase_62_v1",
+                "recourse_mode": "limited",
+                "recommendation_mode": "informational",
+                "recourse_gate_version": "phase_63_v1",
+                "recourse_gate_reason_codes_json": json.dumps(["NOT_RECOVERABLE_LIMITED_MODE"]),
                 "recoverability_signal_reason_codes_json": json.dumps(
                     ["MID_APPROVAL_GAP", "HAS_VALID_PATH", "THRESHOLD_REACHABLE"]
                 ),
@@ -546,7 +566,7 @@ def test_validate_customer_artifact_parity_requires_classifier_truth_match() -> 
         steps_df=bundle.roadmap_steps_df,
     )
 
-    assert parity["parity_pass"] == 1
+    assert parity["parity_pass"] == 1, parity
 
     drifted_row = dict(metrics_row)
     drifted_row["recoverable_flag"] = 1
@@ -560,6 +580,120 @@ def test_validate_customer_artifact_parity_requires_classifier_truth_match() -> 
 
     assert drifted_parity["parity_pass"] == 0
     assert "recoverable_flag" in drifted_parity["parity_mismatch_fields"]
+
+
+def test_validate_customer_artifact_parity_accepts_limited_mode_empty_state_without_selected_row() -> None:
+    bundle = CustomerArtifactBundle(
+        customer_id="cust-limited",
+        plans_df=pd.DataFrame([{"plan_id": "plan-a", "selected_best_flag": 0, "status": "REJECTED"}]),
+        roadmap={
+            "customer_id": "cust-limited",
+            "best_plan_id": None,
+            "best_plan_source": "internal",
+            "phases": [],
+            "checkpoints": [
+                {"week": 4, "status": "at_risk"},
+                {"week": 12, "status": "on_track"},
+                {"week": 24, "status": "on_track"},
+            ],
+            "summary": {
+                "decision_status": "REJECTED",
+                "decision_status_internal": "REJECTED",
+                "best_plan_id": None,
+                "best_status": "REJECTED",
+                "selected_decision_status": "REJECTED",
+                "selected_plan_status_internal": None,
+                "selected_recommendation_text": None,
+                "selected_recommendation_source": "empty_state",
+                "selected_action_count": 0,
+                "selected_recommendation_projection_version": "v2.2_phase_47",
+                "credit_readiness_stage": "week_12",
+                "plan_execution_probability": 0.0,
+                "approval_dependent_plan_probability": 0.0,
+                "offer_acceptance_probability": 0.0,
+                "combined_plan_realization_probability": 0.0,
+                "best_action_count": 0,
+                "zero_step_flag": 1,
+                "raw_contract_pass": 1,
+                "parity_pass": 1,
+                "data_issue_flag": 0,
+                "selection_outcome": "selected_valid_winner",
+                "selection_stage": "preferred_valid",
+                "invalid_candidates_removed_count": 0,
+                "preferred_pool_invalid_exhausted": 0,
+                "no_valid_candidate_available": 0,
+                "selected_from_widened_valid_pool": 0,
+                "recoverable_flag": False,
+                "recoverability_classifier_version": "phase_62_v1",
+                "recourse_mode": "limited",
+                "recommendation_mode": "informational",
+                "recourse_gate_version": "phase_63_v1",
+                "recourse_gate_reason_codes_json": json.dumps(["NOT_RECOVERABLE_LIMITED_MODE"]),
+                "recoverability_signal_reason_codes_json": json.dumps(
+                    ["MID_APPROVAL_GAP", "HAS_VALID_PATH", "THRESHOLD_REACHABLE"]
+                ),
+                "recoverable_reason_codes_json": json.dumps(
+                    ["OUTSIDE_RECOVERABLE_BAND", "HAS_RANKABLE_PATH", "THRESHOLD_REACHABLE", "NOT_RECOVERABLE"]
+                ),
+            },
+            "narrative": {"steps": []},
+        },
+        roadmap_steps_df=pd.DataFrame(),
+        metrics_summary={"customer_id": "cust-limited", "best_plan_id": "", "best_plan_source": "internal"},
+        paths_df=pd.DataFrame(),
+    )
+    metrics_row = {
+        "customer_id": "cust-limited",
+        "best_plan_id": "",
+        "best_plan_source": "internal",
+        "decision_status": "REJECTED",
+        "decision_status_internal": "REJECTED",
+        "selected_decision_status": "REJECTED",
+        "selected_plan_status_internal": "",
+        "selected_recommendation_text": "",
+        "selected_recommendation_source": "empty_state",
+        "selected_action_count": 0,
+        "selected_recommendation_projection_version": "v2.2_phase_47",
+        "selected_path_customer_summary": "",
+        "selected_path_operator_summary": "",
+        "selected_path_render_version": "",
+        "credit_readiness_stage": "week_12",
+        "plan_execution_probability": 0.0,
+        "approval_dependent_plan_probability": 0.0,
+        "offer_acceptance_probability": 0.0,
+        "combined_plan_realization_probability": 0.0,
+        "best_action_count": 0,
+        "zero_step_flag": 1,
+        "checkpoint_status_4w": "at_risk",
+        "checkpoint_status_12w": "on_track",
+        "checkpoint_status_24w": "on_track",
+        "raw_contract_pass": 1,
+        "parity_pass": 1,
+        "data_issue_flag": 0,
+        "selection_outcome": "selected_valid_winner",
+        "selection_stage": "preferred_valid",
+        "invalid_candidates_removed_count": 0,
+        "preferred_pool_invalid_exhausted": 0,
+        "no_valid_candidate_available": 0,
+        "selected_from_widened_valid_pool": 0,
+        "recoverable_flag": 0,
+        "recoverability_classifier_version": "phase_62_v1",
+        "recourse_mode": "limited",
+        "recommendation_mode": "informational",
+        "recourse_gate_version": "phase_63_v1",
+        "recourse_gate_reason_codes_json": "[\"NOT_RECOVERABLE_LIMITED_MODE\"]",
+        "recoverability_signal_reason_codes_json": "[\"MID_APPROVAL_GAP\",\"HAS_VALID_PATH\",\"THRESHOLD_REACHABLE\"]",
+        "recoverable_reason_codes_json": "[\"OUTSIDE_RECOVERABLE_BAND\",\"HAS_RANKABLE_PATH\",\"THRESHOLD_REACHABLE\",\"NOT_RECOVERABLE\"]",
+    }
+
+    parity = collector._validate_customer_artifact_parity(
+        bundle=bundle,
+        metrics_row=metrics_row,
+        plans_df=pd.DataFrame([{"plan_id": "plan-a", "selected_best_flag": 0, "status": "REJECTED"}]),
+        steps_df=bundle.roadmap_steps_df,
+    )
+    assert parity["parity_pass"] == 1
+    assert parity["parity_mismatch_fields"] == []
 
 
 def test_validate_customer_artifact_parity_rejects_selected_dice_winner_that_is_not_eligible() -> None:
@@ -846,11 +980,11 @@ def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Pa
                 phase_id="phase_1_stabilize",
                 checkpoint_type="primary",
                 checkpoint_label="early_stabilization",
-                predicted_pd=0.40,
-                pd_delta_vs_base=0.04,
-                gate_pass_estimate=0,
+                predicted_pd=0.34,
+                pd_delta_vs_base=0.10,
+                gate_pass_estimate=1,
                 checkpoint_priority=1,
-                status="at_risk",
+                status="on_track",
             ),
             TrajectoryCheckpoint(
                 week=12,
@@ -893,7 +1027,7 @@ def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Pa
 
     roadmap = _build_customer_roadmap(
         customer_id="cust-bundle",
-        base_pd=0.44,
+        base_pd=0.40,
         tau=0.35,
         best=plan,
         best_source="internal",
@@ -910,13 +1044,13 @@ def test_customer_artifact_bundle_matches_single_customer_row_shape(tmp_path: Pa
     path_records = build_recourse_path_records(
         [plan],
         selected_plan_id=plan.plan_id,
-        base_pd=0.44,
+        base_pd=0.40,
         tau=0.35,
     )
     bundle = build_customer_artifact_bundle(
         customer_id="cust-bundle",
         model_version="model-001",
-        base_pd=0.44,
+        base_pd=0.40,
         search_profile={"is_denied_target": True, "search_cfg": {"time_budget_ms": 0}},
         segment_context={"income_band": "q2", "risk_band": "high", "segment_caps_applied": False},
         validated=[plan],

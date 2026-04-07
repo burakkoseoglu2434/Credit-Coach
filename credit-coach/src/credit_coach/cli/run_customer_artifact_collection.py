@@ -268,6 +268,11 @@ def _validate_customer_artifact_parity(
     summary = _normalized_roadmap_summary(bundle)
     metrics_summary = dict(bundle.metrics_summary)
     mismatch_fields: list[str] = []
+    json_list_fields = {
+        "recourse_gate_reason_codes_json",
+        "recoverability_signal_reason_codes_json",
+        "recoverable_reason_codes_json",
+    }
     optional_render_fields = {
         "selected_path_customer_summary",
         "selected_path_operator_summary",
@@ -309,6 +314,10 @@ def _validate_customer_artifact_parity(
         "selected_from_widened_valid_pool",
         "recoverable_flag",
         "recoverability_classifier_version",
+        "recourse_mode",
+        "recommendation_mode",
+        "recourse_gate_version",
+        "recourse_gate_reason_codes_json",
         "recoverability_signal_reason_codes_json",
         "recoverable_reason_codes_json",
     )
@@ -331,11 +340,17 @@ def _validate_customer_artifact_parity(
         "selection_outcome",
         "selection_stage",
         "recoverability_classifier_version",
+        "recourse_mode",
+        "recommendation_mode",
+        "recourse_gate_version",
     ):
         source_pairs[field] = _safe_text(source_pairs.get(field))
     for field in field_names:
         expected = source_pairs.get(field, metrics_summary.get(field))
         actual = metrics_row.get(field)
+        if field in json_list_fields:
+            expected = _json_dumps_compact(_json_list(expected))
+            actual = _json_dumps_compact(_json_list(actual))
         if field in optional_render_fields and not _safe_text(expected) and not _safe_text(actual):
             continue
         if not _is_close_contract_value(expected, actual):
@@ -345,7 +360,12 @@ def _validate_customer_artifact_parity(
     selected_best = plans_df.loc[plans_df.get("selected_best_flag", pd.Series(dtype=int)).fillna(0).astype(int) == 1]
     selection_outcome = _safe_text(summary.get("selection_outcome"))
     best_plan_id = _safe_text(summary.get("best_plan_id"))
-    if selection_outcome == "no_valid_winner" and not best_plan_id:
+    limited_empty_state = (
+        _safe_text(summary.get("recourse_mode")) == "limited"
+        and _safe_text(summary.get("selected_recommendation_source")) == "empty_state"
+        and not best_plan_id
+    )
+    if (selection_outcome == "no_valid_winner" and not best_plan_id) or limited_empty_state:
         if not selected_best.empty:
             mismatch_fields.append("selected_best_unexpected")
         if _safe_text(metrics_row.get("selected_recommendation_source")) != "empty_state":
@@ -663,6 +683,36 @@ def _augment_metrics_row(
                 )
                 or ""
             ),
+            "recourse_mode": str(
+                metrics.get(
+                    "recourse_mode",
+                    roadmap_summary.get("recourse_mode", ""),
+                )
+                or ""
+            ),
+            "recommendation_mode": str(
+                metrics.get(
+                    "recommendation_mode",
+                    roadmap_summary.get("recommendation_mode", ""),
+                )
+                or ""
+            ),
+            "recourse_gate_version": str(
+                metrics.get(
+                    "recourse_gate_version",
+                    roadmap_summary.get("recourse_gate_version", ""),
+                )
+                or ""
+            ),
+            "recourse_gate_reason_codes_json": _json_dumps_compact(
+                list(
+                    metrics.get(
+                        "recourse_gate_reason_codes",
+                        roadmap_summary.get("recourse_gate_reason_codes", []),
+                    )
+                    or []
+                )
+            ),
             "hard_structural_blockers_json": _json_dumps_compact(
                 list(
                     metrics.get(
@@ -848,6 +898,7 @@ def _augment_metrics_row(
     )
     metrics["recoverability_signal_reason_codes_json"] = _reason_codes_json("recoverability_signal_reason_codes")
     metrics["recoverable_reason_codes_json"] = _reason_codes_json("recoverable_reason_codes")
+    metrics["recourse_gate_reason_codes_json"] = _reason_codes_json("recourse_gate_reason_codes")
     for source in _CANDIDATE_SOURCE_CATALOG:
         metrics[f"candidate_source_{source}_count"] = int(metrics.get(f"candidate_source_{source}_count", source_counts.get(source, 0)))
         metrics[f"candidate_source_{source}_present"] = int(

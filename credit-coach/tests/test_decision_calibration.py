@@ -124,6 +124,10 @@ def test_build_selection_work_frame_preserves_classifier_fields_when_present() -
                 "customer_id": "c-near",
                 "recoverable_flag": 1,
                 "recoverability_classifier_version": "phase_62_v1",
+                "recourse_mode": "full",
+                "recommendation_mode": "actionable",
+                "recourse_gate_version": "phase_63_v1",
+                "recourse_gate_reason_codes_json": json.dumps(["RECOVERABLE_FULL_MODE"]),
                 "recoverable_reason_codes_json": json.dumps(
                     [
                         "WITHIN_RECOVERABLE_BAND",
@@ -140,6 +144,10 @@ def test_build_selection_work_frame_preserves_classifier_fields_when_present() -
                 "customer_id": "c-mid",
                 "recoverable_flag": 0,
                 "recoverability_classifier_version": "phase_62_v1",
+                "recourse_mode": "limited",
+                "recommendation_mode": "informational",
+                "recourse_gate_version": "phase_63_v1",
+                "recourse_gate_reason_codes_json": json.dumps(["NOT_RECOVERABLE_LIMITED_MODE"]),
                 "recoverable_reason_codes_json": json.dumps(
                     [
                         "OUTSIDE_RECOVERABLE_BAND",
@@ -171,6 +179,10 @@ def test_build_selection_work_frame_preserves_classifier_fields_when_present() -
 
     assert list(work["recoverable_flag"]) == [True, False]
     assert list(work["recoverability_classifier_version"]) == ["phase_62_v1", "phase_62_v1"]
+    assert list(work["recourse_mode"]) == ["full", "limited"]
+    assert list(work["recommendation_mode"]) == ["actionable", "informational"]
+    assert list(work["recourse_gate_version"]) == ["phase_63_v1", "phase_63_v1"]
+    assert work.loc[0, "recourse_gate_reason_codes"] == ["RECOVERABLE_FULL_MODE"]
     assert work.loc[0, "recoverable_reason_codes"] == [
         "WITHIN_RECOVERABLE_BAND",
         "HAS_RANKABLE_PATH",
