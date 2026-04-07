@@ -262,6 +262,66 @@ def test_choose_best_plan_high_risk_objective_penalizes_missing_gate_fields():
     assert best.plan_id == "p_complete"
 
 
+def test_choose_best_plan_movement_mode_prefers_threshold_reaching_candidate() -> None:
+    movement_weak = _mk_plan(
+        "p_movement_weak",
+        ci_high=0.38,
+        reliability=0.86,
+        worst_margin=-0.03,
+        predicted_pd=0.36,
+        robust_score=9.0,
+        status="APPROVED",
+    )
+    movement_weak.plan_execution_probability = 0.80
+    movement_weak.nominal_pd_improvement = 0.07
+    movement_weak.expected_pd_improvement = 0.056
+    movement_weak.mean_group_difficulty_score = 0.20
+    movement_weak.peak_group_difficulty_score = 0.25
+    movement_weak.follow_through_readiness_label = "high"
+
+    threshold_capable = _mk_plan(
+        "p_threshold_capable",
+        ci_high=0.39,
+        reliability=0.72,
+        worst_margin=-0.04,
+        predicted_pd=0.34,
+        robust_score=1.0,
+        status="APPROVED",
+    )
+    threshold_capable.plan_execution_probability = 0.55
+    threshold_capable.nominal_pd_improvement = 0.09
+    threshold_capable.expected_pd_improvement = 0.0495
+    threshold_capable.mean_group_difficulty_score = 0.36
+    threshold_capable.peak_group_difficulty_score = 0.42
+    threshold_capable.follow_through_readiness_label = "moderate"
+
+    baseline = choose_best_plan(
+        [movement_weak, threshold_capable],
+        base_pd=0.43,
+        tau=0.35,
+        min_reliability=0.70,
+        min_worst_risk_margin=-0.05,
+        denied_mode=True,
+    )
+    movement_ranked = choose_best_plan(
+        [movement_weak, threshold_capable],
+        base_pd=0.43,
+        tau=0.35,
+        min_reliability=0.70,
+        min_worst_risk_margin=-0.05,
+        denied_mode=True,
+        movement_ranking_enabled=True,
+    )
+
+    assert baseline.plan_id == "p_movement_weak"
+    assert movement_ranked.plan_id == "p_threshold_capable"
+    assert threshold_capable.threshold_reach_priority_flag is True
+    assert threshold_capable.threshold_reach_probability is not None
+    assert threshold_capable.movement_score is not None
+    assert "THRESHOLD_REACH_PRIORITY" in threshold_capable.movement_rank_reason_codes
+    assert "THRESHOLD_REACH_UNLIKELY" in movement_weak.movement_rank_reason_codes
+
+
 def test_choose_best_plan_prefers_checkpoint_safe_trajectory_story():
     strong_early = _mk_plan(
         "p_strong_early",

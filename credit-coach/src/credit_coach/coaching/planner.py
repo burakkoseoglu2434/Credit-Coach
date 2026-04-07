@@ -5,6 +5,7 @@ import math
 from typing import Any, Literal
 
 from credit_coach.data.schema import PlanRecord
+from credit_coach.recourse.action_space import get_action_template
 from credit_coach.recourse.recommendation_validity import (
     filter_invalid_numeric_plans,
     recommendation_warning_penalty,
@@ -33,6 +34,21 @@ _CONTENDER_BUCKET_PRIORITY = {
     "ACTIONABLE": 0,
     "APPROVAL_SHELL_ONLY": 1,
     "EMPTY": 2,
+}
+_MOVEMENT_PATH_TYPE_PENALTY = {
+    "customer_only": 0,
+    "institution_assisted": 1,
+    "hybrid": 2,
+}
+_READINESS_MOVEMENT_BONUS = {
+    "high": 0.08,
+    "moderate": 0.03,
+    "low": -0.08,
+}
+_LEGACY_OWNER_BY_CLASS = {
+    "behavioral": "customer",
+    "structural": "hybrid",
+    "institutional": "institution",
 }
 _VALID_OFFER_MATURITY = {"none", "inactive", "provisional", "active_rankable"}
 SelectionOutcome = Literal["selected_valid_winner", "no_valid_winner"]
@@ -316,6 +332,153 @@ def _follow_through_readiness_label(plan: PlanRecord) -> str:
     return str(getattr(plan, "follow_through_readiness_label", "") or "").strip().lower()
 
 
+def _approval_gap_for_movement(*, base_pd: float | None, tau: float | None) -> float:
+    if base_pd is None or tau is None:
+        return 0.0
+    return max(0.0, float(base_pd) - float(tau))
+
+
+def _movement_action_owner(action: Any) -> str:
+    action_key = str(getattr(action, "action_key", "") or "").strip()
+    if action_key:
+        try:
+            return str(get_action_template(action_key).action_owner or "").strip().lower()
+        except Exception:
+            pass
+    legacy_class = str(getattr(action, "action_class", "") or "").strip().lower()
+    if legacy_class in _LEGACY_OWNER_BY_CLASS:
+        return _LEGACY_OWNER_BY_CLASS[legacy_class]
+    if bool(getattr(action, "requires_institutional_approval", False)):
+        return "institution"
+    return ""
+
+
+def _movement_path_type(plan: PlanRecord) -> str:
+    owners = {_movement_action_owner(action) for action in list(getattr(plan, "actions", []) or []) if _movement_action_owner(action)}
+    if "hybrid" in owners:
+        return "hybrid"
+    if "customer" in owners and "institution" in owners:
+        return "hybrid"
+    if "institution" in owners:
+        return "institution_assisted"
+    return "customer_only"
+
+
+def _movement_action_group_count(plan: PlanRecord) -> int:
+    return max(
+        _safe_int(getattr(plan, "executable_action_group_count", 0), 0),
+        len(list(getattr(plan, "actions", []) or [])),
+    )
+
+
+def _movement_difficulty_headroom(plan: PlanRecord) -> float:
+    weighted = (0.45 * _mean_group_difficulty_score(plan)) + (0.55 * _peak_group_difficulty_score(plan))
+    return max(0.0, min(1.0, 1.0 - weighted))
+
+
+def _movement_simplicity_headroom(plan: PlanRecord) -> float:
+    overflow = max(0.0, float(_movement_action_group_count(plan) - 1))
+    return max(0.0, min(1.0, 1.0 - min(1.0, overflow / 4.0)))
+
+
+def _movement_dependency_headroom(plan: PlanRecord) -> float:
+    approval_pending = _safe_int(getattr(plan, "approval_pending_action_count", 0), 0)
+    if approval_pending <= 0:
+        return 1.0
+    return max(0.0, min(1.0, _approval_dependent_plan_probability(plan)))
+
+
+def _threshold_reach_probability(plan: PlanRecord, *, base_pd: float | None, tau: float | None) -> float:
+    approval_gap = _approval_gap_for_movement(base_pd=base_pd, tau=tau)
+    if approval_gap <= 0.0:
+        return 1.0
+    nominal_ratio = min(1.25, _nominal_pd_improvement(plan, base_pd=base_pd, tau=tau) / approval_gap)
+    expected_ratio = min(1.25, _expected_pd_improvement(plan, base_pd=base_pd, tau=tau) / approval_gap)
+    progress_signal = (0.65 * expected_ratio) + (0.35 * nominal_ratio)
+    realism_signal = (
+        (0.55 * _plan_execution_probability(plan))
+        + (0.20 * _movement_dependency_headroom(plan))
+        + (0.25 * _movement_difficulty_headroom(plan))
+    )
+    readiness_bonus = _READINESS_MOVEMENT_BONUS.get(_follow_through_readiness_label(plan), 0.0)
+    return max(0.0, min(1.0, (progress_signal * realism_signal) + readiness_bonus))
+
+
+def _threshold_reach_priority_flag(plan: PlanRecord, *, base_pd: float | None, tau: float | None) -> bool:
+    approval_gap = _approval_gap_for_movement(base_pd=base_pd, tau=tau)
+    if approval_gap <= 0.0:
+        return True
+    nominal_ratio = _nominal_pd_improvement(plan, base_pd=base_pd, tau=tau) / max(approval_gap, 1e-6)
+    expected_ratio = _expected_pd_improvement(plan, base_pd=base_pd, tau=tau) / max(approval_gap, 1e-6)
+    probability = _threshold_reach_probability(plan, base_pd=base_pd, tau=tau)
+    return bool(nominal_ratio >= 1.0 and (expected_ratio >= 0.60 or probability >= 0.55))
+
+
+def _movement_score(plan: PlanRecord, *, base_pd: float | None, tau: float | None) -> float:
+    approval_gap = _approval_gap_for_movement(base_pd=base_pd, tau=tau)
+    progress_denominator = max(approval_gap, 1e-6)
+    expected_ratio = min(1.50, _expected_pd_improvement(plan, base_pd=base_pd, tau=tau) / progress_denominator)
+    nominal_ratio = min(1.50, _nominal_pd_improvement(plan, base_pd=base_pd, tau=tau) / progress_denominator)
+    execution_probability = _plan_execution_probability(plan)
+    dependency_headroom = _movement_dependency_headroom(plan)
+    difficulty_headroom = _movement_difficulty_headroom(plan)
+    simplicity_headroom = _movement_simplicity_headroom(plan)
+    path_type_bonus = {
+        "customer_only": 0.05,
+        "institution_assisted": -0.02,
+        "hybrid": -0.05,
+    }.get(_movement_path_type(plan), 0.0)
+    score = (
+        (55.0 * expected_ratio)
+        + (20.0 * nominal_ratio)
+        + (15.0 * execution_probability)
+        + (5.0 * dependency_headroom)
+        + (8.0 * difficulty_headroom)
+        + (5.0 * simplicity_headroom)
+        + (100.0 * path_type_bonus)
+    )
+    if not _threshold_reach_priority_flag(plan, base_pd=base_pd, tau=tau):
+        score -= 12.0
+    return float(score)
+
+
+def _movement_rank_reason_codes(plan: PlanRecord, *, base_pd: float | None, tau: float | None) -> list[str]:
+    codes: list[str] = []
+    probability = _threshold_reach_probability(plan, base_pd=base_pd, tau=tau)
+    if _threshold_reach_priority_flag(plan, base_pd=base_pd, tau=tau):
+        codes.append("THRESHOLD_REACH_PRIORITY")
+    else:
+        codes.append("THRESHOLD_REACH_UNLIKELY")
+    approval_gap = _approval_gap_for_movement(base_pd=base_pd, tau=tau)
+    if approval_gap > 0.0:
+        expected_ratio = _expected_pd_improvement(plan, base_pd=base_pd, tau=tau) / max(approval_gap, 1e-6)
+        if expected_ratio >= 0.75:
+            codes.append("HIGH_EXPECTED_MOVEMENT")
+    if (
+        _plan_execution_probability(plan) >= 0.65
+        and _movement_difficulty_headroom(plan) >= 0.55
+        and _follow_through_readiness_label(plan) != "low"
+    ):
+        codes.append("EXECUTION_REALISM_ADVANTAGE")
+    if _movement_action_group_count(plan) <= 2 and _movement_simplicity_headroom(plan) >= 0.60:
+        codes.append("SIMPLE_ACTION_SET_ADVANTAGE")
+    if _movement_path_type(plan) == "customer_only":
+        codes.append("CUSTOMER_ONLY_TIEBREAK")
+    else:
+        codes.append("INSTITUTION_DEPENDENCY_PENALTY")
+    if probability >= 0.70 and "HIGH_EXPECTED_MOVEMENT" not in codes:
+        codes.append("HIGH_EXPECTED_MOVEMENT")
+    return codes
+
+
+def _annotate_movement_ranking(plan: PlanRecord, *, base_pd: float | None, tau: float | None) -> None:
+    probability = _threshold_reach_probability(plan, base_pd=base_pd, tau=tau)
+    plan.threshold_reach_probability = float(probability)
+    plan.threshold_reach_priority_flag = bool(_threshold_reach_priority_flag(plan, base_pd=base_pd, tau=tau))
+    plan.movement_score = float(_movement_score(plan, base_pd=base_pd, tau=tau))
+    plan.movement_rank_reason_codes = list(_movement_rank_reason_codes(plan, base_pd=base_pd, tau=tau))
+
+
 def _execution_gap(plan: PlanRecord, *, base_pd: float | None, tau: float | None) -> float:
     nominal = _nominal_pd_improvement(plan, base_pd=base_pd, tau=tau)
     expected = _expected_pd_improvement(plan, base_pd=base_pd, tau=tau)
@@ -385,6 +548,52 @@ def _execution_rank_penalty(
     if high_risk or risk_band == "high":
         penalty *= 1.20
     return float(penalty)
+
+
+def _movement_sort_key(
+    plan: PlanRecord,
+    *,
+    base_pd: float | None,
+    tau: float | None,
+    min_reliability: float | None,
+    min_worst_risk_margin: float | None,
+    segment_context: dict[str, Any] | None = None,
+) -> tuple:
+    return (
+        _constraint_priority(plan),
+        _status_priority(plan.status),
+        _contender_bucket_priority(plan),
+        _recommendation_warning_penalty(plan),
+        -int(bool(getattr(plan, "threshold_reach_priority_flag", False))),
+        -_safe_float(getattr(plan, "threshold_reach_probability", 0.0), 0.0),
+        -_safe_float(getattr(plan, "movement_score", 0.0), 0.0),
+        _gate_total_violation(
+            plan,
+            tau=tau,
+            min_reliability=min_reliability,
+            min_worst_risk_margin=min_worst_risk_margin,
+        ),
+        _MOVEMENT_PATH_TYPE_PENALTY.get(_movement_path_type(plan), 99),
+        _safe_int(getattr(plan, "approval_pending_action_count", 0), 0),
+        _movement_action_group_count(plan),
+        _execution_rank_penalty(
+            plan,
+            base_pd=base_pd,
+            tau=tau,
+            segment_context=segment_context,
+            high_risk=False,
+        ),
+        -_execution_defensibility_score(
+            plan,
+            base_pd=base_pd,
+            tau=tau,
+            segment_context=segment_context,
+            high_risk=False,
+        ),
+        _offer_maturity_penalty(plan),
+        _plan_cost(plan),
+        float(getattr(plan, "predicted_pd", 1.0) or 1.0),
+    )
 
 
 def _execution_defensibility_score(
@@ -1176,6 +1385,7 @@ def choose_best_plan(
     denied_mode: bool = False,
     segment_context: dict[str, Any] | None = None,
     denied_objective_cfg: dict[str, Any] | None = None,
+    movement_ranking_enabled: bool = False,
 ) -> BestPlanSelectionResult:
     if not plans:
         raise ValueError("No plans provided")
@@ -1187,6 +1397,8 @@ def choose_best_plan(
             tau=tau,
             segment_context=segment_context,
         )
+        if movement_ranking_enabled:
+            _annotate_movement_ranking(plan, base_pd=base_pd, tau=tau)
     all_valid_candidates, removed_invalid_candidates = filter_invalid_numeric_plans(plans)
     invalid_candidates_removed_count = int(len(removed_invalid_candidates))
     preferred_candidates = _prefer_non_rejected(_prefer_constraint_eligible(plans))
@@ -1205,6 +1417,25 @@ def choose_best_plan(
         high_risk_enabled = bool(high_risk_cfg.get("enabled", False))
         risk_band = str((segment_context or {}).get("risk_band", "")).strip().lower()
         is_denied_base = bool(base_pd is not None and tau is not None and float(base_pd) > float(tau))
+        if movement_ranking_enabled and denied_mode:
+            ranked = sorted(
+                candidates,
+                key=lambda p: _movement_sort_key(
+                    p,
+                    base_pd=base_pd,
+                    tau=tau,
+                    min_reliability=min_reliability,
+                    min_worst_risk_margin=min_worst_risk_margin,
+                    segment_context=segment_context,
+                ),
+            )
+            return _select_with_source_tiebreak(
+                ranked,
+                base_pd=base_pd,
+                tau=tau,
+                min_reliability=min_reliability,
+                min_worst_risk_margin=min_worst_risk_margin,
+            )
         if denied_enabled and high_risk_enabled and risk_band == "high" and is_denied_base:
             ranked = sorted(
                 candidates,

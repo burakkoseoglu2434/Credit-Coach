@@ -220,3 +220,51 @@ def test_plan_to_row_serializes_phase42_planner_fields() -> None:
     assert row["empty_candidate_reason"] == ""
     assert row["approval_shell_only_flag"] == 0
     assert row["offer_maturity"] == "active_rankable"
+
+
+def test_choose_best_plan_movement_mode_prefers_customer_only_on_near_tie() -> None:
+    customer_only = _plan(
+        "customer-only-plan",
+        plan_source="internal",
+        actions=[_action(action_key="limit_credit_usage")],
+        predicted_pd=0.33,
+        expected_pd_improvement=0.045,
+        plan_execution_probability=0.64,
+        robust_score=0.22,
+        status="APPROVED",
+    )
+    customer_only.nominal_pd_improvement = 0.08
+    customer_only.mean_group_difficulty_score = 0.28
+    customer_only.peak_group_difficulty_score = 0.33
+    customer_only.follow_through_readiness_label = "moderate"
+
+    institution_assisted = _plan(
+        "institution-assisted-plan",
+        plan_source="internal",
+        actions=[_action(action_key="credit_limit_adjustment", action_class="institutional")],
+        predicted_pd=0.329,
+        expected_pd_improvement=0.046,
+        plan_execution_probability=0.63,
+        robust_score=0.23,
+        status="APPROVED",
+        offer_plan=True,
+        rankable_offer_count=1,
+        approval_pending_action_count=1,
+    )
+    institution_assisted.nominal_pd_improvement = 0.081
+    institution_assisted.approval_dependent_plan_probability = 0.58
+    institution_assisted.mean_group_difficulty_score = 0.31
+    institution_assisted.peak_group_difficulty_score = 0.36
+    institution_assisted.follow_through_readiness_label = "moderate"
+
+    best = choose_best_plan(
+        [institution_assisted, customer_only],
+        base_pd=0.43,
+        tau=0.35,
+        denied_mode=True,
+        movement_ranking_enabled=True,
+    )
+
+    assert best.plan_id == "customer-only-plan"
+    assert "CUSTOMER_ONLY_TIEBREAK" in customer_only.movement_rank_reason_codes
+    assert "INSTITUTION_DEPENDENCY_PENALTY" in institution_assisted.movement_rank_reason_codes

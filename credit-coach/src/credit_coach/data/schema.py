@@ -1510,6 +1510,24 @@ class PlanRecord(BaseModel):
         default=None,
         description="Phase-aware optimizer tarafindan hesaplanan trajectory skoru",
     )
+    movement_score: float | None = Field(
+        default=None,
+        description="Recoverable/full-mode movement-aware ranking score",
+    )
+    threshold_reach_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Heuristic probability that the plan can realistically close the threshold gap",
+    )
+    threshold_reach_priority_flag: bool = Field(
+        default=False,
+        description="Whether the plan is plausibly threshold-reaching under the conservative movement policy",
+    )
+    movement_rank_reason_codes: list[str] = Field(
+        default_factory=list,
+        description="Deterministic reason codes explaining the plan's movement-ranking posture",
+    )
 
     status: Literal["APPROVED", "NEEDS_REVIEW", "REJECTED", "PENDING"] = Field(
         default="PENDING", description="Güvenlik kapısı sonucu"
