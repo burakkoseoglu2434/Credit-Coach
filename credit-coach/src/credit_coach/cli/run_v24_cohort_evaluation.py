@@ -277,6 +277,35 @@ def _resolve_recoverability_signal(
     return signal
 
 
+def _resolve_recourse_gate(
+    *,
+    roadmap_summary: dict[str, Any],
+    metrics_summary: dict[str, Any],
+    fallback_gate: dict[str, Any],
+) -> dict[str, Any]:
+    gate = dict(fallback_gate)
+    gate["recourse_mode"] = _safe_text(
+        _select_live_value(roadmap_summary, metrics_summary, key="recourse_mode"),
+        _safe_text(fallback_gate.get("recourse_mode")),
+    )
+    gate["recommendation_mode"] = _safe_text(
+        _select_live_value(roadmap_summary, metrics_summary, key="recommendation_mode"),
+        _safe_text(fallback_gate.get("recommendation_mode")),
+    )
+    gate["recourse_gate_version"] = _safe_text(
+        _select_live_value(roadmap_summary, metrics_summary, key="recourse_gate_version"),
+        _safe_text(fallback_gate.get("recourse_gate_version")),
+    )
+    gate["recourse_gate_reason_codes"] = _resolve_code_list(
+        roadmap_summary=roadmap_summary,
+        metrics_summary=metrics_summary,
+        direct_key="recourse_gate_reason_codes",
+        json_key="recourse_gate_reason_codes_json",
+        fallback=fallback_gate.get("recourse_gate_reason_codes", []),
+    )
+    return gate
+
+
 def _load_population(
     *,
     project_root: Path,
@@ -639,6 +668,10 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
             "recoverability_bucket_distribution": {},
             "recoverable_flag_distribution": {},
             "recoverability_classifier_version_distribution": {},
+            "recourse_mode_distribution": {},
+            "recommendation_mode_distribution": {},
+            "limited_customer_rate": 0.0,
+            "informational_recommendation_rate": 0.0,
             "non_utilization_action_rate": 0.0,
             "action_category_distribution": {},
             "unique_action_count_per_customer": 0.0,
@@ -661,6 +694,13 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
         "recoverability_classifier_version",
         pd.Series([""] * len(customer_df), dtype=object),
     ).astype(str).str.strip()
+    recourse_mode = customer_df.get("recourse_mode", pd.Series([""] * len(customer_df), dtype=object)).astype(str).str.strip().str.lower()
+    recommendation_mode = (
+        customer_df.get("recommendation_mode", pd.Series([""] * len(customer_df), dtype=object))
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
     metrics = {
         "sample_size": int(len(customer_df)),
         "multi_path_rate": round(float((customer_df["path_count"].astype(int) > 1).mean()), 6),
@@ -713,6 +753,16 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
             key: round(float(value), 6)
             for key, value in classifier_version[classifier_version != ""].value_counts(normalize=True).sort_index().items()
         },
+        "recourse_mode_distribution": {
+            "full": round(float((recourse_mode == "full").mean()), 6),
+            "limited": round(float((recourse_mode == "limited").mean()), 6),
+        },
+        "recommendation_mode_distribution": {
+            "actionable": round(float((recommendation_mode == "actionable").mean()), 6),
+            "informational": round(float((recommendation_mode == "informational").mean()), 6),
+        },
+        "limited_customer_rate": round(float((recourse_mode == "limited").mean()), 6),
+        "informational_recommendation_rate": round(float((recommendation_mode == "informational").mean()), 6),
     }
 
     category_counts: dict[str, int] = {}
@@ -879,6 +929,8 @@ def _render_report(
         {"metric": "mean_approval_gap", "value": overall["mean_approval_gap"]},
         {"metric": "mean_recoverability_score", "value": overall["mean_recoverability_score"]},
         {"metric": "threshold_reach_possible_rate", "value": overall["threshold_reach_possible_rate"]},
+        {"metric": "limited_customer_rate", "value": overall["limited_customer_rate"]},
+        {"metric": "informational_recommendation_rate", "value": overall["informational_recommendation_rate"]},
         {"metric": "non_utilization_action_rate", "value": overall["non_utilization_action_rate"]},
         {"metric": "institution_path_rate", "value": overall["institution_path_rate"]},
         {"metric": "hybrid_path_rate", "value": overall["hybrid_path_rate"]},
@@ -1146,6 +1198,11 @@ def main() -> None:
                 metrics_summary=metrics_summary,
                 fallback_signal=fallback_signal,
             )
+            recourse_gate = _resolve_recourse_gate(
+                roadmap_summary=roadmap_summary,
+                metrics_summary=metrics_summary,
+                fallback_gate={},
+            )
 
             customer_row = {
                 "customer_id": _safe_text(row.get("evaluation_customer_id")),
@@ -1188,6 +1245,19 @@ def main() -> None:
                 ),
                 "recoverable_reason_codes_json": _json_dumps(
                     list(recoverability_signal.get("recoverable_reason_codes", []) or [])
+                ),
+                "recourse_mode": _safe_text(recourse_gate.get("recourse_mode")),
+                "recommendation_mode": _safe_text(recourse_gate.get("recommendation_mode")),
+                "recourse_gate_version": _safe_text(recourse_gate.get("recourse_gate_version")),
+                "recourse_gate_reason_codes_json": _json_dumps(
+                    list(recourse_gate.get("recourse_gate_reason_codes", []) or [])
+                ),
+                "selected_recommendation_source": _safe_text(
+                    roadmap_summary.get("selected_recommendation_source")
+                ),
+                "selected_action_count": _safe_int(roadmap_summary.get("selected_action_count", 0), 0),
+                "selected_recommendation_projection_version": _safe_text(
+                    roadmap_summary.get("selected_recommendation_projection_version")
                 ),
                 "tau": round(tau, 6),
                 "decision_status": decision_status,

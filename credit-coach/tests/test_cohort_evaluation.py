@@ -26,6 +26,10 @@ def test_summarize_population_metrics_from_rows_handles_empty_population() -> No
     assert metrics["recoverable_customer_rate"] == 0.0
     assert metrics["recoverable_flag_distribution"] == {}
     assert metrics["recoverability_classifier_version_distribution"] == {}
+    assert metrics["recourse_mode_distribution"] == {}
+    assert metrics["recommendation_mode_distribution"] == {}
+    assert metrics["limited_customer_rate"] == 0.0
+    assert metrics["informational_recommendation_rate"] == 0.0
     assert metrics["selected_source_distribution"] == {}
 
 
@@ -53,6 +57,8 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
                 "recoverability_bucket": "near_threshold",
                 "recoverable_flag": 1,
                 "recoverability_classifier_version": "phase_62_v1",
+                "recourse_mode": "full",
+                "recommendation_mode": "actionable",
             },
             {
                 "best_source": "rule",
@@ -75,6 +81,8 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
                 "recoverability_bucket": "mid_risk",
                 "recoverable_flag": 0,
                 "recoverability_classifier_version": "phase_62_v1",
+                "recourse_mode": "limited",
+                "recommendation_mode": "informational",
             },
         ]
     )
@@ -97,6 +105,10 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
     assert metrics["recoverability_bucket_distribution"] == {"mid_risk": 0.5, "near_threshold": 0.5}
     assert metrics["recoverable_flag_distribution"] == {"recoverable": 0.5, "not_recoverable": 0.5}
     assert metrics["recoverability_classifier_version_distribution"] == {"phase_62_v1": 1.0}
+    assert metrics["recourse_mode_distribution"] == {"full": 0.5, "limited": 0.5}
+    assert metrics["recommendation_mode_distribution"] == {"actionable": 0.5, "informational": 0.5}
+    assert metrics["limited_customer_rate"] == 0.5
+    assert metrics["informational_recommendation_rate"] == 0.5
     assert metrics["selected_source_distribution"]["internal"] == 0.5
 
 
@@ -123,6 +135,10 @@ def test_cohort_evidence_package_infers_default_trust_rows_from_movement_summary
         "recoverability_bucket_distribution": {"mid_risk": 0.60, "near_threshold": 0.40},
         "recoverable_flag_distribution": {"recoverable": 0.12, "not_recoverable": 0.88},
         "recoverability_classifier_version_distribution": {"phase_62_v1": 1.0},
+        "recourse_mode_distribution": {"full": 0.88, "limited": 0.12},
+        "recommendation_mode_distribution": {"actionable": 0.88, "informational": 0.12},
+        "limited_customer_rate": 0.12,
+        "informational_recommendation_rate": 0.12,
     }
     movement = {
         "dominant_movement_bottleneck": "structural_cohort_limited",
@@ -152,6 +168,13 @@ def test_cohort_evidence_package_infers_default_trust_rows_from_movement_summary
         "not_recoverable": 0.88,
     }
     assert pkg["recoverability_signal"]["recoverability_classifier_version_distribution"] == {"phase_62_v1": 1.0}
+    assert pkg["recourse_gate"]["recourse_mode_distribution"] == {"full": 0.88, "limited": 0.12}
+    assert pkg["recourse_gate"]["recommendation_mode_distribution"] == {
+        "actionable": 0.88,
+        "informational": 0.12,
+    }
+    assert pkg["recourse_gate"]["limited_customer_rate"] == 0.12
+    assert pkg["recourse_gate"]["informational_recommendation_rate"] == 0.12
     assert {row["suite"] for row in pkg["trust_regression"]} == {
         "winner_integrity",
         "contender_quality",
@@ -186,6 +209,10 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
             "recoverable_flag_distribution": {"recoverable": 0.20, "not_recoverable": 0.80},
             "recoverability_classifier_version_distribution": {"phase_62_v1": 1.0},
             "selected_source_distribution": {"internal": 0.50, "dice": 0.30, "rule": 0.20},
+            "recourse_mode_distribution": {"full": 0.80, "limited": 0.20},
+            "recommendation_mode_distribution": {"actionable": 0.80, "informational": 0.20},
+            "limited_customer_rate": 0.20,
+            "informational_recommendation_rate": 0.20,
         },
         {"dominant_movement_bottleneck": "structural_cohort_limited"},
         [{"suite": "winner_integrity", "status": "passed", "evidence_source": "pytest", "notes": ""}],
@@ -203,6 +230,7 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
         "action_coverage_table_csv",
         "selected_path_distribution_table_csv",
         "recoverability_signal_table_csv",
+        "recourse_gate_table_csv",
         "trust_regression_table_csv",
     }
     for filename in files.values():
@@ -214,6 +242,8 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
     assert payload["recoverability_signal_table"][0]["recoverability_classifier_version_distribution"] == {
         "phase_62_v1": 1.0
     }
+    assert payload["recourse_gate_table"][0]["limited_customer_rate"] == 0.2
+    assert payload["recourse_gate_table"][0]["recourse_mode_distribution"] == {"full": 0.8, "limited": 0.2}
 
 
 def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypatch) -> None:
@@ -282,6 +312,10 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
                         "NO_ACTIVE_CLASSIFIER_BLOCKERS",
                         "RECOVERABLE",
                     ],
+                    "recourse_mode": "full",
+                    "recommendation_mode": "actionable",
+                    "recourse_gate_version": "phase_63_v1",
+                    "recourse_gate_reason_codes": ["RECOVERABLE_FULL_MODE"],
                 },
             },
             roadmap_steps_df=pd.DataFrame(),
@@ -320,6 +354,10 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
                         "RECOVERABLE",
                     ]
                 ),
+                "recourse_mode": "full",
+                "recommendation_mode": "actionable",
+                "recourse_gate_version": "phase_63_v1",
+                "recourse_gate_reason_codes_json": json.dumps(["RECOVERABLE_FULL_MODE"]),
             },
             paths_df=paths_df,
         )
@@ -391,14 +429,24 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     assert "recoverability_classifier_version" in customer_df.columns
     assert "recoverability_signal_reason_codes_json" in customer_df.columns
     assert "recoverable_reason_codes_json" in customer_df.columns
+    assert "recourse_mode" in customer_df.columns
+    assert "recommendation_mode" in customer_df.columns
+    assert "recourse_gate_version" in customer_df.columns
+    assert "recourse_gate_reason_codes_json" in customer_df.columns
     assert "threshold_reach_possible" in customer_df.columns
     assert customer_df["recoverable_flag"].astype(int).eq(1).all()
+    assert customer_df["recourse_mode"].eq("full").all()
+    assert customer_df["recommendation_mode"].eq("actionable").all()
+    assert customer_df["recourse_gate_version"].eq("phase_63_v1").all()
     assert set(customer_df["recoverability_classifier_version"]) == {"phase_62_live_test"}
     assert customer_df["recoverability_signal_reason_codes_json"].map(json.loads).map(
         lambda codes: codes[-1]
     ).eq("THRESHOLD_REACHABLE").all()
     assert customer_df["recoverable_reason_codes_json"].map(json.loads).map(lambda codes: codes[-1]).eq(
         "RECOVERABLE"
+    ).all()
+    assert customer_df["recourse_gate_reason_codes_json"].map(json.loads).map(
+        lambda codes: codes == ["RECOVERABLE_FULL_MODE"]
     ).all()
     assert customer_df["threshold_reach_possible"].astype(int).eq(1).all()
     assert metrics_payload["overall"]["threshold_reach_possible_rate"] == 1.0
@@ -407,6 +455,13 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
         "recoverable": 1.0,
         "not_recoverable": 0.0,
     }
+    assert metrics_payload["overall"]["recourse_mode_distribution"] == {"full": 1.0, "limited": 0.0}
+    assert metrics_payload["overall"]["recommendation_mode_distribution"] == {
+        "actionable": 1.0,
+        "informational": 0.0,
+    }
+    assert metrics_payload["overall"]["limited_customer_rate"] == 0.0
+    assert metrics_payload["overall"]["informational_recommendation_rate"] == 0.0
     assert metrics_payload["overall"]["recoverability_classifier_version_distribution"] == {
         "phase_62_live_test": 1.0
     }
@@ -423,3 +478,175 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     overall_row = next(row for row in phase_60_payload["recoverability_signal_table"] if row["population"] == "overall")
     assert overall_row["recoverable_customer_rate"] == 1.0
     assert overall_row["recoverability_classifier_version_distribution"] == {"phase_62_live_test": 1.0}
+    recourse_row = next(row for row in phase_60_payload["recourse_gate_table"] if row["population"] == "overall")
+    assert recourse_row["recourse_mode_distribution"] == {"full": 1.0, "limited": 0.0}
+    assert recourse_row["recommendation_mode_distribution"] == {"actionable": 1.0, "informational": 0.0}
+
+
+def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_path, monkeypatch) -> None:
+    population_df = pd.DataFrame([{"customer_id": "cust-limited", "feature_a": 1.0}])
+    train_df = population_df.copy()
+    pd_values = pd.Series([0.61], dtype=float)
+
+    def _fake_load_config(path):
+        text = str(path)
+        if "default" in text:
+            return {"features_config": "configs/features_48.yaml"}
+        if "model" in text:
+            return {"decision": {"tau_0": 0.35}, "registry": {"path": "artifacts/models"}}
+        return {}
+
+    def _fake_generate_customer_recourse_artifacts(**kwargs):
+        customer_id = kwargs["customer_id"]
+        bundle = CustomerArtifactBundle(
+            customer_id=customer_id,
+            plans_df=pd.DataFrame(),
+            roadmap={
+                "customer_id": customer_id,
+                "best_plan_id": None,
+                "best_plan_source": "",
+                "summary": {
+                    "decision_status": "REJECTED",
+                    "selected_decision_status": "REJECTED",
+                    "decision_status_internal": "REJECTED",
+                    "selected_plan_status_internal": None,
+                    "selection_outcome": "no_valid_winner",
+                    "selection_stage": "no_valid_winner",
+                    "credit_readiness_stage": "not_ready_yet",
+                    "expected_readiness": "not_ready_yet",
+                    "offer_maturity": "none",
+                    "offer_plan": 0,
+                    "recoverable_flag": False,
+                    "recoverability_classifier_version": "phase_62_live_test",
+                    "recoverability_signal_reason_codes": [
+                        "LOW_APPROVAL_GAP",
+                        "NO_VALID_PATH",
+                        "NO_RANKABLE_PATH",
+                        "THRESHOLD_NOT_REACHABLE",
+                    ],
+                    "recoverable_reason_codes": [
+                        "OUTSIDE_RECOVERABLE_BAND",
+                        "NO_VALID_PATH",
+                        "NO_RANKABLE_PATH",
+                        "THRESHOLD_NOT_REACHABLE",
+                        "NOT_RECOVERABLE",
+                    ],
+                    "recourse_mode": "limited",
+                    "recommendation_mode": "informational",
+                    "recourse_gate_version": "phase_63_v1",
+                    "recourse_gate_reason_codes": ["NOT_RECOVERABLE_LIMITED_MODE"],
+                    "selected_recommendation_source": "empty_state",
+                    "selected_action_count": 0,
+                    "selected_recommendation_projection_version": "v2.2_phase_47",
+                },
+            },
+            roadmap_steps_df=pd.DataFrame(),
+            metrics_summary={
+                "selected_invalid_winner_flag": 0,
+                "recoverable_flag": 0,
+                "recoverability_classifier_version": "phase_62_live_test",
+                "best_contender_bucket": "EMPTY",
+                "best_status": "REJECTED",
+                "best_offer_maturity": "none",
+                "best_execution_aware_value": -0.25,
+                "candidate_pool_diversity_index": 0.0,
+                "candidate_source_entropy": 0.0,
+                "multi_path_flag": 0,
+                "action_diversity_index": 0.0,
+                "non_utilization_action_rate": 0.0,
+                "institution_action_rate": 0.0,
+                "selected_path_type": "",
+                "offer_ready_contender_share": 0.0,
+                "approval_shell_only_share": 0.0,
+                "recoverability_signal_reason_codes_json": json.dumps(
+                    [
+                        "LOW_APPROVAL_GAP",
+                        "NO_VALID_PATH",
+                        "NO_RANKABLE_PATH",
+                        "THRESHOLD_NOT_REACHABLE",
+                    ]
+                ),
+                "recoverable_reason_codes_json": json.dumps(
+                    [
+                        "OUTSIDE_RECOVERABLE_BAND",
+                        "NO_VALID_PATH",
+                        "NO_RANKABLE_PATH",
+                        "THRESHOLD_NOT_REACHABLE",
+                        "NOT_RECOVERABLE",
+                    ]
+                ),
+                "recourse_mode": "limited",
+                "recommendation_mode": "informational",
+                "recourse_gate_version": "phase_63_v1",
+                "recourse_gate_reason_codes_json": json.dumps(["NOT_RECOVERABLE_LIMITED_MODE"]),
+            },
+            paths_df=pd.DataFrame(),
+        )
+        return CustomerRecourseRunResult(
+            bundle=bundle,
+            local_reason_bundle={},
+            adverse_action_reasons=[],
+            dice_df=pd.DataFrame(),
+            dice_records=[],
+            dice_backend="",
+            dice_telemetry={},
+            candidate_pool_df=pd.DataFrame(),
+            decision_log_record={},
+            decision_log_summary={},
+        )
+
+    monkeypatch.setattr(
+        cohort_eval,
+        "parse_args",
+        lambda: SimpleNamespace(
+            base_config="configs/default.yaml",
+            model_config="configs/model.yaml",
+            recourse_config="configs/recourse.yaml",
+            causality_config="configs/causality.yaml",
+            safety_config="configs/safety.yaml",
+            macro_config="configs/macro.yaml",
+            dataset_scope="full_processed",
+            n_customers=1,
+            sample_seed=7,
+            model_version="",
+            model_manifest="",
+            output_dir=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(cohort_eval, "load_config", _fake_load_config)
+    monkeypatch.setattr(cohort_eval, "load_feature_contract", lambda path: {"features": ["feature_a"], "target": "target"})
+    monkeypatch.setattr(cohort_eval, "_load_population", lambda **kwargs: (population_df.copy(), train_df.copy()))
+    monkeypatch.setattr(cohort_eval, "load_model_bundle", lambda **kwargs: (object(), object(), {"model_version": "test-model"}, None))
+    monkeypatch.setattr(cohort_eval, "predict_proba_pd", lambda model, calibrator, frame: pd_values.iloc[: len(frame)].reset_index(drop=True))
+    monkeypatch.setattr(cohort_eval, "generate_customer_recourse_artifacts", _fake_generate_customer_recourse_artifacts)
+    monkeypatch.setattr(cohort_eval, "build_operator_review_packet", lambda roadmap: {})
+    monkeypatch.setattr(
+        cohort_eval,
+        "operator_packet_metrics_fields",
+        lambda operator_packet, packet_relpath: {
+            "operator_selected_decision_status": "REJECTED",
+            "operator_rendered_blocker_count": 0,
+            "operator_rendered_action_count": 0,
+            "operator_readiness_render_mode": "empty_state_context",
+            "operator_upgrade_condition_text": "",
+        },
+    )
+
+    cohort_eval.main()
+
+    customer_df = pd.read_csv(tmp_path / "customer_level_analysis.csv")
+    metrics_payload = json.loads((tmp_path / "cohort_metrics.json").read_text(encoding="utf-8"))
+
+    assert customer_df["recourse_mode"].eq("limited").all()
+    assert customer_df["recommendation_mode"].eq("informational").all()
+    assert customer_df["selected_recommendation_source"].eq("empty_state").all()
+    assert customer_df["selected_action_count"].astype(int).eq(0).all()
+    assert customer_df["recourse_gate_reason_codes_json"].map(json.loads).map(lambda codes: codes == ["NOT_RECOVERABLE_LIMITED_MODE"]).all()
+    assert metrics_payload["overall"]["recourse_mode_distribution"] == {"full": 0.0, "limited": 1.0}
+    assert metrics_payload["overall"]["recommendation_mode_distribution"] == {
+        "actionable": 0.0,
+        "informational": 1.0,
+    }
+    assert metrics_payload["overall"]["limited_customer_rate"] == 1.0
+    assert metrics_payload["overall"]["informational_recommendation_rate"] == 1.0
+    assert metrics_payload["phase_60_overall_movement_conclusion"] in {"movement_diagnosis_pending", "structural_bottleneck_remains_dominant"}

@@ -59,6 +59,22 @@ def _mean_numeric(rows: pd.DataFrame, column: str) -> float:
     return _round_metric(pd.to_numeric(rows.get(column, pd.Series(dtype=float)), errors="coerce").fillna(0.0).mean())
 
 
+def _distribution_from_rows(
+    rows: pd.DataFrame,
+    column: str,
+    *,
+    normalize_to_lower: bool = True,
+) -> dict[str, float]:
+    values = rows.get(column, pd.Series([""] * len(rows), dtype=object)).astype(str).str.strip()
+    if normalize_to_lower:
+        values = values.str.lower()
+    values = values[values != ""]
+    return {
+        key: _round_metric(value)
+        for key, value in values.value_counts(normalize=True).sort_index().items()
+    }
+
+
 def summarize_population_metrics_from_rows(
     rows: pd.DataFrame,
     *,
@@ -91,6 +107,10 @@ def summarize_population_metrics_from_rows(
             "recoverability_bucket_distribution": {},
             "recoverable_flag_distribution": {},
             "recoverability_classifier_version_distribution": {},
+            "recourse_mode_distribution": {},
+            "recommendation_mode_distribution": {},
+            "limited_customer_rate": 0.0,
+            "informational_recommendation_rate": 0.0,
             "selected_source_distribution": {},
         }
         for source in resolved_catalog:
@@ -107,6 +127,13 @@ def summarize_population_metrics_from_rows(
         "recoverability_classifier_version",
         pd.Series([""] * len(rows), dtype=object),
     ).astype(str).str.strip()
+    recourse_mode = rows.get("recourse_mode", pd.Series([""] * len(rows), dtype=object)).astype(str).str.strip().str.lower()
+    recommendation_mode = (
+        rows.get("recommendation_mode", pd.Series([""] * len(rows), dtype=object))
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
 
     metrics: dict[str, float | dict[str, float]] = {
         "candidate_pool_diversity_index": _mean_numeric(rows, "candidate_pool_diversity_index"),
@@ -148,6 +175,16 @@ def summarize_population_metrics_from_rows(
         key: _round_metric(value)
         for key, value in classifier_version[classifier_version != ""].value_counts(normalize=True).sort_index().items()
     }
+    metrics["recourse_mode_distribution"] = {
+        "full": _round_metric((recourse_mode == "full").mean()),
+        "limited": _round_metric((recourse_mode == "limited").mean()),
+    }
+    metrics["recommendation_mode_distribution"] = {
+        "actionable": _round_metric((recommendation_mode == "actionable").mean()),
+        "informational": _round_metric((recommendation_mode == "informational").mean()),
+    }
+    metrics["limited_customer_rate"] = _round_metric((recourse_mode == "limited").mean())
+    metrics["informational_recommendation_rate"] = _round_metric((recommendation_mode == "informational").mean())
     selected_source_distribution: dict[str, float] = {}
     for source in resolved_catalog:
         rate = _round_metric((best_source == source).mean())
@@ -285,6 +322,16 @@ def build_cohort_evidence_package(
                 metrics.get("recoverability_classifier_version_distribution", {}) or {}
             ),
         },
+        "recourse_gate": {
+            "population": population_name,
+            "recourse_mode_distribution": dict(metrics.get("recourse_mode_distribution", {}) or {}),
+            "recommendation_mode_distribution": dict(metrics.get("recommendation_mode_distribution", {}) or {}),
+            "limited_customer_rate": _safe_float(metrics.get("limited_customer_rate", 0.0), 0.0),
+            "informational_recommendation_rate": _safe_float(
+                metrics.get("informational_recommendation_rate", 0.0),
+                0.0,
+            ),
+        },
         "trust_regression": trust_rows,
     }
 
@@ -326,6 +373,7 @@ def build_phase60_evidence_summary(
     action_coverage_table = [dict(pkg.get("action_coverage", {}) or {}) for pkg in package_list]
     selected_path_distribution_table = [dict(pkg.get("selected_path_distribution", {}) or {}) for pkg in package_list]
     recoverability_signal_table = [dict(pkg.get("recoverability_signal", {}) or {}) for pkg in package_list]
+    recourse_gate_table = [dict(pkg.get("recourse_gate", {}) or {}) for pkg in package_list]
     if trust_regression_rows is not None:
         trust_regression_table = [dict(row) for row in trust_regression_rows]
     else:
@@ -338,6 +386,7 @@ def build_phase60_evidence_summary(
         "action_coverage_table": action_coverage_table,
         "selected_path_distribution_table": selected_path_distribution_table,
         "recoverability_signal_table": recoverability_signal_table,
+        "recourse_gate_table": recourse_gate_table,
         "trust_regression_table": trust_regression_table,
         "population_bottlenecks": {
             row.get("population", ""): row.get("dominant_movement_bottleneck", "")
@@ -404,6 +453,20 @@ def render_phase60_evidence_markdown(summary: Mapping[str, Any]) -> str:
             )
     else:
         lines.append("- n/a")
+    lines.extend(["", "## Recourse Gate"])
+    recourse_gate_rows = list(summary.get("recourse_gate_table", []) or [])
+    if recourse_gate_rows:
+        for row in recourse_gate_rows:
+            lines.append(
+                "- "
+                f"{_safe_str(row.get('population'), 'unknown')}: "
+                f"recourse_mode_distribution={json.dumps(dict(row.get('recourse_mode_distribution', {}) or {}), ensure_ascii=False, sort_keys=True)}, "
+                f"recommendation_mode_distribution={json.dumps(dict(row.get('recommendation_mode_distribution', {}) or {}), ensure_ascii=False, sort_keys=True)}, "
+                f"limited_rate={_safe_float(row.get('limited_customer_rate'), 0.0):.4f}, "
+                f"informational_rate={_safe_float(row.get('informational_recommendation_rate'), 0.0):.4f}"
+            )
+    else:
+        lines.append("- n/a")
     lines.extend(["", "## Trust Regression"])
     trust_rows = list(summary.get("trust_regression_table", []) or [])
     if trust_rows:
@@ -434,6 +497,7 @@ def write_phase60_evidence_artifacts(
     action_csv = output_root / f"{prefix}_action_coverage_table.csv"
     selected_csv = output_root / f"{prefix}_selected_path_distribution_table.csv"
     recoverability_csv = output_root / f"{prefix}_recoverability_signal_table.csv"
+    recourse_gate_csv = output_root / f"{prefix}_recourse_gate_table.csv"
     trust_csv = output_root / f"{prefix}_trust_regression_table.csv"
 
     json_path.write_text(json.dumps(dict(summary), indent=2, ensure_ascii=False), encoding="utf-8")
@@ -443,6 +507,7 @@ def write_phase60_evidence_artifacts(
     pd.DataFrame(list(summary.get("action_coverage_table", []) or [])).to_csv(action_csv, index=False)
     pd.DataFrame(list(summary.get("selected_path_distribution_table", []) or [])).to_csv(selected_csv, index=False)
     pd.DataFrame(list(summary.get("recoverability_signal_table", []) or [])).to_csv(recoverability_csv, index=False)
+    pd.DataFrame(list(summary.get("recourse_gate_table", []) or [])).to_csv(recourse_gate_csv, index=False)
     pd.DataFrame(list(summary.get("trust_regression_table", []) or [])).to_csv(trust_csv, index=False)
     return {
         "cohort_evidence_summary_json": json_path.name,
@@ -452,5 +517,6 @@ def write_phase60_evidence_artifacts(
         "action_coverage_table_csv": action_csv.name,
         "selected_path_distribution_table_csv": selected_csv.name,
         "recoverability_signal_table_csv": recoverability_csv.name,
+        "recourse_gate_table_csv": recourse_gate_csv.name,
         "trust_regression_table_csv": trust_csv.name,
     }
