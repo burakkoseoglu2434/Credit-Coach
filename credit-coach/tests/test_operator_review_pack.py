@@ -231,6 +231,8 @@ def test_build_operator_review_packet_renders_empty_state_for_no_valid_winner() 
             "decision_reason_drivers": [],
             "selection_outcome": "no_valid_winner",
             "selection_stage": "no_valid_winner",
+            "recourse_mode": "limited",
+            "recommendation_mode": "informational",
             "selected_recommendation_text": None,
             "selected_recommendation_text_localized": None,
             "selected_institution_condition": None,

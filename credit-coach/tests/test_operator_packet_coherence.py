@@ -156,6 +156,8 @@ def test_empty_state_packet_renders_explicit_message_without_actions() -> None:
             "decision_reason_drivers": [],
             "selection_outcome": "no_valid_winner",
             "selection_stage": "no_valid_winner",
+            "recourse_mode": "limited",
+            "recommendation_mode": "informational",
             "selected_recommendation_text": None,
             "selected_recommendation_text_localized": None,
             "selected_recommendation_source": "empty_state",

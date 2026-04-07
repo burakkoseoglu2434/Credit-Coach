@@ -490,6 +490,8 @@ def _apply_recourse_gate_to_roadmap(roadmap: dict[str, Any]) -> dict[str, Any]:
     summary.update(
         {
             "best_plan_id": None,
+            "best_action_count": 0,
+            "plan_contract_pass": 0,
             "selected_path_id": "",
             "selected_path_type": "",
             "selected_path_rank": 0,
