@@ -85,6 +85,11 @@ def test_selected_surface_projection_reuses_empty_state_when_limited_mode_suppre
             "selection_outcome": "selected_valid_winner",
             "selection_stage": "preferred_valid",
             "recoverable_flag": False,
+            "movement_score": 88.0,
+            "threshold_reach_probability": 0.77,
+            "threshold_reach_priority_flag": 1,
+            "movement_rank_reason_codes": ["THRESHOLD_REACH_PRIORITY"],
+            "selected_path_movement_strength": "strong",
         },
         "narrative": {
             "steps": [
@@ -107,3 +112,8 @@ def test_selected_surface_projection_reuses_empty_state_when_limited_mode_suppre
     assert summary["selected_recommendation_source"] == "empty_state"
     assert summary["selected_action_count"] == 0
     assert summary["selected_recommendation_projection_version"] == "v2.2_phase_47"
+    assert summary["movement_score"] == 0.0
+    assert summary["threshold_reach_probability"] == 0.0
+    assert summary["threshold_reach_priority_flag"] == 0
+    assert summary["movement_rank_reason_codes"] == []
+    assert summary["selected_path_movement_strength"] == ""
