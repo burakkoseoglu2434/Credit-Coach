@@ -530,6 +530,198 @@ def _selected_plan_source(best: PlanRecord | None) -> str:
     return str(getattr(best, "plan_source", "") or "") if best is not None else ""
 
 
+def _ensure_plan_trajectory_context(
+    *,
+    best: PlanRecord | None,
+    row: pd.Series,
+    model,
+    calibrator,
+    feature_cols: list[str],
+    base_pd: float,
+    tau: float,
+) -> None:
+    if best is None:
+        return
+    if not list(getattr(best, "phases", [])):
+        best.phases = build_canonical_phases(
+            best.actions,
+            base_pd=base_pd,
+            predicted_pd=getattr(best, "predicted_pd", None),
+            tau=tau,
+        )
+    if not list(getattr(best, "trajectory_checkpoints", [])):
+        best.trajectory_checkpoints = build_nominal_trajectory_checkpoints(
+            row=row,
+            plan=best,
+            base_pd=base_pd,
+            tau=tau,
+            model=model,
+            calibrator=calibrator,
+            feature_cols=feature_cols,
+        )
+
+
+def _credit_readiness_stage_for_plan(best: PlanRecord | None) -> str:
+    if best is None:
+        return "not_ready_yet"
+    checkpoint_map = {
+        int(_safe_int(getattr(checkpoint, "week", 0), 0)): checkpoint
+        for checkpoint in list(getattr(best, "trajectory_checkpoints", []))
+    }
+    checkpoint_4w = checkpoint_map.get(4)
+    checkpoint_12w = checkpoint_map.get(12)
+    checkpoint_24w = checkpoint_map.get(24)
+    approval_ready_4w = bool(_safe_int(getattr(checkpoint_4w, "gate_pass_estimate", 0), 0))
+    approval_ready_12w = bool(_safe_int(getattr(checkpoint_12w, "gate_pass_estimate", 0), 0))
+    approval_ready_24w = bool(_safe_int(getattr(checkpoint_24w, "gate_pass_estimate", 0), 0))
+    credit_readiness_stage = "not_ready_yet"
+    if str(getattr(best, "status", "") or "") == "APPROVED":
+        if approval_ready_4w:
+            credit_readiness_stage = "week_4"
+        elif approval_ready_12w:
+            credit_readiness_stage = "week_12"
+        elif approval_ready_24w:
+            credit_readiness_stage = "week_24"
+        else:
+            credit_readiness_stage = "now"
+    return credit_readiness_stage
+
+
+def _selection_ranking_kwargs(
+    *,
+    base_pd: float,
+    tau: float,
+    min_reliability: float | None,
+    min_worst_risk_margin: float | None,
+    fairness_penalty: float,
+    denied_mode: bool,
+    segment_context: dict[str, Any],
+    denied_objective_cfg: dict[str, Any],
+    movement_ranking_enabled: bool = False,
+) -> dict[str, Any]:
+    return {
+        "base_pd": base_pd,
+        "tau": tau,
+        "min_reliability": min_reliability,
+        "min_worst_risk_margin": min_worst_risk_margin,
+        "fairness_penalty": fairness_penalty,
+        "denied_mode": denied_mode,
+        "segment_context": segment_context,
+        "denied_objective_cfg": denied_objective_cfg,
+        "movement_ranking_enabled": movement_ranking_enabled,
+    }
+
+
+def _phase64_movement_ranking_enabled(
+    *,
+    best: PlanRecord | None,
+    selection_result: BestPlanSelectionResult,
+    base_pd: float,
+    tau: float,
+    denied_mode: bool,
+    segment_context: dict[str, Any],
+    path_records: list[RecoursePathRecord],
+    plan_lookup: Mapping[str, PlanRecord],
+    row: pd.Series,
+    model,
+    calibrator,
+    feature_cols: list[str],
+) -> bool:
+    if not denied_mode or best is None:
+        return False
+    _ensure_plan_trajectory_context(
+        best=best,
+        row=row,
+        model=model,
+        calibrator=calibrator,
+        feature_cols=feature_cols,
+        base_pd=base_pd,
+        tau=tau,
+    )
+    signal = build_recoverability_signal(
+        base_pd=base_pd,
+        tau=tau,
+        thresholds={
+            "near_upper": _safe_float(segment_context.get("recoverability_near_upper", 0.10), 0.10),
+            "mid_upper": _safe_float(segment_context.get("recoverability_mid_upper", 0.25), 0.25),
+        },
+        has_valid_path_flag=bool(path_records),
+        has_rankable_path_flag=any(bool(getattr(record, "rankable_flag", False)) for record in path_records),
+        best_possible_pd_improvement=_best_possible_pd_improvement_for_paths(
+            base_pd=base_pd,
+            path_records=path_records,
+            plan_lookup=plan_lookup,
+        ),
+        selection_outcome=_safe_text(selection_result.selection_outcome),
+        credit_readiness_stage=_credit_readiness_stage_for_plan(best),
+        offer_maturity=_safe_text(getattr(best, "offer_maturity", "")),
+        offer_plan=bool(getattr(best, "offer_plan", False)),
+    )
+    return bool(signal.get("recoverable_flag", False)) and _safe_text(signal.get("recourse_mode")) == "full"
+
+
+def _select_best_plan_and_paths(
+    *,
+    candidate_pool_for_best: list[PlanRecord],
+    planner_candidate_pool: list[PlanRecord],
+    base_pd: float,
+    tau: float,
+    min_reliability: float | None,
+    min_worst_risk_margin: float | None,
+    fairness_penalty: float,
+    denied_mode: bool,
+    segment_context: dict[str, Any],
+    denied_objective_cfg: dict[str, Any],
+    row: pd.Series,
+    model,
+    calibrator,
+    feature_cols: list[str],
+) -> tuple[BestPlanSelectionResult, list[RecoursePathRecord]]:
+    ranking_kwargs = _selection_ranking_kwargs(
+        base_pd=base_pd,
+        tau=tau,
+        min_reliability=min_reliability,
+        min_worst_risk_margin=min_worst_risk_margin,
+        fairness_penalty=fairness_penalty,
+        denied_mode=denied_mode,
+        segment_context=segment_context,
+        denied_objective_cfg=denied_objective_cfg,
+        movement_ranking_enabled=False,
+    )
+    selection_result = choose_best_plan(candidate_pool_for_best, **ranking_kwargs)
+    best = selection_result.best_plan
+    path_records = build_recourse_path_records(
+        planner_candidate_pool,
+        selected_plan_id=_selected_plan_id(best),
+        **ranking_kwargs,
+    )
+    if not _phase64_movement_ranking_enabled(
+        best=best,
+        selection_result=selection_result,
+        base_pd=base_pd,
+        tau=tau,
+        denied_mode=denied_mode,
+        segment_context=segment_context,
+        path_records=path_records,
+        plan_lookup={str(getattr(plan, "plan_id", "") or ""): plan for plan in planner_candidate_pool},
+        row=row,
+        model=model,
+        calibrator=calibrator,
+        feature_cols=feature_cols,
+    ):
+        return selection_result, path_records
+
+    ranking_kwargs["movement_ranking_enabled"] = True
+    selection_result = choose_best_plan(candidate_pool_for_best, **ranking_kwargs)
+    best = selection_result.best_plan
+    path_records = build_recourse_path_records(
+        planner_candidate_pool,
+        selected_plan_id=_selected_plan_id(best),
+        **ranking_kwargs,
+    )
+    return selection_result, path_records
+
+
 def _derive_nominal_pd_improvement(*, base_pd: float, plan: PlanRecord) -> float:
     explicit = getattr(plan, "nominal_pd_improvement", None)
     if explicit is not None:
@@ -1340,23 +1532,15 @@ def _build_customer_roadmap(
     feature_cols: list[str],
     local_reason_bundle: dict | None = None,
 ) -> dict:
-    if best is not None and not list(getattr(best, "phases", [])):
-        best.phases = build_canonical_phases(
-            best.actions,
-            base_pd=base_pd,
-            predicted_pd=getattr(best, "predicted_pd", None),
-            tau=tau,
-        )
-    if best is not None and not list(getattr(best, "trajectory_checkpoints", [])):
-        best.trajectory_checkpoints = build_nominal_trajectory_checkpoints(
-            row=row,
-            plan=best,
-            base_pd=base_pd,
-            tau=tau,
-            model=model,
-            calibrator=calibrator,
-            feature_cols=feature_cols,
-        )
+    _ensure_plan_trajectory_context(
+        best=best,
+        row=row,
+        model=model,
+        calibrator=calibrator,
+        feature_cols=feature_cols,
+        base_pd=base_pd,
+        tau=tau,
+    )
 
     phases: list[dict] = []
     for phase in list(getattr(best, "phases", [])):
@@ -1518,16 +1702,7 @@ def _build_customer_roadmap(
     approval_ready_4w = bool(_safe_int(checkpoint_4w.get("gate_pass_estimate", 0), 0))
     approval_ready_12w = bool(_safe_int(checkpoint_12w.get("gate_pass_estimate", 0), 0))
     approval_ready_24w = bool(_safe_int(checkpoint_24w.get("gate_pass_estimate", 0), 0))
-    credit_readiness_stage = "not_ready_yet"
-    if str(getattr(best, "status", "") or "") == "APPROVED":
-        if approval_ready_4w:
-            credit_readiness_stage = "week_4"
-        elif approval_ready_12w:
-            credit_readiness_stage = "week_12"
-        elif approval_ready_24w:
-            credit_readiness_stage = "week_24"
-        else:
-            credit_readiness_stage = "now"
+    credit_readiness_stage = _credit_readiness_stage_for_plan(best)
     roadmap["summary"] = {
         "base_pd": float(base_pd),
         "target_pd_4w": _safe_float(checkpoint_4w.get("predicted_pd", base_pd), base_pd),
@@ -2617,11 +2792,9 @@ def main(argv: Sequence[str] | None = None):
         segment_context=segment_context,
         denied_objective_cfg=robust_cfg.get("denied_objective", {}),
     )
-    best = selection_result.best_plan
-    best_source = _selected_plan_source(best)
-    path_records = build_recourse_path_records(
-        planner_candidate_pool,
-        selected_plan_id=_selected_plan_id(best),
+    selection_result, path_records = _select_best_plan_and_paths(
+        candidate_pool_for_best=candidate_pool_for_best,
+        planner_candidate_pool=planner_candidate_pool,
         base_pd=base_pd,
         tau=tau,
         min_reliability=min_reliability_f,
@@ -2630,7 +2803,13 @@ def main(argv: Sequence[str] | None = None):
         denied_mode=bool(search_profile.get("is_denied_target", False)),
         segment_context=segment_context,
         denied_objective_cfg=robust_cfg.get("denied_objective", {}),
+        row=row,
+        model=model,
+        calibrator=calibrator,
+        feature_cols=feature_cols,
     )
+    best = selection_result.best_plan
+    best_source = _selected_plan_source(best)
     pool_df = pd.DataFrame([_plan_to_row(plan) for plan in candidate_pool])
     pool_csv = run_ctx.tables_dir / "candidate_pool.csv"
     pool_json = run_ctx.tables_dir / "candidate_pool.json"
@@ -3509,8 +3688,9 @@ def generate_customer_recourse_artifacts(
     if not candidate_pool_for_best:
         candidate_pool_for_best = planner_candidate_pool
 
-    selection_result = choose_best_plan(
-        candidate_pool_for_best,
+    selection_result, path_records = _select_best_plan_and_paths(
+        candidate_pool_for_best=candidate_pool_for_best,
+        planner_candidate_pool=planner_candidate_pool,
         base_pd=base_pd,
         tau=tau,
         min_reliability=min_reliability_f,
@@ -3519,21 +3699,13 @@ def generate_customer_recourse_artifacts(
         denied_mode=bool(search_profile.get("is_denied_target", False)),
         segment_context=segment_context,
         denied_objective_cfg=robust_cfg.get("denied_objective", {}),
+        row=row,
+        model=model,
+        calibrator=calibrator,
+        feature_cols=feature_cols,
     )
     best = selection_result.best_plan
     best_source = _selected_plan_source(best)
-    path_records = build_recourse_path_records(
-        planner_candidate_pool,
-        selected_plan_id=_selected_plan_id(best),
-        base_pd=base_pd,
-        tau=tau,
-        min_reliability=min_reliability_f,
-        min_worst_risk_margin=min_worst_margin_f,
-        fairness_penalty=fairness_penalty,
-        denied_mode=bool(search_profile.get("is_denied_target", False)),
-        segment_context=segment_context,
-        denied_objective_cfg=robust_cfg.get("denied_objective", {}),
-    )
     candidate_pool_df = pd.DataFrame([_plan_to_row(plan) for plan in candidate_pool])
     roadmap = _build_customer_roadmap(
         customer_id=customer_id,

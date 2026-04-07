@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from credit_coach.data.schema import PlanAction, PlanRecord
+from credit_coach.coaching.planner import choose_best_plan
 from credit_coach.recourse.action_space import get_action_template
 from credit_coach.recourse.pathing import build_recourse_path_records, summarize_path_metrics
 
@@ -191,3 +192,58 @@ def test_build_recourse_path_records_keeps_approval_shell_paths_non_rankable() -
     assert metrics["path_count"] == 2
     assert metrics["rankable_path_count"] == 1
     assert metrics["multi_path_flag"] == 0
+
+
+def test_build_recourse_path_records_stays_aligned_with_movement_ranked_selection() -> None:
+    customer = _plan(
+        "plan-customer-threshold",
+        _action("limit_credit_usage"),
+        source="internal",
+        status="APPROVED",
+        predicted_pd=0.34,
+    )
+    customer.nominal_pd_improvement = 0.09
+    customer.expected_pd_improvement = 0.0495
+    customer.plan_execution_probability = 0.55
+    customer.mean_group_difficulty_score = 0.36
+    customer.peak_group_difficulty_score = 0.42
+    customer.follow_through_readiness_label = "moderate"
+
+    hybrid = _plan(
+        "plan-hybrid-weak",
+        _action("debt_consolidation"),
+        source="rule",
+        status="APPROVED",
+        predicted_pd=0.36,
+        offer_plan=True,
+        rankable_offer_count=1,
+        approval_pending_action_count=1,
+    )
+    hybrid.nominal_pd_improvement = 0.07
+    hybrid.expected_pd_improvement = 0.056
+    hybrid.plan_execution_probability = 0.80
+    hybrid.approval_dependent_plan_probability = 0.60
+    hybrid.mean_group_difficulty_score = 0.20
+    hybrid.peak_group_difficulty_score = 0.25
+    hybrid.follow_through_readiness_label = "high"
+
+    best = choose_best_plan(
+        [hybrid, customer],
+        base_pd=0.43,
+        tau=0.35,
+        denied_mode=True,
+        movement_ranking_enabled=True,
+    )
+    paths = build_recourse_path_records(
+        [hybrid, customer],
+        selected_plan_id=best.plan_id,
+        base_pd=0.43,
+        tau=0.35,
+        denied_mode=True,
+        movement_ranking_enabled=True,
+    )
+
+    assert best.plan_id == "plan-customer-threshold"
+    assert paths[0].representative_plan_id == "plan-customer-threshold"
+    assert paths[0].path_type == "customer_only"
+    assert paths[0].selected_path_flag is True
