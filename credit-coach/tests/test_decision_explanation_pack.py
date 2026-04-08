@@ -49,6 +49,14 @@ def _sample_roadmap() -> dict:
             "selected_recommendation_source": "selected_plan",
             "selected_action_count": 1,
             "selected_recommendation_projection_version": "v2.2_phase_47",
+            "movement_score": 0.81,
+            "threshold_reach_probability": 0.69,
+            "threshold_reach_priority_flag": 1,
+            "movement_rank_reason_codes": [
+                "THRESHOLD_REACH_PRIORITY",
+                "REALISTIC_MOVEMENT_ADVANTAGE",
+            ],
+            "selected_path_movement_strength": "moderate",
         },
         "contract_health": {"raw_contract_pass": 1, "parity_pass": 1, "data_issue_flag": 0},
         "narrative": {

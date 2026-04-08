@@ -45,6 +45,14 @@ def _base_roadmap() -> dict:
             "selected_recommendation_projection_version": "v2.2_phase_47",
             "selection_outcome": "selected_valid_winner",
             "selection_stage": "preferred_valid",
+            "movement_score": 0.81,
+            "threshold_reach_probability": 0.69,
+            "threshold_reach_priority_flag": 1,
+            "movement_rank_reason_codes": [
+                "THRESHOLD_REACH_PRIORITY",
+                "REALISTIC_MOVEMENT_ADVANTAGE",
+            ],
+            "selected_path_movement_strength": "moderate",
         },
         "contract_health": {"raw_contract_pass": 1, "parity_pass": 1},
         "narrative": {

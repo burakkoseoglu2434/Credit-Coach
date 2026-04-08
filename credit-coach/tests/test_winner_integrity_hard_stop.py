@@ -225,6 +225,11 @@ def test_build_customer_artifact_bundle_preserves_no_valid_winner_integrity() ->
     assert bundle.roadmap["summary"]["selected_path_customer_summary"] == ""
     assert bundle.roadmap["summary"]["selected_path_operator_summary"] == ""
     assert bundle.roadmap["summary"]["selected_path_render_version"] == ""
+    assert bundle.roadmap["summary"]["movement_score"] == 0.0
+    assert bundle.roadmap["summary"]["threshold_reach_probability"] == 0.0
+    assert bundle.roadmap["summary"]["threshold_reach_priority_flag"] == 0
+    assert bundle.roadmap["summary"]["movement_rank_reason_codes"] == []
+    assert bundle.roadmap["summary"]["selected_path_movement_strength"] == ""
     assert bundle.roadmap_steps_df.empty
     assert bundle.metrics_summary["selection_outcome"] == "no_valid_winner"
     assert bundle.metrics_summary["best_plan_id"] == ""
@@ -232,6 +237,11 @@ def test_build_customer_artifact_bundle_preserves_no_valid_winner_integrity() ->
     assert bundle.metrics_summary["selected_path_customer_summary"] == ""
     assert bundle.metrics_summary["selected_path_operator_summary"] == ""
     assert bundle.metrics_summary["selected_path_render_version"] == ""
+    assert bundle.metrics_summary["movement_score"] == 0.0
+    assert bundle.metrics_summary["threshold_reach_probability"] == 0.0
+    assert bundle.metrics_summary["threshold_reach_priority_flag"] == 0
+    assert bundle.metrics_summary["movement_rank_reason_codes_json"] == "[]"
+    assert bundle.metrics_summary["selected_path_movement_strength"] == ""
     assert bundle.paths_df.empty
 
 
@@ -301,9 +311,19 @@ def test_build_customer_artifact_bundle_suppresses_selected_truth_for_limited_mo
     assert bundle.roadmap["summary"]["selected_recommendation_source"] == "empty_state"
     assert bundle.roadmap["summary"]["selected_action_count"] == 0
     assert bundle.roadmap["summary"]["selection_outcome"] == "selected_valid_winner"
+    assert bundle.roadmap["summary"]["movement_score"] == 0.0
+    assert bundle.roadmap["summary"]["threshold_reach_probability"] == 0.0
+    assert bundle.roadmap["summary"]["threshold_reach_priority_flag"] == 0
+    assert bundle.roadmap["summary"]["movement_rank_reason_codes"] == []
+    assert bundle.roadmap["summary"]["selected_path_movement_strength"] == ""
     assert bundle.metrics_summary["recourse_mode"] == "limited"
     assert bundle.metrics_summary["recommendation_mode"] == "informational"
     assert bundle.metrics_summary["selected_recommendation_source"] == "empty_state"
+    assert bundle.metrics_summary["movement_score"] == 0.0
+    assert bundle.metrics_summary["threshold_reach_probability"] == 0.0
+    assert bundle.metrics_summary["threshold_reach_priority_flag"] == 0
+    assert bundle.metrics_summary["movement_rank_reason_codes_json"] == "[]"
+    assert bundle.metrics_summary["selected_path_movement_strength"] == ""
     assert bundle.roadmap_steps_df.empty
 
 
