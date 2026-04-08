@@ -91,6 +91,10 @@ def summarize_population_metrics_from_rows(
             "action_diversity_index": 0.0,
             "non_utilization_action_rate": 0.0,
             "institution_action_rate": 0.0,
+            "mean_movement_score": 0.0,
+            "mean_threshold_reach_probability": 0.0,
+            "threshold_reach_priority_rate": 0.0,
+            "selected_path_movement_strength_distribution": {},
             "non_empty_contender_share": 0.0,
             "approved_or_conditional_contender_share": 0.0,
             "mean_execution_aware_value": 0.0,
@@ -144,6 +148,13 @@ def summarize_population_metrics_from_rows(
         "action_diversity_index": _mean_numeric(rows, "action_diversity_index"),
         "non_utilization_action_rate": _mean_numeric(rows, "non_utilization_action_rate"),
         "institution_action_rate": _mean_numeric(rows, "institution_action_rate"),
+        "mean_movement_score": _mean_numeric(rows, "movement_score"),
+        "mean_threshold_reach_probability": _mean_numeric(rows, "threshold_reach_probability"),
+        "threshold_reach_priority_rate": _mean_numeric(rows, "threshold_reach_priority_flag"),
+        "selected_path_movement_strength_distribution": _distribution_from_rows(
+            rows,
+            "selected_path_movement_strength",
+        ),
         "non_empty_contender_share": _round_metric((contender_bucket != "EMPTY").mean()),
         "approved_or_conditional_contender_share": _round_metric(
             best_status.isin(["APPROVED", "CONDITIONAL", "NEEDS_REVIEW"]).mean()
@@ -310,6 +321,18 @@ def build_cohort_evidence_package(
             ),
             "selected_source_distribution": selected_source_distribution,
         },
+        "movement_ranking": {
+            "population": population_name,
+            "mean_movement_score": _safe_float(metrics.get("mean_movement_score", 0.0), 0.0),
+            "mean_threshold_reach_probability": _safe_float(
+                metrics.get("mean_threshold_reach_probability", 0.0),
+                0.0,
+            ),
+            "threshold_reach_priority_rate": _safe_float(metrics.get("threshold_reach_priority_rate", 0.0), 0.0),
+            "selected_path_movement_strength_distribution": dict(
+                metrics.get("selected_path_movement_strength_distribution", {}) or {}
+            ),
+        },
         "recoverability_signal": {
             "population": population_name,
             "mean_approval_gap": _safe_float(metrics.get("mean_approval_gap", 0.0), 0.0),
@@ -372,6 +395,7 @@ def build_phase60_evidence_summary(
     path_diversity_table = [dict(pkg.get("path_diversity", {}) or {}) for pkg in package_list]
     action_coverage_table = [dict(pkg.get("action_coverage", {}) or {}) for pkg in package_list]
     selected_path_distribution_table = [dict(pkg.get("selected_path_distribution", {}) or {}) for pkg in package_list]
+    movement_ranking_table = [dict(pkg.get("movement_ranking", {}) or {}) for pkg in package_list]
     recoverability_signal_table = [dict(pkg.get("recoverability_signal", {}) or {}) for pkg in package_list]
     recourse_gate_table = [dict(pkg.get("recourse_gate", {}) or {}) for pkg in package_list]
     if trust_regression_rows is not None:
@@ -385,6 +409,7 @@ def build_phase60_evidence_summary(
         "path_diversity_table": path_diversity_table,
         "action_coverage_table": action_coverage_table,
         "selected_path_distribution_table": selected_path_distribution_table,
+        "movement_ranking_table": movement_ranking_table,
         "recoverability_signal_table": recoverability_signal_table,
         "recourse_gate_table": recourse_gate_table,
         "trust_regression_table": trust_regression_table,
@@ -432,6 +457,20 @@ def render_phase60_evidence_markdown(summary: Mapping[str, Any]) -> str:
                 f"path_count={_safe_float(row.get('mean_path_count'), 0.0):.4f}, "
                 f"rankable_path_count={_safe_float(row.get('mean_rankable_path_count'), 0.0):.4f}, "
                 f"action_diversity={_safe_float(row.get('mean_action_diversity_index'), 0.0):.4f}"
+            )
+    else:
+        lines.append("- n/a")
+    lines.extend(["", "## Movement Ranking"])
+    movement_ranking_rows = list(summary.get("movement_ranking_table", []) or [])
+    if movement_ranking_rows:
+        for row in movement_ranking_rows:
+            lines.append(
+                "- "
+                f"{_safe_str(row.get('population'), 'unknown')}: "
+                f"movement_score={_safe_float(row.get('mean_movement_score'), 0.0):.4f}, "
+                f"threshold_reach_probability={_safe_float(row.get('mean_threshold_reach_probability'), 0.0):.4f}, "
+                f"threshold_reach_priority_rate={_safe_float(row.get('threshold_reach_priority_rate'), 0.0):.4f}, "
+                f"movement_strength_distribution={json.dumps(dict(row.get('selected_path_movement_strength_distribution', {}) or {}), ensure_ascii=False, sort_keys=True)}"
             )
     else:
         lines.append("- n/a")
@@ -496,6 +535,7 @@ def write_phase60_evidence_artifacts(
     path_csv = output_root / f"{prefix}_path_diversity_table.csv"
     action_csv = output_root / f"{prefix}_action_coverage_table.csv"
     selected_csv = output_root / f"{prefix}_selected_path_distribution_table.csv"
+    movement_ranking_csv = output_root / f"{prefix}_movement_ranking_table.csv"
     recoverability_csv = output_root / f"{prefix}_recoverability_signal_table.csv"
     recourse_gate_csv = output_root / f"{prefix}_recourse_gate_table.csv"
     trust_csv = output_root / f"{prefix}_trust_regression_table.csv"
@@ -506,6 +546,7 @@ def write_phase60_evidence_artifacts(
     pd.DataFrame(list(summary.get("path_diversity_table", []) or [])).to_csv(path_csv, index=False)
     pd.DataFrame(list(summary.get("action_coverage_table", []) or [])).to_csv(action_csv, index=False)
     pd.DataFrame(list(summary.get("selected_path_distribution_table", []) or [])).to_csv(selected_csv, index=False)
+    pd.DataFrame(list(summary.get("movement_ranking_table", []) or [])).to_csv(movement_ranking_csv, index=False)
     pd.DataFrame(list(summary.get("recoverability_signal_table", []) or [])).to_csv(recoverability_csv, index=False)
     pd.DataFrame(list(summary.get("recourse_gate_table", []) or [])).to_csv(recourse_gate_csv, index=False)
     pd.DataFrame(list(summary.get("trust_regression_table", []) or [])).to_csv(trust_csv, index=False)
@@ -516,6 +557,7 @@ def write_phase60_evidence_artifacts(
         "path_diversity_table_csv": path_csv.name,
         "action_coverage_table_csv": action_csv.name,
         "selected_path_distribution_table_csv": selected_csv.name,
+        "movement_ranking_table_csv": movement_ranking_csv.name,
         "recoverability_signal_table_csv": recoverability_csv.name,
         "recourse_gate_table_csv": recourse_gate_csv.name,
         "trust_regression_table_csv": trust_csv.name,

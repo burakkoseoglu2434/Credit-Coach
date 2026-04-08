@@ -31,6 +31,10 @@ def test_summarize_population_metrics_from_rows_handles_empty_population() -> No
     assert metrics["limited_customer_rate"] == 0.0
     assert metrics["informational_recommendation_rate"] == 0.0
     assert metrics["selected_source_distribution"] == {}
+    assert metrics["mean_movement_score"] == 0.0
+    assert metrics["mean_threshold_reach_probability"] == 0.0
+    assert metrics["threshold_reach_priority_rate"] == 0.0
+    assert metrics["selected_path_movement_strength_distribution"] == {}
 
 
 def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -> None:
@@ -59,6 +63,10 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
                 "recoverability_classifier_version": "phase_62_v1",
                 "recourse_mode": "full",
                 "recommendation_mode": "actionable",
+                "movement_score": 0.84,
+                "threshold_reach_probability": 0.72,
+                "threshold_reach_priority_flag": 1,
+                "selected_path_movement_strength": "strong",
             },
             {
                 "best_source": "rule",
@@ -83,6 +91,10 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
                 "recoverability_classifier_version": "phase_62_v1",
                 "recourse_mode": "limited",
                 "recommendation_mode": "informational",
+                "movement_score": 0.0,
+                "threshold_reach_probability": 0.0,
+                "threshold_reach_priority_flag": 0,
+                "selected_path_movement_strength": "",
             },
         ]
     )
@@ -109,6 +121,10 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
     assert metrics["recommendation_mode_distribution"] == {"actionable": 0.5, "informational": 0.5}
     assert metrics["limited_customer_rate"] == 0.5
     assert metrics["informational_recommendation_rate"] == 0.5
+    assert metrics["mean_movement_score"] == 0.42
+    assert metrics["mean_threshold_reach_probability"] == 0.36
+    assert metrics["threshold_reach_priority_rate"] == 0.5
+    assert metrics["selected_path_movement_strength_distribution"] == {"strong": 1.0}
     assert metrics["selected_source_distribution"]["internal"] == 0.5
 
 
@@ -139,6 +155,10 @@ def test_cohort_evidence_package_infers_default_trust_rows_from_movement_summary
         "recommendation_mode_distribution": {"actionable": 0.88, "informational": 0.12},
         "limited_customer_rate": 0.12,
         "informational_recommendation_rate": 0.12,
+        "mean_movement_score": 0.44,
+        "mean_threshold_reach_probability": 0.31,
+        "threshold_reach_priority_rate": 0.18,
+        "selected_path_movement_strength_distribution": {"moderate": 0.70, "strong": 0.30},
     }
     movement = {
         "dominant_movement_bottleneck": "structural_cohort_limited",
@@ -161,6 +181,13 @@ def test_cohort_evidence_package_infers_default_trust_rows_from_movement_summary
     assert pkg["movement_potential"]["dominant_movement_bottleneck"] == "structural_cohort_limited"
     assert pkg["path_diversity"]["mean_path_count"] == 2.2
     assert pkg["selected_path_distribution"]["selected_customer_only_share"] == 0.7
+    assert pkg["movement_ranking"]["mean_movement_score"] == 0.44
+    assert pkg["movement_ranking"]["mean_threshold_reach_probability"] == 0.31
+    assert pkg["movement_ranking"]["threshold_reach_priority_rate"] == 0.18
+    assert pkg["movement_ranking"]["selected_path_movement_strength_distribution"] == {
+        "moderate": 0.70,
+        "strong": 0.30,
+    }
     assert pkg["recoverability_signal"]["threshold_reach_possible_rate"] == 0.18
     assert pkg["recoverability_signal"]["recoverable_customer_rate"] == 0.12
     assert pkg["recoverability_signal"]["recoverable_flag_distribution"] == {
@@ -213,6 +240,10 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
             "recommendation_mode_distribution": {"actionable": 0.80, "informational": 0.20},
             "limited_customer_rate": 0.20,
             "informational_recommendation_rate": 0.20,
+            "mean_movement_score": 0.51,
+            "mean_threshold_reach_probability": 0.29,
+            "threshold_reach_priority_rate": 0.14,
+            "selected_path_movement_strength_distribution": {"moderate": 0.75, "strong": 0.25},
         },
         {"dominant_movement_bottleneck": "structural_cohort_limited"},
         [{"suite": "winner_integrity", "status": "passed", "evidence_source": "pytest", "notes": ""}],
@@ -229,6 +260,7 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
         "path_diversity_table_csv",
         "action_coverage_table_csv",
         "selected_path_distribution_table_csv",
+        "movement_ranking_table_csv",
         "recoverability_signal_table_csv",
         "recourse_gate_table_csv",
         "trust_regression_table_csv",
@@ -241,6 +273,12 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
     assert payload["recoverability_signal_table"][0]["recoverable_customer_rate"] == 0.2
     assert payload["recoverability_signal_table"][0]["recoverability_classifier_version_distribution"] == {
         "phase_62_v1": 1.0
+    }
+    assert payload["movement_ranking_table"][0]["mean_movement_score"] == 0.51
+    assert payload["movement_ranking_table"][0]["threshold_reach_priority_rate"] == 0.14
+    assert payload["movement_ranking_table"][0]["selected_path_movement_strength_distribution"] == {
+        "moderate": 0.75,
+        "strong": 0.25,
     }
     assert payload["recourse_gate_table"][0]["limited_customer_rate"] == 0.2
     assert payload["recourse_gate_table"][0]["recourse_mode_distribution"] == {"full": 0.8, "limited": 0.2}
@@ -316,6 +354,14 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
                     "recommendation_mode": "actionable",
                     "recourse_gate_version": "phase_63_v1",
                     "recourse_gate_reason_codes": ["RECOVERABLE_FULL_MODE"],
+                    "movement_score": 0.81,
+                    "threshold_reach_probability": 0.69,
+                    "threshold_reach_priority_flag": 1,
+                    "movement_rank_reason_codes": [
+                        "THRESHOLD_REACH_PRIORITY",
+                        "REALISTIC_MOVEMENT_ADVANTAGE",
+                    ],
+                    "selected_path_movement_strength": "moderate",
                 },
             },
             roadmap_steps_df=pd.DataFrame(),
@@ -358,6 +404,13 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
                 "recommendation_mode": "actionable",
                 "recourse_gate_version": "phase_63_v1",
                 "recourse_gate_reason_codes_json": json.dumps(["RECOVERABLE_FULL_MODE"]),
+                "movement_score": 0.81,
+                "threshold_reach_probability": 0.69,
+                "threshold_reach_priority_flag": 1,
+                "movement_rank_reason_codes_json": json.dumps(
+                    ["THRESHOLD_REACH_PRIORITY", "REALISTIC_MOVEMENT_ADVANTAGE"]
+                ),
+                "selected_path_movement_strength": "moderate",
             },
             paths_df=paths_df,
         )
@@ -433,11 +486,23 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     assert "recommendation_mode" in customer_df.columns
     assert "recourse_gate_version" in customer_df.columns
     assert "recourse_gate_reason_codes_json" in customer_df.columns
+    assert "movement_score" in customer_df.columns
+    assert "threshold_reach_probability" in customer_df.columns
+    assert "threshold_reach_priority_flag" in customer_df.columns
+    assert "movement_rank_reason_codes_json" in customer_df.columns
+    assert "selected_path_movement_strength" in customer_df.columns
     assert "threshold_reach_possible" in customer_df.columns
     assert customer_df["recoverable_flag"].astype(int).eq(1).all()
     assert customer_df["recourse_mode"].eq("full").all()
     assert customer_df["recommendation_mode"].eq("actionable").all()
     assert customer_df["recourse_gate_version"].eq("phase_63_v1").all()
+    assert customer_df["movement_score"].astype(float).eq(0.81).all()
+    assert customer_df["threshold_reach_probability"].astype(float).eq(0.69).all()
+    assert customer_df["threshold_reach_priority_flag"].astype(int).eq(1).all()
+    assert customer_df["selected_path_movement_strength"].eq("moderate").all()
+    assert customer_df["movement_rank_reason_codes_json"].map(json.loads).map(
+        lambda codes: codes == ["THRESHOLD_REACH_PRIORITY", "REALISTIC_MOVEMENT_ADVANTAGE"]
+    ).all()
     assert set(customer_df["recoverability_classifier_version"]) == {"phase_62_live_test"}
     assert customer_df["recoverability_signal_reason_codes_json"].map(json.loads).map(
         lambda codes: codes[-1]
@@ -462,6 +527,12 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     }
     assert metrics_payload["overall"]["limited_customer_rate"] == 0.0
     assert metrics_payload["overall"]["informational_recommendation_rate"] == 0.0
+    assert metrics_payload["overall"]["mean_movement_score"] == 0.81
+    assert metrics_payload["overall"]["mean_threshold_reach_probability"] == 0.69
+    assert metrics_payload["overall"]["threshold_reach_priority_rate"] == 1.0
+    assert metrics_payload["overall"]["selected_path_movement_strength_distribution"] == {
+        "moderate": 1.0
+    }
     assert metrics_payload["overall"]["recoverability_classifier_version_distribution"] == {
         "phase_62_live_test": 1.0
     }
@@ -478,6 +549,11 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     overall_row = next(row for row in phase_60_payload["recoverability_signal_table"] if row["population"] == "overall")
     assert overall_row["recoverable_customer_rate"] == 1.0
     assert overall_row["recoverability_classifier_version_distribution"] == {"phase_62_live_test": 1.0}
+    movement_row = next(row for row in phase_60_payload["movement_ranking_table"] if row["population"] == "overall")
+    assert movement_row["mean_movement_score"] == 0.81
+    assert movement_row["mean_threshold_reach_probability"] == 0.69
+    assert movement_row["threshold_reach_priority_rate"] == 1.0
+    assert movement_row["selected_path_movement_strength_distribution"] == {"moderate": 1.0}
     recourse_row = next(row for row in phase_60_payload["recourse_gate_table"] if row["population"] == "overall")
     assert recourse_row["recourse_mode_distribution"] == {"full": 1.0, "limited": 0.0}
     assert recourse_row["recommendation_mode_distribution"] == {"actionable": 1.0, "informational": 0.0}
@@ -538,6 +614,11 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
                     "selected_recommendation_source": "empty_state",
                     "selected_action_count": 0,
                     "selected_recommendation_projection_version": "v2.2_phase_47",
+                    "movement_score": 0.0,
+                    "threshold_reach_probability": 0.0,
+                    "threshold_reach_priority_flag": 0,
+                    "movement_rank_reason_codes": [],
+                    "selected_path_movement_strength": "",
                 },
             },
             roadmap_steps_df=pd.DataFrame(),
@@ -579,6 +660,11 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
                 "recommendation_mode": "informational",
                 "recourse_gate_version": "phase_63_v1",
                 "recourse_gate_reason_codes_json": json.dumps(["NOT_RECOVERABLE_LIMITED_MODE"]),
+                "movement_score": 0.0,
+                "threshold_reach_probability": 0.0,
+                "threshold_reach_priority_flag": 0,
+                "movement_rank_reason_codes_json": json.dumps([]),
+                "selected_path_movement_strength": "",
             },
             paths_df=pd.DataFrame(),
         )
@@ -641,6 +727,11 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
     assert customer_df["recommendation_mode"].eq("informational").all()
     assert customer_df["selected_recommendation_source"].eq("empty_state").all()
     assert customer_df["selected_action_count"].astype(int).eq(0).all()
+    assert customer_df["movement_score"].astype(float).eq(0.0).all()
+    assert customer_df["threshold_reach_probability"].astype(float).eq(0.0).all()
+    assert customer_df["threshold_reach_priority_flag"].astype(int).eq(0).all()
+    assert customer_df["selected_path_movement_strength"].fillna("").eq("").all()
+    assert customer_df["movement_rank_reason_codes_json"].map(json.loads).map(lambda codes: codes == []).all()
     assert customer_df["recourse_gate_reason_codes_json"].map(json.loads).map(lambda codes: codes == ["NOT_RECOVERABLE_LIMITED_MODE"]).all()
     assert metrics_payload["overall"]["recourse_mode_distribution"] == {"full": 0.0, "limited": 1.0}
     assert metrics_payload["overall"]["recommendation_mode_distribution"] == {
@@ -649,4 +740,8 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
     }
     assert metrics_payload["overall"]["limited_customer_rate"] == 1.0
     assert metrics_payload["overall"]["informational_recommendation_rate"] == 1.0
+    assert metrics_payload["overall"]["mean_movement_score"] == 0.0
+    assert metrics_payload["overall"]["mean_threshold_reach_probability"] == 0.0
+    assert metrics_payload["overall"]["threshold_reach_priority_rate"] == 0.0
+    assert metrics_payload["overall"]["selected_path_movement_strength_distribution"] == {}
     assert metrics_payload["phase_60_overall_movement_conclusion"] in {"movement_diagnosis_pending", "structural_bottleneck_remains_dominant"}

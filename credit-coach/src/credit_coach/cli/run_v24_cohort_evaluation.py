@@ -672,6 +672,10 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
             "recommendation_mode_distribution": {},
             "limited_customer_rate": 0.0,
             "informational_recommendation_rate": 0.0,
+            "mean_movement_score": 0.0,
+            "mean_threshold_reach_probability": 0.0,
+            "threshold_reach_priority_rate": 0.0,
+            "selected_path_movement_strength_distribution": {},
             "non_utilization_action_rate": 0.0,
             "action_category_distribution": {},
             "unique_action_count_per_customer": 0.0,
@@ -697,6 +701,12 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
     recourse_mode = customer_df.get("recourse_mode", pd.Series([""] * len(customer_df), dtype=object)).astype(str).str.strip().str.lower()
     recommendation_mode = (
         customer_df.get("recommendation_mode", pd.Series([""] * len(customer_df), dtype=object))
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+    selected_path_movement_strength = (
+        customer_df.get("selected_path_movement_strength", pd.Series([""] * len(customer_df), dtype=object))
         .astype(str)
         .str.strip()
         .str.lower()
@@ -763,6 +773,22 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
         },
         "limited_customer_rate": round(float((recourse_mode == "limited").mean()), 6),
         "informational_recommendation_rate": round(float((recommendation_mode == "informational").mean()), 6),
+        "mean_movement_score": round(float(customer_df["movement_score"].astype(float).mean()), 6),
+        "mean_threshold_reach_probability": round(
+            float(customer_df["threshold_reach_probability"].astype(float).mean()),
+            6,
+        ),
+        "threshold_reach_priority_rate": round(
+            float(customer_df["threshold_reach_priority_flag"].astype(int).mean()),
+            6,
+        ),
+        "selected_path_movement_strength_distribution": {
+            key: round(float(value), 6)
+            for key, value in selected_path_movement_strength[selected_path_movement_strength != ""]
+            .value_counts(normalize=True)
+            .sort_index()
+            .items()
+        },
     }
 
     category_counts: dict[str, int] = {}
@@ -1301,6 +1327,26 @@ def main() -> None:
                     metrics_summary.get("selected_path_type"),
                     _safe_text(roadmap_summary.get("selected_path_type")),
                 ),
+                "movement_score": _safe_float(
+                    metrics_summary.get("movement_score"),
+                    _safe_float(roadmap_summary.get("movement_score"), 0.0),
+                ),
+                "threshold_reach_probability": _safe_float(
+                    metrics_summary.get("threshold_reach_probability"),
+                    _safe_float(roadmap_summary.get("threshold_reach_probability"), 0.0),
+                ),
+                "threshold_reach_priority_flag": _safe_int(
+                    metrics_summary.get("threshold_reach_priority_flag"),
+                    _safe_int(roadmap_summary.get("threshold_reach_priority_flag"), 0),
+                ),
+                "selected_path_movement_strength": _safe_text(
+                    metrics_summary.get("selected_path_movement_strength"),
+                    _safe_text(roadmap_summary.get("selected_path_movement_strength")),
+                ),
+                "movement_rank_reason_codes_json": _safe_text(
+                    metrics_summary.get("movement_rank_reason_codes_json"),
+                    _json_dumps(list(roadmap_summary.get("movement_rank_reason_codes", []) or [])),
+                ),
                 "offer_ready_contender_share": _safe_float(
                     metrics_summary.get("offer_ready_contender_share"),
                     0.0,
@@ -1355,6 +1401,11 @@ def main() -> None:
                 "selected_plan_status": customer_row["selected_plan_status"],
                 "best_source": customer_row["best_source"],
                 "selection_outcome": customer_row["selection_outcome"],
+                "movement_score": customer_row["movement_score"],
+                "threshold_reach_probability": customer_row["threshold_reach_probability"],
+                "threshold_reach_priority_flag": customer_row["threshold_reach_priority_flag"],
+                "selected_path_movement_strength": customer_row["selected_path_movement_strength"],
+                "movement_rank_reason_codes_json": customer_row["movement_rank_reason_codes_json"],
             }
             selected_file.write(json.dumps(selected_payload, ensure_ascii=False) + "\n")
 
