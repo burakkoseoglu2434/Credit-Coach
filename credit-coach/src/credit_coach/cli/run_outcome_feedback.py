@@ -13,19 +13,35 @@ from credit_coach.data.schema import DecisionActionExecutionEventRecord, Decisio
 from credit_coach.evaluation.off_policy import evaluate_off_policy
 from credit_coach.storage.db import init_db
 from credit_coach.storage.repository import (
-    load_decision_learning_dataset,
     load_decision_action_execution_events,
+    load_decision_learning_dataset,
     compute_policy_outcome_deltas,
     save_decision_action_execution_event,
     save_decision_outcome,
+    summarize_action_execution,
     summarize_decision_logging,
     summarize_decision_outcomes,
+    summarize_outcome_realization,
     summarize_outcome_ingestion,
+    summarize_path_realization,
 )
 from credit_coach.utils.run_context import create_run_context
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("run_outcome_feedback")
+
+
+def _json_default(value: Any) -> Any:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    return value
 
 
 def parse_args() -> argparse.Namespace:
@@ -220,6 +236,9 @@ def main() -> None:
     outcome_ingestion_summary = summarize_outcome_ingestion(window_days=int(args.window_days))
     learning_dataset = load_decision_learning_dataset(window_days=int(args.window_days))
     action_events = load_decision_action_execution_events()
+    action_execution_summary = summarize_action_execution()
+    path_realization_summary = summarize_path_realization(window_days=int(args.window_days))
+    outcome_realization_summary = summarize_outcome_realization(window_days=int(args.window_days))
     deltas = compute_policy_outcome_deltas(window_days=int(args.window_days))
     off_policy_evaluation = evaluate_off_policy(learning_dataset, baseline_arm="control")
 
@@ -230,6 +249,9 @@ def main() -> None:
     ingestion_out = run_ctx.tables_dir / "outcome_ingestion_summary.json"
     learning_dataset_out = run_ctx.tables_dir / "outcome_learning_dataset.csv"
     action_events_out = run_ctx.tables_dir / "action_execution_events.csv"
+    action_execution_summary_out = run_ctx.tables_dir / "action_execution_summary.csv"
+    path_realization_summary_out = run_ctx.tables_dir / "path_realization_summary.json"
+    outcome_realization_summary_out = run_ctx.tables_dir / "outcome_realization_summary.json"
     off_policy_out = run_ctx.tables_dir / "off_policy_evaluation.json"
     summary_df.to_csv(summary_out, index=False)
     deltas_out.write_text(json.dumps(deltas, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -238,12 +260,29 @@ def main() -> None:
     ingestion_out.write_text(json.dumps(outcome_ingestion_summary, indent=2, ensure_ascii=False), encoding="utf-8")
     learning_dataset.to_csv(learning_dataset_out, index=False)
     action_events.to_csv(action_events_out, index=False)
+    action_execution_summary.to_csv(action_execution_summary_out, index=False)
+    path_realization_summary_out.write_text(
+        json.dumps(path_realization_summary, indent=2, ensure_ascii=False, default=_json_default),
+        encoding="utf-8",
+    )
+    outcome_realization_summary_out.write_text(
+        json.dumps(outcome_realization_summary, indent=2, ensure_ascii=False, default=_json_default),
+        encoding="utf-8",
+    )
     off_policy_out.write_text(json.dumps(off_policy_evaluation, indent=2, ensure_ascii=False), encoding="utf-8")
     run_ctx.save_metrics(
         {
             "window_days": int(args.window_days),
             "ingested_records": int(ingested),
             "action_events_ingested": int(action_events_ingested),
+            "action_execution_rate": float(outcome_realization_summary.get("action_execution_rate", 0.0)),
+            "path_realization_rate": float(outcome_realization_summary.get("path_realization_rate", 0.0)),
+            "realized_movement_rate": float(outcome_realization_summary.get("realized_movement_rate", 0.0)),
+            "approval_realization_rate": float(outcome_realization_summary.get("approval_realization_rate", 0.0)),
+            "negative_outcome_rate": float(outcome_realization_summary.get("negative_outcome_rate", 0.0)),
+            "realization_observation_coverage_rate": float(
+                outcome_realization_summary.get("observation_coverage_rate", 0.0)
+            ),
             "policy_arm_count": int(summary_df["policy_arm"].nunique()) if not summary_df.empty else 0,
             "comparison_status": str(deltas.get("comparison_status", "no_data")),
             "outcome_feedback_confidence": str(deltas.get("outcome_feedback_confidence", "tentative")),
@@ -262,6 +301,9 @@ def main() -> None:
     logger.info("Outcome ingestion summary: %s", ingestion_out)
     logger.info("Outcome learning dataset: %s", learning_dataset_out)
     logger.info("Action execution events: %s", action_events_out)
+    logger.info("Action execution summary: %s", action_execution_summary_out)
+    logger.info("Path realization summary: %s", path_realization_summary_out)
+    logger.info("Outcome realization summary: %s", outcome_realization_summary_out)
     logger.info("Off-policy evaluation summary: %s", off_policy_out)
 
 

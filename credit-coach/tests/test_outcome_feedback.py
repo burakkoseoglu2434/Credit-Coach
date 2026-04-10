@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from credit_coach.cli.run_outcome_feedback import _ingest_action_events_csv
+from credit_coach.cli.run_outcome_feedback import _ingest_action_events_csv, main as run_outcome_feedback_main
 from credit_coach.data.schema import DecisionActionExecutionEventRecord
 from credit_coach.data.schema import DecisionOutcomeRecord
 from credit_coach.storage import db as db_module
@@ -447,3 +447,55 @@ def test_realization_summaries_derive_deterministic_status_and_labels(monkeypatc
     assert outcome_summary["action_execution_rate"] == 0.666667
     assert outcome_summary["threshold_reach_realization_rate"] == 0.333333
     assert outcome_summary["negative_outcome_rate"] == 0.333333
+
+
+def test_run_outcome_feedback_writes_realization_artifacts(monkeypatch, tmp_path):
+    _init_test_db(monkeypatch, tmp_path)
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d-run",
+            run_id="r-run",
+            customer_id="c-run",
+            policy_arm="treatment",
+            selected_plan_id="plan-run",
+            selected_path_id="path-run",
+            decision_status="APPROVED",
+            approved=True,
+            action_completed=True,
+            observed_default_90d=0,
+            observed_margin_90d=75.0,
+        )
+    )
+    save_decision_action_execution_event(
+        DecisionActionExecutionEventRecord(
+            decision_id="d-run",
+            customer_id="c-run",
+            selected_plan_id="plan-run",
+            selected_path_id="path-run",
+            action_key="reduce_balance",
+            event_type="completed",
+            event_at=pd.Timestamp("2026-04-10T09:00:00Z").to_pydatetime(),
+            event_source="manual_review",
+            evidence_reference="evt-run",
+        )
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["run_outcome_feedback.py", "--window_days", "90"])
+    run_outcome_feedback_main()
+
+    action_execution_files = list(tmp_path.rglob("action_execution_summary.csv"))
+    path_realization_files = list(tmp_path.rglob("path_realization_summary.json"))
+    outcome_realization_files = list(tmp_path.rglob("outcome_realization_summary.json"))
+
+    assert len(action_execution_files) == 1
+    assert len(path_realization_files) == 1
+    assert len(outcome_realization_files) == 1
+
+    action_execution_df = pd.read_csv(action_execution_files[0])
+    path_realization_payload = pd.read_json(path_realization_files[0], typ="series")
+    outcome_realization_payload = pd.read_json(outcome_realization_files[0], typ="series")
+
+    assert action_execution_df["action_status"].tolist() == ["completed"]
+    assert float(path_realization_payload["path_realization_rate"]) == 1.0
+    assert float(outcome_realization_payload["approval_realization_rate"]) == 1.0
