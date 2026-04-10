@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Recoverable Customer Targeting & Movement Optimization
 status: active
-stopped_at: Phase 65 Wave 1 complete; Wave 2 targeted artifacts are next
-last_updated: "2026-04-10T10:40:20+03:00"
+stopped_at: Phase 65 Waves 1-2 complete; Wave 3 report framing and conclusion are next
+last_updated: "2026-04-10T10:47:52+03:00"
 last_activity: 2026-04-10
 progress:
   total_phases: 65
   completed_phases: 62
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -20,20 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 65 execution is in progress; Wave 1 is complete and Wave 2 targeted artifact packaging is next
+**Current focus:** Phase 65 execution is in progress; Waves 1-2 are complete and Wave 3 report framing plus conclusion is next
 
 ## Current Position
 
 Phase: 65 in progress
-Plan: 65-01 complete
-Status: The cohort runner now labels targeted populations explicitly and emits comparison-ready movement and honesty aggregates from runtime-first truth
-Last activity: 2026-04-10 — Phase 65 Wave 1 executed and verified
+Plan: 65-02 complete
+Status: Targeted comparisons now flow through both machine-readable cohort outputs and additive evidence tables for global, recoverable/full, and limited/control populations
+Last activity: 2026-04-10 — Phase 65 Wave 2 executed and verified
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 184 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-65 wave 1)
+- Total plans completed: 186 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-65 wave 2)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -51,7 +51,7 @@ Last activity: 2026-04-10 — Phase 65 Wave 1 executed and verified
 | v2.2 completed milestone | 12 | phases 45-48 complete; archived | n/a |
 | v2.3 completed milestone | 12 | phases 49-52 complete; archived | n/a |
 | v2.4 completed milestone | 19 | phases 54-60 complete; archived | n/a |
-| v2.5 active milestone | 14 | phases 61-64 complete; phase 65 in progress (1/3 plans complete) | n/a |
+| v2.5 active milestone | 16 | phases 61-64 complete; phase 65 in progress (2/3 plans complete) | n/a |
 
 **Recent Trend:**
 
@@ -68,6 +68,7 @@ Last activity: 2026-04-10 — Phase 65 Wave 1 executed and verified
 - Phase \`64 Movement-Focused Path Ranking\` Wave 2 now propagates selected-path movement truth through runtime summaries and flat customer artifacts while clearing those fields in limited-mode empty-state outputs.
 - Phase \`64 Movement-Focused Path Ranking\` now closes with cohort-visible movement-ranking evidence, additive movement-strength distributions, and explicit proof that explanation/operator/winner-integrity surfaces remain unchanged in behavior.
 - Phase \`65 Targeted Cohort Evaluation\` Wave 1 now labels recoverable/full and limited/control populations directly in the cohort runner and emits first-pass targeted comparison metrics from runtime-first truth.
+- Phase \`65 Targeted Cohort Evaluation\` Wave 2 now publishes those targeted comparisons through canonical JSON and additive evidence tables, making movement concentration and honesty-control posture jointly auditable.
 
 ## Accumulated Context
 
@@ -117,6 +118,6 @@ Recent decisions affecting the shipped baseline:
 
 ## Session Continuity
 
-Last session: 2026-04-10T10:40:20+03:00
-Stopped at: Phase 65 Wave 1 complete; Wave 2 targeted artifacts are next
+Last session: 2026-04-10T10:47:52+03:00
+Stopped at: Phase 65 Waves 1-2 complete; Wave 3 report framing and conclusion are next
 Resume file: .planning/ROADMAP.md

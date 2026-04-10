@@ -286,5 +286,5 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 62. Recoverable Customer Classifier | v2.5 | 3/3 | Complete | 2026-04-07 |
 | 63. Recourse Gating By Recoverability | v2.5 | 3/3 | Complete | 2026-04-07 |
 | 64. Movement-Focused Path Ranking | v2.5 | 3/3 | Complete | 2026-04-08 |
-| 65. Targeted Cohort Evaluation | v2.5 | 1/3 | In Progress | 2026-04-10 |
+| 65. Targeted Cohort Evaluation | v2.5 | 2/3 | In Progress | 2026-04-10 |
 | 66. Demo & Narrative Alignment | v2.5 | 0/0 | Planned | — |
