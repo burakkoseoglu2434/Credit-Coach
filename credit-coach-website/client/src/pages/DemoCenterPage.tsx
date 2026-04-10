@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { DemoSectionCta } from "@/components/DemoSectionCta";
 import { MetricTile } from "@/components/MetricTile";
 import { PageHero } from "@/components/PageHero";
@@ -174,7 +174,10 @@ export function DemoCenterPage() {
   const { lang, text } = useLanguage();
   const locale = lang === "tr" ? "tr-TR" : "en-US";
 
-  const roadmap = useDemoItem<SingleCustomerDemo>("single-customer-roadmap");
+  const [roadmapSlug, setRoadmapSlug] = useState<
+    "single-customer-roadmap" | "single-customer-roadmap-limited"
+  >("single-customer-roadmap");
+  const roadmap = useDemoItem<SingleCustomerDemo>(roadmapSlug);
   const batch = useDemoItem<GenericContent>("portfolio-batch-summary");
   const actionRealism = useDemoItem<GenericContent>("action-realism");
   const behaviorAware = useDemoItem<GenericContent>("behavior-aware");
@@ -293,6 +296,9 @@ export function DemoCenterPage() {
   const formatBusinessOutcome = (
     value: "now" | "week_4" | "week_12" | "week_24" | "not_ready_yet" | undefined,
   ) => {
+    if (!value) {
+      return text({ tr: "Bu gorunumde hazir degil", en: "Unavailable in this view" });
+    }
     const labels = {
       now: {
         tr: "Bugun krediye hazir",
@@ -316,18 +322,40 @@ export function DemoCenterPage() {
       },
     };
 
-    return labels[value ?? "not_ready_yet"][lang];
+    return (labels[value] ?? { tr: value, en: value })[lang];
+  };
+
+  const narrativeType = summary?.narrative_type;
+  const isActionable = narrativeType === "actionable";
+  const isInformational = narrativeType === "informational";
+
+  const approvalReadyForWeek = (week: number) => {
+    if (!summary) {
+      return undefined;
+    }
+    if (week <= 4) {
+      return summary.approval_ready_4w;
+    }
+    if (week <= 12) {
+      return summary.approval_ready_12w;
+    }
+    return summary.approval_ready_24w;
   };
 
   const customerStatus = !summary
     ? text({ tr: "Degerlendirme bekleniyor", en: "Awaiting evaluation" })
-    : summary.trajectory_status === "on_track"
-      ? text({ tr: "Kontrollu toparlanma", en: "Controlled recovery" })
-      : summary.trajectory_status === "needs_replan"
-        ? text({ tr: "Mudahale gerekiyor", en: "Needs intervention" })
-        : summary.trajectory_status === "degraded"
-          ? text({ tr: "Toparlanma zayifladi", en: "Recovery weakened" })
-          : text({ tr: "Toparlanma yolu acildi", en: "Recovery path opened" });
+    : isInformational
+      ? text({
+          tr: "Bilgilendirici gorunum (plan onerilmez)",
+          en: "Informational view (no plan promoted)",
+        })
+      : summary.trajectory_status === "on_track"
+        ? text({ tr: "Kontrollu toparlanma", en: "Controlled recovery" })
+        : summary.trajectory_status === "needs_replan"
+          ? text({ tr: "Mudahale gerekiyor", en: "Needs intervention" })
+          : summary.trajectory_status === "degraded"
+            ? text({ tr: "Toparlanma zayifladi", en: "Recovery weakened" })
+            : text({ tr: "Toparlanma yolu acildi", en: "Recovery path opened" });
 
   const expectedOutcome = formatBusinessOutcome(summary?.credit_readiness_stage);
   const riskTrend =
@@ -340,6 +368,11 @@ export function DemoCenterPage() {
   const readinessHint =
     executiveSummary?.expected_result
       ? pickLocalizedText(executiveSummary.expected_result.description, lang)
+      : isInformational
+        ? text({
+            tr: "Bu gorunumde plan onerilmez. Dosya, toparlanmaya engel olan bant ve kosullar acisindan bilgilendirilir.",
+            en: "No plan is promoted in this view. The file is explained in terms of the band and conditions that block safe actionability.",
+          })
       : summary?.credit_readiness_stage === "week_4"
         ? text({
             tr: "Ilk 4 haftalik disiplin kuruldugunda dosya hizla yeniden basvuru seviyesine yaklasiyor.",
@@ -378,17 +411,27 @@ export function DemoCenterPage() {
 
   const customerNarrativeHeadline = executiveSummary?.headline
     ? pickLocalizedText(executiveSummary.headline, lang)
-    : text({
-        tr: "Reddedilen dosya, cikmaz yerine yonetilen bir toparlanma akisina alinmis durumda.",
-        en: "The declined file has been moved into a governed recovery flow instead of a dead end.",
-      });
+    : isInformational
+      ? text({
+          tr: "Bu dosya su anda guvenli sekilde aksiyona cevrilemez; plan onerilmez.",
+          en: "This file is not safely actionable right now; no plan is promoted.",
+        })
+      : text({
+          tr: "Reddedilen dosya, cikmaz yerine yonetilen bir toparlanma akisina alinmis durumda.",
+          en: "The declined file has been moved into a governed recovery flow instead of a dead end.",
+        });
 
   const customerNarrativeSummary = executiveSummary?.summary_line
     ? pickLocalizedText(executiveSummary.summary_line, lang)
-    : text({
-        tr: "Varsayilan okumada once kurumun verecegi is karari gorulur; sayisal motor izleri ise yalnizca acildiginda gelir.",
-      en: "The default read shows the business decision first; the underlying engine traces appear only when opened.",
-      });
+    : isInformational
+      ? text({
+          tr: "Bu gorunum, neden aksiyon onermedigimizi ve hangi kosullarda yeniden degerlendirme yapilabilecegini aciklar.",
+          en: "This view explains why we are not recommending actions yet and what conditions would allow a re-evaluation.",
+        })
+      : text({
+          tr: "Varsayilan okumada once kurumun verecegi is karari gorulur; sayisal motor izleri ise yalnizca acildiginda gelir.",
+          en: "The default read shows the business decision first; the underlying engine traces appear only when opened.",
+        });
   const executiveCards = executiveSummary
     ? [
         {
@@ -645,15 +688,183 @@ export function DemoCenterPage() {
             })}
           />
 
+          <div className="mt-8 panel-product p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="surface-label">{text({ tr: "Demo modu", en: "Demo mode" })}</div>
+                <div className="mt-2 text-sm leading-6 text-slate-300">
+                  {text({
+                    tr: "Ayni motorla iki deterministik senaryo: aksiyon onerilen (full) ve bilgilendirici (limited).",
+                    en: "Two deterministic scenarios from the same engine: actionable (full) vs informational (limited).",
+                  })}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRoadmapSlug("single-customer-roadmap")}
+                  className={[
+                    "rounded-full border px-4 py-2 text-sm font-medium",
+                    roadmapSlug === "single-customer-roadmap"
+                      ? "border-arctic/40 bg-arctic/10 text-white"
+                      : "border-white/10 bg-slate-950/40 text-slate-200 hover:border-white/20",
+                  ].join(" ")}
+                >
+                  {text({ tr: "Aksiyon (full)", en: "Actionable (full)" })}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoadmapSlug("single-customer-roadmap-limited")}
+                  className={[
+                    "rounded-full border px-4 py-2 text-sm font-medium",
+                    roadmapSlug === "single-customer-roadmap-limited"
+                      ? "border-arctic/40 bg-arctic/10 text-white"
+                      : "border-white/10 bg-slate-950/40 text-slate-200 hover:border-white/20",
+                  ].join(" ")}
+                >
+                  {text({ tr: "Bilgi (limited)", en: "Informational (limited)" })}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {customer && summary ? (
             <>
+              <div className="mt-10 panel-product p-6">
+                <div className="surface-label">{text({ tr: "Tek ekran hikaye", en: "One-screen story" })}</div>
+                <div className="mt-4 grid gap-4 xl:grid-cols-3">
+                  <div className="rounded-[24px] border border-white/10 bg-slate-950/45 p-5">
+                    <div className="surface-label">{text({ tr: "Karar", en: "Decision" })}</div>
+                    <div className="mt-3 font-medium text-white">
+                      {formatDecisionStatus(summary.decision_status, lang)}
+                    </div>
+                    <p className="mt-2 text-sm leading-7 text-slate-300">
+                      {summary.decision_reason_summary ||
+                        text({
+                          tr: "Bu gorunumde karar gerekcesi ozeti hazir degil.",
+                          en: "The decision reason summary is not available in this view.",
+                        })}
+                    </p>
+                  </div>
+
+                  <div className="rounded-[24px] border border-white/10 bg-slate-950/45 p-5">
+                    <div className="surface-label">{text({ tr: "Mod", en: "Mode" })}</div>
+                    <div className="mt-4 space-y-2 text-sm leading-6 text-slate-300">
+                      <DetailRow
+                        label={text({ tr: "Recourse", en: "Recourse" })}
+                        value={summary.recourse_mode || text({ tr: "Hazir degil", en: "Unavailable" })}
+                      />
+                      <DetailRow
+                        label={text({ tr: "Recommendation", en: "Recommendation" })}
+                        value={summary.recommendation_mode || text({ tr: "Hazir degil", en: "Unavailable" })}
+                      />
+                      <DetailRow
+                        label={text({ tr: "Narrative", en: "Narrative" })}
+                        value={summary.narrative_type || text({ tr: "Hazir degil", en: "Unavailable" })}
+                      />
+                      <DetailRow
+                        label={text({ tr: "Recoverable", en: "Recoverable" })}
+                        value={
+                          summary.recoverable_flag === undefined
+                            ? text({ tr: "Hazir degil", en: "Unavailable" })
+                            : summary.recoverable_flag
+                              ? text({ tr: "Evet", en: "Yes" })
+                              : text({ tr: "Hayir", en: "No" })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-[24px] border border-white/10 bg-slate-950/45 p-5">
+                    <div className="surface-label">{text({ tr: "Proof rail", en: "Proof rail" })}</div>
+                    <div className="mt-4 space-y-2 text-sm leading-6 text-slate-300">
+                      <DetailRow
+                        label={text({ tr: "Band", en: "Band" })}
+                        value={summary.recoverability_bucket || text({ tr: "Hazir degil", en: "Unavailable" })}
+                      />
+                      <DetailRow
+                        label={text({ tr: "Approval gap", en: "Approval gap" })}
+                        value={
+                          summary.approval_gap === undefined
+                            ? text({ tr: "Hazir degil", en: "Unavailable" })
+                            : formatPdPercent(summary.approval_gap, lang)
+                        }
+                      />
+                      <DetailRow
+                        label={text({ tr: "Contract", en: "Contract" })}
+                        value={summary.narrative_contract_version || text({ tr: "Hazir degil", en: "Unavailable" })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                  <div className="rounded-[24px] border border-white/10 bg-slate-950/45 p-5">
+                    <div className="surface-label">{text({ tr: "Ne oneririz / onermeyiz", en: "What we will / won’t recommend" })}</div>
+                    <div className="mt-3 font-medium text-white">
+                      {isActionable
+                        ? text({
+                            tr: "Bu dosyada tek bir secili yol onerilir ve adim kartlariyla sunulur.",
+                            en: "A single selected path is promoted and shown as step cards.",
+                          })
+                        : text({
+                            tr: "Bu dosyada plan onerilmez. Sadece neden aksiyonlamadigimiz ve kosullar degisirse neyin tekrar denenebilecegi gosterilir.",
+                            en: "No plan is promoted. We only show why it is not actionable and what would need to change for re-evaluation.",
+                          })}
+                    </div>
+                    {isInformational ? (
+                      <p className="mt-2 text-sm leading-7 text-slate-300">
+                        {summary.informational_subtype ||
+                          text({
+                            tr: "Bilgilendirici alt tur bu gorunumde hazir degil.",
+                            en: "The informational subtype is not available in this view.",
+                          })}
+                      </p>
+                    ) : null}
+                    <p className="mt-4 text-sm leading-7 text-slate-300">
+                      {text({
+                        tr: "Not: Bu bir garanti degildir; karar, kurum politikalari ve yeni verilerle yeniden degisebilir.",
+                        en: "Note: This is not a guarantee; decisions can change with institution policy and new data.",
+                      })}
+                    </p>
+                  </div>
+
+                  <div className="rounded-[24px] border border-white/10 bg-slate-950/45 p-5">
+                    <div className="surface-label">{text({ tr: "Secili yol / sonuc", en: "Selected path / outcome" })}</div>
+                    <div className="mt-3 font-medium text-white">
+                      {isActionable && executiveSummary?.recommended_path
+                        ? pickLocalizedText(executiveSummary.recommended_path.label, lang)
+                        : text({
+                            tr: "Limited mod: plan onerilmez",
+                            en: "Limited mode: no plan promoted",
+                          })}
+                    </div>
+                    <p className="mt-2 text-sm leading-7 text-slate-300">
+                      {isActionable && executiveSummary?.recommended_path
+                        ? pickLocalizedText(executiveSummary.recommended_path.description, lang)
+                        : text({
+                            tr: "Bu gorunumde bir yol secimi gosterilmez; hedef, aksiyonlanabilirlik kosullarini netlestirmektir.",
+                            en: "This view does not show a selected path; the goal is to make the conditions for actionability explicit.",
+                          })}
+                    </p>
+                    <div className="mt-4 rounded-[18px] border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-slate-300">
+                      {text({ tr: "Beklenen readiness", en: "Expected readiness" })}: {summary.expected_readiness || expectedOutcome}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <MetricTile
                   label={text({ tr: "Durum", en: "Status" })}
                   value={customerStatus}
                   hint={text({
-                    tr: "Dosya reddedilmis halde kalmiyor; yonetilen bir toparlanma yoluna alinmis durumda.",
-                    en: "The file is not left as a dead-end decline; it has been moved into a managed recovery path.",
+                    tr: isInformational
+                      ? "Bu gorunum bilgilendiricidir; dosya su an icin guvenli sekilde aksiyona cevrilemez ve plan onerilmez."
+                      : "Dosya reddedilmis halde kalmiyor; yonetilen bir toparlanma yoluna alinmis durumda.",
+                    en: isInformational
+                      ? "This view is informational; the file is not safely actionable right now and no plan is promoted."
+                      : "The file is not left as a dead-end decline; it has been moved into a managed recovery path.",
                   })}
                   context={contextLabels.curated}
                   variant="product"
@@ -712,7 +923,7 @@ export function DemoCenterPage() {
                         {firstCheckpoint
                           ? formatCheckpointNote(
                               firstCheckpoint.week,
-                              firstCheckpoint.approval_ready,
+                              approvalReadyForWeek(firstCheckpoint.week),
                               firstCheckpoint.gate_pass_estimate,
                               lang,
                             )
@@ -766,17 +977,20 @@ export function DemoCenterPage() {
                       summary={
                         checkpoint.narrative
                           ? pickLocalizedText(checkpoint.narrative.expected_state, lang)
-                          : checkpoint.note
+                          : checkpoint.note ??
+                            text({ tr: "Bu gorunumde hazir degil", en: "Unavailable in this view" })
                       }
                       supporting={
                         checkpoint.narrative
                           ? pickLocalizedText(checkpoint.narrative.success_condition, lang)
-                          : formatCheckpointNote(
-                              checkpoint.week,
-                              checkpoint.approval_ready,
-                              checkpoint.gate_pass_estimate,
-                              lang,
-                            )
+                          : approvalReadyForWeek(checkpoint.week) === undefined
+                            ? text({ tr: "Bu gorunumde hazir degil", en: "Unavailable in this view" })
+                            : formatCheckpointNote(
+                                checkpoint.week,
+                                approvalReadyForWeek(checkpoint.week),
+                                checkpoint.gate_pass_estimate,
+                                lang,
+                              )
                       }
                       emphasis={checkpoint.week === 4}
                     />
@@ -1180,7 +1394,11 @@ export function DemoCenterPage() {
                   />
                   <DetailRow
                     label={text({ tr: "Credit readiness", en: "Credit readiness" })}
-                    value={formatCreditReadinessStage(summary?.credit_readiness_stage, lang)}
+                    value={
+                      summary?.credit_readiness_stage
+                        ? formatCreditReadinessStage(summary.credit_readiness_stage, lang)
+                        : text({ tr: "Bu gorunumde hazir degil", en: "Unavailable in this view" })
+                    }
                   />
                   <DetailRow
                     label={text({ tr: "Baz PD", en: "Base PD" })}
@@ -1192,15 +1410,27 @@ export function DemoCenterPage() {
                   />
                   <DetailRow
                     label={text({ tr: "Plan execution", en: "Plan execution" })}
-                    value={formatPercent(summary?.plan_execution_probability ?? 0)}
+                    value={
+                      summary?.plan_execution_probability === undefined
+                        ? text({ tr: "Bu gorunumde hazir degil", en: "Unavailable in this view" })
+                        : formatPercent(summary.plan_execution_probability)
+                    }
                   />
                   <DetailRow
                     label={text({ tr: "Birlesik gerceklesme", en: "Combined realization" })}
-                    value={formatPercent(summary?.combined_plan_realization_probability ?? 0)}
+                    value={
+                      summary?.combined_plan_realization_probability === undefined
+                        ? text({ tr: "Bu gorunumde hazir degil", en: "Unavailable in this view" })
+                        : formatPercent(summary.combined_plan_realization_probability)
+                    }
                   />
                   <DetailRow
                     label={text({ tr: "4 haftada hazirlik", en: "4-week approval readiness" })}
-                    value={formatApprovalReady(Boolean(summary?.approval_ready_4w), lang)}
+                    value={
+                      summary?.approval_ready_4w === undefined
+                        ? text({ tr: "Bu gorunumde hazir degil", en: "Unavailable in this view" })
+                        : formatApprovalReady(summary.approval_ready_4w, lang)
+                    }
                   />
                 </div>
               </div>
@@ -1232,7 +1462,11 @@ export function DemoCenterPage() {
                         />
                         <DetailRow
                           label={text({ tr: "Approval ready", en: "Approval ready" })}
-                          value={formatApprovalReady(Boolean(checkpoint.approval_ready), lang)}
+                          value={
+                            approvalReadyForWeek(checkpoint.week) === undefined
+                              ? text({ tr: "Bu gorunumde hazir degil", en: "Unavailable in this view" })
+                              : formatApprovalReady(Boolean(approvalReadyForWeek(checkpoint.week)), lang)
+                          }
                         />
                       </div>
                     </div>

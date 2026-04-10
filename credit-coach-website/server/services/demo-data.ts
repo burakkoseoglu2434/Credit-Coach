@@ -32,6 +32,14 @@ const items: DemoItem[] = [
     filename: "single_customer_roadmap.json",
   },
   {
+    slug: "single-customer-roadmap-limited",
+    title: "Single Customer Roadmap (Limited)",
+    category: "demo",
+    summary: "A limited-mode snapshot that shows recoverability posture and why no plan is promoted yet.",
+    type: "json",
+    filename: "single_customer_roadmap.json",
+  },
+  {
     slug: "portfolio-batch-summary",
     title: "Portfolio Batch Summary",
     category: "proof",
@@ -149,11 +157,13 @@ export async function getDemoPayload(slug: string) {
     return null;
   }
 
-  if (slug === "single-customer-roadmap") {
+  if (slug === "single-customer-roadmap" || slug === "single-customer-roadmap-limited") {
     try {
       return {
         ...item,
-        content: await getLiveSingleCustomerDemo(),
+        content: await getLiveSingleCustomerDemo(
+          slug === "single-customer-roadmap-limited" ? "informational_mid_risk" : undefined,
+        ),
       };
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -176,7 +186,7 @@ export async function getDemoPayload(slug: string) {
     content:
       slug === "product-confidence-snapshot"
         ? productConfidenceSnapshotSchema.parse(parsed)
-        : slug === "single-customer-roadmap"
+        : slug === "single-customer-roadmap" || slug === "single-customer-roadmap-limited"
           ? singleCustomerDemoSchema.parse(parsed)
           : parsed,
   };
