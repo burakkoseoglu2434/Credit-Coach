@@ -115,6 +115,11 @@ def summarize_population_metrics_from_rows(
             "recommendation_mode_distribution": {},
             "limited_customer_rate": 0.0,
             "informational_recommendation_rate": 0.0,
+            "empty_state_rate": 0.0,
+            "zero_action_rate": 0.0,
+            "movement_rate": 0.0,
+            "strong_movement_rate": 0.0,
+            "threshold_gap_distribution": {},
             "selected_source_distribution": {},
         }
         for source in resolved_catalog:
@@ -138,6 +143,19 @@ def summarize_population_metrics_from_rows(
         .str.strip()
         .str.lower()
     )
+    selected_recommendation_source = (
+        rows.get("selected_recommendation_source", pd.Series([""] * len(rows), dtype=object))
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+    selected_path_movement_strength = (
+        rows.get("selected_path_movement_strength", pd.Series([""] * len(rows), dtype=object))
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+    cohort_label = rows.get("cohort_label", pd.Series([""] * len(rows), dtype=object)).astype(str).str.strip()
 
     metrics: dict[str, float | dict[str, float]] = {
         "candidate_pool_diversity_index": _mean_numeric(rows, "candidate_pool_diversity_index"),
@@ -196,6 +214,16 @@ def summarize_population_metrics_from_rows(
     }
     metrics["limited_customer_rate"] = _round_metric((recourse_mode == "limited").mean())
     metrics["informational_recommendation_rate"] = _round_metric((recommendation_mode == "informational").mean())
+    metrics["empty_state_rate"] = _round_metric((selected_recommendation_source == "empty_state").mean())
+    metrics["zero_action_rate"] = _round_metric(
+        (pd.to_numeric(rows.get("selected_action_count", pd.Series([0] * len(rows))), errors="coerce").fillna(0).astype(int) == 0).mean()
+    )
+    metrics["movement_rate"] = _round_metric((selected_path_movement_strength != "").mean())
+    metrics["strong_movement_rate"] = _round_metric((selected_path_movement_strength == "strong").mean())
+    metrics["threshold_gap_distribution"] = {
+        key: _round_metric(value)
+        for key, value in cohort_label[cohort_label != ""].value_counts(normalize=True).sort_index().items()
+    }
     selected_source_distribution: dict[str, float] = {}
     for source in resolved_catalog:
         rate = _round_metric((best_source == source).mean())
@@ -333,6 +361,30 @@ def build_cohort_evidence_package(
                 metrics.get("selected_path_movement_strength_distribution", {}) or {}
             ),
         },
+        "targeted_evaluation": {
+            "population": population_name,
+            "movement_rate": _safe_float(metrics.get("movement_rate", 0.0), 0.0),
+            "strong_movement_rate": _safe_float(metrics.get("strong_movement_rate", 0.0), 0.0),
+            "mean_movement_score": _safe_float(metrics.get("mean_movement_score", 0.0), 0.0),
+            "mean_threshold_reach_probability": _safe_float(
+                metrics.get("mean_threshold_reach_probability", 0.0),
+                0.0,
+            ),
+            "threshold_reach_priority_rate": _safe_float(metrics.get("threshold_reach_priority_rate", 0.0), 0.0),
+            "limited_customer_rate": _safe_float(metrics.get("limited_customer_rate", 0.0), 0.0),
+            "informational_recommendation_rate": _safe_float(
+                metrics.get("informational_recommendation_rate", 0.0),
+                0.0,
+            ),
+            "empty_state_rate": _safe_float(metrics.get("empty_state_rate", 0.0), 0.0),
+            "zero_action_rate": _safe_float(metrics.get("zero_action_rate", 0.0), 0.0),
+            "recommendation_mode_distribution": dict(metrics.get("recommendation_mode_distribution", {}) or {}),
+            "recourse_mode_distribution": dict(metrics.get("recourse_mode_distribution", {}) or {}),
+            "threshold_gap_distribution": dict(metrics.get("threshold_gap_distribution", {}) or {}),
+            "selected_path_movement_strength_distribution": dict(
+                metrics.get("selected_path_movement_strength_distribution", {}) or {}
+            ),
+        },
         "recoverability_signal": {
             "population": population_name,
             "mean_approval_gap": _safe_float(metrics.get("mean_approval_gap", 0.0), 0.0),
@@ -396,6 +448,7 @@ def build_phase60_evidence_summary(
     action_coverage_table = [dict(pkg.get("action_coverage", {}) or {}) for pkg in package_list]
     selected_path_distribution_table = [dict(pkg.get("selected_path_distribution", {}) or {}) for pkg in package_list]
     movement_ranking_table = [dict(pkg.get("movement_ranking", {}) or {}) for pkg in package_list]
+    targeted_evaluation_table = [dict(pkg.get("targeted_evaluation", {}) or {}) for pkg in package_list]
     recoverability_signal_table = [dict(pkg.get("recoverability_signal", {}) or {}) for pkg in package_list]
     recourse_gate_table = [dict(pkg.get("recourse_gate", {}) or {}) for pkg in package_list]
     if trust_regression_rows is not None:
@@ -410,6 +463,7 @@ def build_phase60_evidence_summary(
         "action_coverage_table": action_coverage_table,
         "selected_path_distribution_table": selected_path_distribution_table,
         "movement_ranking_table": movement_ranking_table,
+        "targeted_evaluation_table": targeted_evaluation_table,
         "recoverability_signal_table": recoverability_signal_table,
         "recourse_gate_table": recourse_gate_table,
         "trust_regression_table": trust_regression_table,
@@ -471,6 +525,23 @@ def render_phase60_evidence_markdown(summary: Mapping[str, Any]) -> str:
                 f"threshold_reach_probability={_safe_float(row.get('mean_threshold_reach_probability'), 0.0):.4f}, "
                 f"threshold_reach_priority_rate={_safe_float(row.get('threshold_reach_priority_rate'), 0.0):.4f}, "
                 f"movement_strength_distribution={json.dumps(dict(row.get('selected_path_movement_strength_distribution', {}) or {}), ensure_ascii=False, sort_keys=True)}"
+            )
+    else:
+        lines.append("- n/a")
+    lines.extend(["", "## Targeted Evaluation"])
+    targeted_rows = list(summary.get("targeted_evaluation_table", []) or [])
+    if targeted_rows:
+        for row in targeted_rows:
+            lines.append(
+                "- "
+                f"{_safe_str(row.get('population'), 'unknown')}: "
+                f"movement_rate={_safe_float(row.get('movement_rate'), 0.0):.4f}, "
+                f"strong_movement_rate={_safe_float(row.get('strong_movement_rate'), 0.0):.4f}, "
+                f"limited_rate={_safe_float(row.get('limited_customer_rate'), 0.0):.4f}, "
+                f"informational_rate={_safe_float(row.get('informational_recommendation_rate'), 0.0):.4f}, "
+                f"empty_state_rate={_safe_float(row.get('empty_state_rate'), 0.0):.4f}, "
+                f"zero_action_rate={_safe_float(row.get('zero_action_rate'), 0.0):.4f}, "
+                f"threshold_gap_distribution={json.dumps(dict(row.get('threshold_gap_distribution', {}) or {}), ensure_ascii=False, sort_keys=True)}"
             )
     else:
         lines.append("- n/a")
@@ -536,6 +607,7 @@ def write_phase60_evidence_artifacts(
     action_csv = output_root / f"{prefix}_action_coverage_table.csv"
     selected_csv = output_root / f"{prefix}_selected_path_distribution_table.csv"
     movement_ranking_csv = output_root / f"{prefix}_movement_ranking_table.csv"
+    targeted_evaluation_csv = output_root / f"{prefix}_targeted_evaluation_table.csv"
     recoverability_csv = output_root / f"{prefix}_recoverability_signal_table.csv"
     recourse_gate_csv = output_root / f"{prefix}_recourse_gate_table.csv"
     trust_csv = output_root / f"{prefix}_trust_regression_table.csv"
@@ -547,6 +619,7 @@ def write_phase60_evidence_artifacts(
     pd.DataFrame(list(summary.get("action_coverage_table", []) or [])).to_csv(action_csv, index=False)
     pd.DataFrame(list(summary.get("selected_path_distribution_table", []) or [])).to_csv(selected_csv, index=False)
     pd.DataFrame(list(summary.get("movement_ranking_table", []) or [])).to_csv(movement_ranking_csv, index=False)
+    pd.DataFrame(list(summary.get("targeted_evaluation_table", []) or [])).to_csv(targeted_evaluation_csv, index=False)
     pd.DataFrame(list(summary.get("recoverability_signal_table", []) or [])).to_csv(recoverability_csv, index=False)
     pd.DataFrame(list(summary.get("recourse_gate_table", []) or [])).to_csv(recourse_gate_csv, index=False)
     pd.DataFrame(list(summary.get("trust_regression_table", []) or [])).to_csv(trust_csv, index=False)
@@ -558,6 +631,7 @@ def write_phase60_evidence_artifacts(
         "action_coverage_table_csv": action_csv.name,
         "selected_path_distribution_table_csv": selected_csv.name,
         "movement_ranking_table_csv": movement_ranking_csv.name,
+        "targeted_evaluation_table_csv": targeted_evaluation_csv.name,
         "recoverability_signal_table_csv": recoverability_csv.name,
         "recourse_gate_table_csv": recourse_gate_csv.name,
         "trust_regression_table_csv": trust_csv.name,

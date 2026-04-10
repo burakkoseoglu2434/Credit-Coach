@@ -1555,6 +1555,24 @@ def main() -> None:
             ),
         )
     ]
+    for population_name, population_df in {
+        "global_denied": customer_df.copy(),
+        "recoverable_full_mode": customer_df[customer_df["primary_population"] == "recoverable_full_mode"].copy(),
+        "non_recoverable_limited_mode": customer_df[
+            customer_df["primary_population"] == "non_recoverable_limited_mode"
+        ].copy(),
+    }.items():
+        phase_60_packages.append(
+            build_cohort_evidence_package(
+                population_name=population_name,
+                population_metrics=summarize_population_metrics_from_rows(population_df),
+                movement_summary={},
+                trust_regression_status=_build_trust_regression_rows(
+                    population_name=population_name,
+                    metrics=_aggregate_metrics(population_df),
+                ),
+            )
+        )
     for cohort in COHORT_ORDER:
         cohort_df = customer_df[customer_df["cohort_label"] == cohort].copy()
         phase_60_packages.append(

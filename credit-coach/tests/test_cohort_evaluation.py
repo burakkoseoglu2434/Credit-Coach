@@ -63,6 +63,9 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
                 "recoverability_classifier_version": "phase_62_v1",
                 "recourse_mode": "full",
                 "recommendation_mode": "actionable",
+                "selected_recommendation_source": "selected_plan",
+                "selected_action_count": 1,
+                "cohort_label": "near_threshold_denied",
                 "movement_score": 0.84,
                 "threshold_reach_probability": 0.72,
                 "threshold_reach_priority_flag": 1,
@@ -91,6 +94,9 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
                 "recoverability_classifier_version": "phase_62_v1",
                 "recourse_mode": "limited",
                 "recommendation_mode": "informational",
+                "selected_recommendation_source": "empty_state",
+                "selected_action_count": 0,
+                "cohort_label": "mid_risk_denied",
                 "movement_score": 0.0,
                 "threshold_reach_probability": 0.0,
                 "threshold_reach_priority_flag": 0,
@@ -121,10 +127,15 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
     assert metrics["recommendation_mode_distribution"] == {"actionable": 0.5, "informational": 0.5}
     assert metrics["limited_customer_rate"] == 0.5
     assert metrics["informational_recommendation_rate"] == 0.5
+    assert metrics["empty_state_rate"] == 0.5
+    assert metrics["zero_action_rate"] == 0.5
     assert metrics["mean_movement_score"] == 0.42
     assert metrics["mean_threshold_reach_probability"] == 0.36
     assert metrics["threshold_reach_priority_rate"] == 0.5
+    assert metrics["movement_rate"] == 0.5
+    assert metrics["strong_movement_rate"] == 0.5
     assert metrics["selected_path_movement_strength_distribution"] == {"strong": 1.0}
+    assert metrics["threshold_gap_distribution"] == {"mid_risk_denied": 0.5, "near_threshold_denied": 0.5}
     assert metrics["selected_source_distribution"]["internal"] == 0.5
 
 
@@ -155,10 +166,15 @@ def test_cohort_evidence_package_infers_default_trust_rows_from_movement_summary
         "recommendation_mode_distribution": {"actionable": 0.88, "informational": 0.12},
         "limited_customer_rate": 0.12,
         "informational_recommendation_rate": 0.12,
+        "empty_state_rate": 0.12,
+        "zero_action_rate": 0.18,
+        "movement_rate": 0.88,
+        "strong_movement_rate": 0.30,
         "mean_movement_score": 0.44,
         "mean_threshold_reach_probability": 0.31,
         "threshold_reach_priority_rate": 0.18,
         "selected_path_movement_strength_distribution": {"moderate": 0.70, "strong": 0.30},
+        "threshold_gap_distribution": {"mid_risk_denied": 0.60, "near_threshold_denied": 0.40},
     }
     movement = {
         "dominant_movement_bottleneck": "structural_cohort_limited",
@@ -187,6 +203,14 @@ def test_cohort_evidence_package_infers_default_trust_rows_from_movement_summary
     assert pkg["movement_ranking"]["selected_path_movement_strength_distribution"] == {
         "moderate": 0.70,
         "strong": 0.30,
+    }
+    assert pkg["targeted_evaluation"]["movement_rate"] == 0.88
+    assert pkg["targeted_evaluation"]["strong_movement_rate"] == 0.30
+    assert pkg["targeted_evaluation"]["empty_state_rate"] == 0.12
+    assert pkg["targeted_evaluation"]["zero_action_rate"] == 0.18
+    assert pkg["targeted_evaluation"]["threshold_gap_distribution"] == {
+        "mid_risk_denied": 0.60,
+        "near_threshold_denied": 0.40,
     }
     assert pkg["recoverability_signal"]["threshold_reach_possible_rate"] == 0.18
     assert pkg["recoverability_signal"]["recoverable_customer_rate"] == 0.12
@@ -240,10 +264,15 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
             "recommendation_mode_distribution": {"actionable": 0.80, "informational": 0.20},
             "limited_customer_rate": 0.20,
             "informational_recommendation_rate": 0.20,
+            "empty_state_rate": 0.20,
+            "zero_action_rate": 0.25,
+            "movement_rate": 0.80,
+            "strong_movement_rate": 0.25,
             "mean_movement_score": 0.51,
             "mean_threshold_reach_probability": 0.29,
             "threshold_reach_priority_rate": 0.14,
             "selected_path_movement_strength_distribution": {"moderate": 0.75, "strong": 0.25},
+            "threshold_gap_distribution": {"mid_risk_denied": 0.50, "near_threshold_denied": 0.50},
         },
         {"dominant_movement_bottleneck": "structural_cohort_limited"},
         [{"suite": "winner_integrity", "status": "passed", "evidence_source": "pytest", "notes": ""}],
@@ -261,6 +290,7 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
         "action_coverage_table_csv",
         "selected_path_distribution_table_csv",
         "movement_ranking_table_csv",
+        "targeted_evaluation_table_csv",
         "recoverability_signal_table_csv",
         "recourse_gate_table_csv",
         "trust_regression_table_csv",
@@ -279,6 +309,13 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
     assert payload["movement_ranking_table"][0]["selected_path_movement_strength_distribution"] == {
         "moderate": 0.75,
         "strong": 0.25,
+    }
+    assert payload["targeted_evaluation_table"][0]["movement_rate"] == 0.8
+    assert payload["targeted_evaluation_table"][0]["strong_movement_rate"] == 0.25
+    assert payload["targeted_evaluation_table"][0]["empty_state_rate"] == 0.2
+    assert payload["targeted_evaluation_table"][0]["threshold_gap_distribution"] == {
+        "mid_risk_denied": 0.5,
+        "near_threshold_denied": 0.5,
     }
     assert payload["recourse_gate_table"][0]["limited_customer_rate"] == 0.2
     assert payload["recourse_gate_table"][0]["recourse_mode_distribution"] == {"full": 0.8, "limited": 0.2}
@@ -605,6 +642,15 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     assert movement_row["mean_threshold_reach_probability"] == 0.69
     assert movement_row["threshold_reach_priority_rate"] == 1.0
     assert movement_row["selected_path_movement_strength_distribution"] == {"moderate": 1.0}
+    targeted_row = next(row for row in phase_60_payload["targeted_evaluation_table"] if row["population"] == "recoverable_full_mode")
+    assert targeted_row["movement_rate"] == 1.0
+    assert targeted_row["strong_movement_rate"] == 0.0
+    assert targeted_row["empty_state_rate"] == 0.0
+    assert targeted_row["threshold_gap_distribution"] == {
+        "hard_denied": 0.333333,
+        "mid_risk_denied": 0.333333,
+        "near_threshold_denied": 0.333333,
+    }
     recourse_row = next(row for row in phase_60_payload["recourse_gate_table"] if row["population"] == "overall")
     assert recourse_row["recourse_mode_distribution"] == {"full": 1.0, "limited": 0.0}
     assert recourse_row["recommendation_mode_distribution"] == {"actionable": 1.0, "informational": 0.0}
@@ -832,4 +878,16 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
     }
     assert metrics_payload["targeted_comparison"]["summary"]["threshold_gap_distribution_recoverable"] == {}
     assert metrics_payload["targeted_comparison"]["summary"]["selected_path_movement_strength_distribution_recoverable"] == {}
+    phase_60_payload = json.loads(
+        (
+            tmp_path / "phase_60" / "phase_60_cohort_eval_cohort_evidence_summary.json"
+        ).read_text(encoding="utf-8")
+    )
+    limited_targeted_row = next(
+        row for row in phase_60_payload["targeted_evaluation_table"] if row["population"] == "non_recoverable_limited_mode"
+    )
+    assert limited_targeted_row["movement_rate"] == 0.0
+    assert limited_targeted_row["empty_state_rate"] == 1.0
+    assert limited_targeted_row["zero_action_rate"] == 1.0
+    assert limited_targeted_row["threshold_gap_distribution"] == {"near_threshold_denied": 1.0}
     assert metrics_payload["phase_60_overall_movement_conclusion"] in {"movement_diagnosis_pending", "structural_bottleneck_remains_dominant"}
