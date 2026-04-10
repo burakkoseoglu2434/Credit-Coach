@@ -1041,11 +1041,38 @@ def _markdown_table(rows: list[dict[str, Any]], columns: list[tuple[str, str]]) 
     return "\n".join([header, divider, *body])
 
 
+def _targeted_comparison_rows(targeted_comparison: Mapping[str, Any]) -> list[dict[str, Any]]:
+    populations = dict(targeted_comparison.get("populations", {}) or {})
+    rows: list[dict[str, Any]] = []
+    for population in ["global_denied", "recoverable_full_mode", "non_recoverable_limited_mode"]:
+        metrics = dict(populations.get(population, {}) or {})
+        rows.append(
+            {
+                "population": population,
+                "sample_size": _safe_int(metrics.get("sample_size", 0), 0),
+                "movement_rate": _safe_float(metrics.get("movement_rate", 0.0), 0.0),
+                "strong_movement_rate": _safe_float(metrics.get("strong_movement_rate", 0.0), 0.0),
+                "threshold_reach_priority_rate": _safe_float(
+                    metrics.get("threshold_reach_priority_rate", 0.0),
+                    0.0,
+                ),
+                "limited_customer_rate": _safe_float(metrics.get("limited_customer_rate", 0.0), 0.0),
+                "informational_recommendation_rate": _safe_float(
+                    metrics.get("informational_recommendation_rate", 0.0),
+                    0.0,
+                ),
+                "empty_state_rate": _safe_float(metrics.get("empty_state_rate", 0.0), 0.0),
+            }
+        )
+    return rows
+
+
 def _render_report(
     *,
     sampled_df: pd.DataFrame,
     customer_df: pd.DataFrame,
     overall: dict[str, Any],
+    targeted_comparison: Mapping[str, Any],
     by_cohort: dict[str, dict[str, Any]],
     comparison_rows: list[dict[str, Any]],
     diagnosis: dict[str, Any],
@@ -1097,19 +1124,39 @@ def _render_report(
         example_lines.append("- No qualifying examples were available in this sampled run.")
 
     insights = _top_five_insights(overall=overall, by_cohort=by_cohort)
+    targeted_rows = _targeted_comparison_rows(targeted_comparison)
     report = "\n".join(
         [
-            "# v2.4 Cohort Evaluation",
+            "# v2.5 Targeted Cohort Evaluation",
             "",
             "## Scope",
             f"- Sampled customers: {len(customer_df)}",
-            "- Evaluation mode: existing v2.4 recourse pipeline only",
+            "- Evaluation mode: current v2.5 targeted runtime only",
+            "- Primary comparison: recoverable_full_mode vs global_denied",
+            "- Honesty control population: non_recoverable_limited_mode",
             "- Planner changes: none",
             "- Threshold changes: none",
             "- New action types: none",
             f"- Dataset scope: {dataset_scope}",
             f"- Sampling mode: {'with_replacement' if sampling_meta.get('with_replacement') else 'without_replacement'}",
             f"- Unique denied customers available: {sampling_meta.get('unique_denied_available', 0)}",
+            "",
+            "## Targeted Comparison",
+            _markdown_table(
+                targeted_rows,
+                [
+                    ("population", "population"),
+                    ("sample_size", "sample_size"),
+                    ("movement_rate", "movement_rate"),
+                    ("strong_movement_rate", "strong_movement_rate"),
+                    ("threshold_reach_priority_rate", "threshold_reach_priority_rate"),
+                    ("limited_customer_rate", "limited_rate"),
+                    ("informational_recommendation_rate", "informational_rate"),
+                    ("empty_state_rate", "empty_state_rate"),
+                ],
+            ),
+            "",
+            "Targeted concentration and honesty remain distinct in this report: stronger recoverable movement does not by itself prove business uplift, and limited-mode visibility is treated as a control outcome rather than a silent suppression.",
             "",
             "## Cohort Sampling",
             _markdown_table(
@@ -1146,7 +1193,7 @@ def _render_report(
                 ],
             ),
             "",
-            "## Cohort Readout",
+            "## Secondary Gap-Cohort Readout",
             f"- near_threshold_denied: strong movement rate {by_cohort['near_threshold_denied']['customers_with_strong_movement_rate']:.1%}; "
             f"structural limitation rate {by_cohort['near_threshold_denied']['structural_cohort_limited_rate']:.1%}.",
             f"- mid_risk_denied: strong movement rate {by_cohort['mid_risk_denied']['customers_with_strong_movement_rate']:.1%}; "
@@ -1157,14 +1204,12 @@ def _render_report(
             "## Example Customers",
             *example_lines,
             "",
-            "## Final Diagnosis",
-            f"1. Does v2.4 increase movement potential? {diagnosis['does_v24_increase_movement_potential']}.",
-            f"2. Is improvement concentrated in near-threshold cohort? {diagnosis['is_improvement_concentrated_in_near_threshold']}.",
-            f"3. Are institution/hybrid paths meaningful or cosmetic? {diagnosis['are_institution_or_hybrid_paths_meaningful']}.",
-            f"4. What % of customers remain structurally limited? {diagnosis['structurally_limited_customer_pct']:.2f}%.",
-            f"5. Is system ready for business uplift experiments? {diagnosis['is_system_ready_for_business_uplift_experiments']}.",
-            "",
-            "Capability and outcome remain separated in this diagnosis: path availability shows what the system can propose, not realized business uplift.",
+            "## Targeted Evaluation Framing",
+            f"- Primary comparison basis: recoverable_full_mode vs global_denied under the current runtime.",
+            f"- Secondary readout: gap cohorts remain available for concentration diagnostics and structural-limit context.",
+            f"- Structural limitation in the sampled denied population: {diagnosis['structurally_limited_customer_pct']:.2f}%.",
+            f"- Trust baseline intact during this run: {diagnosis['trust_baseline_intact']}.",
+            f"- Business uplift claim status: not claimed.",
             "",
             "## Top 5 Insights",
             *[f"- {insight}" for insight in insights],
@@ -1596,12 +1641,14 @@ def main() -> None:
 
     metrics_payload = {
         "evaluation": {
-            "name": "v2.4_cohort_evaluation",
+            "name": "v2.5_targeted_cohort_evaluation",
             "sample_size": int(len(customer_df)),
             "sample_seed": int(args.sample_seed),
             "tau": round(tau, 6),
             "dataset_scope": args.dataset_scope,
             "cohort_assignment": "denied approval-gap rank tertiles",
+            "primary_comparison": "recoverable_full_mode_vs_global_denied",
+            "honesty_control_population": "non_recoverable_limited_mode",
             "movement_classification_note": (
                 "strong if a rankable path reaches threshold or closes at least half of the denial gap; "
                 "weak if improvement is positive but below that bar; none otherwise"
@@ -1642,6 +1689,7 @@ def main() -> None:
         sampled_df=sampled_df,
         customer_df=customer_df,
         overall=overall_metrics,
+        targeted_comparison=targeted_comparison,
         by_cohort=by_cohort_metrics,
         comparison_rows=comparison_rows,
         diagnosis=diagnosis,

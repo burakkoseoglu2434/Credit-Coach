@@ -514,6 +514,7 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
 
     customer_df = pd.read_csv(tmp_path / "customer_level_analysis.csv")
     metrics_payload = json.loads((tmp_path / "cohort_metrics.json").read_text(encoding="utf-8"))
+    report_text = (tmp_path / "cohort_evaluation_report.md").read_text(encoding="utf-8")
 
     assert "recoverability_bucket" in customer_df.columns
     assert "recoverable_flag" in customer_df.columns
@@ -624,6 +625,12 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     assert metrics_payload["targeted_comparison"]["summary"]["selected_path_movement_strength_distribution_recoverable"] == {
         "moderate": 1.0
     }
+    assert metrics_payload["evaluation"]["name"] == "v2.5_targeted_cohort_evaluation"
+    assert metrics_payload["evaluation"]["primary_comparison"] == "recoverable_full_mode_vs_global_denied"
+    assert metrics_payload["evaluation"]["honesty_control_population"] == "non_recoverable_limited_mode"
+    assert "# v2.5 Targeted Cohort Evaluation" in report_text
+    assert "Primary comparison: recoverable_full_mode vs global_denied" in report_text
+    assert "Business uplift claim status: not claimed." in report_text
     assert metrics_payload["phase_60_evidence_version"] == "v2.4_phase_60"
     assert metrics_payload["phase_60_overall_trust_conclusion"] == "trust_baseline_intact"
     assert "cohort_evidence_summary_json" in metrics_payload["artifacts"]["phase_60_files"]
@@ -819,6 +826,7 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
 
     customer_df = pd.read_csv(tmp_path / "customer_level_analysis.csv")
     metrics_payload = json.loads((tmp_path / "cohort_metrics.json").read_text(encoding="utf-8"))
+    report_text = (tmp_path / "cohort_evaluation_report.md").read_text(encoding="utf-8")
 
     assert customer_df["recourse_mode"].eq("limited").all()
     assert customer_df["recommendation_mode"].eq("informational").all()
@@ -878,6 +886,12 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
     }
     assert metrics_payload["targeted_comparison"]["summary"]["threshold_gap_distribution_recoverable"] == {}
     assert metrics_payload["targeted_comparison"]["summary"]["selected_path_movement_strength_distribution_recoverable"] == {}
+    assert metrics_payload["evaluation"]["name"] == "v2.5_targeted_cohort_evaluation"
+    assert metrics_payload["evaluation"]["primary_comparison"] == "recoverable_full_mode_vs_global_denied"
+    assert metrics_payload["evaluation"]["honesty_control_population"] == "non_recoverable_limited_mode"
+    assert "# v2.5 Targeted Cohort Evaluation" in report_text
+    assert "Honesty control population: non_recoverable_limited_mode" in report_text
+    assert "Business uplift claim status: not claimed." in report_text
     phase_60_payload = json.loads(
         (
             tmp_path / "phase_60" / "phase_60_cohort_eval_cohort_evidence_summary.json"
