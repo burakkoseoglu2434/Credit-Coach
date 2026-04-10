@@ -57,6 +57,14 @@ def _sample_roadmap() -> dict:
                 "REALISTIC_MOVEMENT_ADVANTAGE",
             ],
             "selected_path_movement_strength": "moderate",
+            "recourse_mode": "full",
+            "recommendation_mode": "actionable",
+            "recoverable_flag": True,
+            "narrative_type": "actionable",
+            "informational_subtype": "",
+            "narrative_contract_version": "phase_66_v1",
+            "approval_gap": 0.05,
+            "recoverability_bucket": "near_threshold",
         },
         "contract_health": {"raw_contract_pass": 1, "parity_pass": 1, "data_issue_flag": 0},
         "narrative": {
@@ -102,6 +110,14 @@ def test_build_decision_explanation_pack_is_external_only_and_matches_operator_p
     assert pack.institution_condition == "The profile needs about 1,200 units of additional total credit capacity to strengthen."
     assert pack.selected_recommendation_source == "selected_plan"
     assert pack.selected_action_count == 1
+    assert pack.recourse_mode == "full"
+    assert pack.recommendation_mode == "actionable"
+    assert pack.recoverable_flag is True
+    assert pack.narrative_type == "actionable"
+    assert pack.informational_subtype in (None, "")
+    assert pack.narrative_contract_version == "phase_66_v1"
+    assert pack.approval_gap == 0.05
+    assert pack.recoverability_bucket == "near_threshold"
     assert len(pack.structured_numeric_drivers) == 1
     assert pack.structured_numeric_drivers[0].driver_key == "utilization"
     assert [reason.reason_code for reason in pack.adverse_action_friendly_reasons] == [
@@ -199,6 +215,12 @@ def test_build_decision_explanation_pack_renders_empty_state_without_fake_recomm
             "recommendation_mode": "informational",
             "recourse_gate_version": "phase_63_v1",
             "recourse_gate_reason_codes": ["NOT_RECOVERABLE_LIMITED_MODE"],
+            "recoverable_flag": False,
+            "narrative_type": "informational",
+            "informational_subtype": "not_currently_actionable",
+            "narrative_contract_version": "phase_66_v1",
+            "approval_gap": 0.12,
+            "recoverability_bucket": "mid_risk",
             "selected_recommendation_text": None,
             "selected_institution_condition": None,
             "selected_recommendation_source": "empty_state",
@@ -216,3 +238,11 @@ def test_build_decision_explanation_pack_renders_empty_state_without_fake_recomm
     assert pack.recommended_customer_action is None
     assert pack.selected_recommendation_source == "empty_state"
     assert pack.selected_action_count == 0
+    assert pack.recourse_mode == "limited"
+    assert pack.recommendation_mode == "informational"
+    assert pack.recoverable_flag is False
+    assert pack.narrative_type == "informational"
+    assert pack.informational_subtype == "not_currently_actionable"
+    assert pack.narrative_contract_version == "phase_66_v1"
+    assert pack.approval_gap == 0.12
+    assert pack.recoverability_bucket == "mid_risk"

@@ -178,6 +178,12 @@ def _assert_packet_drift_guard(
     packet_outcome_rule_profile_version = _safe_text(appendix.get("selected_outcome_rule_profile_version"))
     packet_outcome_rule_source = _safe_text(appendix.get("selected_outcome_rule_source"))
     packet_outcome_rule_transition = _safe_text(appendix.get("selected_outcome_rule_transition"))
+    packet_recourse_mode = _safe_text(short_view.get("recourse_mode"))
+    packet_recommendation_mode = _safe_text(short_view.get("recommendation_mode"))
+    packet_recoverable_flag = short_view.get("recoverable_flag", None)
+    packet_narrative_type = _safe_text(short_view.get("narrative_type"))
+    packet_informational_subtype = _safe_text(short_view.get("informational_subtype"))
+    packet_narrative_contract_version = _safe_text(short_view.get("narrative_contract_version"))
 
     if packet_decision_id and packet_decision_id != pack.decision_id:
         raise ValueError("Explanation pack drift: decision_id mismatch")
@@ -217,6 +223,18 @@ def _assert_packet_drift_guard(
         raise ValueError("Explanation pack drift: selected outcome-rule transition mismatch")
     if packet_outcome_rule_note and packet_outcome_rule_note != _safe_text(pack.selected_outcome_rule_note):
         raise ValueError("Explanation pack drift: selected outcome-rule note mismatch")
+    if packet_recourse_mode and packet_recourse_mode != _safe_text(pack.recourse_mode):
+        raise ValueError("Explanation pack drift: recourse_mode mismatch")
+    if packet_recommendation_mode and packet_recommendation_mode != _safe_text(pack.recommendation_mode):
+        raise ValueError("Explanation pack drift: recommendation_mode mismatch")
+    if packet_recoverable_flag is not None and bool(packet_recoverable_flag) != bool(pack.recoverable_flag):
+        raise ValueError("Explanation pack drift: recoverable_flag mismatch")
+    if packet_narrative_type and packet_narrative_type != _safe_text(pack.narrative_type):
+        raise ValueError("Explanation pack drift: narrative_type mismatch")
+    if packet_informational_subtype and packet_informational_subtype != _safe_text(pack.informational_subtype):
+        raise ValueError("Explanation pack drift: informational_subtype mismatch")
+    if packet_narrative_contract_version and packet_narrative_contract_version != _safe_text(pack.narrative_contract_version):
+        raise ValueError("Explanation pack drift: narrative_contract_version mismatch")
 
 
 def build_decision_explanation_pack(
@@ -244,6 +262,22 @@ def build_decision_explanation_pack(
         decision_outcome=_require_external_decision(
             summary.get("selected_decision_status", summary.get("decision_status"))
         ),
+        recourse_mode=_safe_text(summary.get("recourse_mode")) or None,
+        recommendation_mode=_safe_text(summary.get("recommendation_mode")) or None,
+        recoverable_flag=(
+            bool(summary.get("recoverable_flag"))
+            if "recoverable_flag" in summary
+            else None
+        ),
+        narrative_type=_safe_text(summary.get("narrative_type")) or None,
+        informational_subtype=_safe_text(summary.get("informational_subtype")) or None,
+        narrative_contract_version=_safe_text(summary.get("narrative_contract_version")) or None,
+        approval_gap=(
+            _safe_float(summary.get("approval_gap"), 0.0)
+            if summary.get("approval_gap") is not None
+            else None
+        ),
+        recoverability_bucket=_safe_text(summary.get("recoverability_bucket")) or None,
         one_line_decision_reason=_safe_text(summary.get("decision_reason_summary"), "Decision explanation unavailable."),
         structured_numeric_drivers=_build_driver_rows(summary),
         recommended_customer_action=recommended_customer_action,

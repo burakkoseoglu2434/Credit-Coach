@@ -175,6 +175,39 @@ class DecisionExplanationPack(BaseModel):
     customer_id: str = Field(..., description="Stable customer identifier")
     decision_outcome: PilotExternalDecision = Field(..., description="External-only decision outcome")
     external_decision_only: bool = Field(default=True, description="Leak guard: external decision vocabulary only")
+    recourse_mode: str | None = Field(
+        default=None,
+        description="Shipped recourse mode posture: full | limited (additive)",
+    )
+    recommendation_mode: str | None = Field(
+        default=None,
+        description="Shipped recommendation posture: actionable | informational (additive)",
+    )
+    recoverable_flag: bool | None = Field(
+        default=None,
+        description="Recoverability classifier truth (additive)",
+    )
+    narrative_type: str | None = Field(
+        default=None,
+        description="Phase 66 narrative posture: actionable | informational (additive)",
+    )
+    informational_subtype: str | None = Field(
+        default=None,
+        description="Phase 66 informational subtype when narrative_type=informational (additive)",
+    )
+    narrative_contract_version: str | None = Field(
+        default=None,
+        description="Phase 66 narrative contract version (additive)",
+    )
+    approval_gap: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Recoverability gap to approval threshold (additive)",
+    )
+    recoverability_bucket: str | None = Field(
+        default=None,
+        description="Recoverability bucket: near_threshold | mid_risk | structural_limited (additive)",
+    )
     one_line_decision_reason: str = Field(..., description="Owned one-line external decision reason")
     structured_numeric_drivers: list[DecisionExplanationDriver] = Field(
         default_factory=list,
