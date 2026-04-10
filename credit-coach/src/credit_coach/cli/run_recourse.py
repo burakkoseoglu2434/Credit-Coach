@@ -617,17 +617,16 @@ def _credit_readiness_stage_for_plan(best: PlanRecord | None) -> str:
     approval_ready_4w = bool(_safe_int(getattr(checkpoint_4w, "gate_pass_estimate", 0), 0))
     approval_ready_12w = bool(_safe_int(getattr(checkpoint_12w, "gate_pass_estimate", 0), 0))
     approval_ready_24w = bool(_safe_int(getattr(checkpoint_24w, "gate_pass_estimate", 0), 0))
-    credit_readiness_stage = "not_ready_yet"
-    if str(getattr(best, "status", "") or "") == "APPROVED":
-        if approval_ready_4w:
-            credit_readiness_stage = "week_4"
-        elif approval_ready_12w:
-            credit_readiness_stage = "week_12"
-        elif approval_ready_24w:
-            credit_readiness_stage = "week_24"
-        else:
-            credit_readiness_stage = "now"
-    return credit_readiness_stage
+    status = str(getattr(best, "status", "") or "").strip().upper()
+    if status == "APPROVED":
+        return "now"
+    if approval_ready_4w:
+        return "week_4"
+    if approval_ready_12w:
+        return "week_12"
+    if approval_ready_24w:
+        return "week_24"
+    return "not_ready_yet"
 
 
 def _selection_ranking_kwargs(
