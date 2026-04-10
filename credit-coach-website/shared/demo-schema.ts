@@ -182,9 +182,9 @@ export const roadmapStepSchema = z.object({
   action_class: z.string(),
   action_title: z.string(),
   action_group_id: z.string().optional(),
-  detail: z.string(),
-  time_months: z.number(),
-  estimated_cost_usd: z.number(),
+  detail: z.string().optional(),
+  time_months: z.number().optional(),
+  estimated_cost_usd: z.number().optional(),
   plan_execution_probability: z.number().optional(),
   action_execution_probability: z.number().optional(),
   action_group_execution_probability: z.number().optional(),
@@ -229,7 +229,7 @@ export const roadmapPhaseSchema = z.object({
   phase_id: z.string(),
   phase_title: z.string(),
   target_window_weeks: z.string(),
-  target_pd: z.number(),
+  target_pd: z.number().optional(),
   steps: z.array(roadmapStepSchema),
 });
 
@@ -246,9 +246,9 @@ export const singleCustomerDemoSchema = z.object({
     target_pd_4w: z.number(),
     target_pd_12w: z.number(),
     target_pd_24w: z.number(),
-    plan_execution_probability: z.number(),
-    offer_acceptance_probability: z.number(),
-    combined_plan_realization_probability: z.number(),
+    plan_execution_probability: z.number().optional(),
+    offer_acceptance_probability: z.number().optional(),
+    combined_plan_realization_probability: z.number().optional(),
     trajectory_status: z.string(),
     decision_status: z.enum(["APPROVED", "CONDITIONAL", "REJECTED"]).optional(),
     decision_confidence: z.number().optional(),
@@ -268,6 +268,16 @@ export const singleCustomerDemoSchema = z.object({
     credit_readiness_stage: z
       .enum(["now", "week_4", "week_12", "week_24", "not_ready_yet"])
       .optional(),
+    recourse_mode: z.enum(["full", "limited"]).optional(),
+    recommendation_mode: z.enum(["actionable", "informational"]).optional(),
+    recoverable_flag: z.boolean().optional(),
+    recoverability_bucket: z.string().optional(),
+    approval_gap: z.number().optional(),
+    narrative_type: z.enum(["actionable", "informational"]).optional(),
+    informational_subtype: z
+      .enum(["structural_limited", "not_currently_actionable"])
+      .optional(),
+    narrative_contract_version: z.string().optional(),
   }),
   phases: z.array(roadmapPhaseSchema),
   checkpoints: z.array(
@@ -277,7 +287,7 @@ export const singleCustomerDemoSchema = z.object({
       checkpoint_label: z.string(),
       predicted_pd: z.number(),
       gate_pass_estimate: z.boolean(),
-      note: z.string(),
+      note: z.string().optional(),
       approval_ready: z.boolean().optional(),
       narrative: z
         .object({
