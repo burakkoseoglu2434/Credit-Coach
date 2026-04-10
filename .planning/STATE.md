@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Recoverable Customer Targeting & Movement Optimization
 status: active
-stopped_at: Phase 67 complete; Phase 66 Demo & Narrative Alignment remains the next planned milestone step
-last_updated: "2026-04-10T13:27:00+03:00"
+stopped_at: Phase 66 complete; v2.5 demo/narrative contract shipped
+last_updated: "2026-04-10T15:05:00+03:00"
 last_activity: 2026-04-10
 progress:
   total_phases: 67
-  completed_phases: 64
+  completed_phases: 65
   total_plans: 3
   completed_plans: 3
 ---
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 67 is complete; Phase 66 Demo & Narrative Alignment remains planned and is the next open roadmap step
+**Current focus:** Phase 66 is complete; v2.5 demo/narrative surfaces now match the engine truth
 
 ## Current Position
 
-Phase: 67 complete
-Plan: 67-03 complete
-Status: The repo now closes Phase 67 with recoverable-vs-limited realization evaluation, predicted-vs-observed evidence, and a final non-causal realized-outcome report
-Last activity: 2026-04-10 — Phase 67 Wave 3 executed and verified
+Phase: 66 complete
+Plan: 66-03 complete
+Status: Website demo + narrative surfaces now disclose actionable vs informational posture deterministically, with band-first proof rail and no consumer-side inference
+Last activity: 2026-04-10 — Phase 66 plans executed and verified
 
 ## Performance Metrics
 
@@ -108,7 +108,7 @@ Recent decisions affecting the shipped baseline:
 ### Pending Todos
 
 - Keep recoverability deterministic and explainable; do not reopen model retraining, new action-type scope, or premature narrative work during v2.5
-- Execute or discuss Phase `66` when ready
+- Use the Phase 66 Demo Center toggle to run a pilot-ready walkthrough (actionable/full vs informational/limited) and validate copy against the operator packet + explanation pack
 
 ### Tooling / Tech Debt
 
@@ -122,6 +122,6 @@ Recent decisions affecting the shipped baseline:
 
 ## Session Continuity
 
-Last session: 2026-04-10T13:27:00+03:00
-Stopped at: Phase 67 complete; Phase 66 Demo & Narrative Alignment remains the next planned milestone step
+Last session: 2026-04-10T15:05:00+03:00
+Stopped at: Phase 66 complete; v2.5 demo/narrative contract shipped
 Resume file: .planning/ROADMAP.md

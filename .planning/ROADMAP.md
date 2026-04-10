@@ -297,5 +297,5 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 63. Recourse Gating By Recoverability | v2.5 | 3/3 | Complete | 2026-04-07 |
 | 64. Movement-Focused Path Ranking | v2.5 | 3/3 | Complete | 2026-04-08 |
 | 65. Targeted Cohort Evaluation | v2.5 | 3/3 | Complete | 2026-04-10 |
-| 66. Demo & Narrative Alignment | v2.5 | 0/0 | Planned | — |
+| 66. Demo & Narrative Alignment | v2.5 | 3/3 | Complete | 2026-04-10 |
 | 67. Execution & Outcome Realization | v2.5 | 3/3 | Complete | 2026-04-10 |
