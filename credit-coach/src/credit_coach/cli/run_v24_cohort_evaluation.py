@@ -1067,6 +1067,76 @@ def _targeted_comparison_rows(targeted_comparison: Mapping[str, Any]) -> list[di
     return rows
 
 
+def _targeted_evaluation_result(targeted_comparison: Mapping[str, Any]) -> dict[str, Any]:
+    populations = dict(targeted_comparison.get("populations", {}) or {})
+    global_metrics = dict(populations.get("global_denied", {}) or {})
+    recoverable_metrics = dict(populations.get("recoverable_full_mode", {}) or {})
+    limited_metrics = dict(populations.get("non_recoverable_limited_mode", {}) or {})
+
+    global_sample = _safe_int(global_metrics.get("sample_size", 0), 0)
+    recoverable_sample = _safe_int(recoverable_metrics.get("sample_size", 0), 0)
+    limited_sample = _safe_int(limited_metrics.get("sample_size", 0), 0)
+
+    global_movement_rate = _safe_float(global_metrics.get("movement_rate", 0.0), 0.0)
+    recoverable_movement_rate = _safe_float(recoverable_metrics.get("movement_rate", 0.0), 0.0)
+    global_strong_movement_rate = _safe_float(global_metrics.get("strong_movement_rate", 0.0), 0.0)
+    recoverable_strong_movement_rate = _safe_float(recoverable_metrics.get("strong_movement_rate", 0.0), 0.0)
+
+    limited_informational_rate = _safe_float(limited_metrics.get("informational_recommendation_rate", 0.0), 0.0)
+    limited_empty_state_rate = _safe_float(limited_metrics.get("empty_state_rate", 0.0), 0.0)
+    limited_zero_action_rate = _safe_float(limited_metrics.get("zero_action_rate", 0.0), 0.0)
+
+    if limited_sample == 0:
+        honesty_control_result = "control_group_unavailable"
+        honesty_text = "No limited-mode control population was available in this run."
+    elif (
+        limited_informational_rate >= 0.95
+        and limited_empty_state_rate >= 0.95
+        and limited_zero_action_rate >= 0.95
+    ):
+        honesty_control_result = "limited_mode_honest"
+        honesty_text = "Limited mode remained explicitly informational and empty-state-safe in this run."
+    else:
+        honesty_control_result = "limited_mode_needs_review"
+        honesty_text = "Limited mode showed residual actionability signals and should be reviewed."
+
+    if recoverable_sample == 0 or global_sample == 0:
+        concentration_outcome = "inconclusive"
+        conclusion_text = "No recoverable comparison population was available, so targeting concentration could not be evaluated."
+    elif recoverable_sample == global_sample or limited_sample == 0:
+        concentration_outcome = "inconclusive"
+        conclusion_text = "Population separation was insufficient to distinguish recoverable targeting from the denied baseline cleanly."
+    elif (
+        recoverable_movement_rate > global_movement_rate
+        and recoverable_strong_movement_rate > global_strong_movement_rate
+    ):
+        if recoverable_strong_movement_rate >= 0.10:
+            concentration_outcome = "improved_movement_concentration"
+            conclusion_text = "Recoverable targeting concentrated both movement rate and strong-movement selection above the global denied baseline."
+        else:
+            concentration_outcome = "improved_concentration_but_not_enough_for_business_leverage"
+            conclusion_text = "Recoverable targeting improved concentration, but the observed strong-movement density is still too low to imply meaningful business leverage."
+    elif (
+        recoverable_movement_rate > global_movement_rate
+        or recoverable_strong_movement_rate > global_strong_movement_rate
+    ):
+        concentration_outcome = "improved_concentration_but_not_enough_for_business_leverage"
+        conclusion_text = "Recoverable targeting improved part of the movement concentration profile, but not enough to imply meaningful business leverage."
+    else:
+        concentration_outcome = "did_not_materially_improve_concentration"
+        conclusion_text = "Recoverable targeting did not materially improve movement concentration relative to the global denied baseline."
+
+    return {
+        "comparison_basis": "recoverable_full_mode_vs_global_denied",
+        "honesty_control_population": "non_recoverable_limited_mode",
+        "concentration_outcome": concentration_outcome,
+        "honesty_control_result": honesty_control_result,
+        "business_uplift_claim": "not_claimed",
+        "conclusion_text": conclusion_text,
+        "honesty_text": honesty_text,
+    }
+
+
 def _render_report(
     *,
     sampled_df: pd.DataFrame,
@@ -1125,6 +1195,7 @@ def _render_report(
 
     insights = _top_five_insights(overall=overall, by_cohort=by_cohort)
     targeted_rows = _targeted_comparison_rows(targeted_comparison)
+    targeted_result = _targeted_evaluation_result(targeted_comparison)
     report = "\n".join(
         [
             "# v2.5 Targeted Cohort Evaluation",
@@ -1210,6 +1281,13 @@ def _render_report(
             f"- Structural limitation in the sampled denied population: {diagnosis['structurally_limited_customer_pct']:.2f}%.",
             f"- Trust baseline intact during this run: {diagnosis['trust_baseline_intact']}.",
             f"- Business uplift claim status: not claimed.",
+            "",
+            "## Final Conclusion",
+            f"- Concentration outcome: {targeted_result['concentration_outcome']}.",
+            f"- Conclusion: {targeted_result['conclusion_text']}",
+            f"- Honesty control result: {targeted_result['honesty_control_result']}.",
+            f"- Honesty note: {targeted_result['honesty_text']}",
+            f"- Business uplift claim: {targeted_result['business_uplift_claim']}.",
             "",
             "## Top 5 Insights",
             *[f"- {insight}" for insight in insights],
@@ -1581,6 +1659,7 @@ def main() -> None:
     overall_metrics = _aggregate_metrics(customer_df)
     targeted_population_metrics = _targeted_population_metrics(customer_df)
     targeted_comparison = _targeted_comparison_payload(targeted_population_metrics)
+    targeted_evaluation_result = _targeted_evaluation_result(targeted_comparison)
     by_cohort_metrics = {
         cohort: _aggregate_metrics(customer_df[customer_df["cohort_label"] == cohort].copy())
         for cohort in COHORT_ORDER
@@ -1661,6 +1740,7 @@ def main() -> None:
         "overall": overall_metrics,
         "population_metrics": targeted_population_metrics,
         "targeted_comparison": targeted_comparison,
+        "targeted_evaluation_result": targeted_evaluation_result,
         "by_cohort": by_cohort_metrics,
         "cohort_comparison": comparison_rows,
         "diagnosis": diagnosis,

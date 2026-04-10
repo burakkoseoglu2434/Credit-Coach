@@ -628,9 +628,15 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     assert metrics_payload["evaluation"]["name"] == "v2.5_targeted_cohort_evaluation"
     assert metrics_payload["evaluation"]["primary_comparison"] == "recoverable_full_mode_vs_global_denied"
     assert metrics_payload["evaluation"]["honesty_control_population"] == "non_recoverable_limited_mode"
+    assert metrics_payload["targeted_evaluation_result"]["comparison_basis"] == "recoverable_full_mode_vs_global_denied"
+    assert metrics_payload["targeted_evaluation_result"]["concentration_outcome"] == "inconclusive"
+    assert metrics_payload["targeted_evaluation_result"]["honesty_control_result"] == "control_group_unavailable"
+    assert metrics_payload["targeted_evaluation_result"]["business_uplift_claim"] == "not_claimed"
     assert "# v2.5 Targeted Cohort Evaluation" in report_text
     assert "Primary comparison: recoverable_full_mode vs global_denied" in report_text
     assert "Business uplift claim status: not claimed." in report_text
+    assert "Concentration outcome: inconclusive." in report_text
+    assert "Honesty control result: control_group_unavailable." in report_text
     assert metrics_payload["phase_60_evidence_version"] == "v2.4_phase_60"
     assert metrics_payload["phase_60_overall_trust_conclusion"] == "trust_baseline_intact"
     assert "cohort_evidence_summary_json" in metrics_payload["artifacts"]["phase_60_files"]
@@ -889,9 +895,15 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
     assert metrics_payload["evaluation"]["name"] == "v2.5_targeted_cohort_evaluation"
     assert metrics_payload["evaluation"]["primary_comparison"] == "recoverable_full_mode_vs_global_denied"
     assert metrics_payload["evaluation"]["honesty_control_population"] == "non_recoverable_limited_mode"
+    assert metrics_payload["targeted_evaluation_result"]["comparison_basis"] == "recoverable_full_mode_vs_global_denied"
+    assert metrics_payload["targeted_evaluation_result"]["concentration_outcome"] == "inconclusive"
+    assert metrics_payload["targeted_evaluation_result"]["honesty_control_result"] == "limited_mode_honest"
+    assert metrics_payload["targeted_evaluation_result"]["business_uplift_claim"] == "not_claimed"
     assert "# v2.5 Targeted Cohort Evaluation" in report_text
     assert "Honesty control population: non_recoverable_limited_mode" in report_text
     assert "Business uplift claim status: not claimed." in report_text
+    assert "Concentration outcome: inconclusive." in report_text
+    assert "Honesty control result: limited_mode_honest." in report_text
     phase_60_payload = json.loads(
         (
             tmp_path / "phase_60" / "phase_60_cohort_eval_cohort_evidence_summary.json"
