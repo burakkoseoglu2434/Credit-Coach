@@ -194,3 +194,43 @@ def test_decision_logging_and_learning_readiness_summaries(monkeypatch, tmp_path
     assert ingestion["learning_readiness_status_distribution"]["partial_learning_ready"]["count"] == 0
     assert ingestion["learning_readiness_status_distribution"]["descriptive_only"]["count"] == 1
     assert set(learning_df["learning_readiness_status"]) == {"learning_ready", "descriptive_only"}
+
+
+def test_decision_learning_dataset_preserves_selected_path_realization_context(monkeypatch, tmp_path):
+    _init_test_db(monkeypatch, tmp_path)
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d-realize-1",
+            run_id="r67",
+            customer_id="c67",
+            policy_arm="treatment",
+            candidate_set_id="r67:c67",
+            selected_plan_id="plan-67",
+            selected_plan_status="APPROVED",
+            selected_path_id="path-67",
+            selected_path_type="hybrid",
+            selected_path_movement_strength="strong",
+            recourse_mode="full",
+            recoverable_flag=True,
+            movement_score=0.84,
+            threshold_reach_probability=0.63,
+            selection_propensity=1.0,
+            propensity_source="deterministic_fallback",
+            reason_codes=["selected_best_plan"],
+            recommended_plan_flag=True,
+            approved=False,
+            observed_default_90d=0,
+            observed_margin_90d=42.0,
+        )
+    )
+
+    learning_df = load_decision_learning_dataset(window_days=90)
+    row = learning_df.iloc[0].to_dict()
+
+    assert row["selected_path_id"] == "path-67"
+    assert row["selected_path_type"] == "hybrid"
+    assert row["selected_path_movement_strength"] == "strong"
+    assert row["recourse_mode"] == "full"
+    assert row["recoverable_flag"] is True
+    assert row["movement_score"] == 0.84
+    assert row["threshold_reach_probability"] == 0.63

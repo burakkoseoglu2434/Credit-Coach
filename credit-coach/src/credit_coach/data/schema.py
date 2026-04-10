@@ -1667,6 +1667,12 @@ class DecisionOutcomeRecord(BaseModel):
     candidate_set_id: str = Field(default="", description="Secim yapilan candidate set kimligi")
     selected_plan_id: str = Field(default="", description="Winner veya secilen plan kimligi")
     selected_plan_status: str = Field(default="", description="Winner plan durumu")
+    selected_path_id: str | None = Field(default=None, description="Secilen path kimligi varsa")
+    selected_path_type: PathType | None = Field(default=None, description="Secilen path tipi varsa")
+    selected_path_movement_strength: str | None = Field(
+        default=None,
+        description="Secilen path'in movement strength etiketi varsa",
+    )
     selected_offer_type: str | None = Field(default=None, description="Secilen offer tipi varsa")
     selection_propensity: float = Field(
         default=1.0,
@@ -1690,6 +1696,15 @@ class DecisionOutcomeRecord(BaseModel):
     trajectory_status: str | None = Field(
         default=None,
         description="Planin trajectory durumu: on_track | needs_replan | degraded",
+    )
+    recourse_mode: str | None = Field(default=None, description="full | limited gibi shipped recourse mode")
+    recoverable_flag: bool | None = Field(default=None, description="Musteri recoverable mi")
+    movement_score: float | None = Field(default=None, description="Secilen path icin additive movement score")
+    threshold_reach_probability: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Secilen path icin heuristic threshold reach probability",
     )
     decision_status: str = Field(default="UNKNOWN", description="APPROVED | NEEDS_REVIEW | REJECTED | UNKNOWN")
     approved: bool = Field(default=False, description="Karar sonucu onaylandi mi")

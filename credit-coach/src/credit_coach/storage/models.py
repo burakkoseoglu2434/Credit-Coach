@@ -311,6 +311,41 @@ class DecisionOutcomeContextORM(Base):
 
 
 # ------------------------------------------------------------------ #
+# DecisionOutcomeRealizationContextORM
+# ------------------------------------------------------------------ #
+class DecisionOutcomeRealizationContextORM(Base):
+    """
+    Additive companion table for selected-path realization context.
+
+    Keep v2.5 selected-path and targeting truth available to delayed-outcome
+    analysis without mutating the older compact context table in place.
+    """
+
+    __tablename__ = "decision_outcome_realization_contexts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    decision_id: Mapped[str] = mapped_column(String(120), nullable=False, unique=True, index=True)
+    run_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    customer_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    selected_plan_id: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
+    selected_path_id: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
+    selected_path_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    selected_path_movement_strength: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    recourse_mode: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    recoverable_flag: Mapped[bool | None] = mapped_column(Boolean, nullable=True, index=True)
+    movement_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    threshold_reach_probability: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, onupdate=utc_now_naive, index=True)
+
+    def __repr__(self) -> str:
+        return (
+            f"<DecisionOutcomeRealizationContext decision_id={self.decision_id} "
+            f"path={self.selected_path_id} mode={self.recourse_mode}>"
+        )
+
+
+# ------------------------------------------------------------------ #
 # AuditEventORM
 # ------------------------------------------------------------------ #
 class AuditEventORM(Base):

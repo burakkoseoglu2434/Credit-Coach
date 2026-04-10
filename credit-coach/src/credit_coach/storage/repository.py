@@ -29,6 +29,7 @@ from credit_coach.storage.models import (
     CustomerSnapshotORM,
     DecisionOutcomeContextORM,
     DecisionOutcomeORM,
+    DecisionOutcomeRealizationContextORM,
     MacroSnapshotORM,
     ModelRunORM,
     PlanRecordORM,
@@ -147,6 +148,9 @@ def build_learning_dataset_frame(
         "candidate_set_id": "",
         "selected_plan_id": "",
         "selected_plan_status": "",
+        "selected_path_id": "",
+        "selected_path_type": "",
+        "selected_path_movement_strength": "",
         "selected_offer_type": "",
         "selection_propensity": None,
         "propensity_source": "",
@@ -154,6 +158,10 @@ def build_learning_dataset_frame(
         "recommended_plan_flag": False,
         "selected_plan_policy_label": "",
         "trajectory_status": "",
+        "recourse_mode": "",
+        "recoverable_flag": None,
+        "movement_score": None,
+        "threshold_reach_probability": None,
         "approved": False,
         "predicted_pd": None,
         "plan_execution_probability": None,
@@ -172,7 +180,23 @@ def build_learning_dataset_frame(
         if column not in df.columns:
             df[column] = default
 
-    for column in ["decision_id", "run_id", "customer_id", "policy_arm", "candidate_set_id", "selected_plan_id", "selected_plan_status", "selected_offer_type", "propensity_source", "selected_plan_policy_label", "trajectory_status"]:
+    for column in [
+        "decision_id",
+        "run_id",
+        "customer_id",
+        "policy_arm",
+        "candidate_set_id",
+        "selected_plan_id",
+        "selected_plan_status",
+        "selected_path_id",
+        "selected_path_type",
+        "selected_path_movement_strength",
+        "selected_offer_type",
+        "propensity_source",
+        "selected_plan_policy_label",
+        "trajectory_status",
+        "recourse_mode",
+    ]:
         df[column] = df[column].map(_clean_str)
 
     df["reason_codes_list"] = df["reason_codes"].map(_normalize_reason_codes)
@@ -183,6 +207,8 @@ def build_learning_dataset_frame(
         "plan_execution_probability",
         "offer_acceptance_probability",
         "combined_plan_realization_probability",
+        "movement_score",
+        "threshold_reach_probability",
         "observed_payment_ratio_90d",
         "observed_recovery_amount_90d",
         "observed_margin_90d",
@@ -190,7 +216,7 @@ def build_learning_dataset_frame(
         df[column] = pd.to_numeric(df[column], errors="coerce")
     for column in ["observed_default_30d", "observed_default_60d", "observed_default_90d"]:
         df[column] = pd.to_numeric(df[column], errors="coerce")
-    for column in ["recommended_plan_flag", "approved", "action_completed", "offer_accepted"]:
+    for column in ["recommended_plan_flag", "approved", "action_completed", "offer_accepted", "recoverable_flag"]:
         df[column] = df[column].map(_to_bool)
 
     df["policy_metadata_complete"] = (
@@ -273,11 +299,14 @@ def _load_decision_outcome_rows() -> list[dict[str, Any]]:
     with get_session() as session:
         outcome_rows = session.query(DecisionOutcomeORM).all()
         context_rows = session.query(DecisionOutcomeContextORM).all()
+        realization_rows = session.query(DecisionOutcomeRealizationContextORM).all()
 
     context_by_decision_id = {str(row.decision_id): row for row in context_rows}
+    realization_by_decision_id = {str(row.decision_id): row for row in realization_rows}
     rows: list[dict[str, Any]] = []
     for row in outcome_rows:
         context = context_by_decision_id.get(str(row.decision_id))
+        realization = realization_by_decision_id.get(str(row.decision_id))
         rows.append(
             {
                 "decision_id": str(row.decision_id),
@@ -288,6 +317,11 @@ def _load_decision_outcome_rows() -> list[dict[str, Any]]:
                 "candidate_set_id": _clean_str(getattr(context, "candidate_set_id", "")),
                 "selected_plan_id": _clean_str(getattr(context, "selected_plan_id", "")),
                 "selected_plan_status": _clean_str(getattr(context, "selected_plan_status", "")),
+                "selected_path_id": _clean_str(getattr(realization, "selected_path_id", "")),
+                "selected_path_type": _clean_str(getattr(realization, "selected_path_type", "")),
+                "selected_path_movement_strength": _clean_str(
+                    getattr(realization, "selected_path_movement_strength", "")
+                ),
                 "selected_offer_type": _clean_str(getattr(context, "selected_offer_type", "")),
                 "selection_propensity": _safe_float(getattr(context, "selection_propensity", None)),
                 "propensity_source": _clean_str(getattr(context, "propensity_source", "")),
@@ -295,6 +329,12 @@ def _load_decision_outcome_rows() -> list[dict[str, Any]]:
                 "recommended_plan_flag": bool(getattr(context, "recommended_plan_flag", False)) if context is not None else False,
                 "selected_plan_policy_label": _clean_str(getattr(context, "selected_plan_policy_label", "")),
                 "trajectory_status": _clean_str(getattr(context, "trajectory_status", "")),
+                "recourse_mode": _clean_str(getattr(realization, "recourse_mode", "")),
+                "recoverable_flag": getattr(realization, "recoverable_flag", None),
+                "movement_score": _safe_float(getattr(realization, "movement_score", None)),
+                "threshold_reach_probability": _safe_float(
+                    getattr(realization, "threshold_reach_probability", None)
+                ),
                 "decision_status": str(row.decision_status),
                 "approved": bool(row.approved),
                 "predicted_pd": _safe_float(row.predicted_pd),
@@ -583,6 +623,23 @@ def save_decision_outcome(record: DecisionOutcomeRecord) -> int:
             "observed_payment_ratio_90d": _safe_float(record.observed_payment_ratio_90d),
             "observed_recovery_amount_90d": _safe_float(record.observed_recovery_amount_90d),
         }
+        realization_existing = (
+            session.query(DecisionOutcomeRealizationContextORM)
+            .filter(DecisionOutcomeRealizationContextORM.decision_id == record.decision_id)
+            .first()
+        )
+        realization_payload = {
+            "run_id": record.run_id,
+            "customer_id": record.customer_id,
+            "selected_plan_id": _clean_str(record.selected_plan_id),
+            "selected_path_id": _clean_str(record.selected_path_id),
+            "selected_path_type": _clean_str(record.selected_path_type),
+            "selected_path_movement_strength": _clean_str(record.selected_path_movement_strength),
+            "recourse_mode": _clean_str(record.recourse_mode),
+            "recoverable_flag": _to_bool(record.recoverable_flag),
+            "movement_score": _safe_float(record.movement_score),
+            "threshold_reach_probability": _safe_float(record.threshold_reach_probability),
+        }
         if context_existing is not None:
             context_existing.run_id = str(context_payload["run_id"])
             context_existing.customer_id = str(context_payload["customer_id"])
@@ -633,6 +690,36 @@ def save_decision_outcome(record: DecisionOutcomeRecord) -> int:
             context_existing.observed_payment_ratio_90d = context_payload["observed_payment_ratio_90d"]
             context_existing.observed_recovery_amount_90d = context_payload["observed_recovery_amount_90d"]
             session.add(context_existing)
+        if realization_existing is not None:
+            realization_existing.run_id = str(realization_payload["run_id"])
+            realization_existing.customer_id = str(realization_payload["customer_id"])
+            realization_existing.selected_plan_id = realization_payload["selected_plan_id"] or None
+            realization_existing.selected_path_id = realization_payload["selected_path_id"] or None
+            realization_existing.selected_path_type = realization_payload["selected_path_type"] or None
+            realization_existing.selected_path_movement_strength = (
+                realization_payload["selected_path_movement_strength"] or None
+            )
+            realization_existing.recourse_mode = realization_payload["recourse_mode"] or None
+            realization_existing.recoverable_flag = realization_payload["recoverable_flag"]
+            realization_existing.movement_score = realization_payload["movement_score"]
+            realization_existing.threshold_reach_probability = realization_payload["threshold_reach_probability"]
+        else:
+            realization_existing = DecisionOutcomeRealizationContextORM(
+                decision_id=record.decision_id,
+                run_id=record.run_id,
+                customer_id=record.customer_id,
+            )
+            realization_existing.selected_plan_id = realization_payload["selected_plan_id"] or None
+            realization_existing.selected_path_id = realization_payload["selected_path_id"] or None
+            realization_existing.selected_path_type = realization_payload["selected_path_type"] or None
+            realization_existing.selected_path_movement_strength = (
+                realization_payload["selected_path_movement_strength"] or None
+            )
+            realization_existing.recourse_mode = realization_payload["recourse_mode"] or None
+            realization_existing.recoverable_flag = realization_payload["recoverable_flag"]
+            realization_existing.movement_score = realization_payload["movement_score"]
+            realization_existing.threshold_reach_probability = realization_payload["threshold_reach_probability"]
+            session.add(realization_existing)
         _append_audit_event(
             session=session,
             event_type="decision_outcome_saved",
@@ -647,6 +734,7 @@ def save_decision_outcome(record: DecisionOutcomeRecord) -> int:
                 "candidate_set_id": _clean_str(record.candidate_set_id),
                 "selection_propensity": _safe_float(record.selection_propensity),
                 "propensity_source": _clean_str(record.propensity_source),
+                "selected_path_id": _clean_str(record.selected_path_id),
                 "action": action,
             },
         )
