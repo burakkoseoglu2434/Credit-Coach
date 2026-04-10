@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🚧 **v2.5 Recoverable Customer Targeting & Movement Optimization** - Phases 61-66 (planning started 2026-04-05)
+- 🚧 **v2.5 Recoverable Customer Targeting & Movement Optimization** - Phases 61-67 (planning started 2026-04-05)
 - ✅ **v2.4 Recourse Capability Expansion & Action Semantics** - Phases 54-60 (shipped 2026-04-05; archive: `.planning/milestones/v2.4-ROADMAP.md`)
 - ✅ **v2.3 Threshold & Outcome Optimization** - Phases 49-53 (shipped 2026-04-03; archive: `.planning/milestones/v2.3-ROADMAP.md`)
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
@@ -19,7 +19,7 @@
 
 ## Active Milestone
 
-### 🚧 v2.5 Recoverable Customer Targeting & Movement Optimization (Phases 61-66)
+### 🚧 v2.5 Recoverable Customer Targeting & Movement Optimization (Phases 61-67)
 
 **Goal:** Identify realistically recoverable denied customers, focus full recourse generation on them, and keep structurally limited customers in an honest limited-guidance mode.
 
@@ -27,6 +27,7 @@
 - recoverable customers are deterministically identified from shipped scores and path evidence
 - movement rate in the recoverable cohort is materially higher than the global denied baseline
 - structurally limited customers do not receive fake high-yield multi-path treatment
+- realized execution and outcome evidence are published without causal overclaim
 - `selected_invalid_winner_count = 0`
 - no selected-surface drift
 - no operator packet contradictions
@@ -38,6 +39,7 @@
 - Phase 64: Movement-Focused Path Ranking
 - Phase 65: Targeted Cohort Evaluation
 - Phase 66: Demo & Narrative Alignment
+- Phase 67: Execution & Outcome Realization
 
 **Phase details:**
 
@@ -89,6 +91,14 @@ Success criteria:
 - recoverable customers get `narrative_type=actionable`
 - non-recoverable customers get `narrative_type=informational`
 - customer and demo-facing artifacts stay aligned with recoverability and recourse mode decisions
+
+**Phase 67: Execution & Outcome Realization**
+Goal: measure whether selected-path recommendations are actually executed and whether they produce observed downstream movement.
+Requirements: `REAL-01`, `REAL-02`, `REAL-03`
+Success criteria:
+- selected-path execution events and realization context are stored additively without changing decision logic
+- machine-readable artifacts publish action execution, path realization, and realized-outcome metrics
+- final reporting compares predicted versus observed realization descriptively, without causal or business-uplift overclaim
 
 <details>
 <summary>✅ v2.4 Recourse Capability Expansion & Action Semantics (Phases 54-60) - SHIPPED 2026-04-05</summary>
@@ -288,3 +298,4 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 64. Movement-Focused Path Ranking | v2.5 | 3/3 | Complete | 2026-04-08 |
 | 65. Targeted Cohort Evaluation | v2.5 | 3/3 | Complete | 2026-04-10 |
 | 66. Demo & Narrative Alignment | v2.5 | 0/0 | Planned | — |
+| 67. Execution & Outcome Realization | v2.5 | 0/3 | Planned | — |

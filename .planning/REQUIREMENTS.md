@@ -44,6 +44,12 @@ Requirements for milestone `v2.5 Recoverable Customer Targeting & Movement Optim
 - [ ] **NARR-02**: Non-recoverable customers receive `narrative_type=informational` with honest structural-limit messaging.
 - [ ] **NARR-03**: Customer and demo-facing surfaces distinguish actionable versus informational modes without contradiction.
 
+### Execution & Outcome Realization
+
+- [ ] **REAL-01**: System stores selected-path realization context and selected-action execution events additively, without changing core decision or recommendation logic.
+- [ ] **REAL-02**: System publishes deterministic action execution, path realization, realized movement, and observation-coverage artifacts from stored observations.
+- [ ] **REAL-03**: System evaluates predicted versus observed realization descriptively across recoverable/full versus limited/control posture, without causal or uplift overclaim.
+
 ## v2 Requirements
 
 Deferred until a later milestone.
@@ -87,12 +93,15 @@ Deferred until a later milestone.
 | NARR-01 | Phase 66 | Pending |
 | NARR-02 | Phase 66 | Pending |
 | NARR-03 | Phase 66 | Pending |
+| REAL-01 | Phase 67 | Pending |
+| REAL-02 | Phase 67 | Pending |
+| REAL-03 | Phase 67 | Pending |
 
 **Coverage:**
-- v1 requirements: 19 total
-- Mapped to phases: 19
+- v1 requirements: 22 total
+- Mapped to phases: 22
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-07 after executing and verifying Phase 62 Recoverable Customer Classifier*
+*Last updated: 2026-04-10 after adding Phase 67 Execution & Outcome Realization requirements*
