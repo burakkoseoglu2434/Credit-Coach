@@ -8,14 +8,17 @@ from credit_coach.data.schema import DecisionOutcomeRecord
 from credit_coach.storage import db as db_module
 from credit_coach.storage.db import init_db
 from credit_coach.storage.repository import (
-    load_decision_learning_dataset,
-    load_decision_action_execution_events,
     compute_policy_outcome_deltas,
+    load_decision_action_execution_events,
+    load_decision_learning_dataset,
     save_decision_action_execution_event,
     save_decision_outcome,
+    summarize_action_execution,
     summarize_decision_logging,
+    summarize_outcome_realization,
     summarize_decision_outcomes,
     summarize_outcome_ingestion,
+    summarize_path_realization,
 )
 
 
@@ -329,3 +332,118 @@ def test_ingest_action_events_csv_appends_selected_action_events(monkeypatch, tm
     assert inserted == 2
     assert events["event_type"].tolist() == ["attempted", "completed"]
     assert events["selected_path_id"].tolist() == ["path-csv-1", "path-csv-1"]
+
+
+def test_realization_summaries_derive_deterministic_status_and_labels(monkeypatch, tmp_path):
+    _init_test_db(monkeypatch, tmp_path)
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d-realized",
+            run_id="r67",
+            customer_id="c1",
+            policy_arm="treatment",
+            selected_plan_id="plan-1",
+            selected_path_id="path-1",
+            selected_path_type="customer_only",
+            recourse_mode="full",
+            recoverable_flag=True,
+            decision_status="CONDITIONAL",
+            approved=False,
+            action_completed=True,
+            observed_default_90d=0,
+            observed_margin_90d=55.0,
+        )
+    )
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d-blocked",
+            run_id="r67",
+            customer_id="c2",
+            policy_arm="treatment",
+            selected_plan_id="plan-2",
+            selected_path_id="path-2",
+            selected_path_type="hybrid",
+            recourse_mode="full",
+            recoverable_flag=True,
+            decision_status="REJECTED",
+            approved=False,
+            observed_default_90d=1,
+        )
+    )
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d-pending",
+            run_id="r67",
+            customer_id="c3",
+            policy_arm="control",
+            selected_plan_id="plan-3",
+            selected_path_id="path-3",
+            selected_path_type="institution_assisted",
+            recourse_mode="limited",
+            recoverable_flag=False,
+            decision_status="REJECTED",
+            approved=False,
+        )
+    )
+    save_decision_action_execution_event(
+        DecisionActionExecutionEventRecord(
+            decision_id="d-realized",
+            customer_id="c1",
+            selected_plan_id="plan-1",
+            selected_path_id="path-1",
+            action_key="reduce_balance",
+            event_type="attempted",
+            event_at=pd.Timestamp("2026-04-10T09:00:00Z").to_pydatetime(),
+            event_source="batch_refresh",
+            evidence_reference="evt-1",
+        )
+    )
+    save_decision_action_execution_event(
+        DecisionActionExecutionEventRecord(
+            decision_id="d-realized",
+            customer_id="c1",
+            selected_plan_id="plan-1",
+            selected_path_id="path-1",
+            action_key="reduce_balance",
+            event_type="completed",
+            event_at=pd.Timestamp("2026-04-12T09:00:00Z").to_pydatetime(),
+            event_source="manual_review",
+            evidence_reference="evt-2",
+        )
+    )
+    save_decision_action_execution_event(
+        DecisionActionExecutionEventRecord(
+            decision_id="d-blocked",
+            customer_id="c2",
+            selected_plan_id="plan-2",
+            selected_path_id="path-2",
+            action_key="call_servicer",
+            event_type="blocked",
+            event_at=pd.Timestamp("2026-04-11T09:00:00Z").to_pydatetime(),
+            event_source="self_report",
+            evidence_reference="evt-3",
+        )
+    )
+
+    action_summary = summarize_action_execution()
+    path_summary = summarize_path_realization(window_days=90)
+    outcome_summary = summarize_outcome_realization(window_days=90)
+
+    realized_action = action_summary[action_summary["decision_id"] == "d-realized"].iloc[0].to_dict()
+    assert realized_action["action_status"] == "completed"
+    assert realized_action["event_count"] == 2
+
+    path_rows = {row["decision_id"]: row for row in path_summary["rows"]}
+    assert path_rows["d-realized"]["path_realization_status"] == "realized"
+    assert path_rows["d-blocked"]["path_realization_status"] == "blocked"
+    assert path_rows["d-pending"]["path_realization_status"] == "pending_observation"
+    assert path_summary["path_realization_rate"] == 0.333333
+    assert path_summary["observation_coverage_rate"] == 0.666667
+
+    outcome_rows = {row["decision_id"]: row for row in outcome_summary["rows"]}
+    assert outcome_rows["d-realized"]["outcome_realization_label"] == "threshold_reached"
+    assert outcome_rows["d-blocked"]["outcome_realization_label"] == "negative_outcome"
+    assert outcome_rows["d-pending"]["outcome_realization_label"] == "pending_observation"
+    assert outcome_summary["action_execution_rate"] == 0.666667
+    assert outcome_summary["threshold_reach_realization_rate"] == 0.333333
+    assert outcome_summary["negative_outcome_rate"] == 0.333333

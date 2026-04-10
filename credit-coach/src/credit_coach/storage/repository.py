@@ -42,6 +42,16 @@ logger = logging.getLogger(__name__)
 
 CANONICAL_PROXY_METRICS = ["approval_rate", "default_rate_90d", "avg_margin_90d"]
 LEARNING_READINESS_STATES = ["descriptive_only", "partial_learning_ready", "learning_ready"]
+ACTION_EXECUTION_STATUSES = ["attempted", "completed", "blocked", "reversed"]
+PATH_REALIZATION_STATUSES = ["pending_observation", "attempted", "blocked", "realized"]
+OUTCOME_REALIZATION_LABELS = [
+    "pending_observation",
+    "no_observed_progress",
+    "partial_progress",
+    "threshold_reached",
+    "approval_realized",
+    "negative_outcome",
+]
 
 
 def _build_audit_envelope(
@@ -127,6 +137,31 @@ def _safe_float(value: Any) -> float | None:
         return float(value)
     except Exception:
         return None
+
+
+def _round_metric(value: Any) -> float:
+    return round(float(value or 0.0), 6)
+
+
+def _iso_or_empty(value: Any) -> str:
+    if value is None:
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except Exception:
+        pass
+    if hasattr(value, "isoformat"):
+        return str(value.isoformat())
+    return _clean_str(value)
+
+
+def _distribution(values: pd.Series, allowed: list[str]) -> dict[str, float]:
+    if values.empty:
+        return {key: 0.0 for key in allowed}
+    counts = values.value_counts(dropna=False).to_dict()
+    total = max(1, int(values.shape[0]))
+    return {key: _round_metric(float(counts.get(key, 0)) / total) for key in allowed}
 
 
 def _frame_from_records(records: pd.DataFrame | list[dict[str, Any]]) -> pd.DataFrame:
@@ -805,6 +840,292 @@ def load_decision_action_execution_events(*, decision_id: str | None = None) -> 
             for row in rows
         ]
     )
+
+
+def summarize_action_execution(*, decision_id: str | None = None) -> pd.DataFrame:
+    events = load_decision_action_execution_events(decision_id=decision_id)
+    columns = [
+        "decision_id",
+        "customer_id",
+        "selected_plan_id",
+        "selected_path_id",
+        "action_key",
+        "action_status",
+        "latest_event_type",
+        "latest_event_at",
+        "latest_event_source",
+        "event_count",
+        "attempted_event_count",
+        "completed_event_count",
+        "blocked_event_count",
+        "reversed_event_count",
+        "first_execution_at",
+        "first_completed_at",
+        "time_to_first_execution_days",
+        "time_to_first_completed_action_days",
+    ]
+    if events.empty:
+        return pd.DataFrame(columns=columns)
+
+    events = events.copy(deep=True)
+    events["decision_id"] = events["decision_id"].map(_clean_str)
+    events["selected_plan_id"] = events["selected_plan_id"].map(_clean_str)
+    events["selected_path_id"] = events["selected_path_id"].map(_clean_str)
+    events["action_key"] = events["action_key"].map(_clean_str)
+    events["event_type"] = events["event_type"].map(_clean_str).str.lower()
+    events["event_source"] = events["event_source"].map(_clean_str)
+    events["event_at"] = pd.to_datetime(events["event_at"], errors="coerce", utc=True)
+    precedence = {"attempted": 1, "blocked": 2, "completed": 3, "reversed": 4}
+    events["event_priority"] = events["event_type"].map(lambda value: precedence.get(value, 0))
+    events = events.sort_values(
+        by=["decision_id", "selected_plan_id", "selected_path_id", "action_key", "event_at", "event_priority", "event_id"],
+        ascending=[True, True, True, True, True, True, True],
+        kind="stable",
+    )
+
+    rows: list[dict[str, Any]] = []
+    group_cols = ["decision_id", "customer_id", "selected_plan_id", "selected_path_id", "action_key"]
+    for keys, group in events.groupby(group_cols, dropna=False):
+        latest = group.iloc[-1]
+        execution_events = group[group["event_type"].isin(["attempted", "completed", "reversed"])]
+        completed_events = group[group["event_type"] == "completed"]
+        rows.append(
+            {
+                "decision_id": keys[0],
+                "customer_id": keys[1],
+                "selected_plan_id": keys[2],
+                "selected_path_id": keys[3],
+                "action_key": keys[4],
+                "action_status": str(latest["event_type"]),
+                "latest_event_type": str(latest["event_type"]),
+                "latest_event_at": latest["event_at"],
+                "latest_event_source": str(latest["event_source"]),
+                "event_count": int(group.shape[0]),
+                "attempted_event_count": int((group["event_type"] == "attempted").sum()),
+                "completed_event_count": int((group["event_type"] == "completed").sum()),
+                "blocked_event_count": int((group["event_type"] == "blocked").sum()),
+                "reversed_event_count": int((group["event_type"] == "reversed").sum()),
+                "first_execution_at": execution_events["event_at"].min() if not execution_events.empty else pd.NaT,
+                "first_completed_at": completed_events["event_at"].min() if not completed_events.empty else pd.NaT,
+                # Decision-issued timestamps are not yet preserved on the outcome seam, so latency stays explicit-null.
+                "time_to_first_execution_days": None,
+                "time_to_first_completed_action_days": None,
+            }
+        )
+
+    return pd.DataFrame(rows, columns=columns)
+
+
+def summarize_path_realization(*, window_days: int = 90) -> dict[str, Any]:
+    decision_rows = build_learning_dataset_frame(_load_decision_outcome_rows(), window_days=window_days)
+    action_summary = summarize_action_execution()
+    row_records: list[dict[str, Any]] = []
+    if decision_rows.empty:
+        return {
+            "window_days": int(window_days),
+            "total_decisions": 0,
+            "path_realization_rate": 0.0,
+            "blocked_path_rate": 0.0,
+            "attempted_path_rate": 0.0,
+            "observation_coverage_rate": 0.0,
+            "path_realization_status_distribution": {key: 0.0 for key in PATH_REALIZATION_STATUSES},
+            "rows": row_records,
+        }
+
+    for _, decision in decision_rows.iterrows():
+        decision_id = _clean_str(decision.get("decision_id"))
+        selected_path_id = _clean_str(decision.get("selected_path_id"))
+        if action_summary.empty:
+            scoped_actions = action_summary
+        else:
+            scoped_actions = action_summary[action_summary["decision_id"].eq(decision_id)]
+            if selected_path_id:
+                scoped_actions = scoped_actions[
+                    scoped_actions["selected_path_id"].fillna("").astype(str).map(_clean_str).eq(selected_path_id)
+                ]
+
+        completed_signal = bool(decision.get("action_completed") is True) or (
+            not scoped_actions.empty and scoped_actions["action_status"].eq("completed").any()
+        )
+        blocked_signal = (not completed_signal) and (
+            (not scoped_actions.empty and scoped_actions["action_status"].eq("blocked").any())
+        )
+        attempted_signal = (not completed_signal) and (not blocked_signal) and (
+            not scoped_actions.empty and scoped_actions["action_status"].isin(["attempted", "reversed"]).any()
+        )
+        if completed_signal:
+            path_status = "realized"
+        elif blocked_signal:
+            path_status = "blocked"
+        elif attempted_signal:
+            path_status = "attempted"
+        else:
+            path_status = "pending_observation"
+
+        coverage_flag = int(
+            bool(decision.get("action_completed") is not None)
+            or bool(decision.get("offer_accepted") is not None)
+            or bool(decision.get("has_reward_proxy_90d"))
+            or bool(decision.get("has_payment_behavior"))
+            or bool(decision.get("has_recovery_outcome"))
+            or (not scoped_actions.empty)
+            or str(decision.get("decision_status", "")).upper() in {"APPROVED", "CONDITIONAL"}
+        )
+        row_records.append(
+            {
+                "decision_id": decision_id,
+                "customer_id": _clean_str(decision.get("customer_id")),
+                "selected_plan_id": _clean_str(decision.get("selected_plan_id")),
+                "selected_path_id": selected_path_id,
+                "selected_path_type": _clean_str(decision.get("selected_path_type")),
+                "recourse_mode": _clean_str(decision.get("recourse_mode")),
+                "recoverable_flag": _to_bool(decision.get("recoverable_flag")),
+                "path_realization_status": path_status,
+                "action_rows_observed": int(scoped_actions.shape[0]),
+                "completed_action_count": int(scoped_actions["action_status"].eq("completed").sum()) if not scoped_actions.empty else 0,
+                "blocked_action_count": int(scoped_actions["action_status"].eq("blocked").sum()) if not scoped_actions.empty else 0,
+                "attempted_action_count": int(scoped_actions["action_status"].eq("attempted").sum()) if not scoped_actions.empty else 0,
+                "reversed_action_count": int(scoped_actions["action_status"].eq("reversed").sum()) if not scoped_actions.empty else 0,
+                "observation_coverage_flag": coverage_flag,
+                "first_execution_at": scoped_actions["first_execution_at"].dropna().min() if not scoped_actions.empty else pd.NaT,
+                "first_completed_at": scoped_actions["first_completed_at"].dropna().min() if not scoped_actions.empty else pd.NaT,
+                "time_to_first_execution_days": None,
+                "time_to_first_completed_action_days": None,
+            }
+        )
+
+    rows_df = pd.DataFrame(row_records)
+    statuses = rows_df["path_realization_status"] if not rows_df.empty else pd.Series(dtype=object)
+    return {
+        "window_days": int(window_days),
+        "total_decisions": int(rows_df.shape[0]),
+        "path_realization_rate": _round_metric((statuses == "realized").mean()) if not rows_df.empty else 0.0,
+        "blocked_path_rate": _round_metric((statuses == "blocked").mean()) if not rows_df.empty else 0.0,
+        "attempted_path_rate": _round_metric((statuses == "attempted").mean()) if not rows_df.empty else 0.0,
+        "observation_coverage_rate": _round_metric(rows_df["observation_coverage_flag"].mean()) if not rows_df.empty else 0.0,
+        "path_realization_status_distribution": _distribution(statuses, PATH_REALIZATION_STATUSES),
+        "rows": [
+            {
+                **{key: value for key, value in row.items() if key not in {"first_execution_at", "first_completed_at"}},
+                "first_execution_at": _iso_or_empty(row.get("first_execution_at")),
+                "first_completed_at": _iso_or_empty(row.get("first_completed_at")),
+            }
+            for row in row_records
+        ],
+    }
+
+
+def summarize_outcome_realization(*, window_days: int = 90) -> dict[str, Any]:
+    decision_rows = build_learning_dataset_frame(_load_decision_outcome_rows(), window_days=window_days)
+    path_summary = summarize_path_realization(window_days=window_days)
+    path_rows = pd.DataFrame(path_summary.get("rows", []))
+    row_records: list[dict[str, Any]] = []
+    if decision_rows.empty:
+        return {
+            "window_days": int(window_days),
+            "total_decisions": 0,
+            "action_execution_rate": 0.0,
+            "action_completion_rate": 0.0,
+            "blocked_action_rate": 0.0,
+            "path_realization_rate": 0.0,
+            "realized_movement_rate": 0.0,
+            "threshold_reach_realization_rate": 0.0,
+            "approval_realization_rate": 0.0,
+            "negative_outcome_rate": 0.0,
+            "observation_coverage_rate": 0.0,
+            "time_to_first_execution_days": None,
+            "time_to_first_completed_action_days": None,
+            "time_to_realized_outcome_days": None,
+            "outcome_realization_label_distribution": {key: 0.0 for key in OUTCOME_REALIZATION_LABELS},
+            "rows": row_records,
+        }
+
+    for _, decision in decision_rows.iterrows():
+        decision_id = _clean_str(decision.get("decision_id"))
+        path_row = (
+            path_rows[path_rows["decision_id"].eq(decision_id)].iloc[0].to_dict()
+            if not path_rows.empty and path_rows["decision_id"].eq(decision_id).any()
+            else {}
+        )
+        decision_status = _clean_str(decision.get("decision_status")).upper()
+        approved = bool(decision.get("approved"))
+        default_90d = decision.get("observed_default_90d")
+        payment_ratio = _safe_float(decision.get("observed_payment_ratio_90d"))
+        margin_90d = _safe_float(decision.get("observed_margin_90d"))
+        recovery_90d = _safe_float(decision.get("observed_recovery_amount_90d"))
+        path_status = _clean_str(path_row.get("path_realization_status"))
+
+        has_outcome_observation = bool(
+            decision_status in {"APPROVED", "CONDITIONAL"}
+            or approved
+            or pd.notna(default_90d)
+            or payment_ratio is not None
+            or margin_90d is not None
+            or recovery_90d is not None
+            or path_status != "pending_observation"
+        )
+
+        if approved or decision_status == "APPROVED":
+            label = "approval_realized"
+        elif decision_status == "CONDITIONAL":
+            label = "threshold_reached"
+        elif (pd.notna(default_90d) and float(default_90d) >= 1.0) or (payment_ratio is not None and payment_ratio < 0.5):
+            label = "negative_outcome"
+        elif path_status == "realized" and (
+            (pd.notna(default_90d) and float(default_90d) == 0.0)
+            or (margin_90d is not None and margin_90d > 0.0)
+            or (payment_ratio is not None and payment_ratio >= 1.0)
+            or (recovery_90d is not None and recovery_90d > 0.0)
+        ):
+            label = "partial_progress"
+        elif has_outcome_observation:
+            label = "no_observed_progress"
+        else:
+            label = "pending_observation"
+
+        row_records.append(
+            {
+                "decision_id": decision_id,
+                "customer_id": _clean_str(decision.get("customer_id")),
+                "selected_plan_id": _clean_str(decision.get("selected_plan_id")),
+                "selected_path_id": _clean_str(decision.get("selected_path_id")),
+                "selected_path_type": _clean_str(decision.get("selected_path_type")),
+                "selected_path_movement_strength": _clean_str(decision.get("selected_path_movement_strength")),
+                "recourse_mode": _clean_str(decision.get("recourse_mode")),
+                "recoverable_flag": _to_bool(decision.get("recoverable_flag")),
+                "path_realization_status": path_status or "pending_observation",
+                "outcome_realization_label": label,
+                "observation_coverage_flag": int(bool(path_row.get("observation_coverage_flag")) or has_outcome_observation),
+                "time_to_first_execution_days": None,
+                "time_to_first_completed_action_days": None,
+                "time_to_realized_outcome_days": None,
+            }
+        )
+
+    rows_df = pd.DataFrame(row_records)
+    labels = rows_df["outcome_realization_label"] if not rows_df.empty else pd.Series(dtype=object)
+    return {
+        "window_days": int(window_days),
+        "total_decisions": int(rows_df.shape[0]),
+        "action_execution_rate": _round_metric(rows_df["path_realization_status"].isin(["attempted", "blocked", "realized"]).mean()),
+        "action_completion_rate": _round_metric((rows_df["path_realization_status"] == "realized").mean()),
+        "blocked_action_rate": _round_metric((rows_df["path_realization_status"] == "blocked").mean()),
+        "path_realization_rate": _round_metric((rows_df["path_realization_status"] == "realized").mean()),
+        "realized_movement_rate": _round_metric(
+            rows_df["outcome_realization_label"].isin(["partial_progress", "threshold_reached", "approval_realized"]).mean()
+        ),
+        "threshold_reach_realization_rate": _round_metric(
+            rows_df["outcome_realization_label"].isin(["threshold_reached", "approval_realized"]).mean()
+        ),
+        "approval_realization_rate": _round_metric((rows_df["outcome_realization_label"] == "approval_realized").mean()),
+        "negative_outcome_rate": _round_metric((rows_df["outcome_realization_label"] == "negative_outcome").mean()),
+        "observation_coverage_rate": _round_metric(rows_df["observation_coverage_flag"].mean()),
+        "time_to_first_execution_days": None,
+        "time_to_first_completed_action_days": None,
+        "time_to_realized_outcome_days": None,
+        "outcome_realization_label_distribution": _distribution(labels, OUTCOME_REALIZATION_LABELS),
+        "rows": row_records,
+    }
 
 
 def summarize_decision_logging() -> dict[str, Any]:
