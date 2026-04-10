@@ -854,6 +854,63 @@ def _targeted_population_metrics(customer_df: pd.DataFrame) -> dict[str, dict[st
     return {population: _aggregate_metrics(frame) for population, frame in populations.items()}
 
 
+def _targeted_comparison_payload(
+    targeted_population_metrics: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    global_metrics = dict(targeted_population_metrics.get("global_denied", {}) or {})
+    recoverable_metrics = dict(targeted_population_metrics.get("recoverable_full_mode", {}) or {})
+    limited_metrics = dict(targeted_population_metrics.get("non_recoverable_limited_mode", {}) or {})
+    return {
+        "populations": {
+            "global_denied": global_metrics,
+            "recoverable_full_mode": recoverable_metrics,
+            "non_recoverable_limited_mode": limited_metrics,
+        },
+        "summary": {
+            "recoverable_customer_rate": _safe_float(global_metrics.get("recoverable_customer_rate", 0.0), 0.0),
+            "movement_rate_global": _safe_float(global_metrics.get("movement_rate", 0.0), 0.0),
+            "movement_rate_recoverable": _safe_float(recoverable_metrics.get("movement_rate", 0.0), 0.0),
+            "strong_movement_rate_global": _safe_float(global_metrics.get("strong_movement_rate", 0.0), 0.0),
+            "strong_movement_rate_recoverable": _safe_float(
+                recoverable_metrics.get("strong_movement_rate", 0.0),
+                0.0,
+            ),
+            "mean_movement_score_recoverable": _safe_float(
+                recoverable_metrics.get("mean_movement_score", 0.0),
+                0.0,
+            ),
+            "mean_threshold_reach_probability_recoverable": _safe_float(
+                recoverable_metrics.get("mean_threshold_reach_probability", 0.0),
+                0.0,
+            ),
+            "threshold_reach_priority_rate_recoverable": _safe_float(
+                recoverable_metrics.get("threshold_reach_priority_rate", 0.0),
+                0.0,
+            ),
+            "limited_customer_rate": _safe_float(global_metrics.get("limited_customer_rate", 0.0), 0.0),
+            "informational_recommendation_rate": _safe_float(
+                global_metrics.get("informational_recommendation_rate", 0.0),
+                0.0,
+            ),
+            "empty_state_rate_limited_control": _safe_float(limited_metrics.get("empty_state_rate", 0.0), 0.0),
+            "zero_action_rate_limited_control": _safe_float(limited_metrics.get("zero_action_rate", 0.0), 0.0),
+            "recommendation_mode_distribution_global": dict(
+                global_metrics.get("recommendation_mode_distribution", {}) or {}
+            ),
+            "recommendation_mode_distribution_limited_control": dict(
+                limited_metrics.get("recommendation_mode_distribution", {}) or {}
+            ),
+            "threshold_gap_distribution_global": dict(global_metrics.get("threshold_gap_distribution", {}) or {}),
+            "threshold_gap_distribution_recoverable": dict(
+                recoverable_metrics.get("threshold_gap_distribution", {}) or {}
+            ),
+            "selected_path_movement_strength_distribution_recoverable": dict(
+                recoverable_metrics.get("selected_path_movement_strength_distribution", {}) or {}
+            ),
+        },
+    }
+
+
 def _comparison_rows(customer_df: pd.DataFrame) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for cohort in COHORT_ORDER:
@@ -1478,6 +1535,7 @@ def main() -> None:
 
     overall_metrics = _aggregate_metrics(customer_df)
     targeted_population_metrics = _targeted_population_metrics(customer_df)
+    targeted_comparison = _targeted_comparison_payload(targeted_population_metrics)
     by_cohort_metrics = {
         cohort: _aggregate_metrics(customer_df[customer_df["cohort_label"] == cohort].copy())
         for cohort in COHORT_ORDER
@@ -1537,6 +1595,7 @@ def main() -> None:
         "cohort_boundaries": cohort_boundaries,
         "overall": overall_metrics,
         "population_metrics": targeted_population_metrics,
+        "targeted_comparison": targeted_comparison,
         "by_cohort": by_cohort_metrics,
         "cohort_comparison": comparison_rows,
         "diagnosis": diagnosis,

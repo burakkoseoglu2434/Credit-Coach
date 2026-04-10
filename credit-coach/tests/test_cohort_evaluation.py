@@ -563,6 +563,30 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     assert metrics_payload["population_metrics"]["recoverable_full_mode"]["movement_rate"] == 1.0
     assert metrics_payload["population_metrics"]["recoverable_full_mode"]["threshold_reach_priority_rate"] == 1.0
     assert metrics_payload["population_metrics"]["non_recoverable_limited_mode"]["sample_size"] == 0
+    assert metrics_payload["targeted_comparison"]["summary"]["recoverable_customer_rate"] == 1.0
+    assert metrics_payload["targeted_comparison"]["summary"]["movement_rate_global"] == 1.0
+    assert metrics_payload["targeted_comparison"]["summary"]["movement_rate_recoverable"] == 1.0
+    assert metrics_payload["targeted_comparison"]["summary"]["strong_movement_rate_global"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["strong_movement_rate_recoverable"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["mean_movement_score_recoverable"] == 0.81
+    assert metrics_payload["targeted_comparison"]["summary"]["mean_threshold_reach_probability_recoverable"] == 0.69
+    assert metrics_payload["targeted_comparison"]["summary"]["threshold_reach_priority_rate_recoverable"] == 1.0
+    assert metrics_payload["targeted_comparison"]["summary"]["limited_customer_rate"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["informational_recommendation_rate"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["empty_state_rate_limited_control"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["zero_action_rate_limited_control"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["recommendation_mode_distribution_global"] == {
+        "actionable": 1.0,
+        "informational": 0.0,
+    }
+    assert metrics_payload["targeted_comparison"]["summary"]["threshold_gap_distribution_global"] == {
+        "hard_denied": 0.333333,
+        "mid_risk_denied": 0.333333,
+        "near_threshold_denied": 0.333333,
+    }
+    assert metrics_payload["targeted_comparison"]["summary"]["selected_path_movement_strength_distribution_recoverable"] == {
+        "moderate": 1.0
+    }
     assert metrics_payload["phase_60_evidence_version"] == "v2.4_phase_60"
     assert metrics_payload["phase_60_overall_trust_conclusion"] == "trust_baseline_intact"
     assert "cohort_evidence_summary_json" in metrics_payload["artifacts"]["phase_60_files"]
@@ -787,4 +811,25 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
     assert metrics_payload["population_metrics"]["non_recoverable_limited_mode"]["sample_size"] == 1
     assert metrics_payload["population_metrics"]["non_recoverable_limited_mode"]["empty_state_rate"] == 1.0
     assert metrics_payload["population_metrics"]["non_recoverable_limited_mode"]["zero_action_rate"] == 1.0
+    assert metrics_payload["targeted_comparison"]["summary"]["recoverable_customer_rate"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["movement_rate_global"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["movement_rate_recoverable"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["strong_movement_rate_global"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["strong_movement_rate_recoverable"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["mean_movement_score_recoverable"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["mean_threshold_reach_probability_recoverable"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["threshold_reach_priority_rate_recoverable"] == 0.0
+    assert metrics_payload["targeted_comparison"]["summary"]["limited_customer_rate"] == 1.0
+    assert metrics_payload["targeted_comparison"]["summary"]["informational_recommendation_rate"] == 1.0
+    assert metrics_payload["targeted_comparison"]["summary"]["empty_state_rate_limited_control"] == 1.0
+    assert metrics_payload["targeted_comparison"]["summary"]["zero_action_rate_limited_control"] == 1.0
+    assert metrics_payload["targeted_comparison"]["summary"]["recommendation_mode_distribution_limited_control"] == {
+        "actionable": 0.0,
+        "informational": 1.0,
+    }
+    assert metrics_payload["targeted_comparison"]["summary"]["threshold_gap_distribution_global"] == {
+        "near_threshold_denied": 1.0
+    }
+    assert metrics_payload["targeted_comparison"]["summary"]["threshold_gap_distribution_recoverable"] == {}
+    assert metrics_payload["targeted_comparison"]["summary"]["selected_path_movement_strength_distribution_recoverable"] == {}
     assert metrics_payload["phase_60_overall_movement_conclusion"] in {"movement_diagnosis_pending", "structural_bottleneck_remains_dominant"}
