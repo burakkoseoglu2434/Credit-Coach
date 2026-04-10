@@ -19,6 +19,7 @@ from credit_coach.storage.repository import (
     summarize_decision_outcomes,
     summarize_outcome_ingestion,
     summarize_path_realization,
+    summarize_realization_evaluation,
 )
 
 
@@ -345,8 +346,13 @@ def test_realization_summaries_derive_deterministic_status_and_labels(monkeypatc
             selected_plan_id="plan-1",
             selected_path_id="path-1",
             selected_path_type="customer_only",
+            selected_path_movement_strength="strong",
             recourse_mode="full",
             recoverable_flag=True,
+            movement_score=0.91,
+            threshold_reach_probability=0.62,
+            plan_execution_probability=0.85,
+            combined_plan_realization_probability=0.58,
             decision_status="CONDITIONAL",
             approved=False,
             action_completed=True,
@@ -363,8 +369,13 @@ def test_realization_summaries_derive_deterministic_status_and_labels(monkeypatc
             selected_plan_id="plan-2",
             selected_path_id="path-2",
             selected_path_type="hybrid",
+            selected_path_movement_strength="moderate",
             recourse_mode="full",
             recoverable_flag=True,
+            movement_score=0.53,
+            threshold_reach_probability=0.36,
+            plan_execution_probability=0.7,
+            combined_plan_realization_probability=0.4,
             decision_status="REJECTED",
             approved=False,
             observed_default_90d=1,
@@ -379,8 +390,13 @@ def test_realization_summaries_derive_deterministic_status_and_labels(monkeypatc
             selected_plan_id="plan-3",
             selected_path_id="path-3",
             selected_path_type="institution_assisted",
+            selected_path_movement_strength="weak",
             recourse_mode="limited",
             recoverable_flag=False,
+            movement_score=0.12,
+            threshold_reach_probability=0.08,
+            plan_execution_probability=0.15,
+            combined_plan_realization_probability=0.05,
             decision_status="REJECTED",
             approved=False,
         )
@@ -428,6 +444,7 @@ def test_realization_summaries_derive_deterministic_status_and_labels(monkeypatc
     action_summary = summarize_action_execution()
     path_summary = summarize_path_realization(window_days=90)
     outcome_summary = summarize_outcome_realization(window_days=90)
+    realization_evaluation = summarize_realization_evaluation(window_days=90)
 
     realized_action = action_summary[action_summary["decision_id"] == "d-realized"].iloc[0].to_dict()
     assert realized_action["action_status"] == "completed"
@@ -447,6 +464,17 @@ def test_realization_summaries_derive_deterministic_status_and_labels(monkeypatc
     assert outcome_summary["action_execution_rate"] == 0.666667
     assert outcome_summary["threshold_reach_realization_rate"] == 0.333333
     assert outcome_summary["negative_outcome_rate"] == 0.333333
+    assert outcome_rows["d-realized"]["evaluation_population"] == "recoverable_full_mode"
+    assert outcome_rows["d-pending"]["evaluation_population"] == "non_recoverable_limited_mode"
+
+    by_population = {
+        row["group_key"]: row for row in realization_evaluation["recoverable_vs_limited_summary"]
+    }
+    assert by_population["recoverable_full_mode"]["realized_movement_rate"] == 0.5
+    assert by_population["recoverable_full_mode"]["threshold_reach_realization_rate"] == 0.5
+    assert by_population["non_recoverable_limited_mode"]["realized_movement_rate"] == 0.0
+    assert realization_evaluation["predicted_vs_observed"]["overall"]["combined_realization_gap"] == -0.01
+    assert realization_evaluation["recoverable_vs_limited_comparison"]["realized_movement_rate_delta"] == 0.5
 
 
 def test_run_outcome_feedback_writes_realization_artifacts(monkeypatch, tmp_path):

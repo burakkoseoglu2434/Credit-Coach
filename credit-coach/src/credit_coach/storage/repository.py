@@ -164,6 +164,133 @@ def _distribution(values: pd.Series, allowed: list[str]) -> dict[str, float]:
     return {key: _round_metric(float(counts.get(key, 0)) / total) for key in allowed}
 
 
+def _mean_or_none(values: pd.Series) -> float | None:
+    numeric = pd.to_numeric(values, errors="coerce")
+    numeric = numeric.dropna()
+    if numeric.empty:
+        return None
+    return _round_metric(numeric.mean())
+
+
+def _realization_population_key(recoverable_flag: Any, recourse_mode: Any) -> str:
+    recoverable = _to_bool(recoverable_flag)
+    mode = _clean_str(recourse_mode)
+    if recoverable is True and mode == "full":
+        return "recoverable_full_mode"
+    if recoverable is False and mode == "limited":
+        return "non_recoverable_limited_mode"
+    if mode == "full":
+        return "full_mode_other"
+    if mode == "limited":
+        return "limited_mode_other"
+    return "uncategorized"
+
+
+def _realization_population_label(population_key: str) -> str:
+    labels = {
+        "recoverable_full_mode": "Recoverable / Full Mode",
+        "non_recoverable_limited_mode": "Non-Recoverable / Limited Mode",
+        "full_mode_other": "Full Mode / Other",
+        "limited_mode_other": "Limited Mode / Other",
+        "uncategorized": "Uncategorized",
+    }
+    return labels.get(population_key, population_key.replace("_", " ").title())
+
+
+def _realization_evidence_status(total_decisions: int, observation_coverage_rate: float) -> str:
+    if total_decisions <= 0:
+        return "no_data"
+    if total_decisions < 3 or observation_coverage_rate < 0.5:
+        return "sparse"
+    if observation_coverage_rate < 0.85:
+        return "partial"
+    return "sufficient"
+
+
+def _summarize_realization_group(
+    rows_df: pd.DataFrame,
+    *,
+    group_key: str,
+    group_label: str,
+) -> dict[str, Any]:
+    total = int(rows_df.shape[0])
+    if total <= 0:
+        return {
+            "group_key": group_key,
+            "group_label": group_label,
+            "total_decisions": 0,
+            "observed_decisions": 0,
+            "observation_coverage_rate": 0.0,
+            "pending_observation_rate": 0.0,
+            "action_execution_rate": 0.0,
+            "path_realization_rate": 0.0,
+            "realized_movement_rate": 0.0,
+            "threshold_reach_realization_rate": 0.0,
+            "approval_realization_rate": 0.0,
+            "negative_outcome_rate": 0.0,
+            "mean_movement_score": None,
+            "mean_threshold_reach_probability": None,
+            "mean_plan_execution_probability": None,
+            "mean_combined_plan_realization_probability": None,
+            "plan_execution_gap": None,
+            "combined_realization_gap": None,
+            "threshold_reach_gap": None,
+            "evidence_status": "no_data",
+        }
+
+    observation_coverage_rate = _round_metric(rows_df["observation_coverage_flag"].mean())
+    action_execution_rate = _round_metric(
+        rows_df["path_realization_status"].isin(["attempted", "blocked", "realized"]).mean()
+    )
+    path_realization_rate = _round_metric((rows_df["path_realization_status"] == "realized").mean())
+    realized_movement_rate = _round_metric(
+        rows_df["outcome_realization_label"].isin(["partial_progress", "threshold_reached", "approval_realized"]).mean()
+    )
+    threshold_reach_realization_rate = _round_metric(
+        rows_df["outcome_realization_label"].isin(["threshold_reached", "approval_realized"]).mean()
+    )
+    approval_realization_rate = _round_metric((rows_df["outcome_realization_label"] == "approval_realized").mean())
+    negative_outcome_rate = _round_metric((rows_df["outcome_realization_label"] == "negative_outcome").mean())
+    mean_movement_score = _mean_or_none(rows_df["movement_score"])
+    mean_threshold_reach_probability = _mean_or_none(rows_df["threshold_reach_probability"])
+    mean_plan_execution_probability = _mean_or_none(rows_df["plan_execution_probability"])
+    mean_combined_plan_realization_probability = _mean_or_none(rows_df["combined_plan_realization_probability"])
+    return {
+        "group_key": group_key,
+        "group_label": group_label,
+        "total_decisions": total,
+        "observed_decisions": int(rows_df["observation_coverage_flag"].sum()),
+        "observation_coverage_rate": observation_coverage_rate,
+        "pending_observation_rate": _round_metric((rows_df["outcome_realization_label"] == "pending_observation").mean()),
+        "action_execution_rate": action_execution_rate,
+        "path_realization_rate": path_realization_rate,
+        "realized_movement_rate": realized_movement_rate,
+        "threshold_reach_realization_rate": threshold_reach_realization_rate,
+        "approval_realization_rate": approval_realization_rate,
+        "negative_outcome_rate": negative_outcome_rate,
+        "mean_movement_score": mean_movement_score,
+        "mean_threshold_reach_probability": mean_threshold_reach_probability,
+        "mean_plan_execution_probability": mean_plan_execution_probability,
+        "mean_combined_plan_realization_probability": mean_combined_plan_realization_probability,
+        "plan_execution_gap": (
+            _round_metric(action_execution_rate - mean_plan_execution_probability)
+            if mean_plan_execution_probability is not None
+            else None
+        ),
+        "combined_realization_gap": (
+            _round_metric(realized_movement_rate - mean_combined_plan_realization_probability)
+            if mean_combined_plan_realization_probability is not None
+            else None
+        ),
+        "threshold_reach_gap": (
+            _round_metric(threshold_reach_realization_rate - mean_threshold_reach_probability)
+            if mean_threshold_reach_probability is not None
+            else None
+        ),
+        "evidence_status": _realization_evidence_status(total, observation_coverage_rate),
+    }
+
+
 def _frame_from_records(records: pd.DataFrame | list[dict[str, Any]]) -> pd.DataFrame:
     if isinstance(records, pd.DataFrame):
         return records.copy(deep=True)
@@ -1093,6 +1220,16 @@ def summarize_outcome_realization(*, window_days: int = 90) -> dict[str, Any]:
                 "selected_path_movement_strength": _clean_str(decision.get("selected_path_movement_strength")),
                 "recourse_mode": _clean_str(decision.get("recourse_mode")),
                 "recoverable_flag": _to_bool(decision.get("recoverable_flag")),
+                "evaluation_population": _realization_population_key(
+                    decision.get("recoverable_flag"),
+                    decision.get("recourse_mode"),
+                ),
+                "movement_score": _safe_float(decision.get("movement_score")),
+                "threshold_reach_probability": _safe_float(decision.get("threshold_reach_probability")),
+                "plan_execution_probability": _safe_float(decision.get("plan_execution_probability")),
+                "combined_plan_realization_probability": _safe_float(
+                    decision.get("combined_plan_realization_probability")
+                ),
                 "path_realization_status": path_status or "pending_observation",
                 "outcome_realization_label": label,
                 "observation_coverage_flag": int(bool(path_row.get("observation_coverage_flag")) or has_outcome_observation),
@@ -1125,6 +1262,184 @@ def summarize_outcome_realization(*, window_days: int = 90) -> dict[str, Any]:
         "time_to_realized_outcome_days": None,
         "outcome_realization_label_distribution": _distribution(labels, OUTCOME_REALIZATION_LABELS),
         "rows": row_records,
+    }
+
+
+def summarize_realization_evaluation(*, window_days: int = 90) -> dict[str, Any]:
+    outcome_summary = summarize_outcome_realization(window_days=window_days)
+    rows_df = pd.DataFrame(outcome_summary.get("rows", []))
+    if rows_df.empty:
+        empty_group = _summarize_realization_group(pd.DataFrame(), group_key="all_decisions", group_label="All Decisions")
+        return {
+            "window_days": int(window_days),
+            "total_decisions": 0,
+            "overall": empty_group,
+            "recoverable_vs_limited_summary": [],
+            "selected_path_type_summary": [],
+            "selected_path_movement_strength_summary": [],
+            "predicted_vs_observed": {
+                "overall": {
+                    "mean_plan_execution_probability": None,
+                    "observed_action_execution_rate": 0.0,
+                    "plan_execution_gap": None,
+                    "mean_combined_plan_realization_probability": None,
+                    "observed_realized_movement_rate": 0.0,
+                    "combined_realization_gap": None,
+                    "mean_threshold_reach_probability": None,
+                    "observed_threshold_reach_realization_rate": 0.0,
+                    "threshold_reach_gap": None,
+                },
+                "by_population": [],
+            },
+            "recoverable_vs_limited_comparison": {
+                "recoverable_full_mode_present": False,
+                "non_recoverable_limited_mode_present": False,
+            },
+        }
+
+    rows_df = rows_df.copy(deep=True)
+    for column in [
+        "selected_path_type",
+        "selected_path_movement_strength",
+        "evaluation_population",
+        "path_realization_status",
+        "outcome_realization_label",
+    ]:
+        rows_df[column] = rows_df[column].map(_clean_str)
+    rows_df["selected_path_type"] = rows_df["selected_path_type"].replace("", "unknown")
+    rows_df["selected_path_movement_strength"] = rows_df["selected_path_movement_strength"].replace("", "unknown")
+    rows_df["observation_coverage_flag"] = pd.to_numeric(rows_df["observation_coverage_flag"], errors="coerce").fillna(0).astype(int)
+
+    overall = _summarize_realization_group(rows_df, group_key="all_decisions", group_label="All Decisions")
+
+    population_order = [
+        "recoverable_full_mode",
+        "non_recoverable_limited_mode",
+        "full_mode_other",
+        "limited_mode_other",
+        "uncategorized",
+    ]
+    population_summaries: list[dict[str, Any]] = []
+    for population_key in population_order:
+        group_df = rows_df[rows_df["evaluation_population"] == population_key]
+        if group_df.empty:
+            continue
+        population_summaries.append(
+            _summarize_realization_group(
+                group_df,
+                group_key=population_key,
+                group_label=_realization_population_label(population_key),
+            )
+        )
+
+    path_type_summaries: list[dict[str, Any]] = []
+    for path_type in sorted(rows_df["selected_path_type"].dropna().unique().tolist()):
+        group_df = rows_df[rows_df["selected_path_type"] == path_type]
+        path_type_summaries.append(
+            _summarize_realization_group(
+                group_df,
+                group_key=path_type,
+                group_label=path_type.replace("_", " ").title(),
+            )
+        )
+
+    movement_strength_order = ["strong", "moderate", "weak", "unknown"]
+    movement_strength_summaries: list[dict[str, Any]] = []
+    for movement_strength in movement_strength_order:
+        group_df = rows_df[rows_df["selected_path_movement_strength"] == movement_strength]
+        if group_df.empty:
+            continue
+        movement_strength_summaries.append(
+            _summarize_realization_group(
+                group_df,
+                group_key=movement_strength,
+                group_label=movement_strength.replace("_", " ").title(),
+            )
+        )
+
+    predicted_vs_observed_overall = {
+        "mean_plan_execution_probability": overall["mean_plan_execution_probability"],
+        "observed_action_execution_rate": overall["action_execution_rate"],
+        "plan_execution_gap": overall["plan_execution_gap"],
+        "mean_combined_plan_realization_probability": overall["mean_combined_plan_realization_probability"],
+        "observed_realized_movement_rate": overall["realized_movement_rate"],
+        "combined_realization_gap": overall["combined_realization_gap"],
+        "mean_threshold_reach_probability": overall["mean_threshold_reach_probability"],
+        "observed_threshold_reach_realization_rate": overall["threshold_reach_realization_rate"],
+        "threshold_reach_gap": overall["threshold_reach_gap"],
+    }
+    predicted_vs_observed_by_population = [
+        {
+            "group_key": summary["group_key"],
+            "group_label": summary["group_label"],
+            "total_decisions": summary["total_decisions"],
+            "observation_coverage_rate": summary["observation_coverage_rate"],
+            "evidence_status": summary["evidence_status"],
+            "mean_plan_execution_probability": summary["mean_plan_execution_probability"],
+            "observed_action_execution_rate": summary["action_execution_rate"],
+            "plan_execution_gap": summary["plan_execution_gap"],
+            "mean_combined_plan_realization_probability": summary["mean_combined_plan_realization_probability"],
+            "observed_realized_movement_rate": summary["realized_movement_rate"],
+            "combined_realization_gap": summary["combined_realization_gap"],
+            "mean_threshold_reach_probability": summary["mean_threshold_reach_probability"],
+            "observed_threshold_reach_realization_rate": summary["threshold_reach_realization_rate"],
+            "threshold_reach_gap": summary["threshold_reach_gap"],
+        }
+        for summary in population_summaries
+    ]
+
+    comparison_lookup = {summary["group_key"]: summary for summary in population_summaries}
+    recoverable_full = comparison_lookup.get("recoverable_full_mode")
+    limited_control = comparison_lookup.get("non_recoverable_limited_mode")
+    comparison_summary: dict[str, Any] = {
+        "recoverable_full_mode_present": recoverable_full is not None,
+        "non_recoverable_limited_mode_present": limited_control is not None,
+    }
+    if recoverable_full is not None and limited_control is not None:
+        comparison_summary.update(
+            {
+                "realized_movement_rate_delta": _round_metric(
+                    recoverable_full["realized_movement_rate"] - limited_control["realized_movement_rate"]
+                ),
+                "threshold_reach_realization_rate_delta": _round_metric(
+                    recoverable_full["threshold_reach_realization_rate"]
+                    - limited_control["threshold_reach_realization_rate"]
+                ),
+                "approval_realization_rate_delta": _round_metric(
+                    recoverable_full["approval_realization_rate"] - limited_control["approval_realization_rate"]
+                ),
+                "observation_coverage_rate_delta": _round_metric(
+                    recoverable_full["observation_coverage_rate"] - limited_control["observation_coverage_rate"]
+                ),
+                "plan_execution_gap_delta": (
+                    _round_metric(recoverable_full["plan_execution_gap"] - limited_control["plan_execution_gap"])
+                    if recoverable_full["plan_execution_gap"] is not None
+                    and limited_control["plan_execution_gap"] is not None
+                    else None
+                ),
+                "combined_realization_gap_delta": (
+                    _round_metric(
+                        recoverable_full["combined_realization_gap"] - limited_control["combined_realization_gap"]
+                    )
+                    if recoverable_full["combined_realization_gap"] is not None
+                    and limited_control["combined_realization_gap"] is not None
+                    else None
+                ),
+            }
+        )
+
+    return {
+        "window_days": int(window_days),
+        "total_decisions": int(rows_df.shape[0]),
+        "overall": overall,
+        "recoverable_vs_limited_summary": population_summaries,
+        "selected_path_type_summary": path_type_summaries,
+        "selected_path_movement_strength_summary": movement_strength_summaries,
+        "predicted_vs_observed": {
+            "overall": predicted_vs_observed_overall,
+            "by_population": predicted_vs_observed_by_population,
+        },
+        "recoverable_vs_limited_comparison": comparison_summary,
     }
 
 
