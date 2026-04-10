@@ -7,6 +7,7 @@ DEFAULT_NEAR_UPPER = 0.10
 DEFAULT_MID_UPPER = 0.25
 RECOVERABILITY_CLASSIFIER_VERSION = "phase_62_v1"
 RECOURSE_GATE_VERSION = "phase_63_v1"
+NARRATIVE_CONTRACT_VERSION = "phase_66_v1"
 HARD_STRUCTURAL_BLOCKERS: tuple[str, ...] = (
     "NO_VALID_WINNER",
     "NO_PATH",
@@ -177,6 +178,43 @@ def build_recourse_gate(signal: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_narrative_posture(signal: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    Phase 66 additive narrative contract:
+    - narrative_type: actionable | informational (derived from shipped recourse gate truth)
+    - informational_subtype: structural_limited | not_currently_actionable (required when informational)
+
+    The mapping is deterministic and audit-safe; it must not invent actionability in limited mode.
+    """
+
+    recourse_mode = _safe_text(signal.get("recourse_mode")).lower()
+    recommendation_mode = _safe_text(signal.get("recommendation_mode")).lower()
+    recoverable_flag = bool(signal.get("recoverable_flag", False))
+    narrative_type = (
+        "actionable"
+        if recommendation_mode == "actionable" or recourse_mode == "full" or recoverable_flag
+        else "informational"
+    )
+
+    informational_subtype = ""
+    if narrative_type == "informational":
+        bucket = _safe_text(signal.get("recoverability_bucket")).lower()
+        hard_blocked = bool(_safe_float(signal.get("hard_structural_blocker_flag"), 0.0)) or bool(
+            _ordered_unique(signal.get("hard_structural_blockers", []) or [])
+        )
+        if bucket == "structural_limited" or hard_blocked:
+            informational_subtype = "structural_limited"
+        else:
+            # Includes `mid_risk` and soft-blocked cases.
+            informational_subtype = "not_currently_actionable"
+
+    return {
+        "narrative_contract_version": NARRATIVE_CONTRACT_VERSION,
+        "narrative_type": narrative_type,
+        "informational_subtype": informational_subtype,
+    }
+
+
 def build_recoverability_signal(
     *,
     base_pd: float,
@@ -269,4 +307,5 @@ def build_recoverability_signal(
     }
     signal.update(build_recoverability_classifier(signal))
     signal.update(build_recourse_gate(signal))
+    signal.update(build_narrative_posture(signal))
     return signal

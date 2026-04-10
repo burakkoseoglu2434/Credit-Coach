@@ -38,6 +38,7 @@ from credit_coach.decision.ownership import build_customer_decision_payload
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.evaluation.recoverability import (
     best_possible_pd_improvement_from_predictions,
+    build_narrative_posture,
     build_recourse_gate,
     build_recoverability_signal,
     recoverability_risk_band,
@@ -475,6 +476,7 @@ def _apply_recourse_gate_to_roadmap(roadmap: dict[str, Any]) -> dict[str, Any]:
     summary = dict(out.get("summary", {}) or {})
     gate = build_recourse_gate(summary)
     summary.update(gate)
+    summary.update(build_narrative_posture(summary))
     summary["recourse_gate_reason_codes_json"] = json.dumps(
         gate["recourse_gate_reason_codes"],
         ensure_ascii=False,
