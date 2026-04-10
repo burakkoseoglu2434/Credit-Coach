@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import pandas as pd
+
+from credit_coach.cli.run_outcome_feedback import _ingest_action_events_csv
+from credit_coach.data.schema import DecisionActionExecutionEventRecord
 from credit_coach.data.schema import DecisionOutcomeRecord
 from credit_coach.storage import db as db_module
 from credit_coach.storage.db import init_db
 from credit_coach.storage.repository import (
     load_decision_learning_dataset,
+    load_decision_action_execution_events,
     compute_policy_outcome_deltas,
+    save_decision_action_execution_event,
     save_decision_outcome,
     summarize_decision_logging,
     summarize_decision_outcomes,
@@ -234,3 +240,92 @@ def test_decision_learning_dataset_preserves_selected_path_realization_context(m
     assert row["recoverable_flag"] is True
     assert row["movement_score"] == 0.84
     assert row["threshold_reach_probability"] == 0.63
+
+
+def test_decision_action_execution_events_append_and_filter(monkeypatch, tmp_path):
+    _init_test_db(monkeypatch, tmp_path)
+    save_decision_action_execution_event(
+        DecisionActionExecutionEventRecord(
+            decision_id="d-evt-1",
+            customer_id="c-evt",
+            selected_plan_id="plan-evt",
+            selected_path_id="path-evt",
+            action_key="call_servicer",
+            event_type="attempted",
+            event_at=pd.Timestamp("2026-04-10T08:00:00Z").to_pydatetime(),
+            event_source="manual_review",
+            evidence_reference="ticket-1",
+        )
+    )
+    save_decision_action_execution_event(
+        DecisionActionExecutionEventRecord(
+            decision_id="d-evt-1",
+            customer_id="c-evt",
+            selected_plan_id="plan-evt",
+            selected_path_id="path-evt",
+            action_key="call_servicer",
+            event_type="completed",
+            event_at=pd.Timestamp("2026-04-12T08:00:00Z").to_pydatetime(),
+            event_source="batch_refresh",
+            evidence_reference="ticket-2",
+        )
+    )
+    save_decision_action_execution_event(
+        DecisionActionExecutionEventRecord(
+            decision_id="d-evt-2",
+            customer_id="c-evt-2",
+            selected_plan_id="plan-evt-2",
+            selected_path_id="path-evt-2",
+            action_key="reduce_balance",
+            event_type="blocked",
+            event_at=pd.Timestamp("2026-04-11T08:00:00Z").to_pydatetime(),
+            event_source="self_report",
+            evidence_reference=None,
+        )
+    )
+
+    all_events = load_decision_action_execution_events()
+    filtered = load_decision_action_execution_events(decision_id="d-evt-1")
+
+    assert len(all_events) == 3
+    assert filtered["event_type"].tolist() == ["attempted", "completed"]
+    assert filtered["event_source"].tolist() == ["manual_review", "batch_refresh"]
+    assert filtered["evidence_reference"].tolist() == ["ticket-1", "ticket-2"]
+
+
+def test_ingest_action_events_csv_appends_selected_action_events(monkeypatch, tmp_path):
+    _init_test_db(monkeypatch, tmp_path)
+    csv_path = tmp_path / "action_events.csv"
+    pd.DataFrame(
+        [
+            {
+                "decision_id": "d-csv-1",
+                "customer_id": "c-csv-1",
+                "selected_plan_id": "plan-csv-1",
+                "selected_path_id": "path-csv-1",
+                "action_key": "call_servicer",
+                "event_type": "attempted",
+                "event_at": "2026-04-10T09:00:00Z",
+                "event_source": "batch_refresh",
+                "evidence_reference": "batch-1",
+            },
+            {
+                "decision_id": "d-csv-1",
+                "customer_id": "c-csv-1",
+                "selected_plan_id": "plan-csv-1",
+                "selected_path_id": "path-csv-1",
+                "action_key": "call_servicer",
+                "event_type": "completed",
+                "event_at": "2026-04-13T09:00:00Z",
+                "event_source": "manual_review",
+                "evidence_reference": "review-1",
+            },
+        ]
+    ).to_csv(csv_path, index=False)
+
+    inserted = _ingest_action_events_csv(csv_path)
+    events = load_decision_action_execution_events(decision_id="d-csv-1")
+
+    assert inserted == 2
+    assert events["event_type"].tolist() == ["attempted", "completed"]
+    assert events["selected_path_id"].tolist() == ["path-csv-1", "path-csv-1"]

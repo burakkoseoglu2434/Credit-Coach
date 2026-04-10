@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from credit_coach.data.schema import (
     CustomerSnapshot,
+    DecisionActionExecutionEventRecord,
     DecisionOutcomeRecord,
     MacroSnapshot,
     ModelRunRecord,
@@ -27,6 +28,7 @@ from credit_coach.storage.db import get_session
 from credit_coach.storage.models import (
     AuditEventORM,
     CustomerSnapshotORM,
+    DecisionActionExecutionEventORM,
     DecisionOutcomeContextORM,
     DecisionOutcomeORM,
     DecisionOutcomeRealizationContextORM,
@@ -740,6 +742,69 @@ def save_decision_outcome(record: DecisionOutcomeRecord) -> int:
         )
         session.commit()
     return record_id
+
+
+def save_decision_action_execution_event(record: DecisionActionExecutionEventRecord) -> int:
+    orm = DecisionActionExecutionEventORM(
+        decision_id=record.decision_id,
+        customer_id=record.customer_id,
+        selected_plan_id=record.selected_plan_id,
+        selected_path_id=_clean_str(record.selected_path_id) or None,
+        action_key=record.action_key,
+        event_type=record.event_type,
+        event_at=record.event_at,
+        event_source=_clean_str(record.event_source),
+        evidence_reference=_clean_str(record.evidence_reference) or None,
+    )
+    with get_session() as session:
+        session.add(orm)
+        session.flush()
+        record_id = int(orm.id)
+        _append_audit_event(
+            session=session,
+            event_type="decision_action_execution_event_saved",
+            entity_id=record.decision_id,
+            payload={
+                "event_id": record_id,
+                "customer_id": record.customer_id,
+                "selected_plan_id": record.selected_plan_id,
+                "selected_path_id": _clean_str(record.selected_path_id),
+                "action_key": record.action_key,
+                "event_type": record.event_type,
+                "event_source": _clean_str(record.event_source),
+            },
+        )
+        session.commit()
+    return record_id
+
+
+def load_decision_action_execution_events(*, decision_id: str | None = None) -> pd.DataFrame:
+    with get_session() as session:
+        query = session.query(DecisionActionExecutionEventORM)
+        if _clean_str(decision_id):
+            query = query.filter(DecisionActionExecutionEventORM.decision_id == _clean_str(decision_id))
+        rows = query.order_by(
+            DecisionActionExecutionEventORM.event_at.asc(),
+            DecisionActionExecutionEventORM.id.asc(),
+        ).all()
+
+    return pd.DataFrame(
+        [
+            {
+                "event_id": int(row.id),
+                "decision_id": str(row.decision_id),
+                "customer_id": str(row.customer_id),
+                "selected_plan_id": str(row.selected_plan_id),
+                "selected_path_id": _clean_str(row.selected_path_id),
+                "action_key": str(row.action_key),
+                "event_type": str(row.event_type),
+                "event_at": row.event_at,
+                "event_source": str(row.event_source),
+                "evidence_reference": _clean_str(row.evidence_reference),
+            }
+            for row in rows
+        ]
+    )
 
 
 def summarize_decision_logging() -> dict[str, Any]:

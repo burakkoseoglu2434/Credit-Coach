@@ -50,6 +50,7 @@ OfferFeasibility = Literal["not_applicable", "inactive", "provisional", "active_
 RecommendationValidityStatus = Literal["valid", "warning", "invalid"]
 DiceBackendClass = Literal["native", "heuristic_fallback", "skipped"]
 TrajectoryCheckpointStatus = Literal["on_track", "at_risk", "missed", "unknown"]
+ActionExecutionEventType = Literal["attempted", "completed", "blocked", "reversed"]
 ContractDataIssueCode = Literal[
     "missing_required_field",
     "checkpoint_status_missing",
@@ -1729,3 +1730,19 @@ class DecisionOutcomeRecord(BaseModel):
     observed_default_90d: int | None = Field(default=None, ge=0, le=1)
     observed_margin_90d: float | None = Field(default=None)
     observed_at: datetime = Field(default_factory=utc_now)
+
+
+class DecisionActionExecutionEventRecord(BaseModel):
+    """
+    Append-only selected-action execution event.
+    """
+
+    decision_id: str = Field(..., description="Parent decision kimligi")
+    customer_id: str = Field(..., description="Musteri kimligi")
+    selected_plan_id: str = Field(..., description="Secilen plan kimligi")
+    selected_path_id: str | None = Field(default=None, description="Secilen path kimligi varsa")
+    action_key: str = Field(..., description="Secilen path action kimligi")
+    event_type: ActionExecutionEventType = Field(..., description="attempted | completed | blocked | reversed")
+    event_at: datetime = Field(default_factory=utc_now, description="Event timestamp")
+    event_source: str = Field(..., description="Event kaynagi")
+    evidence_reference: str | None = Field(default=None, description="Ham kanit kaynagi veya referansi")

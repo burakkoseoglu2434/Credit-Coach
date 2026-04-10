@@ -346,6 +346,35 @@ class DecisionOutcomeRealizationContextORM(Base):
 
 
 # ------------------------------------------------------------------ #
+# DecisionActionExecutionEventORM
+# ------------------------------------------------------------------ #
+class DecisionActionExecutionEventORM(Base):
+    """
+    Append-only selected-action execution event store.
+    """
+
+    __tablename__ = "decision_action_execution_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    decision_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    customer_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    selected_plan_id: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
+    selected_path_id: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
+    action_key: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    event_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    event_source: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    evidence_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now_naive, index=True)
+
+    def __repr__(self) -> str:
+        return (
+            f"<DecisionActionExecutionEvent decision_id={self.decision_id} "
+            f"action={self.action_key} type={self.event_type}>"
+        )
+
+
+# ------------------------------------------------------------------ #
 # AuditEventORM
 # ------------------------------------------------------------------ #
 class AuditEventORM(Base):
