@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Recoverable Customer Targeting & Movement Optimization
 status: active
-stopped_at: Phase 64 complete; Phase 65 targeted cohort planning is next
-last_updated: "2026-04-08T22:15:43+03:00"
-last_activity: 2026-04-08
+stopped_at: Phase 65 Wave 1 complete; Wave 2 targeted artifacts are next
+last_updated: "2026-04-10T10:40:20+03:00"
+last_activity: 2026-04-10
 progress:
-  total_phases: 64
+  total_phases: 65
   completed_phases: 62
   total_plans: 3
-  completed_plans: 3
+  completed_plans: 1
 ---
 
 # Project State
@@ -20,20 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 64 is complete; the next step is Phase 65 targeted cohort evaluation planning
+**Current focus:** Phase 65 execution is in progress; Wave 1 is complete and Wave 2 targeted artifact packaging is next
 
 ## Current Position
 
-Phase: 64 complete
-Plan: 64-03 complete
-Status: Selected-path movement truth is now auditable from planner selection through cohort evidence, and downstream trust surfaces remain honesty-safe
-Last activity: 2026-04-08 — Phase 64 Wave 3 executed, verified, and phase closed
+Phase: 65 in progress
+Plan: 65-01 complete
+Status: The cohort runner now labels targeted populations explicitly and emits comparison-ready movement and honesty aggregates from runtime-first truth
+Last activity: 2026-04-10 — Phase 65 Wave 1 executed and verified
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 182 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-64)
+- Total plans completed: 184 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-65 wave 1)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -51,7 +51,7 @@ Last activity: 2026-04-08 — Phase 64 Wave 3 executed, verified, and phase clos
 | v2.2 completed milestone | 12 | phases 45-48 complete; archived | n/a |
 | v2.3 completed milestone | 12 | phases 49-52 complete; archived | n/a |
 | v2.4 completed milestone | 19 | phases 54-60 complete; archived | n/a |
-| v2.5 active milestone | 12 | phases 61-64 complete; phase 65 planned next | n/a |
+| v2.5 active milestone | 14 | phases 61-64 complete; phase 65 in progress (1/3 plans complete) | n/a |
 
 **Recent Trend:**
 
@@ -67,6 +67,7 @@ Last activity: 2026-04-08 — Phase 64 Wave 3 executed, verified, and phase clos
 - Phase \`64 Movement-Focused Path Ranking\` Wave 1 now ships one deterministic movement-aware planner seam for recoverable/full-mode denied customers, plus runtime activation that keeps selected-plan and grouped-path ranking aligned.
 - Phase \`64 Movement-Focused Path Ranking\` Wave 2 now propagates selected-path movement truth through runtime summaries and flat customer artifacts while clearing those fields in limited-mode empty-state outputs.
 - Phase \`64 Movement-Focused Path Ranking\` now closes with cohort-visible movement-ranking evidence, additive movement-strength distributions, and explicit proof that explanation/operator/winner-integrity surfaces remain unchanged in behavior.
+- Phase \`65 Targeted Cohort Evaluation\` Wave 1 now labels recoverable/full and limited/control populations directly in the cohort runner and emits first-pass targeted comparison metrics from runtime-first truth.
 
 ## Accumulated Context
 
@@ -102,7 +103,7 @@ Recent decisions affecting the shipped baseline:
 ### Pending Todos
 
 - Keep recoverability deterministic and explainable; do not reopen model retraining, new action-type scope, or premature narrative work during v2.5
-- Plan Phase `65` with `$gsd-plan-phase 65`
+- Continue Phase `65` execution with `$gsd-execute-phase 65`
 
 ### Tooling / Tech Debt
 
@@ -116,6 +117,6 @@ Recent decisions affecting the shipped baseline:
 
 ## Session Continuity
 
-Last session: 2026-04-08T22:15:43+03:00
-Stopped at: Phase 64 complete; Phase 65 targeted cohort planning is next
+Last session: 2026-04-10T10:40:20+03:00
+Stopped at: Phase 65 Wave 1 complete; Wave 2 targeted artifacts are next
 Resume file: .planning/ROADMAP.md
