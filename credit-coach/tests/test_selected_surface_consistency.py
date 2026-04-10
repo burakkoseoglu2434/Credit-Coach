@@ -78,6 +78,8 @@ def test_selected_surface_projection_reuses_empty_state_when_limited_mode_suppre
     roadmap = {
         "customer_id": "cust-gated",
         "best_plan_id": "plan-1",
+        "base_pd": 0.42,
+        "tau": 0.35,
         "summary": {
             "decision_status": "CONDITIONAL",
             "best_plan_id": "plan-1",
@@ -85,6 +87,7 @@ def test_selected_surface_projection_reuses_empty_state_when_limited_mode_suppre
             "selection_outcome": "selected_valid_winner",
             "selection_stage": "preferred_valid",
             "recoverable_flag": False,
+            "recoverability_bucket": "mid_risk",
             "movement_score": 88.0,
             "threshold_reach_probability": 0.77,
             "threshold_reach_priority_flag": 1,
@@ -92,6 +95,12 @@ def test_selected_surface_projection_reuses_empty_state_when_limited_mode_suppre
             "selected_path_movement_strength": "strong",
         },
         "narrative": {
+            "executive_summary": {
+                "recommended_path": {
+                    "label": {"tr": "Kontrollu toparlanma yolu", "en": "Controlled recovery path"},
+                    "description": {"tr": "dummy", "en": "dummy"},
+                }
+            },
             "steps": [
                 {
                     "primary_recommendation": {
@@ -101,13 +110,19 @@ def test_selected_surface_projection_reuses_empty_state_when_limited_mode_suppre
             ]
         },
         "phases": [{"phase_id": "phase-1", "steps": [{"action_key": "limit_credit_usage"}]}],
+        "checkpoints": [{"checkpoint_id": "checkpoint_week_4", "week": 4, "predicted_pd": 0.31, "gate_pass_estimate": 1}],
     }
 
     projected = _apply_recourse_gate_to_roadmap(roadmap)
     summary = projected["summary"]
+    narrative = projected.get("narrative", {})
 
     assert summary["selection_outcome"] == "selected_valid_winner"
     assert summary["recourse_mode"] == "limited"
+    assert summary["recommendation_mode"] == "informational"
+    assert summary["narrative_type"] == "informational"
+    assert summary["informational_subtype"] == "not_currently_actionable"
+    assert summary["narrative_contract_version"] == "phase_66_v1"
     assert summary["selected_recommendation_text"] is None
     assert summary["selected_recommendation_source"] == "empty_state"
     assert summary["selected_action_count"] == 0
@@ -117,3 +132,9 @@ def test_selected_surface_projection_reuses_empty_state_when_limited_mode_suppre
     assert summary["threshold_reach_priority_flag"] == 0
     assert summary["movement_rank_reason_codes"] == []
     assert summary["selected_path_movement_strength"] == ""
+    assert isinstance(narrative, dict)
+    assert narrative.get("steps", []) == []
+    executive = dict(narrative.get("executive_summary", {}) or {})
+    recommended = dict(executive.get("recommended_path", {}) or {})
+    label = dict(recommended.get("label", {}) or {})
+    assert label.get("en") == "Not actionable yet"
