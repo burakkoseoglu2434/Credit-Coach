@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: Recoverable Customer Targeting & Movement Optimization
 status: active
-stopped_at: Phase 65 complete; Phase 66 demo and narrative alignment planning is next
-last_updated: "2026-04-10T11:34:58+03:00"
+stopped_at: Phase 67 Wave 1 complete; Wave 2 realization summaries are next
+last_updated: "2026-04-10T12:12:52+03:00"
 last_activity: 2026-04-10
 progress:
-  total_phases: 65
+  total_phases: 67
   completed_phases: 63
   total_plans: 3
-  completed_plans: 3
+  completed_plans: 1
 ---
 
 # Project State
@@ -20,20 +20,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-05)
 
 **Core value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
-**Current focus:** Phase 65 is complete; the next step is Phase 66 planning for demo and narrative alignment
+**Current focus:** Phase 67 execution is in progress; Wave 1 is complete and Wave 2 realization summaries are next
 
 ## Current Position
 
-Phase: 65 complete
-Plan: 65-03 complete
-Status: Targeted cohort evaluation now closes with explicit recoverable-vs-global concentration reporting, limited-mode honesty control visibility, and a deterministic non-uplift final conclusion
-Last activity: 2026-04-10 — Phase 65 Wave 3 executed, verified, and closed out
+Phase: 67 in progress
+Plan: 67-01 complete
+Status: The outcome-feedback seam now preserves selected-path realization context and accepts append-only selected-action execution events without changing live decision logic
+Last activity: 2026-04-10 — Phase 67 Wave 1 executed and verified
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 188 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-65 complete)
+- Total plans completed: 190 (historical import + phases 8-25 + phases 30-39 + phases 40-44 + post-v2.1 phase 42.5 + phases 45-65 complete + phase 67 wave 1)
 - Average duration: historical data not reconstructed
 - Total execution time: historical data not reconstructed
 
@@ -51,7 +51,7 @@ Last activity: 2026-04-10 — Phase 65 Wave 3 executed, verified, and closed out
 | v2.2 completed milestone | 12 | phases 45-48 complete; archived | n/a |
 | v2.3 completed milestone | 12 | phases 49-52 complete; archived | n/a |
 | v2.4 completed milestone | 19 | phases 54-60 complete; archived | n/a |
-| v2.5 active milestone | 18 | phases 61-65 complete; phase 66 planned next | n/a |
+| v2.5 active milestone | 20 | phases 61-65 complete; phase 66 planned; phase 67 in progress (1/3 plans complete) | n/a |
 
 **Recent Trend:**
 
@@ -70,6 +70,7 @@ Last activity: 2026-04-10 — Phase 65 Wave 3 executed, verified, and closed out
 - Phase \`65 Targeted Cohort Evaluation\` Wave 1 now labels recoverable/full and limited/control populations directly in the cohort runner and emits first-pass targeted comparison metrics from runtime-first truth.
 - Phase \`65 Targeted Cohort Evaluation\` Wave 2 now publishes those targeted comparisons through canonical JSON and additive evidence tables, making movement concentration and honesty-control posture jointly auditable.
 - Phase \`65 Targeted Cohort Evaluation\` now closes with explicit targeted-vs-global concentration reporting, limited-mode honesty-control visibility, and a disciplined final conclusion contract that does not overclaim business uplift.
+- Phase \`67 Execution & Outcome Realization\` Wave 1 now preserves selected-path realization context on delayed outcomes and adds append-only selected-action execution event ingestion through the existing outcome-feedback seam.
 
 ## Accumulated Context
 
@@ -105,7 +106,7 @@ Recent decisions affecting the shipped baseline:
 ### Pending Todos
 
 - Keep recoverability deterministic and explainable; do not reopen model retraining, new action-type scope, or premature narrative work during v2.5
-- Plan Phase `66` with `$gsd-plan-phase 66`
+- Continue Phase `67` execution with `$gsd-execute-phase 67`
 
 ### Tooling / Tech Debt
 
@@ -119,6 +120,6 @@ Recent decisions affecting the shipped baseline:
 
 ## Session Continuity
 
-Last session: 2026-04-10T11:34:58+03:00
-Stopped at: Phase 65 complete; Phase 66 demo and narrative alignment planning is next
+Last session: 2026-04-10T12:12:52+03:00
+Stopped at: Phase 67 Wave 1 complete; Wave 2 realization summaries are next
 Resume file: .planning/ROADMAP.md
