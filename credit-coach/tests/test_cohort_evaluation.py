@@ -354,6 +354,7 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
                     "recommendation_mode": "actionable",
                     "recourse_gate_version": "phase_63_v1",
                     "recourse_gate_reason_codes": ["RECOVERABLE_FULL_MODE"],
+                    "selected_action_count": 1,
                     "movement_score": 0.81,
                     "threshold_reach_probability": 0.69,
                     "threshold_reach_priority_flag": 1,
@@ -492,9 +493,21 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     assert "movement_rank_reason_codes_json" in customer_df.columns
     assert "selected_path_movement_strength" in customer_df.columns
     assert "threshold_reach_possible" in customer_df.columns
+    assert "primary_population" in customer_df.columns
+    assert "in_global_denied_population" in customer_df.columns
+    assert "in_recoverable_full_mode_population" in customer_df.columns
+    assert "in_non_recoverable_limited_mode_population" in customer_df.columns
+    assert "empty_state_flag" in customer_df.columns
+    assert "zero_action_flag" in customer_df.columns
     assert customer_df["recoverable_flag"].astype(int).eq(1).all()
     assert customer_df["recourse_mode"].eq("full").all()
     assert customer_df["recommendation_mode"].eq("actionable").all()
+    assert customer_df["primary_population"].eq("recoverable_full_mode").all()
+    assert customer_df["in_global_denied_population"].astype(int).eq(1).all()
+    assert customer_df["in_recoverable_full_mode_population"].astype(int).eq(1).all()
+    assert customer_df["in_non_recoverable_limited_mode_population"].astype(int).eq(0).all()
+    assert customer_df["empty_state_flag"].astype(int).eq(0).all()
+    assert customer_df["zero_action_flag"].astype(int).eq(0).all()
     assert customer_df["recourse_gate_version"].eq("phase_63_v1").all()
     assert customer_df["movement_score"].astype(float).eq(0.81).all()
     assert customer_df["threshold_reach_probability"].astype(float).eq(0.69).all()
@@ -725,8 +738,14 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
 
     assert customer_df["recourse_mode"].eq("limited").all()
     assert customer_df["recommendation_mode"].eq("informational").all()
+    assert customer_df["primary_population"].eq("non_recoverable_limited_mode").all()
+    assert customer_df["in_global_denied_population"].astype(int).eq(1).all()
+    assert customer_df["in_recoverable_full_mode_population"].astype(int).eq(0).all()
+    assert customer_df["in_non_recoverable_limited_mode_population"].astype(int).eq(1).all()
     assert customer_df["selected_recommendation_source"].eq("empty_state").all()
     assert customer_df["selected_action_count"].astype(int).eq(0).all()
+    assert customer_df["empty_state_flag"].astype(int).eq(1).all()
+    assert customer_df["zero_action_flag"].astype(int).eq(1).all()
     assert customer_df["movement_score"].astype(float).eq(0.0).all()
     assert customer_df["threshold_reach_probability"].astype(float).eq(0.0).all()
     assert customer_df["threshold_reach_priority_flag"].astype(int).eq(0).all()

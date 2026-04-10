@@ -654,6 +654,19 @@ def _build_trust_regression_rows(
     ]
 
 
+def _targeted_population_label(
+    *,
+    recoverable_flag: int,
+    recourse_mode: str,
+) -> str:
+    mode = _safe_text(recourse_mode).lower()
+    if int(recoverable_flag) == 1 and mode == "full":
+        return "recoverable_full_mode"
+    if int(recoverable_flag) == 0 and mode == "limited":
+        return "non_recoverable_limited_mode"
+    return "other_denied"
+
+
 def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
     if customer_df.empty:
         return {
@@ -1229,6 +1242,14 @@ def main() -> None:
                 metrics_summary=metrics_summary,
                 fallback_gate={},
             )
+            recoverable_flag = int(bool(recoverability_signal.get("recoverable_flag", False)))
+            recourse_mode = _safe_text(recourse_gate.get("recourse_mode"))
+            primary_population = _targeted_population_label(
+                recoverable_flag=recoverable_flag,
+                recourse_mode=recourse_mode,
+            )
+            selected_recommendation_source = _safe_text(roadmap_summary.get("selected_recommendation_source"))
+            selected_action_count = _safe_int(roadmap_summary.get("selected_action_count", 0), 0)
 
             customer_row = {
                 "customer_id": _safe_text(row.get("evaluation_customer_id")),
@@ -1262,7 +1283,7 @@ def main() -> None:
                 "soft_structural_blockers_json": _json_dumps(
                     list(recoverability_signal.get("soft_structural_blockers", []) or [])
                 ),
-                "recoverable_flag": int(bool(recoverability_signal.get("recoverable_flag", False))),
+                "recoverable_flag": recoverable_flag,
                 "recoverability_classifier_version": _safe_text(
                     recoverability_signal.get("recoverability_classifier_version")
                 ),
@@ -1272,19 +1293,23 @@ def main() -> None:
                 "recoverable_reason_codes_json": _json_dumps(
                     list(recoverability_signal.get("recoverable_reason_codes", []) or [])
                 ),
-                "recourse_mode": _safe_text(recourse_gate.get("recourse_mode")),
+                "recourse_mode": recourse_mode,
                 "recommendation_mode": _safe_text(recourse_gate.get("recommendation_mode")),
                 "recourse_gate_version": _safe_text(recourse_gate.get("recourse_gate_version")),
                 "recourse_gate_reason_codes_json": _json_dumps(
                     list(recourse_gate.get("recourse_gate_reason_codes", []) or [])
                 ),
-                "selected_recommendation_source": _safe_text(
-                    roadmap_summary.get("selected_recommendation_source")
-                ),
-                "selected_action_count": _safe_int(roadmap_summary.get("selected_action_count", 0), 0),
+                "selected_recommendation_source": selected_recommendation_source,
+                "selected_action_count": selected_action_count,
                 "selected_recommendation_projection_version": _safe_text(
                     roadmap_summary.get("selected_recommendation_projection_version")
                 ),
+                "primary_population": primary_population,
+                "in_global_denied_population": 1,
+                "in_recoverable_full_mode_population": int(primary_population == "recoverable_full_mode"),
+                "in_non_recoverable_limited_mode_population": int(primary_population == "non_recoverable_limited_mode"),
+                "empty_state_flag": int(selected_recommendation_source == "empty_state"),
+                "zero_action_flag": int(selected_action_count == 0),
                 "tau": round(tau, 6),
                 "decision_status": decision_status,
                 "selected_decision_status": selected_status,
