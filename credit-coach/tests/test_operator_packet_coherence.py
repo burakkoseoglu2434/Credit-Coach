@@ -53,6 +53,14 @@ def _base_roadmap() -> dict:
                 "REALISTIC_MOVEMENT_ADVANTAGE",
             ],
             "selected_path_movement_strength": "moderate",
+            "recourse_mode": "full",
+            "recommendation_mode": "actionable",
+            "recoverable_flag": True,
+            "narrative_type": "actionable",
+            "informational_subtype": "",
+            "narrative_contract_version": "phase_66_v1",
+            "approval_gap": 0.05,
+            "recoverability_bucket": "near_threshold",
         },
         "contract_health": {"raw_contract_pass": 1, "parity_pass": 1},
         "narrative": {
@@ -86,6 +94,11 @@ def test_conditional_packet_keeps_selected_projection_and_driver_blocker() -> No
     packet = build_operator_review_packet(_base_roadmap())
 
     assert packet.short_view.decision_status == "CONDITIONAL"
+    assert packet.short_view.recourse_mode == "full"
+    assert packet.short_view.recommendation_mode == "actionable"
+    assert packet.short_view.recoverable_flag is True
+    assert packet.short_view.narrative_type == "actionable"
+    assert packet.short_view.narrative_contract_version == "phase_66_v1"
     assert len(packet.short_view.top_blockers) == 1
     assert len(packet.short_view.next_best_actions) == 1
     assert packet.technical_appendix.blocker_render_source == "driver"
@@ -166,6 +179,12 @@ def test_empty_state_packet_renders_explicit_message_without_actions() -> None:
             "selection_stage": "no_valid_winner",
             "recourse_mode": "limited",
             "recommendation_mode": "informational",
+            "recoverable_flag": False,
+            "narrative_type": "informational",
+            "informational_subtype": "not_currently_actionable",
+            "narrative_contract_version": "phase_66_v1",
+            "approval_gap": 0.12,
+            "recoverability_bucket": "mid_risk",
             "selected_recommendation_text": None,
             "selected_recommendation_text_localized": None,
             "selected_recommendation_source": "empty_state",
@@ -181,5 +200,7 @@ def test_empty_state_packet_renders_explicit_message_without_actions() -> None:
     assert packet.technical_appendix.blocker_render_source == "empty_state"
     assert packet.technical_appendix.action_render_source == "empty_state"
     assert packet.technical_appendix.readiness_render_mode == "empty_state_context"
+    assert packet.technical_appendix.approval_gap == 0.12
+    assert packet.technical_appendix.recoverability_bucket == "mid_risk"
     assert "empty_state_blocker_rendered" in packet.technical_appendix.packet_coherence_codes
     assert "No valid recommendation path is currently available." in markdown

@@ -422,6 +422,16 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
         offer_state=offer_state,
         downside_risk=downside,
         technical_detail_available=True,
+        recourse_mode=_safe_text(summary.get("recourse_mode")) or None,
+        recommendation_mode=_safe_text(summary.get("recommendation_mode")) or None,
+        recoverable_flag=(
+            bool(summary.get("recoverable_flag"))
+            if "recoverable_flag" in summary
+            else None
+        ),
+        narrative_type=_safe_text(summary.get("narrative_type")) or None,
+        informational_subtype=_safe_text(summary.get("informational_subtype")) or None,
+        narrative_contract_version=_safe_text(summary.get("narrative_contract_version")) or None,
     )
     appendix = OperatorPacketTechnicalAppendix(
         decision_status_internal=_safe_text(summary.get("decision_status_internal"), "NEEDS_REVIEW"),
@@ -453,6 +463,22 @@ def build_operator_review_packet(roadmap: Mapping[str, Any]) -> OperatorReviewPa
         readiness_render_mode=readiness_render_mode or None,
         fallback_blocker_suppressed=bool(fallback_blocker_suppressed),
         packet_coherence_codes=packet_coherence_codes,
+        approval_gap=(
+            _safe_float(summary.get("approval_gap"), 0.0)
+            if summary.get("approval_gap") is not None
+            else None
+        ),
+        recoverability_bucket=_safe_text(summary.get("recoverability_bucket")) or None,
+        recoverable_reason_codes=[str(code) for code in list(summary.get("recoverable_reason_codes", []) or []) if str(code)],
+        recoverability_signal_reason_codes=[
+            str(code)
+            for code in list(summary.get("recoverability_signal_reason_codes", []) or [])
+            if str(code)
+        ],
+        recourse_gate_reason_codes=[
+            str(code) for code in list(summary.get("recourse_gate_reason_codes", []) or []) if str(code)
+        ],
+        recourse_gate_version=_safe_text(summary.get("recourse_gate_version")) or None,
     )
     return OperatorReviewPacket(
         decision_id=_safe_text(summary.get("decision_id"), f"{_safe_text(roadmap.get('customer_id'), _safe_text(summary.get('customer_id'), 'customer'))}_decision"),

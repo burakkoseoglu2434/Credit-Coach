@@ -1025,6 +1025,30 @@ class OperatorPacketShortView(BaseModel):
         default=False,
         description="Whether a technical appendix is available for this packet",
     )
+    recourse_mode: str | None = Field(
+        default=None,
+        description="Shipped recourse mode posture: full | limited",
+    )
+    recommendation_mode: str | None = Field(
+        default=None,
+        description="Shipped recommendation posture: actionable | informational",
+    )
+    recoverable_flag: bool | None = Field(
+        default=None,
+        description="Shipped recoverability classifier truth",
+    )
+    narrative_type: str | None = Field(
+        default=None,
+        description="Phase 66 narrative posture: actionable | informational",
+    )
+    informational_subtype: str | None = Field(
+        default=None,
+        description="Phase 66 informational subtype when narrative_type=informational",
+    )
+    narrative_contract_version: str | None = Field(
+        default=None,
+        description="Phase 66 narrative contract version for drift control",
+    )
 
 
 class OperatorPacketTechnicalAppendix(BaseModel):
@@ -1134,6 +1158,31 @@ class OperatorPacketTechnicalAppendix(BaseModel):
     packet_coherence_codes: list[str] = Field(
         default_factory=list,
         description="Additive packet coherence diagnostics",
+    )
+    approval_gap: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Recoverability gap to approval threshold (additive, audit-only)",
+    )
+    recoverability_bucket: str | None = Field(
+        default=None,
+        description="Recoverability bucket: near_threshold | mid_risk | structural_limited",
+    )
+    recoverable_reason_codes: list[str] = Field(
+        default_factory=list,
+        description="Recoverability classifier reason codes (additive)",
+    )
+    recoverability_signal_reason_codes: list[str] = Field(
+        default_factory=list,
+        description="Recoverability signal-layer reason codes (additive)",
+    )
+    recourse_gate_reason_codes: list[str] = Field(
+        default_factory=list,
+        description="Recourse gate reason codes (additive)",
+    )
+    recourse_gate_version: str | None = Field(
+        default=None,
+        description="Recourse gate version (additive)",
     )
 
 
