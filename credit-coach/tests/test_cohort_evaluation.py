@@ -540,15 +540,29 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
     }
     assert metrics_payload["overall"]["limited_customer_rate"] == 0.0
     assert metrics_payload["overall"]["informational_recommendation_rate"] == 0.0
+    assert metrics_payload["overall"]["empty_state_rate"] == 0.0
+    assert metrics_payload["overall"]["zero_action_rate"] == 0.0
     assert metrics_payload["overall"]["mean_movement_score"] == 0.81
     assert metrics_payload["overall"]["mean_threshold_reach_probability"] == 0.69
     assert metrics_payload["overall"]["threshold_reach_priority_rate"] == 1.0
+    assert metrics_payload["overall"]["movement_rate"] == 1.0
+    assert metrics_payload["overall"]["strong_movement_rate"] == 0.0
     assert metrics_payload["overall"]["selected_path_movement_strength_distribution"] == {
         "moderate": 1.0
+    }
+    assert metrics_payload["overall"]["threshold_gap_distribution"] == {
+        "hard_denied": 0.333333,
+        "mid_risk_denied": 0.333333,
+        "near_threshold_denied": 0.333333,
     }
     assert metrics_payload["overall"]["recoverability_classifier_version_distribution"] == {
         "phase_62_live_test": 1.0
     }
+    assert metrics_payload["population_metrics"]["global_denied"]["sample_size"] == 3
+    assert metrics_payload["population_metrics"]["recoverable_full_mode"]["sample_size"] == 3
+    assert metrics_payload["population_metrics"]["recoverable_full_mode"]["movement_rate"] == 1.0
+    assert metrics_payload["population_metrics"]["recoverable_full_mode"]["threshold_reach_priority_rate"] == 1.0
+    assert metrics_payload["population_metrics"]["non_recoverable_limited_mode"]["sample_size"] == 0
     assert metrics_payload["phase_60_evidence_version"] == "v2.4_phase_60"
     assert metrics_payload["phase_60_overall_trust_conclusion"] == "trust_baseline_intact"
     assert "cohort_evidence_summary_json" in metrics_payload["artifacts"]["phase_60_files"]
@@ -759,8 +773,18 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
     }
     assert metrics_payload["overall"]["limited_customer_rate"] == 1.0
     assert metrics_payload["overall"]["informational_recommendation_rate"] == 1.0
+    assert metrics_payload["overall"]["empty_state_rate"] == 1.0
+    assert metrics_payload["overall"]["zero_action_rate"] == 1.0
     assert metrics_payload["overall"]["mean_movement_score"] == 0.0
     assert metrics_payload["overall"]["mean_threshold_reach_probability"] == 0.0
     assert metrics_payload["overall"]["threshold_reach_priority_rate"] == 0.0
+    assert metrics_payload["overall"]["movement_rate"] == 0.0
+    assert metrics_payload["overall"]["strong_movement_rate"] == 0.0
     assert metrics_payload["overall"]["selected_path_movement_strength_distribution"] == {}
+    assert metrics_payload["overall"]["threshold_gap_distribution"] == {"near_threshold_denied": 1.0}
+    assert metrics_payload["population_metrics"]["global_denied"]["sample_size"] == 1
+    assert metrics_payload["population_metrics"]["recoverable_full_mode"]["sample_size"] == 0
+    assert metrics_payload["population_metrics"]["non_recoverable_limited_mode"]["sample_size"] == 1
+    assert metrics_payload["population_metrics"]["non_recoverable_limited_mode"]["empty_state_rate"] == 1.0
+    assert metrics_payload["population_metrics"]["non_recoverable_limited_mode"]["zero_action_rate"] == 1.0
     assert metrics_payload["phase_60_overall_movement_conclusion"] in {"movement_diagnosis_pending", "structural_bottleneck_remains_dominant"}

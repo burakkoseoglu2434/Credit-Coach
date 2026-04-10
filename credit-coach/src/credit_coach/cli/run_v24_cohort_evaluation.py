@@ -685,10 +685,15 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
             "recommendation_mode_distribution": {},
             "limited_customer_rate": 0.0,
             "informational_recommendation_rate": 0.0,
+            "empty_state_rate": 0.0,
+            "zero_action_rate": 0.0,
             "mean_movement_score": 0.0,
             "mean_threshold_reach_probability": 0.0,
             "threshold_reach_priority_rate": 0.0,
+            "movement_rate": 0.0,
+            "strong_movement_rate": 0.0,
             "selected_path_movement_strength_distribution": {},
+            "threshold_gap_distribution": {},
             "non_utilization_action_rate": 0.0,
             "action_category_distribution": {},
             "unique_action_count_per_customer": 0.0,
@@ -723,6 +728,17 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
         .astype(str)
         .str.strip()
         .str.lower()
+    )
+    selected_recommendation_source = (
+        customer_df.get("selected_recommendation_source", pd.Series([""] * len(customer_df), dtype=object))
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+    cohort_label = (
+        customer_df.get("cohort_label", pd.Series([""] * len(customer_df), dtype=object))
+        .astype(str)
+        .str.strip()
     )
     metrics = {
         "sample_size": int(len(customer_df)),
@@ -786,6 +802,8 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
         },
         "limited_customer_rate": round(float((recourse_mode == "limited").mean()), 6),
         "informational_recommendation_rate": round(float((recommendation_mode == "informational").mean()), 6),
+        "empty_state_rate": round(float((selected_recommendation_source == "empty_state").mean()), 6),
+        "zero_action_rate": round(float((customer_df["selected_action_count"].astype(int) == 0).mean()), 6),
         "mean_movement_score": round(float(customer_df["movement_score"].astype(float).mean()), 6),
         "mean_threshold_reach_probability": round(
             float(customer_df["threshold_reach_probability"].astype(float).mean()),
@@ -795,12 +813,18 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
             float(customer_df["threshold_reach_priority_flag"].astype(int).mean()),
             6,
         ),
+        "movement_rate": round(float((selected_path_movement_strength != "").mean()), 6),
+        "strong_movement_rate": round(float((selected_path_movement_strength == "strong").mean()), 6),
         "selected_path_movement_strength_distribution": {
             key: round(float(value), 6)
             for key, value in selected_path_movement_strength[selected_path_movement_strength != ""]
             .value_counts(normalize=True)
             .sort_index()
             .items()
+        },
+        "threshold_gap_distribution": {
+            key: round(float(value), 6)
+            for key, value in cohort_label[cohort_label != ""].value_counts(normalize=True).sort_index().items()
         },
     }
 
@@ -815,6 +839,19 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
         for category, count in sorted(category_counts.items(), key=lambda item: (-item[1], item[0]))
     }
     return metrics
+
+
+def _targeted_population_metrics(customer_df: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    populations = {
+        "global_denied": customer_df.copy(),
+        "recoverable_full_mode": customer_df[
+            customer_df.get("primary_population", pd.Series(dtype=object)) == "recoverable_full_mode"
+        ].copy(),
+        "non_recoverable_limited_mode": customer_df[
+            customer_df.get("primary_population", pd.Series(dtype=object)) == "non_recoverable_limited_mode"
+        ].copy(),
+    }
+    return {population: _aggregate_metrics(frame) for population, frame in populations.items()}
 
 
 def _comparison_rows(customer_df: pd.DataFrame) -> list[dict[str, Any]]:
@@ -1440,6 +1477,7 @@ def main() -> None:
     sampled_df.to_csv(cohort_sample_path, index=False)
 
     overall_metrics = _aggregate_metrics(customer_df)
+    targeted_population_metrics = _targeted_population_metrics(customer_df)
     by_cohort_metrics = {
         cohort: _aggregate_metrics(customer_df[customer_df["cohort_label"] == cohort].copy())
         for cohort in COHORT_ORDER
@@ -1498,6 +1536,7 @@ def main() -> None:
         "sampling": sampling_meta,
         "cohort_boundaries": cohort_boundaries,
         "overall": overall_metrics,
+        "population_metrics": targeted_population_metrics,
         "by_cohort": by_cohort_metrics,
         "cohort_comparison": comparison_rows,
         "diagnosis": diagnosis,
