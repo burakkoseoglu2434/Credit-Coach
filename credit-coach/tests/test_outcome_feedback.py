@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pandas as pd
 
 from credit_coach.cli.run_outcome_feedback import _ingest_action_events_csv, main as run_outcome_feedback_main
@@ -487,11 +489,39 @@ def test_run_outcome_feedback_writes_realization_artifacts(monkeypatch, tmp_path
             policy_arm="treatment",
             selected_plan_id="plan-run",
             selected_path_id="path-run",
+            selected_path_type="customer_only",
+            selected_path_movement_strength="strong",
+            recourse_mode="full",
+            recoverable_flag=True,
+            movement_score=0.88,
+            threshold_reach_probability=0.67,
+            plan_execution_probability=0.8,
+            combined_plan_realization_probability=0.61,
             decision_status="APPROVED",
             approved=True,
             action_completed=True,
             observed_default_90d=0,
             observed_margin_90d=75.0,
+        )
+    )
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d-run-limited",
+            run_id="r-run",
+            customer_id="c-run-limited",
+            policy_arm="control",
+            selected_plan_id="plan-run-limited",
+            selected_path_id="path-run-limited",
+            selected_path_type="institution_assisted",
+            selected_path_movement_strength="weak",
+            recourse_mode="limited",
+            recoverable_flag=False,
+            movement_score=0.1,
+            threshold_reach_probability=0.05,
+            plan_execution_probability=0.12,
+            combined_plan_realization_probability=0.04,
+            decision_status="REJECTED",
+            approved=False,
         )
     )
     save_decision_action_execution_event(
@@ -515,15 +545,30 @@ def test_run_outcome_feedback_writes_realization_artifacts(monkeypatch, tmp_path
     action_execution_files = list(tmp_path.rglob("action_execution_summary.csv"))
     path_realization_files = list(tmp_path.rglob("path_realization_summary.json"))
     outcome_realization_files = list(tmp_path.rglob("outcome_realization_summary.json"))
+    realization_evaluation_files = list(tmp_path.rglob("outcome_realization_evaluation.json"))
+    realization_report_files = list(tmp_path.rglob("outcome_realization_report.md"))
 
     assert len(action_execution_files) == 1
     assert len(path_realization_files) == 1
     assert len(outcome_realization_files) == 1
+    assert len(realization_evaluation_files) == 1
+    assert len(realization_report_files) == 1
 
     action_execution_df = pd.read_csv(action_execution_files[0])
     path_realization_payload = pd.read_json(path_realization_files[0], typ="series")
     outcome_realization_payload = pd.read_json(outcome_realization_files[0], typ="series")
+    realization_evaluation_payload = json.loads(realization_evaluation_files[0].read_text(encoding="utf-8"))
+    realization_report = realization_report_files[0].read_text(encoding="utf-8")
 
     assert action_execution_df["action_status"].tolist() == ["completed"]
-    assert float(path_realization_payload["path_realization_rate"]) == 1.0
-    assert float(outcome_realization_payload["approval_realization_rate"]) == 1.0
+    assert float(path_realization_payload["path_realization_rate"]) == 0.5
+    assert float(outcome_realization_payload["approval_realization_rate"]) == 0.5
+    assert realization_evaluation_payload["predicted_vs_observed"]["overall"]["plan_execution_gap"] == 0.04
+    by_population = {
+        row["group_key"]: row for row in realization_evaluation_payload["recoverable_vs_limited_summary"]
+    }
+    assert by_population["recoverable_full_mode"]["approval_realization_rate"] == 1.0
+    assert by_population["non_recoverable_limited_mode"]["pending_observation_rate"] == 1.0
+    assert "This report is descriptive and not causal." in realization_report
+    assert "does not claim that recommendations caused the observed results" in realization_report
+    assert "Sparse or pending observations should not be read as proof of success, failure, or policy uplift." in realization_report

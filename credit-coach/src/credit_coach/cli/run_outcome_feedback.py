@@ -24,6 +24,7 @@ from credit_coach.storage.repository import (
     summarize_outcome_realization,
     summarize_outcome_ingestion,
     summarize_path_realization,
+    summarize_realization_evaluation,
 )
 from credit_coach.utils.run_context import create_run_context
 
@@ -42,6 +43,108 @@ def _json_default(value: Any) -> Any:
     except Exception:
         pass
     return value
+
+
+def _format_metric(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{float(value):.1%}"
+
+
+def _build_outcome_realization_report(
+    *,
+    evaluation_summary: dict[str, Any],
+) -> str:
+    overall = dict(evaluation_summary.get("overall", {}))
+    predicted_vs_observed = dict(evaluation_summary.get("predicted_vs_observed", {}))
+    comparison = dict(evaluation_summary.get("recoverable_vs_limited_comparison", {}))
+    populations = {
+        str(item.get("group_key", "")): dict(item)
+        for item in evaluation_summary.get("recoverable_vs_limited_summary", [])
+        if isinstance(item, dict)
+    }
+    recoverable_full = populations.get("recoverable_full_mode", {})
+    limited_control = populations.get("non_recoverable_limited_mode", {})
+    overall_predicted = dict(predicted_vs_observed.get("overall", {}))
+
+    lines = [
+        "# Outcome Realization Report",
+        "",
+        "This report is descriptive and not causal.",
+        "It summarizes observed execution and realized outcome signals from selected-path decisions and does not claim that recommendations caused the observed results or that the current policy delivered business uplift.",
+        "",
+        "## Overview",
+        "",
+        f"- Window: {int(evaluation_summary.get('window_days', 90))} days",
+        f"- Decisions observed: {int(overall.get('total_decisions', 0))}",
+        f"- Observation coverage: {_format_metric(overall.get('observation_coverage_rate'))}",
+        f"- Action execution rate: {_format_metric(overall.get('action_execution_rate'))}",
+        f"- Realized movement rate: {_format_metric(overall.get('realized_movement_rate'))}",
+        f"- Threshold-reaching realization rate: {_format_metric(overall.get('threshold_reach_realization_rate'))}",
+        f"- Approval realization rate: {_format_metric(overall.get('approval_realization_rate'))}",
+        f"- Negative outcome rate: {_format_metric(overall.get('negative_outcome_rate'))}",
+        f"- Evidence status: {str(overall.get('evidence_status', 'no_data'))}",
+        "",
+        "## Recoverable Vs Limited",
+        "",
+    ]
+    if recoverable_full:
+        lines.extend(
+            [
+                f"- Recoverable / full mode decisions: {int(recoverable_full.get('total_decisions', 0))}",
+                f"- Recoverable / full mode observation coverage: {_format_metric(recoverable_full.get('observation_coverage_rate'))}",
+                f"- Recoverable / full mode realized movement rate: {_format_metric(recoverable_full.get('realized_movement_rate'))}",
+                f"- Recoverable / full mode threshold-reaching realization rate: {_format_metric(recoverable_full.get('threshold_reach_realization_rate'))}",
+                f"- Recoverable / full mode evidence status: {str(recoverable_full.get('evidence_status', 'no_data'))}",
+            ]
+        )
+    else:
+        lines.append("- Recoverable / full mode slice: not observed in this run")
+    if limited_control:
+        lines.extend(
+            [
+                f"- Non-recoverable / limited mode decisions: {int(limited_control.get('total_decisions', 0))}",
+                f"- Non-recoverable / limited mode observation coverage: {_format_metric(limited_control.get('observation_coverage_rate'))}",
+                f"- Non-recoverable / limited mode realized movement rate: {_format_metric(limited_control.get('realized_movement_rate'))}",
+                f"- Non-recoverable / limited mode threshold-reaching realization rate: {_format_metric(limited_control.get('threshold_reach_realization_rate'))}",
+                f"- Non-recoverable / limited mode evidence status: {str(limited_control.get('evidence_status', 'no_data'))}",
+            ]
+        )
+    else:
+        lines.append("- Non-recoverable / limited mode slice: not observed in this run")
+    if comparison.get("recoverable_full_mode_present") and comparison.get("non_recoverable_limited_mode_present"):
+        lines.extend(
+            [
+                f"- Realized movement delta (recoverable full minus limited): {_format_metric(comparison.get('realized_movement_rate_delta'))}",
+                f"- Threshold-reaching delta (recoverable full minus limited): {_format_metric(comparison.get('threshold_reach_realization_rate_delta'))}",
+                f"- Observation coverage delta (recoverable full minus limited): {_format_metric(comparison.get('observation_coverage_rate_delta'))}",
+            ]
+        )
+    else:
+        lines.append("- Direct recoverable-vs-limited deltas are not available because one side of the control slice is missing")
+
+    lines.extend(
+        [
+            "",
+            "## Predicted Vs Observed",
+            "",
+            f"- Mean predicted plan execution probability: {_format_metric(overall_predicted.get('mean_plan_execution_probability'))}",
+            f"- Observed action execution rate: {_format_metric(overall_predicted.get('observed_action_execution_rate'))}",
+            f"- Plan execution gap (observed minus predicted): {_format_metric(overall_predicted.get('plan_execution_gap'))}",
+            f"- Mean predicted combined realization probability: {_format_metric(overall_predicted.get('mean_combined_plan_realization_probability'))}",
+            f"- Observed realized movement rate: {_format_metric(overall_predicted.get('observed_realized_movement_rate'))}",
+            f"- Combined realization gap (observed minus predicted): {_format_metric(overall_predicted.get('combined_realization_gap'))}",
+            f"- Mean predicted threshold reach probability: {_format_metric(overall_predicted.get('mean_threshold_reach_probability'))}",
+            f"- Observed threshold-reaching realization rate: {_format_metric(overall_predicted.get('observed_threshold_reach_realization_rate'))}",
+            f"- Threshold-reaching gap (observed minus predicted): {_format_metric(overall_predicted.get('threshold_reach_gap'))}",
+            "",
+            "## Guardrails",
+            "",
+            "- Sparse or pending observations should not be read as proof of success, failure, or policy uplift.",
+            "- These comparisons are calibration-style evidence only; they are not causal attribution and they do not prove that a selected action produced an observed outcome.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
 
 
 def parse_args() -> argparse.Namespace:
@@ -239,6 +342,7 @@ def main() -> None:
     action_execution_summary = summarize_action_execution()
     path_realization_summary = summarize_path_realization(window_days=int(args.window_days))
     outcome_realization_summary = summarize_outcome_realization(window_days=int(args.window_days))
+    realization_evaluation = summarize_realization_evaluation(window_days=int(args.window_days))
     deltas = compute_policy_outcome_deltas(window_days=int(args.window_days))
     off_policy_evaluation = evaluate_off_policy(learning_dataset, baseline_arm="control")
 
@@ -252,6 +356,8 @@ def main() -> None:
     action_execution_summary_out = run_ctx.tables_dir / "action_execution_summary.csv"
     path_realization_summary_out = run_ctx.tables_dir / "path_realization_summary.json"
     outcome_realization_summary_out = run_ctx.tables_dir / "outcome_realization_summary.json"
+    realization_evaluation_out = run_ctx.tables_dir / "outcome_realization_evaluation.json"
+    realization_report_out = run_ctx.tables_dir / "outcome_realization_report.md"
     off_policy_out = run_ctx.tables_dir / "off_policy_evaluation.json"
     summary_df.to_csv(summary_out, index=False)
     deltas_out.write_text(json.dumps(deltas, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -269,7 +375,22 @@ def main() -> None:
         json.dumps(outcome_realization_summary, indent=2, ensure_ascii=False, default=_json_default),
         encoding="utf-8",
     )
+    realization_evaluation_out.write_text(
+        json.dumps(realization_evaluation, indent=2, ensure_ascii=False, default=_json_default),
+        encoding="utf-8",
+    )
+    realization_report_out.write_text(
+        _build_outcome_realization_report(evaluation_summary=realization_evaluation),
+        encoding="utf-8",
+    )
     off_policy_out.write_text(json.dumps(off_policy_evaluation, indent=2, ensure_ascii=False), encoding="utf-8")
+    populations = {
+        str(item.get("group_key", "")): dict(item)
+        for item in realization_evaluation.get("recoverable_vs_limited_summary", [])
+        if isinstance(item, dict)
+    }
+    predicted_vs_observed = dict(realization_evaluation.get("predicted_vs_observed", {}))
+    overall_predicted = dict(predicted_vs_observed.get("overall", {}))
     run_ctx.save_metrics(
         {
             "window_days": int(args.window_days),
@@ -282,6 +403,17 @@ def main() -> None:
             "negative_outcome_rate": float(outcome_realization_summary.get("negative_outcome_rate", 0.0)),
             "realization_observation_coverage_rate": float(
                 outcome_realization_summary.get("observation_coverage_rate", 0.0)
+            ),
+            "realization_evidence_status": str(realization_evaluation.get("overall", {}).get("evidence_status", "no_data")),
+            "recoverable_full_realized_movement_rate": float(
+                populations.get("recoverable_full_mode", {}).get("realized_movement_rate", 0.0)
+            ),
+            "limited_control_realized_movement_rate": float(
+                populations.get("non_recoverable_limited_mode", {}).get("realized_movement_rate", 0.0)
+            ),
+            "predicted_execution_gap": float(overall_predicted.get("plan_execution_gap", 0.0) or 0.0),
+            "predicted_combined_realization_gap": float(
+                overall_predicted.get("combined_realization_gap", 0.0) or 0.0
             ),
             "policy_arm_count": int(summary_df["policy_arm"].nunique()) if not summary_df.empty else 0,
             "comparison_status": str(deltas.get("comparison_status", "no_data")),
@@ -304,6 +436,8 @@ def main() -> None:
     logger.info("Action execution summary: %s", action_execution_summary_out)
     logger.info("Path realization summary: %s", path_realization_summary_out)
     logger.info("Outcome realization summary: %s", outcome_realization_summary_out)
+    logger.info("Outcome realization evaluation: %s", realization_evaluation_out)
+    logger.info("Outcome realization report: %s", realization_report_out)
     logger.info("Off-policy evaluation summary: %s", off_policy_out)
 
 
