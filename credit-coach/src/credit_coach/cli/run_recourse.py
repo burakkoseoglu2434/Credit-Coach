@@ -15,6 +15,7 @@ from credit_coach.causality.graph_utils import load_graph
 from credit_coach.causality.rex_runner import run_rex_adapter
 from credit_coach.coaching.messaging import (
     build_adverse_action_reasons,
+    apply_informational_posture_to_narrative,
     build_customer_roadmap_narrative,
     build_recourse_path_render_payload,
 )
@@ -489,6 +490,23 @@ def _apply_recourse_gate_to_roadmap(roadmap: dict[str, Any]) -> dict[str, Any]:
     # Limited mode must reuse the trusted empty-state selected projection while
     # keeping chooser history in the underlying audit fields.
     out["best_plan_id"] = None
+    base_pd = _safe_float(out.get("base_pd", summary.get("base_pd", 0.0)), 0.0)
+    tau = _safe_float(out.get("tau", summary.get("tau", 0.0)), 0.0)
+    checkpoints = out.get("checkpoints", [])
+    checkpoint_rows = checkpoints if isinstance(checkpoints, list) else []
+    narrative = apply_informational_posture_to_narrative(
+        out.get("narrative") if isinstance(out.get("narrative"), dict) else None,
+        base_pd=base_pd,
+        tau=tau,
+        checkpoints=[row for row in checkpoint_rows if isinstance(row, dict)],
+        decision_status=_safe_text(summary.get("decision_status"), "REJECTED"),
+        expected_readiness=_safe_text(summary.get("expected_readiness")),
+        decision_reason_summary=_safe_text(summary.get("decision_reason_summary")),
+        conditional_type=_safe_text(summary.get("conditional_type")),
+        upgrade_condition=_safe_text(summary.get("upgrade_condition")),
+        informational_subtype=_safe_text(summary.get("informational_subtype")),
+    )
+    out["narrative"] = narrative
     summary.update(
         {
             "best_plan_id": None,
@@ -508,10 +526,7 @@ def _apply_recourse_gate_to_roadmap(roadmap: dict[str, Any]) -> dict[str, Any]:
             "selected_path_movement_strength": "",
         }
     )
-    if isinstance(out.get("narrative"), dict):
-        narrative = dict(out.get("narrative", {}) or {})
-        narrative["steps"] = []
-        out["narrative"] = narrative
+    narrative["steps"] = []
     out["phases"] = []
     out["summary"] = summary
     projected = _build_selected_surface_projection(out)

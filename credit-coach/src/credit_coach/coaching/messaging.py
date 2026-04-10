@@ -488,6 +488,142 @@ def _card(label_tr: str, label_en: str, desc_tr: str, desc_en: str) -> Narrative
     return NarrativeCard(label=_lt(label_tr, label_en), description=_lt(desc_tr, desc_en))
 
 
+def build_informational_executive_summary(
+    *,
+    base_pd: float,
+    tau: float,
+    checkpoints: Sequence[Mapping[str, Any]],
+    status: str,
+    informational_subtype: str,
+    confidence_label: str = "moderate",
+    expected_readiness: str | None = None,
+    decision_reason_summary: str | None = None,
+    conditional_type: str | None = None,
+    upgrade_condition: str | None = None,
+) -> RoadmapExecutiveSummary:
+    readiness_stage, readiness_week = _resolve_business_readiness_stage(
+        expected_readiness,
+        base_pd=base_pd,
+        checkpoints=checkpoints,
+        tau=tau,
+    )
+    decision_view = _decision_view_card(
+        status,
+        readiness_stage,
+        conditional_type=conditional_type,
+        decision_reason_summary=decision_reason_summary,
+        upgrade_condition=upgrade_condition,
+    )
+    time_to_readiness = _time_to_readiness_card(readiness_stage, readiness_week)
+    checkpoint_4w_summary = _checkpoint_4w_card(checkpoints, tau)
+    risk_start = _risk_card(base_pd, tau)
+
+    subtype = str(informational_subtype or "").strip().lower()
+    if subtype == "structural_limited":
+        headline = _lt(
+            "Bu gorunum bilgilendiricidir: su an guvenli bir aksiyon plani onerilmiyor.",
+            "This is an informational view: no safe action plan is being promoted right now.",
+        )
+        recommended_path = _card(
+            "Bilgilendirici gorunum",
+            "Informational view",
+            "Mevcut risk mesafesi ve kanit seti ile esige ulasan guvenli bir yol gosterilemiyor.",
+            "With the current risk distance and evidence, a governed threshold-reaching path cannot be promoted.",
+        )
+        expected_result = _card(
+            "Sinirli hareket alani",
+            "Limited movement potential",
+            "Bu dosyada oncelik, kosullar degistiginde yeniden degerlendirmedir.",
+            "The right next step is to re-evaluate if underlying conditions change.",
+        )
+    else:
+        headline = _lt(
+            "Bu gorunum bilgilendiricidir: su an guvenli bir aksiyon plani onerilmiyor.",
+            "This is an informational view: no safe action plan is being promoted right now.",
+        )
+        recommended_path = _card(
+            "Henuz aksiyonel degil",
+            "Not actionable yet",
+            "Guvenli bir plan icin kritik bir kosul eksik (zaman penceresi, teklif uygunlugu veya etki).",
+            "A key condition is missing for a safe plan (time window, offer eligibility, or impact evidence).",
+        )
+        expected_result = _card(
+            "Kosullar olusunca yeniden bak",
+            "Re-evaluate when conditions change",
+            "Kosullar olusunca sistem tekrar aksiyonel yol arayabilir.",
+            "When conditions change, the system can reassess whether an actionable route becomes viable.",
+        )
+
+    offer_status = _card(
+        "Bu gorunumde teklif onerilmiyor",
+        "No offer is promoted in this view",
+        "Bu gorunum, teklif/kurum destegi uzerinden bir yol secmez.",
+        "This view does not promote an offer/institution-assisted route.",
+    )
+
+    return RoadmapExecutiveSummary(
+        headline=headline,
+        summary_line=_lt(
+            "Guvenli bir oneriyi one cikarmak icin yeterli kanit yok.",
+            "There is not enough evidence to promote a safe recommendation.",
+        ),
+        risk_start=risk_start,
+        recommended_path=recommended_path,
+        offer_status=offer_status,
+        checkpoint_4w_summary=checkpoint_4w_summary,
+        expected_result=expected_result,
+        follow_through_readiness=None,
+        decision_view=decision_view,
+        time_to_readiness=time_to_readiness,
+        narrative_confidence=_card(
+            confidence_label.replace("_", " ").capitalize(),
+            confidence_label.replace("_", " ").capitalize(),
+            _confidence_description(confidence_label).tr,
+            _confidence_description(confidence_label).en,
+        ),
+    )
+
+
+def apply_informational_posture_to_narrative(
+    narrative: Mapping[str, Any] | None,
+    *,
+    base_pd: float,
+    tau: float,
+    checkpoints: Sequence[Mapping[str, Any]],
+    decision_status: str,
+    expected_readiness: str | None,
+    decision_reason_summary: str | None,
+    conditional_type: str | None,
+    upgrade_condition: str | None,
+    informational_subtype: str,
+) -> dict[str, Any]:
+    """
+    Phase 66 post-processing: when the recourse gate forces informational posture,
+    ensure the executive narrative cannot read as actionable.
+    """
+
+    raw = dict(narrative or {}) if isinstance(narrative, Mapping) else {}
+    technical_reveal = raw.get("technical_reveal", {})
+    confidence_label = (
+        str(dict(technical_reveal or {}).get("narrative_confidence_label") or "").strip().lower()
+        if isinstance(technical_reveal, Mapping)
+        else ""
+    ) or "moderate"
+    raw["executive_summary"] = build_informational_executive_summary(
+        base_pd=base_pd,
+        tau=tau,
+        checkpoints=checkpoints,
+        status=decision_status,
+        informational_subtype=informational_subtype,
+        confidence_label=confidence_label,
+        expected_readiness=expected_readiness,
+        decision_reason_summary=decision_reason_summary,
+        conditional_type=conditional_type,
+        upgrade_condition=upgrade_condition,
+    ).model_dump(mode="json")
+    return raw
+
+
 def _safe_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
