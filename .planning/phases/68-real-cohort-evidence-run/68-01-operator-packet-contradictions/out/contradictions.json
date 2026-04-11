@@ -1,0 +1,137 @@
+{
+  "run_dir": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/credit-coach/artifacts/evaluations/v25_real_cohort_eval_20260411_full_processed_all_denied_n367_seed42",
+  "cases": [
+    {
+      "customer_id": "test_000157__eval_0252",
+      "source_customer_id": "test_000157",
+      "cohort_label": "near_threshold_denied",
+      "decision_status_summary": "APPROVED",
+      "selected_decision_status_summary": "APPROVED",
+      "selection_outcome_summary": "selected_valid_winner",
+      "selected_recommendation_source_summary": "empty_state",
+      "selected_action_count_summary": 0,
+      "recourse_mode_summary": "limited",
+      "recommendation_mode_summary": "informational",
+      "operator_selected_decision_status": "APPROVED",
+      "operator_readiness_render_mode": "empty_state_context",
+      "operator_rendered_blocker_count": 0,
+      "operator_rendered_action_count": 0,
+      "operator_upgrade_condition_text_present": false,
+      "operator_packet_coherence_codes_json": "[]",
+      "contradiction_flags": {
+        "approved_packet_with_blockers": false,
+        "approved_packet_with_actions": false,
+        "approved_packet_with_upgrade": false,
+        "readiness_mismatch": true,
+        "action_blocker_mismatch": false,
+        "decision_mismatch": false
+      },
+      "paths": {
+        "case_dir": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/test_000157__eval_0252",
+        "operator_packet_md": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/test_000157__eval_0252/operator_packet.md",
+        "operator_packet_json": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/test_000157__eval_0252/operator_packet.json",
+        "operator_metrics_json": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/test_000157__eval_0252/operator_metrics.json",
+        "roadmap_summary_json": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/test_000157__eval_0252/roadmap_summary.json"
+      }
+    },
+    {
+      "customer_id": "train_000395__eval_0262",
+      "source_customer_id": "train_000395",
+      "cohort_label": "near_threshold_denied",
+      "decision_status_summary": "APPROVED",
+      "selected_decision_status_summary": "APPROVED",
+      "selection_outcome_summary": "selected_valid_winner",
+      "selected_recommendation_source_summary": "empty_state",
+      "selected_action_count_summary": 0,
+      "recourse_mode_summary": "limited",
+      "recommendation_mode_summary": "informational",
+      "operator_selected_decision_status": "APPROVED",
+      "operator_readiness_render_mode": "empty_state_context",
+      "operator_rendered_blocker_count": 0,
+      "operator_rendered_action_count": 0,
+      "operator_upgrade_condition_text_present": false,
+      "operator_packet_coherence_codes_json": "[]",
+      "contradiction_flags": {
+        "approved_packet_with_blockers": false,
+        "approved_packet_with_actions": false,
+        "approved_packet_with_upgrade": false,
+        "readiness_mismatch": true,
+        "action_blocker_mismatch": false,
+        "decision_mismatch": false
+      },
+      "paths": {
+        "case_dir": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_000395__eval_0262",
+        "operator_packet_md": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_000395__eval_0262/operator_packet.md",
+        "operator_packet_json": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_000395__eval_0262/operator_packet.json",
+        "operator_metrics_json": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_000395__eval_0262/operator_metrics.json",
+        "roadmap_summary_json": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_000395__eval_0262/roadmap_summary.json"
+      }
+    },
+    {
+      "customer_id": "train_001284__eval_0276",
+      "source_customer_id": "train_001284",
+      "cohort_label": "near_threshold_denied",
+      "decision_status_summary": "APPROVED",
+      "selected_decision_status_summary": "APPROVED",
+      "selection_outcome_summary": "selected_valid_winner",
+      "selected_recommendation_source_summary": "empty_state",
+      "selected_action_count_summary": 0,
+      "recourse_mode_summary": "limited",
+      "recommendation_mode_summary": "informational",
+      "operator_selected_decision_status": "APPROVED",
+      "operator_readiness_render_mode": "empty_state_context",
+      "operator_rendered_blocker_count": 0,
+      "operator_rendered_action_count": 0,
+      "operator_upgrade_condition_text_present": false,
+      "operator_packet_coherence_codes_json": "[]",
+      "contradiction_flags": {
+        "approved_packet_with_blockers": false,
+        "approved_packet_with_actions": false,
+        "approved_packet_with_upgrade": false,
+        "readiness_mismatch": true,
+        "action_blocker_mismatch": false,
+        "decision_mismatch": false
+      },
+      "paths": {
+        "case_dir": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_001284__eval_0276",
+        "operator_packet_md": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_001284__eval_0276/operator_packet.md",
+        "operator_packet_json": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_001284__eval_0276/operator_packet.json",
+        "operator_metrics_json": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_001284__eval_0276/operator_metrics.json",
+        "roadmap_summary_json": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_001284__eval_0276/roadmap_summary.json"
+      }
+    },
+    {
+      "customer_id": "train_001294__eval_0277",
+      "source_customer_id": "train_001294",
+      "cohort_label": "near_threshold_denied",
+      "decision_status_summary": "APPROVED",
+      "selected_decision_status_summary": "APPROVED",
+      "selection_outcome_summary": "selected_valid_winner",
+      "selected_recommendation_source_summary": "empty_state",
+      "selected_action_count_summary": 0,
+      "recourse_mode_summary": "limited",
+      "recommendation_mode_summary": "informational",
+      "operator_selected_decision_status": "APPROVED",
+      "operator_readiness_render_mode": "empty_state_context",
+      "operator_rendered_blocker_count": 0,
+      "operator_rendered_action_count": 0,
+      "operator_upgrade_condition_text_present": false,
+      "operator_packet_coherence_codes_json": "[]",
+      "contradiction_flags": {
+        "approved_packet_with_blockers": false,
+        "approved_packet_with_actions": false,
+        "approved_packet_with_upgrade": false,
+        "readiness_mismatch": true,
+        "action_blocker_mismatch": false,
+        "decision_mismatch": false
+      },
+      "paths": {
+        "case_dir": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_001294__eval_0277",
+        "operator_packet_md": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_001294__eval_0277/operator_packet.md",
+        "operator_packet_json": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_001294__eval_0277/operator_packet.json",
+        "operator_metrics_json": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_001294__eval_0277/operator_metrics.json",
+        "roadmap_summary_json": "/Users/bkoseoglu/Documents/GitHub/Credit-Coach/.planning/phases/68-real-cohort-evidence-run/68-01-operator-packet-contradictions/out/train_001294__eval_0277/roadmap_summary.json"
+      }
+    }
+  ]
+}

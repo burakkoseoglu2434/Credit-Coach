@@ -4,6 +4,7 @@ import json
 from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
 from credit_coach.cli.run_recourse import CustomerArtifactBundle, CustomerRecourseRunResult
 from credit_coach.cli import run_v24_cohort_evaluation as cohort_eval
@@ -489,6 +490,7 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
             model_version="",
             model_manifest="",
             output_dir=str(tmp_path),
+            customer_manifest_csv="",
         ),
     )
     monkeypatch.setattr(cohort_eval, "load_config", _fake_load_config)
@@ -807,6 +809,7 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
             model_version="",
             model_manifest="",
             output_dir=str(tmp_path),
+            customer_manifest_csv="",
         ),
     )
     monkeypatch.setattr(cohort_eval, "load_config", _fake_load_config)
@@ -917,3 +920,71 @@ def test_cohort_evaluation_main_persists_limited_gate_empty_state_posture(tmp_pa
     assert limited_targeted_row["zero_action_rate"] == 1.0
     assert limited_targeted_row["threshold_gap_distribution"] == {"near_threshold_denied": 1.0}
     assert metrics_payload["phase_60_overall_movement_conclusion"] in {"movement_diagnosis_pending", "structural_bottleneck_remains_dominant"}
+
+
+def test_operator_packet_trust_check_treats_limited_empty_state_as_empty_state_readiness() -> None:
+    roadmap_summary = {
+        "decision_status": "APPROVED",
+        "selection_outcome": "selected_valid_winner",
+    }
+    operator_metrics = {
+        "operator_selected_decision_status": "APPROVED",
+        "operator_rendered_blocker_count": 0,
+        "operator_rendered_action_count": 0,
+        "operator_readiness_render_mode": "empty_state_context",
+        "operator_upgrade_condition_text": "",
+        "operator_packet_coherence_codes_json": "[]",
+    }
+
+    assert (
+        cohort_eval._operator_packet_contradiction_flag(
+            roadmap_summary=roadmap_summary,
+            operator_metrics=operator_metrics,
+            recourse_mode="limited",
+            selected_recommendation_source="empty_state",
+        )
+        == 0
+    )
+
+
+def test_manifest_helpers_preserve_order_and_validate_membership(tmp_path) -> None:
+    manifest_path = tmp_path / "manifest.csv"
+    pd.DataFrame(
+        [
+            {"source_customer_id": "cust-2"},
+            {"source_customer_id": "cust-1"},
+            {"source_customer_id": "cust-1"},
+        ]
+    ).to_csv(manifest_path, index=False)
+
+    manifest_ids = cohort_eval._load_customer_manifest_ids(manifest_path)
+    assert manifest_ids == ["cust-2", "cust-1"]
+
+    denied_ranked_df = pd.DataFrame(
+        [
+            {"customer_id": "cust-1", "approval_gap": 0.05, "cohort_label": "near_threshold_denied"},
+            {"customer_id": "cust-2", "approval_gap": 0.10, "cohort_label": "mid_risk_denied"},
+            {"customer_id": "cust-3", "approval_gap": 0.20, "cohort_label": "hard_denied"},
+        ]
+    )
+
+    selected, meta = cohort_eval._select_manifest_customers(
+        denied_ranked_df,
+        manifest_ids=manifest_ids,
+        manifest_path=manifest_path,
+    )
+    assert selected["customer_id"].tolist() == ["cust-2", "cust-1"]
+    assert meta["manifest_mode"] is True
+    assert meta["with_replacement"] is False
+    assert meta["realized_sample_n"] == 2
+
+    missing_path = tmp_path / "manifest_missing.csv"
+    pd.DataFrame([{"source_customer_id": "cust-404"}]).to_csv(missing_path, index=False)
+    missing_ids = cohort_eval._load_customer_manifest_ids(missing_path)
+    with pytest.raises(ValueError) as exc_info:
+        cohort_eval._select_manifest_customers(
+            denied_ranked_df,
+            manifest_ids=missing_ids,
+            manifest_path=missing_path,
+        )
+    assert "not present in denied population" in str(exc_info.value)

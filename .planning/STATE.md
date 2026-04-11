@@ -1,11 +1,12 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.5
-milestone_name: Recoverable Customer Targeting & Movement Optimization
-status: active
-stopped_at: Phase 66 complete; v2.5 demo/narrative contract shipped
-last_updated: "2026-04-10T15:05:00+03:00"
-last_activity: 2026-04-10
+milestone: v2.6
+milestone_name: Real Cohort Evidence & Realization Proof
+status: completed
+stopped_at: Phase 68-03 complete; deterministic evidence pack generated; verdict recorded as weak evidence, trust-clean
+verdict: "weak evidence, trust-clean"
+last_updated: "2026-04-11T19:10:00+03:00"
+last_activity: 2026-04-11
 progress:
   total_phases: 67
   completed_phases: 65
@@ -24,10 +25,18 @@ See: .planning/PROJECT.md (updated 2026-04-05)
 
 ## Current Position
 
-Phase: 66 complete
-Plan: 66-03 complete
-Status: Website demo + narrative surfaces now disclose actionable vs informational posture deterministically, with band-first proof rail and no consumer-side inference
-Last activity: 2026-04-10 — Phase 66 plans executed and verified
+Phase: 68 complete
+Plan: 68-03 complete
+Status: v2.6 milestone closed with deterministic evidence pack and trust-clean verdict (no causal/uplift claims)
+Last activity: 2026-04-11 — Phase 68 evidence pack generated and milestone closeout recorded
+
+## Milestone v2.6 Closeout
+
+- Verdict: **weak evidence, trust-clean**
+- Canonical denied cohort size (full available denied under shipped runtime): **367**
+- Trust counters: `selected_invalid_winner_count=0`, `selected_surface_drift_count=0`, `operator_packet_contradiction_count=0`
+- Deliverables: `.planning/phases/68-real-cohort-evidence-run/68-COHORT-REPORT.md`, `.planning/phases/68-real-cohort-evidence-run/68-EXECUTIVE-SUMMARY.md`, `.planning/phases/68-real-cohort-evidence-run/68-DECISION.md`
+- Next step: plan **Phase 69 (Evidence Amplification)** (see `.planning/v2.6-MILESTONE-CLOSEOUT.md`)
 
 ## Performance Metrics
 

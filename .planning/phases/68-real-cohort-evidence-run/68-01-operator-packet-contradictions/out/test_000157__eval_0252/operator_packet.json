@@ -1,0 +1,103 @@
+{
+  "packet_version": "v2.1_phase_43",
+  "decision_id": "test_000157__eval_0252_decision",
+  "decision_policy_version": "v2.1_phase_40_5",
+  "customer_id": "test_000157__eval_0252",
+  "best_plan_id": null,
+  "short_view": {
+    "decision_status": "APPROVED",
+    "decision_reason_summary": "The current plan meets the approval policy under the current evidence.",
+    "decision_confidence": 0.8915,
+    "top_blockers": [],
+    "next_best_actions": [],
+    "expected_readiness": "week_4",
+    "expected_readiness_note": {
+      "tr": "Plan korunursa yaklasik 4 hafta icinde onaya daha yakin bir gorunum beklenir.",
+      "en": "If the plan holds, a more approval-ready view is expected within about 4 weeks."
+    },
+    "recommendation_sanity_flag": false,
+    "recommendation_sanity_note": null,
+    "outcome_rule_note": null,
+    "upgrade_condition": null,
+    "offer_state": {
+      "tr": "Bu gorunumde teklif onerilmiyor",
+      "en": "No offer is promoted in this view"
+    },
+    "downside_risk": {
+      "tr": "Aksiyon ritmi bozulursa mevcut onaya uygun gorunum zayiflayabilir.",
+      "en": "If follow-through slips, the current approval-ready view can soften."
+    },
+    "technical_detail_available": true,
+    "recourse_mode": "limited",
+    "recommendation_mode": "informational",
+    "recoverable_flag": false,
+    "narrative_type": "informational",
+    "informational_subtype": "not_currently_actionable",
+    "narrative_contract_version": "phase_66_v1"
+  },
+  "technical_appendix": {
+    "decision_status_internal": "APPROVED",
+    "decision_reason_primary": null,
+    "rejection_type": null,
+    "conditional_type": null,
+    "decision_reason_drivers": [],
+    "recommendation_validity_codes": [],
+    "recommendation_warning_action_count": 0,
+    "contract_health": {
+      "critical_field_null_count": 0,
+      "missing_checkpoint_status_count": 0,
+      "raw_contract_pass": 1,
+      "parity_pass": 1,
+      "data_issue_flag": 0,
+      "data_issue_codes": [],
+      "zero_step_flag": 0,
+      "best_action_count": 1,
+      "checkpoint_status_4w": "on_track",
+      "checkpoint_status_12w": "on_track",
+      "checkpoint_status_24w": "on_track",
+      "summary_field_completion_rate": 1.0
+    },
+    "decision_gate_trace": {
+      "reject": false,
+      "approve": true,
+      "conditional": false,
+      "confidence": 0.8915
+    },
+    "selection_outcome": "selected_valid_winner",
+    "selection_stage": "preferred_valid",
+    "selected_plan_status_internal": null,
+    "selected_recommendation_source": "empty_state",
+    "selected_recommendation_projection_version": "v2.2_phase_47",
+    "selected_action_count": 0,
+    "selected_outcome_rule_applied": false,
+    "selected_outcome_rule_profile_version": null,
+    "selected_outcome_rule_source": null,
+    "selected_outcome_rule_transition": null,
+    "active_driver_count": 0,
+    "blocker_render_source": "suppressed",
+    "action_render_source": "suppressed",
+    "readiness_render_mode": "empty_state_context",
+    "fallback_blocker_suppressed": false,
+    "packet_coherence_codes": [],
+    "approval_gap": 0.15,
+    "recoverability_bucket": "mid_risk",
+    "recoverable_reason_codes": [
+      "OUTSIDE_RECOVERABLE_BAND",
+      "HAS_VALID_PATH",
+      "HAS_RANKABLE_PATH",
+      "THRESHOLD_REACHABLE",
+      "NO_ACTIVE_CLASSIFIER_BLOCKERS",
+      "NOT_RECOVERABLE"
+    ],
+    "recoverability_signal_reason_codes": [
+      "MID_APPROVAL_GAP",
+      "HAS_VALID_PATH",
+      "HAS_RANKABLE_PATH",
+      "THRESHOLD_REACHABLE"
+    ],
+    "recourse_gate_reason_codes": [
+      "NOT_RECOVERABLE_LIMITED_MODE"
+    ],
+    "recourse_gate_version": "phase_63_v1"
+  }
+}

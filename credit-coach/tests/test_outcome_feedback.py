@@ -572,3 +572,39 @@ def test_run_outcome_feedback_writes_realization_artifacts(monkeypatch, tmp_path
     assert "This report is descriptive and not causal." in realization_report
     assert "does not claim that recommendations caused the observed results" in realization_report
     assert "Sparse or pending observations should not be read as proof of success, failure, or policy uplift." in realization_report
+
+
+def test_outcome_feedback_supports_db_url_and_output_dir_overrides(monkeypatch, tmp_path):
+    _init_test_db(monkeypatch, tmp_path)
+    save_decision_outcome(
+        DecisionOutcomeRecord(
+            decision_id="d-override-1",
+            run_id="r-override",
+            customer_id="c-override",
+            policy_arm="control",
+            approved=False,
+            decision_status="REJECTED",
+        )
+    )
+
+    db_file = tmp_path / "outcome_feedback.db"
+    db_url = f"sqlite:///{db_file}"
+    out_dir = tmp_path / "override_out"
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_outcome_feedback.py",
+            "--window_days",
+            "90",
+            "--db_url",
+            db_url,
+            "--output_dir",
+            str(out_dir),
+        ],
+    )
+    run_outcome_feedback_main()
+
+    assert (out_dir / "tables" / "outcome_realization_evaluation.json").exists()
+    assert (out_dir / "tables" / "outcome_realization_report.md").exists()

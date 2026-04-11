@@ -56,6 +56,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model_version", type=str, default="")
     parser.add_argument("--model_manifest", type=str, default="")
     parser.add_argument("--output_dir", type=str, default="")
+    parser.add_argument(
+        "--customer_manifest_csv",
+        type=str,
+        default="",
+        help="Optional CSV of source customer ids to evaluate (no sampling). Must include `source_customer_id` or `customer_id`.",
+    )
     return parser.parse_args()
 
 
@@ -424,6 +430,84 @@ def _sample_cohorts(
     return sampled_df, sampling_meta
 
 
+def _load_customer_manifest_ids(path: Path) -> list[str]:
+    if not path.exists():
+        raise FileNotFoundError(f"Customer manifest CSV not found: {path}")
+    df = pd.read_csv(path)
+    if df.empty:
+        raise ValueError("Customer manifest CSV is empty.")
+    if "source_customer_id" in df.columns:
+        col = "source_customer_id"
+    elif "customer_id" in df.columns:
+        col = "customer_id"
+    elif len(df.columns) == 1:
+        col = str(df.columns[0])
+    else:
+        raise ValueError("Customer manifest CSV must include `source_customer_id` or `customer_id`.")
+
+    raw_values = [_safe_text(value) for value in df[col].tolist()]
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for value in raw_values:
+        if not value or value in seen:
+            continue
+        ordered.append(value)
+        seen.add(value)
+    if not ordered:
+        raise ValueError("Customer manifest CSV contains no usable customer ids.")
+    return ordered
+
+
+def _select_manifest_customers(
+    denied_ranked_df: pd.DataFrame,
+    *,
+    manifest_ids: list[str],
+    manifest_path: Path,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    if denied_ranked_df.empty:
+        raise ValueError("No denied customers available for manifest selection.")
+    if not manifest_ids:
+        raise ValueError("Manifest selection requires at least one customer id.")
+
+    manifest_df = pd.DataFrame(
+        {
+            "customer_id": pd.Series(manifest_ids, dtype=object),
+            "manifest_order": pd.Series(list(range(len(manifest_ids))), dtype=int),
+        }
+    )
+    joined = denied_ranked_df.merge(manifest_df, on="customer_id", how="inner")
+    missing = sorted(set(manifest_ids) - set(joined["customer_id"].astype(str).tolist()))
+    if missing:
+        raise ValueError(
+            f"Manifest contains {len(missing)} customer ids not present in denied population (first 5: {missing[:5]})."
+        )
+
+    joined = joined.sort_values(
+        ["manifest_order", "approval_gap", "customer_id"],
+        ascending=[True, True, True],
+        kind="stable",
+    ).reset_index(drop=True)
+    joined["cohort_target_n"] = 0
+    joined["sampled_with_replacement"] = 0
+    joined["source_customer_id"] = joined["customer_id"].astype(str)
+    joined["sample_slot_index"] = joined.index.astype(int)
+    joined["evaluation_customer_id"] = joined.apply(
+        lambda record: f"{record['source_customer_id']}__eval_{int(record['sample_slot_index']):04d}",
+        axis=1,
+    )
+    sampling_meta = {
+        "requested_n": int(len(manifest_ids)),
+        "unique_denied_available": int(len(denied_ranked_df)),
+        "realized_sample_n": int(len(joined)),
+        "with_replacement": False,
+        "unique_source_customers_in_sample": int(joined["source_customer_id"].nunique()),
+        "reused_draw_count": 0,
+        "manifest_mode": True,
+        "manifest_path": str(manifest_path),
+    }
+    return joined, sampling_meta
+
+
 def _rankable_paths_df(paths_df: pd.DataFrame) -> pd.DataFrame:
     if paths_df.empty:
         return paths_df.copy()
@@ -553,6 +637,8 @@ def _operator_packet_contradiction_flag(
     *,
     roadmap_summary: dict[str, Any],
     operator_metrics: dict[str, Any],
+    recourse_mode: str,
+    selected_recommendation_source: str,
 ) -> int:
     decision_status = _safe_text(roadmap_summary.get("decision_status"))
     selected_status = _safe_text(operator_metrics.get("operator_selected_decision_status"))
@@ -566,13 +652,15 @@ def _operator_packet_contradiction_flag(
         coherence_codes = {code.strip() for code in coherence_codes if code.strip()}
 
     selection_outcome = _safe_text(roadmap_summary.get("selection_outcome"))
+    limited_empty_state = _safe_text(recourse_mode) == "limited" and _safe_text(selected_recommendation_source) == "empty_state"
     approved_packet_with_blockers = selected_status == "APPROVED" and rendered_blockers > 0
     approved_packet_with_actions = selected_status == "APPROVED" and rendered_actions > 0
     approved_packet_with_upgrade = selected_status == "APPROVED" and bool(upgrade_text)
-    readiness_mismatch = (
-        (selection_outcome == "no_valid_winner" and readiness_mode != "empty_state_context")
-        or (selection_outcome != "no_valid_winner" and selected_status == "APPROVED" and readiness_mode != "approved_info")
-    )
+    readiness_mismatch = False
+    if selection_outcome == "no_valid_winner" or limited_empty_state:
+        readiness_mismatch = readiness_mode != "empty_state_context"
+    elif selected_status == "APPROVED":
+        readiness_mismatch = readiness_mode != "approved_info"
     action_blocker_mismatch = "action_blocker_mismatch" in coherence_codes
     decision_mismatch = decision_status != selected_status
     return int(
@@ -1301,8 +1389,7 @@ def _render_report(
     return report
 
 
-def main() -> None:
-    args = parse_args()
+def run(args: argparse.Namespace) -> Path:
     project_root = Path(__file__).resolve().parents[3]
 
     base_config_path = _resolve_repo_path(args.base_config, project_root=project_root)
@@ -1348,11 +1435,21 @@ def main() -> None:
 
     denied_df = population_df[population_df["denied_base"].astype(int) == 1].copy()
     denied_ranked_df, cohort_boundaries = _assign_gap_tertile_cohorts(denied_df)
-    sampled_df, sampling_meta = _sample_cohorts(
-        denied_ranked_df,
-        n_customers=int(args.n_customers),
-        sample_seed=int(args.sample_seed),
-    )
+    manifest_csv = _safe_text(getattr(args, "customer_manifest_csv", ""))
+    if manifest_csv:
+        manifest_path = _resolve_repo_path(manifest_csv, project_root=project_root)
+        manifest_ids = _load_customer_manifest_ids(manifest_path)
+        sampled_df, sampling_meta = _select_manifest_customers(
+            denied_ranked_df,
+            manifest_ids=manifest_ids,
+            manifest_path=manifest_path,
+        )
+    else:
+        sampled_df, sampling_meta = _sample_cohorts(
+            denied_ranked_df,
+            n_customers=int(args.n_customers),
+            sample_seed=int(args.sample_seed),
+        )
 
     graph = None
     graph_out = Path(c_cfg.get("graph", {}).get("output_path", "artifacts/models/causal_graph.json"))
@@ -1608,6 +1705,8 @@ def main() -> None:
                 "operator_packet_contradiction_flag": _operator_packet_contradiction_flag(
                     roadmap_summary=roadmap_summary,
                     operator_metrics=operator_metrics,
+                    recourse_mode=recourse_mode,
+                    selected_recommendation_source=selected_recommendation_source,
                 ),
                 "institution_path_present": int("institution" in path_types),
                 "hybrid_path_present": int("hybrid" in path_types),
@@ -1782,6 +1881,11 @@ def main() -> None:
     report_path = output_root / "cohort_evaluation_report.md"
     report_path.write_text(report_text, encoding="utf-8")
 
+    return output_root
+
+
+def main() -> None:
+    output_root = run(parse_args())
     print(str(output_root))
 
 

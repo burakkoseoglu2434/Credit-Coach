@@ -12,6 +12,7 @@ import pandas as pd
 from credit_coach.data.schema import DecisionActionExecutionEventRecord, DecisionOutcomeRecord
 from credit_coach.evaluation.off_policy import evaluate_off_policy
 from credit_coach.storage.db import init_db
+from credit_coach.storage import db as db_module
 from credit_coach.storage.repository import (
     load_decision_action_execution_events,
     load_decision_learning_dataset,
@@ -26,7 +27,7 @@ from credit_coach.storage.repository import (
     summarize_path_realization,
     summarize_realization_evaluation,
 )
-from credit_coach.utils.run_context import create_run_context
+from credit_coach.utils.run_context import RunContext, create_run_context
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("run_outcome_feedback")
@@ -54,6 +55,7 @@ def _format_metric(value: float | None) -> str:
 def _build_outcome_realization_report(
     *,
     evaluation_summary: dict[str, Any],
+    input_metadata: dict[str, Any] | None = None,
 ) -> str:
     overall = dict(evaluation_summary.get("overall", {}))
     predicted_vs_observed = dict(evaluation_summary.get("predicted_vs_observed", {}))
@@ -67,12 +69,29 @@ def _build_outcome_realization_report(
     limited_control = populations.get("non_recoverable_limited_mode", {})
     overall_predicted = dict(predicted_vs_observed.get("overall", {}))
 
+    input_meta = dict(input_metadata or {})
+    synthetic_detected = bool(input_meta.get("synthetic_input_detected", False))
+    synthetic_note = str(input_meta.get("synthetic_input_note", "") or "").strip()
+
     lines = [
         "# Outcome Realization Report",
         "",
         "This report is descriptive and not causal.",
         "It summarizes observed execution and realized outcome signals from selected-path decisions and does not claim that recommendations caused the observed results or that the current policy delivered business uplift.",
         "",
+    ]
+    if synthetic_detected:
+        lines.extend(
+            [
+                "## Input Label",
+                "",
+                "- Input label: synthetic (explicitly non-causal, calibration-style evidence only).",
+                f"- Synthetic detection note: {synthetic_note or 'synthetic markers detected in outcome inputs.'}",
+                "",
+            ]
+        )
+    lines.extend(
+        [
         "## Overview",
         "",
         f"- Window: {int(evaluation_summary.get('window_days', 90))} days",
@@ -87,7 +106,8 @@ def _build_outcome_realization_report(
         "",
         "## Recoverable Vs Limited",
         "",
-    ]
+        ]
+    )
     if recoverable_full:
         lines.extend(
             [
@@ -152,6 +172,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--outcomes_csv", type=str, default="", help="Optional CSV to upsert outcomes")
     p.add_argument("--action_events_csv", type=str, default="", help="Optional CSV to append selected-action events")
     p.add_argument("--window_days", type=int, default=90)
+    p.add_argument("--db_url", type=str, default="", help="Optional DB URL override (e.g., sqlite:////tmp/outcomes.db)")
+    p.add_argument(
+        "--output_dir",
+        type=str,
+        default="",
+        help="Optional artifact dir override (writes tables/ and figures/ under this directory).",
+    )
     return p.parse_args()
 
 
@@ -317,15 +344,31 @@ def _ingest_action_events_csv(path: Path) -> int:
 
 def main() -> None:
     args = parse_args()
-    init_db()
-    run_ctx = create_run_context(
-        {
-            "window_days": int(args.window_days),
-            "outcomes_csv": str(args.outcomes_csv),
-            "action_events_csv": str(args.action_events_csv),
-        },
-        base_artifact_dir="artifacts/runs",
-    )
+    db_url = str(getattr(args, "db_url", "") or "").strip()
+    if db_url:
+        db_module._engine = None
+        db_module._SessionFactory = None
+        init_db(db_url=db_url)
+    else:
+        init_db()
+
+    run_config = {
+        "window_days": int(args.window_days),
+        "outcomes_csv": str(args.outcomes_csv),
+        "action_events_csv": str(args.action_events_csv),
+        "db_url": db_url,
+        "output_dir": str(getattr(args, "output_dir", "") or ""),
+    }
+    override_dir = str(getattr(args, "output_dir", "") or "").strip()
+    if override_dir:
+        artifact_dir = Path(override_dir).expanduser().resolve()
+        run_ctx = RunContext(run_id="manual_output_dir", artifact_dir=artifact_dir, config=run_config)
+        run_ctx.save_config_snapshot()
+    else:
+        run_ctx = create_run_context(
+            run_config,
+            base_artifact_dir="artifacts/runs",
+        )
 
     ingested = 0
     action_events_ingested = 0
@@ -333,6 +376,25 @@ def main() -> None:
         ingested = _ingest_csv(Path(args.outcomes_csv))
     if args.action_events_csv:
         action_events_ingested = _ingest_action_events_csv(Path(args.action_events_csv))
+
+    input_metadata: dict[str, Any] = {
+        "outcomes_csv": str(args.outcomes_csv),
+        "action_events_csv": str(args.action_events_csv),
+        "synthetic_input_detected": False,
+        "synthetic_input_note": "",
+    }
+    if args.outcomes_csv:
+        try:
+            outcomes_df = pd.read_csv(Path(args.outcomes_csv))
+            has_synth_flag = "synthetic_flag" in outcomes_df.columns and bool(
+                pd.to_numeric(outcomes_df["synthetic_flag"], errors="coerce").fillna(0).astype(int).max() >= 1
+            )
+            has_synth_arm = "policy_arm" in outcomes_df.columns and outcomes_df["policy_arm"].astype(str).str.lower().eq("synthetic").any()
+            if has_synth_flag or has_synth_arm:
+                input_metadata["synthetic_input_detected"] = True
+                input_metadata["synthetic_input_note"] = "synthetic_flag/policy_arm markers detected in outcomes input CSV."
+        except Exception:
+            pass
 
     summary_df = summarize_decision_outcomes(window_days=int(args.window_days))
     decision_logging_summary = summarize_decision_logging()
@@ -380,7 +442,11 @@ def main() -> None:
         encoding="utf-8",
     )
     realization_report_out.write_text(
-        _build_outcome_realization_report(evaluation_summary=realization_evaluation),
+        _build_outcome_realization_report(evaluation_summary=realization_evaluation, input_metadata=input_metadata),
+        encoding="utf-8",
+    )
+    (run_ctx.tables_dir / "run_input_metadata.json").write_text(
+        json.dumps(input_metadata, indent=2, ensure_ascii=False, default=_json_default),
         encoding="utf-8",
     )
     off_policy_out.write_text(json.dumps(off_policy_evaluation, indent=2, ensure_ascii=False), encoding="utf-8")
