@@ -3,6 +3,7 @@
 ## Milestones
 
 - 🚧 **v2.5 Recoverable Customer Targeting & Movement Optimization** - Phases 61-67 (planning started 2026-04-05)
+- ○ **v2.6 Real Cohort Evidence & Realization Proof** - Phase 68 (planning started 2026-04-11)
 - ✅ **v2.4 Recourse Capability Expansion & Action Semantics** - Phases 54-60 (shipped 2026-04-05; archive: `.planning/milestones/v2.4-ROADMAP.md`)
 - ✅ **v2.3 Threshold & Outcome Optimization** - Phases 49-53 (shipped 2026-04-03; archive: `.planning/milestones/v2.3-ROADMAP.md`)
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
@@ -99,6 +100,21 @@ Success criteria:
 - selected-path execution events and realization context are stored additively without changing decision logic
 - machine-readable artifacts publish action execution, path realization, and realized-outcome metrics
 - final reporting compares predicted versus observed realization descriptively, without causal or business-uplift overclaim
+
+## Next Milestone (Planned)
+
+### ○ v2.6 Real Cohort Evidence & Realization Proof (Phase 68)
+
+**Goal:** move from audit-passed capability to evidence-backed product by running a large denied cohort (>=500) and integrating Phase 67 realized outcomes into an evidence-grade report.
+
+**Acceptance checks:**
+- cohort run uses `dataset_scope=full_processed` and `n_customers >= 500`, with sampling metadata recorded (with/without replacement)
+- report explicitly publishes recoverable rate, movement rates (recoverable/full vs global denied), and threshold reach possible rate
+- Phase 67 realized-outcome artifacts are integrated (or explicitly marked sparse/missing) without causal claims
+- investor-ready summary and an explicit “evidence strong / weak” decision are produced with conservative wording
+
+**Planned phases:**
+- Phase 68: Real Cohort Evidence Run
 
 <details>
 <summary>✅ v2.4 Recourse Capability Expansion & Action Semantics (Phases 54-60) - SHIPPED 2026-04-05</summary>
