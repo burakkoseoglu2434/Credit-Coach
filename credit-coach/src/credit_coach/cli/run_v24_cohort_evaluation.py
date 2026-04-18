@@ -17,6 +17,7 @@ from credit_coach.evaluation.cohort_evidence import (
     summarize_population_metrics_from_rows,
     write_phase60_evidence_artifacts,
 )
+from credit_coach.evaluation.coverage_diagnostics import write_coverage_diagnostics
 from credit_coach.evaluation.recoverability import (
     best_possible_pd_improvement_from_predictions,
     build_recoverability_signal,
@@ -61,6 +62,11 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="",
         help="Optional CSV of source customer ids to evaluate (no sampling). Must include `source_customer_id` or `customer_id`.",
+    )
+    parser.add_argument(
+        "--emit_coverage_diagnostics",
+        action="store_true",
+        help="Emit additive coverage diagnostics under <output_dir>/coverage_diagnostics (Phase 71).",
     )
     return parser.parse_args()
 
@@ -1754,6 +1760,12 @@ def run(args: argparse.Namespace) -> Path:
     customer_csv_path = output_root / "customer_level_analysis.csv"
     customer_df.to_csv(customer_csv_path, index=False)
     sampled_df.to_csv(cohort_sample_path, index=False)
+
+    if getattr(args, "emit_coverage_diagnostics", False):
+        write_coverage_diagnostics(
+            customer_df=customer_df,
+            output_dir=output_root / "coverage_diagnostics",
+        )
 
     overall_metrics = _aggregate_metrics(customer_df)
     targeted_population_metrics = _targeted_population_metrics(customer_df)
