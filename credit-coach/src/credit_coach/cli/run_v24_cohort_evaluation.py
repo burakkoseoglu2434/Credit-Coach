@@ -1619,6 +1619,46 @@ def run(args: argparse.Namespace) -> Path:
                 "recourse_gate_reason_codes_json": _json_dumps(
                     list(recourse_gate.get("recourse_gate_reason_codes", []) or [])
                 ),
+                "assisted_full_flag": _safe_int(
+                    _select_live_value(roadmap_summary, metrics_summary, key="assisted_full_flag"),
+                    0,
+                ),
+                "assisted_full_reason_codes_json": _safe_text(
+                    _select_live_value(roadmap_summary, metrics_summary, key="assisted_full_reason_codes_json"),
+                    _json_dumps([]),
+                ),
+                "assisted_full_thresholds_json": _safe_text(
+                    _select_live_value(roadmap_summary, metrics_summary, key="assisted_full_thresholds_json"),
+                    _json_dumps({}),
+                ),
+                "pre_gate_best_plan_id": _safe_text(
+                    _select_live_value(roadmap_summary, metrics_summary, key="pre_gate_best_plan_id"),
+                    "",
+                ),
+                "pre_gate_selected_path_type": _safe_text(
+                    _select_live_value(roadmap_summary, metrics_summary, key="pre_gate_selected_path_type"),
+                    "",
+                ),
+                "pre_gate_threshold_reach_probability": _safe_float(
+                    _select_live_value(roadmap_summary, metrics_summary, key="pre_gate_threshold_reach_probability"),
+                    0.0,
+                ),
+                "pre_gate_movement_score": _safe_float(
+                    _select_live_value(roadmap_summary, metrics_summary, key="pre_gate_movement_score"),
+                    0.0,
+                ),
+                "best_possible_pd_improvement": _safe_float(
+                    _select_live_value(roadmap_summary, metrics_summary, key="best_possible_pd_improvement"),
+                    0.0,
+                ),
+                "gap_closure_rate": _safe_float(
+                    _select_live_value(roadmap_summary, metrics_summary, key="gap_closure_rate"),
+                    0.0,
+                ),
+                "gap_divide_epsilon": _safe_float(
+                    _select_live_value(roadmap_summary, metrics_summary, key="gap_divide_epsilon"),
+                    0.0,
+                ),
                 "selected_recommendation_source": selected_recommendation_source,
                 "selected_action_count": selected_action_count,
                 "selected_recommendation_projection_version": _safe_text(
