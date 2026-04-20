@@ -442,6 +442,11 @@ def _attach_recoverability_signal_to_roadmap(
 ) -> dict[str, Any]:
     out = dict(roadmap or {})
     summary = dict(out.get("summary", {}) or {})
+    best_possible_pd_improvement = _best_possible_pd_improvement_for_paths(
+        base_pd=base_pd,
+        path_records=path_records,
+        plan_lookup=plan_lookup,
+    )
     signal = build_recoverability_signal(
         base_pd=base_pd,
         tau=tau,
@@ -451,11 +456,7 @@ def _attach_recoverability_signal_to_roadmap(
         },
         has_valid_path_flag=bool(path_records),
         has_rankable_path_flag=any(bool(getattr(record, "rankable_flag", False)) for record in path_records),
-        best_possible_pd_improvement=_best_possible_pd_improvement_for_paths(
-            base_pd=base_pd,
-            path_records=path_records,
-            plan_lookup=plan_lookup,
-        ),
+        best_possible_pd_improvement=best_possible_pd_improvement,
         selection_outcome=_safe_text(summary.get("selection_outcome")),
         expected_readiness=_safe_text(summary.get("expected_readiness")),
         credit_readiness_stage=_safe_text(summary.get("credit_readiness_stage")),
@@ -463,6 +464,10 @@ def _attach_recoverability_signal_to_roadmap(
         offer_plan=bool(_safe_int(summary.get("offer_plan", 0), 0)),
     )
     summary.update(signal)
+    summary["best_possible_pd_improvement"] = _safe_float(
+        summary.get("best_possible_pd_improvement", best_possible_pd_improvement),
+        best_possible_pd_improvement,
+    )
     summary["recoverability_signal_reason_codes_json"] = json.dumps(
         signal["recoverability_signal_reason_codes"],
         ensure_ascii=False,
@@ -472,17 +477,205 @@ def _attach_recoverability_signal_to_roadmap(
     return out
 
 
+def _assisted_full_policy_config(roadmap: Mapping[str, Any]) -> dict[str, Any]:
+    gate_cfg = roadmap.get("recourse_gate_config", {}) if isinstance(roadmap.get("recourse_gate_config", {}), Mapping) else {}
+    assisted_cfg = gate_cfg.get("assisted_full", {}) if isinstance(gate_cfg.get("assisted_full", {}), Mapping) else {}
+    enabled = bool(assisted_cfg.get("enabled", False))
+    threshold_prob_min = _safe_float(assisted_cfg.get("threshold_prob_min", 1.0), 1.0)
+    gap_closure_min = _safe_float(assisted_cfg.get("gap_closure_min", 1e9), 1e9)
+    gap_divide_epsilon = max(1e-9, _safe_float(assisted_cfg.get("gap_divide_epsilon", 1e-6), 1e-6))
+    allowlisted_action_keys = [
+        _safe_text(v)
+        for v in (assisted_cfg.get("allowlisted_action_keys", []) if isinstance(assisted_cfg.get("allowlisted_action_keys", []), list) else [])
+        if _safe_text(v)
+    ]
+    if not allowlisted_action_keys:
+        allowlisted_action_keys = [
+            "adjust_requested_loan_amount",
+            "limit_credit_usage",
+            "reduce_spending",
+        ]
+    preference_order = [
+        _safe_text(v)
+        for v in (assisted_cfg.get("action_preference_order", []) if isinstance(assisted_cfg.get("action_preference_order", []), list) else [])
+        if _safe_text(v)
+    ]
+    if not preference_order:
+        preference_order = [
+            "adjust_requested_loan_amount",
+            "limit_credit_usage",
+            "reduce_spending",
+        ]
+    return {
+        "enabled": enabled,
+        "threshold_prob_min": threshold_prob_min,
+        "gap_closure_min": gap_closure_min,
+        "gap_divide_epsilon": gap_divide_epsilon,
+        "allowlisted_action_keys": allowlisted_action_keys,
+        "action_preference_order": preference_order,
+    }
+
+
+def _attach_pre_gate_shadow_fields(out: dict[str, Any], summary: dict[str, Any]) -> None:
+    summary.setdefault("pre_gate_best_plan_id", _safe_text(summary.get("best_plan_id"), _safe_text(out.get("best_plan_id"))))
+    summary.setdefault("pre_gate_threshold_reach_probability", _safe_float(summary.get("threshold_reach_probability", 0.0), 0.0))
+    summary.setdefault("pre_gate_movement_score", _safe_float(summary.get("movement_score", 0.0), 0.0))
+    summary.setdefault("pre_gate_selected_path_type", _safe_text(summary.get("selected_path_type"), _safe_text(summary.get("path_type"))))
+    summary.setdefault("best_possible_pd_improvement", _safe_float(summary.get("best_possible_pd_improvement", 0.0), 0.0))
+
+
+def _attach_gap_proxy_fields(summary: dict[str, Any], *, gap_divide_epsilon: float) -> None:
+    approval_gap = _safe_float(summary.get("approval_gap", 0.0), 0.0)
+    best_possible_pd_improvement = _safe_float(summary.get("best_possible_pd_improvement", 0.0), 0.0)
+    epsilon = max(1e-9, _safe_float(gap_divide_epsilon, 1e-6))
+    denominator = max(approval_gap, epsilon)
+    gap_closure_rate = best_possible_pd_improvement / denominator if denominator > 0.0 else 0.0
+    summary.setdefault("gap_divide_epsilon", epsilon)
+    summary.setdefault("gap_closure_rate", _safe_float(gap_closure_rate, 0.0))
+
+
+def _eligible_for_assisted_full(summary: dict[str, Any], *, policy: Mapping[str, Any]) -> tuple[bool, list[str]]:
+    reasons: list[str] = []
+    if not bool(policy.get("enabled", False)):
+        return False, ["assisted_full:disabled"]
+
+    recoverable_flag = bool(summary.get("recoverable_flag", False))
+    if recoverable_flag:
+        return False, ["assisted_full:skipped_full_mode"]
+
+    threshold_prob_min = _safe_float(policy.get("threshold_prob_min", 1.0), 1.0)
+    gap_closure_min = _safe_float(policy.get("gap_closure_min", 1e9), 1e9)
+    pre_gate_prob = _safe_float(summary.get("pre_gate_threshold_reach_probability", 0.0), 0.0)
+    gap_closure_rate = _safe_float(summary.get("gap_closure_rate", 0.0), 0.0)
+
+    prob_ok = pre_gate_prob >= threshold_prob_min
+    gap_ok = gap_closure_rate >= gap_closure_min
+    reasons.append(f"assisted_full:prob_ok:{int(prob_ok)}")
+    reasons.append(f"assisted_full:gap_ok:{int(gap_ok)}")
+    return bool(prob_ok or gap_ok), reasons
+
+
+def _select_assisted_full_step(
+    phases: Sequence[Any],
+    *,
+    allowlisted_action_keys: Sequence[str],
+    preference_order: Sequence[str],
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    allowlisted = {str(v) for v in allowlisted_action_keys if _safe_text(v)}
+    if not allowlisted:
+        return None, None
+
+    candidates: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
+    for phase in phases:
+        if not isinstance(phase, dict):
+            continue
+        for step in list(phase.get("steps", [])):
+            if not isinstance(step, dict):
+                continue
+            action_key = _safe_text(step.get("action_key")).lower()
+            if not action_key or action_key not in allowlisted:
+                continue
+            if bool(int(_safe_int(step.get("requires_institutional_approval", 0), 0))):
+                continue
+            if bool(int(_safe_int(step.get("requires_acceptance", 0), 0))):
+                continue
+            candidates.append((action_key, phase, step))
+
+    if not candidates:
+        return None, None
+
+    preference = [str(v).lower() for v in preference_order if _safe_text(v)]
+    for preferred_key in preference:
+        for action_key, phase, step in candidates:
+            if action_key == preferred_key:
+                return phase, step
+    return candidates[0][1], candidates[0][2]
+
+
+def _prune_roadmap_to_step(out: dict[str, Any], *, selected_phase: dict[str, Any], selected_step: dict[str, Any]) -> None:
+    phases: list[dict[str, Any]] = []
+    for phase in list(out.get("phases", [])):
+        if not isinstance(phase, dict):
+            continue
+        if phase.get("phase_id") != selected_phase.get("phase_id"):
+            continue
+        kept_phase = dict(phase)
+        kept_step = dict(selected_step)
+        kept_phase["steps"] = [kept_step]
+        kept_phase["action_count"] = 1
+        kept_phase["phase_cost_usd"] = float(_safe_float(kept_step.get("estimated_cost_usd", 0.0), 0.0))
+        phases.append(kept_phase)
+        break
+    out["phases"] = phases
+
+    narrative = out.get("narrative") if isinstance(out.get("narrative"), dict) else None
+    if narrative is None:
+        return
+    step_id = _safe_text(selected_step.get("step_id"))
+    action_key = _safe_text(selected_step.get("action_key")).lower()
+    pruned_steps: list[dict[str, Any]] = []
+    for raw_step in list(narrative.get("steps", [])):
+        if not isinstance(raw_step, dict):
+            continue
+        raw_step_id = _safe_text(raw_step.get("step_id"))
+        raw_key = _safe_text(raw_step.get("action_key")).lower()
+        if (step_id and raw_step_id and raw_step_id == step_id) or (action_key and raw_key == action_key):
+            pruned_steps.append(raw_step)
+            break
+    narrative["steps"] = pruned_steps
+    out["narrative"] = narrative
+
+
 def _apply_recourse_gate_to_roadmap(roadmap: dict[str, Any]) -> dict[str, Any]:
     out = dict(roadmap or {})
     summary = dict(out.get("summary", {}) or {})
+    _attach_pre_gate_shadow_fields(out, summary)
+    policy = _assisted_full_policy_config(out)
+    _attach_gap_proxy_fields(summary, gap_divide_epsilon=float(policy.get("gap_divide_epsilon", 1e-6)))
+
+    eligible_by_signal, eligibility_reasons = _eligible_for_assisted_full(summary, policy=policy)
+    assisted_full_flag = 1 if eligible_by_signal else 0
+    summary["assisted_full_flag"] = int(assisted_full_flag)
+    summary["assisted_full_reason_codes_json"] = json.dumps(eligibility_reasons, ensure_ascii=False)
+    summary["assisted_full_thresholds_json"] = json.dumps(
+        {
+            "enabled": bool(policy.get("enabled", False)),
+            "threshold_prob_min": float(policy.get("threshold_prob_min", 1.0)),
+            "gap_closure_min": float(policy.get("gap_closure_min", 1e9)),
+            "gap_divide_epsilon": float(policy.get("gap_divide_epsilon", 1e-6)),
+        },
+        ensure_ascii=False,
+    )
+
     gate = build_recourse_gate(summary)
     summary.update(gate)
     summary.update(build_narrative_posture(summary))
-    summary["recourse_gate_reason_codes_json"] = json.dumps(
-        gate["recourse_gate_reason_codes"],
-        ensure_ascii=False,
-    )
+    summary["recourse_gate_reason_codes_json"] = json.dumps(gate["recourse_gate_reason_codes"], ensure_ascii=False)
     out["summary"] = summary
+
+    if _safe_text(gate.get("recourse_mode")) == "assisted_full":
+        pre_gate_path_type = _safe_text(summary.get("pre_gate_selected_path_type")).lower()
+        wave1_customer_only_ok = pre_gate_path_type == "customer_only"
+        if wave1_customer_only_ok:
+            selected_phase, selected_step = _select_assisted_full_step(
+                out.get("phases", []),
+                allowlisted_action_keys=policy.get("allowlisted_action_keys", []),
+                preference_order=policy.get("action_preference_order", []),
+            )
+            if selected_phase is not None and selected_step is not None:
+                _prune_roadmap_to_step(out, selected_phase=selected_phase, selected_step=selected_step)
+                return _build_selected_surface_projection(out)
+            eligibility_reasons.append("assisted_full:fallback:no_allowlisted_step")
+        else:
+            eligibility_reasons.append(f"assisted_full:fallback:path_type:{pre_gate_path_type or 'missing'}")
+
+        summary["assisted_full_flag"] = 0
+        summary["assisted_full_reason_codes_json"] = json.dumps(eligibility_reasons, ensure_ascii=False)
+        gate = build_recourse_gate(summary)
+        summary.update(gate)
+        summary.update(build_narrative_posture(summary))
+        summary["recourse_gate_reason_codes_json"] = json.dumps(gate["recourse_gate_reason_codes"], ensure_ascii=False)
+        out["summary"] = summary
 
     if _safe_text(gate.get("recourse_mode")) != "limited":
         return _build_selected_surface_projection(out)
@@ -3788,6 +3981,9 @@ def generate_customer_recourse_artifacts(
         feature_cols=feature_cols,
         local_reason_bundle=local_reason_bundle,
     )
+    gate_cfg = rec_cfg.get("recourse_gate", {}) if isinstance(rec_cfg.get("recourse_gate", {}), dict) else {}
+    roadmap = dict(roadmap or {})
+    roadmap["recourse_gate_config"] = gate_cfg
     decision_log_record = _decision_log_record(
         run_id=run_id,
         customer_id=str(customer_id),
