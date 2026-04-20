@@ -387,7 +387,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     locked_yaml_path = (credit_coach_root / "configs" / "recourse_assisted_full_w2a_locked.yaml").resolve()
 
     base_recourse = _read_yaml(base_recourse_path)
-    gate_cfg = base_recourse.get("recourse_gate_config", {})
+    gate_cfg = base_recourse.get("recourse_gate", {})
     gate_cfg = gate_cfg if isinstance(gate_cfg, dict) else {}
     assisted_cfg = {
         "enabled": True,
@@ -407,7 +407,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ],
     }
     gate_cfg["assisted_full"] = assisted_cfg
-    base_recourse["recourse_gate_config"] = gate_cfg
+    base_recourse["recourse_gate"] = gate_cfg
 
     _write_yaml(locked_yaml_path, base_recourse)
 
