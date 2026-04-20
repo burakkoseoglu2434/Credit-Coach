@@ -18,6 +18,8 @@ class ThresholdSelection:
     achieved_share: float
     achieved_share_prob_only: float
     achieved_share_gap_only: float
+    eligible_count: int
+    suppressed_population_size: int
     population_size: int
 
 
@@ -78,7 +80,7 @@ def _quantile_candidates(series: pd.Series, *, qs: Iterable[float], decimals: in
     return sorted(candidates)
 
 
-def _pick_probability_signal(df: pd.DataFrame, *, population_mask: pd.Series) -> pd.Series:
+def _pick_probability_signal(df: pd.DataFrame, *, suppressed_mask: pd.Series) -> pd.Series:
     if "pre_gate_threshold_reach_probability" in df.columns:
         return pd.to_numeric(df["pre_gate_threshold_reach_probability"], errors="coerce").fillna(0.0).astype(float).clip(0.0, 1.0)
 
@@ -88,8 +90,8 @@ def _pick_probability_signal(df: pd.DataFrame, *, population_mask: pd.Series) ->
         )
 
     prob = pd.to_numeric(df["threshold_reach_probability"], errors="coerce").fillna(0.0).astype(float).clip(0.0, 1.0)
-    population_prob = prob[population_mask]
-    if not population_prob.empty and float(population_prob.max()) <= 1e-12:
+    suppressed_prob = prob[suppressed_mask]
+    if not suppressed_prob.empty and float(suppressed_prob.max()) <= 1e-12:
         # In limited mode, selected-projection fields are intentionally blanked (set to 0).
         # Phase 72 requires the pre-gate shadow field so thresholds can be locked data-driven.
         raise ValueError(
@@ -142,19 +144,26 @@ def _segment_label(row: pd.Series) -> str:
     return "hard_denied"
 
 
-def _pick_population_mask(df: pd.DataFrame) -> pd.Series:
-    if "in_non_recoverable_limited_mode_population" in df.columns:
-        col = pd.to_numeric(df["in_non_recoverable_limited_mode_population"], errors="coerce").fillna(0).astype(int)
-        return col == 1
+def _pick_base_population_mask(df: pd.DataFrame) -> tuple[pd.Series, str]:
     if "in_global_denied_population" in df.columns:
         col = pd.to_numeric(df["in_global_denied_population"], errors="coerce").fillna(0).astype(int)
-        return col == 1
+        return (col == 1), "in_global_denied_population"
+    return pd.Series([True] * int(df.shape[0])), "all_rows"
+
+
+def _pick_policy_suppressed_mask(df: pd.DataFrame) -> tuple[pd.Series, str]:
+    if "recourse_mode" in df.columns:
+        modes = df["recourse_mode"].astype(str).str.strip().str.lower()
+        return (modes == "limited"), "recourse_mode==limited"
+    if "in_non_recoverable_limited_mode_population" in df.columns:
+        col = pd.to_numeric(df["in_non_recoverable_limited_mode_population"], errors="coerce").fillna(0).astype(int)
+        return (col == 1), "in_non_recoverable_limited_mode_population"
     if "recoverable_flag" in df.columns:
         col = pd.to_numeric(df["recoverable_flag"], errors="coerce").fillna(0).astype(int)
-        return col == 0
+        return (col == 0), "recoverable_flag==0"
     raise ValueError(
-        "Cannot determine target population. Expected `in_non_recoverable_limited_mode_population`, "
-        "`in_global_denied_population`, or `recoverable_flag` columns."
+        "Cannot determine policy-suppressed population. Expected `recourse_mode`, "
+        "`in_non_recoverable_limited_mode_population`, or `recoverable_flag` columns."
     )
 
 
@@ -162,16 +171,23 @@ def _choose_thresholds(
     *,
     prob: pd.Series,
     gap: pd.Series,
-    population_mask: pd.Series,
+    base_population_mask: pd.Series,
+    suppressed_mask: pd.Series,
     target_share_min: float,
     target_share_max: float,
     gap_divide_epsilon: float,
 ) -> ThresholdSelection:
-    population_prob = prob[population_mask].astype(float)
-    population_gap = gap[population_mask].astype(float)
-    n = int(population_prob.shape[0])
-    if n <= 0:
-        raise ValueError("Target population is empty; cannot scan thresholds.")
+    base_mask = base_population_mask.astype(bool)
+    suppressed = (suppressed_mask.astype(bool)) & base_mask
+    suppressed_prob = prob[suppressed].astype(float)
+    suppressed_gap = gap[suppressed].astype(float)
+    suppressed_n = int(suppressed_prob.shape[0])
+    if suppressed_n <= 0:
+        raise ValueError("Policy-suppressed population is empty; cannot scan thresholds.")
+
+    base_n = int(base_mask.sum())
+    if base_n <= 0:
+        raise ValueError("Base population is empty; cannot scan thresholds.")
 
     target_min = float(target_share_min)
     target_max = float(target_share_max)
@@ -181,7 +197,7 @@ def _choose_thresholds(
 
     prob_candidates = sorted(
         {
-            *_quantile_candidates(population_prob, qs=[0.50, 0.60, 0.70, 0.75, 0.80, 0.85, 0.90, 0.93, 0.95, 0.97, 0.98, 0.99], decimals=4),
+            *_quantile_candidates(suppressed_prob, qs=[0.50, 0.60, 0.70, 0.75, 0.80, 0.85, 0.90, 0.93, 0.95, 0.97, 0.98, 0.99], decimals=4),
             0.40,
             0.45,
             0.50,
@@ -203,7 +219,7 @@ def _choose_thresholds(
 
     gap_candidates = sorted(
         {
-            *_quantile_candidates(population_gap, qs=[0.50, 0.60, 0.70, 0.75, 0.80, 0.85, 0.90, 0.93, 0.95, 0.97, 0.98, 0.99], decimals=4),
+            *_quantile_candidates(suppressed_gap, qs=[0.50, 0.60, 0.70, 0.75, 0.80, 0.85, 0.90, 0.93, 0.95, 0.97, 0.98, 0.99], decimals=4),
             0.05,
             0.10,
             0.20,
@@ -224,14 +240,15 @@ def _choose_thresholds(
     best_key: tuple[float, float, float, float, float] | None = None
 
     for p in prob_candidates:
-        prob_ok = population_prob >= float(p)
+        prob_ok = suppressed_prob >= float(p)
         for g in gap_candidates:
-            gap_ok = population_gap >= float(g)
+            gap_ok = suppressed_gap >= float(g)
             eligible = prob_ok | gap_ok
-            share = float(eligible.mean())
+            eligible_count = int(eligible.sum())
+            share = float(eligible_count / float(base_n))
 
-            prob_only = float((prob_ok & ~gap_ok).mean())
-            gap_only = float((gap_ok & ~prob_ok).mean())
+            prob_only = float(int((prob_ok & ~gap_ok).sum()) / float(base_n))
+            gap_only = float(int((gap_ok & ~prob_ok).sum()) / float(base_n))
 
             inside = 1.0 if (target_min <= share <= target_max) else 0.0
             distance_to_mid = abs(share - target_mid)
@@ -251,7 +268,9 @@ def _choose_thresholds(
                     achieved_share=float(share),
                     achieved_share_prob_only=float(prob_only),
                     achieved_share_gap_only=float(gap_only),
-                    population_size=int(n),
+                    eligible_count=int(eligible_count),
+                    suppressed_population_size=int(suppressed_n),
+                    population_size=int(base_n),
                 )
                 best_key = key
 
@@ -291,31 +310,34 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     output_json.parent.mkdir(parents=True, exist_ok=True)
 
     df = pd.read_csv(customer_csv)
-    population_mask = _pick_population_mask(df)
+    base_population_mask, base_population_source = _pick_base_population_mask(df)
+    suppressed_mask, suppressed_source = _pick_policy_suppressed_mask(df)
+    suppressed_mask = (suppressed_mask.astype(bool)) & (base_population_mask.astype(bool))
 
-    prob = _pick_probability_signal(df, population_mask=population_mask)
+    prob = _pick_probability_signal(df, suppressed_mask=suppressed_mask)
     gap, gap_epsilon = _pick_gap_signal(df)
 
     selection = _choose_thresholds(
         prob=prob,
         gap=gap,
-        population_mask=population_mask,
+        base_population_mask=base_population_mask,
+        suppressed_mask=suppressed_mask,
         target_share_min=float(args.target_share_min),
         target_share_max=float(args.target_share_max),
         gap_divide_epsilon=float(gap_epsilon),
     )
 
     segments = df.apply(_segment_label, axis=1)
-    population_segments = segments[population_mask]
-    population_prob = prob[population_mask]
-    population_gap = gap[population_mask]
+    base_segments = segments[base_population_mask.astype(bool)]
+    base_prob = prob[suppressed_mask.astype(bool)]
+    base_gap = gap[suppressed_mask.astype(bool)]
 
-    prob_ok = population_prob >= float(selection.threshold_prob_min)
-    gap_ok = population_gap >= float(selection.gap_closure_min)
+    prob_ok = base_prob >= float(selection.threshold_prob_min)
+    gap_ok = base_gap >= float(selection.gap_closure_min)
     eligible = (prob_ok | gap_ok).astype(bool)
 
-    segment_totals = population_segments.value_counts(dropna=False).to_dict()
-    segment_eligible = population_segments[eligible].value_counts(dropna=False).to_dict()
+    base_segment_totals = base_segments.value_counts(dropna=False).to_dict()
+    eligible_segment_counts = segments[suppressed_mask.astype(bool)][eligible].value_counts(dropna=False).to_dict()
 
     report: dict[str, Any] = {
         "version": "v27_assisted_full_threshold_scan",
@@ -323,11 +345,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "customer_csv": str(customer_csv),
             "target_share_min": float(args.target_share_min),
             "target_share_max": float(args.target_share_max),
-            "population_mask_source": (
-                "in_non_recoverable_limited_mode_population"
-                if "in_non_recoverable_limited_mode_population" in df.columns
-                else ("in_global_denied_population" if "in_global_denied_population" in df.columns else "recoverable_flag")
-            ),
+            "base_population_source": base_population_source,
+            "policy_suppressed_source": suppressed_source,
             "signals": {
                 "probability": "pre_gate_threshold_reach_probability"
                 if "pre_gate_threshold_reach_probability" in df.columns
@@ -346,11 +365,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "assisted_full_share": round(float(selection.achieved_share), 6),
             "assisted_full_share_prob_only": round(float(selection.achieved_share_prob_only), 6),
             "assisted_full_share_gap_only": round(float(selection.achieved_share_gap_only), 6),
+            "eligible_count": int(selection.eligible_count),
+            "suppressed_population_size": int(selection.suppressed_population_size),
             "population_size": int(selection.population_size),
         },
         "segment_counts": {
-            "total": {k: int(v) for k, v in sorted(segment_totals.items())},
-            "eligible": {k: int(v) for k, v in sorted(segment_eligible.items())},
+            "total": {k: int(v) for k, v in sorted(base_segment_totals.items())},
+            "eligible": {k: int(v) for k, v in sorted(eligible_segment_counts.items())},
         },
     }
 
@@ -377,10 +398,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "allowlisted_action_keys": [
             "adjust_requested_loan_amount",
             "limit_credit_usage",
+            "reduce_spending",
         ],
         "action_preference_order": [
             "adjust_requested_loan_amount",
             "limit_credit_usage",
+            "reduce_spending",
         ],
     }
     gate_cfg["assisted_full"] = assisted_cfg
@@ -402,4 +425,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
