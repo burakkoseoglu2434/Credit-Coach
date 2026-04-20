@@ -610,6 +610,15 @@ def _prune_roadmap_to_step(out: dict[str, Any], *, selected_phase: dict[str, Any
 
     narrative = out.get("narrative") if isinstance(out.get("narrative"), dict) else None
     if narrative is None:
+        summary = dict(out.get("summary", {}) or {})
+        summary["best_action_count"] = 1
+        summary["zero_step_flag"] = 0
+        out["summary"] = summary
+        contract_health = dict(out.get("contract_health", {}) or {})
+        if contract_health:
+            contract_health["best_action_count"] = 1
+            contract_health["zero_step_flag"] = 0
+            out["contract_health"] = contract_health
         return
     step_id = _safe_text(selected_step.get("step_id"))
     action_key = _safe_text(selected_step.get("action_key")).lower()
@@ -624,6 +633,15 @@ def _prune_roadmap_to_step(out: dict[str, Any], *, selected_phase: dict[str, Any
             break
     narrative["steps"] = pruned_steps
     out["narrative"] = narrative
+    summary = dict(out.get("summary", {}) or {})
+    summary["best_action_count"] = 1
+    summary["zero_step_flag"] = 0
+    out["summary"] = summary
+    contract_health = dict(out.get("contract_health", {}) or {})
+    if contract_health:
+        contract_health["best_action_count"] = 1
+        contract_health["zero_step_flag"] = 0
+        out["contract_health"] = contract_health
 
 
 def _apply_recourse_gate_to_roadmap(roadmap: dict[str, Any]) -> dict[str, Any]:
