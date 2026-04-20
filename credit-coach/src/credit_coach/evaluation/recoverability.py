@@ -170,11 +170,17 @@ def build_recoverability_classifier(signal: Mapping[str, Any]) -> dict[str, Any]
 
 def build_recourse_gate(signal: Mapping[str, Any]) -> dict[str, Any]:
     recoverable_flag = bool(signal.get("recoverable_flag", False))
+    assisted_full_flag = bool(int(_safe_float(signal.get("assisted_full_flag"), 0)))
+    assisted_full_mode = (not recoverable_flag) and assisted_full_flag
     return {
-        "recourse_mode": "full" if recoverable_flag else "limited",
-        "recommendation_mode": "actionable" if recoverable_flag else "informational",
+        "recourse_mode": "full" if recoverable_flag else ("assisted_full" if assisted_full_mode else "limited"),
+        "recommendation_mode": "actionable" if (recoverable_flag or assisted_full_mode) else "informational",
         "recourse_gate_version": RECOURSE_GATE_VERSION,
-        "recourse_gate_reason_codes": ["RECOVERABLE_FULL_MODE"] if recoverable_flag else ["NOT_RECOVERABLE_LIMITED_MODE"],
+        "recourse_gate_reason_codes": (
+            ["RECOVERABLE_FULL_MODE"]
+            if recoverable_flag
+            else (["ASSISTED_FULL_MODE"] if assisted_full_mode else ["NOT_RECOVERABLE_LIMITED_MODE"])
+        ),
     }
 
 
@@ -192,7 +198,7 @@ def build_narrative_posture(signal: Mapping[str, Any]) -> dict[str, Any]:
     recoverable_flag = bool(signal.get("recoverable_flag", False))
     narrative_type = (
         "actionable"
-        if recommendation_mode == "actionable" or recourse_mode == "full" or recoverable_flag
+        if recommendation_mode == "actionable" or recourse_mode in {"full", "assisted_full"} or recoverable_flag
         else "informational"
     )
 
