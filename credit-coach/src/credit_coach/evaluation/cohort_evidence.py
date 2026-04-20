@@ -206,6 +206,7 @@ def summarize_population_metrics_from_rows(
     }
     metrics["recourse_mode_distribution"] = {
         "full": _round_metric((recourse_mode == "full").mean()),
+        "assisted_full": _round_metric((recourse_mode == "assisted_full").mean()),
         "limited": _round_metric((recourse_mode == "limited").mean()),
     }
     metrics["recommendation_mode_distribution"] = {
