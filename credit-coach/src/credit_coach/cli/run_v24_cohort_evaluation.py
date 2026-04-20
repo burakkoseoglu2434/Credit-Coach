@@ -712,6 +712,21 @@ def _summarize_examples(customer_df: pd.DataFrame) -> dict[str, dict[str, Any]]:
         ).iloc[0]
         examples["structural_cohort_limited_case"] = row.to_dict()
 
+    translated = customer_df[
+        pd.to_numeric(customer_df.get("translated_from_latent", pd.Series(dtype=float)), errors="coerce")
+        .fillna(0)
+        .astype(int)
+        == 1
+    ].copy()
+    if not translated.empty:
+        confidence_rank = translated["translation_confidence"].astype(str).map({"high": 0, "medium": 1, "low": 2}).fillna(3)
+        translated = translated.assign(_translation_rank=confidence_rank)
+        row = translated.sort_values(
+            ["_translation_rank", "movement_score", "threshold_reach_probability"],
+            ascending=[True, False, False],
+        ).iloc[0]
+        examples["translated_latent_case"] = dict(row.drop(labels=["_translation_rank"]).to_dict())
+
     return examples
 
 
@@ -765,6 +780,7 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
     if customer_df.empty:
         return {
             "sample_size": 0,
+            "actionable_rate": 0.0,
             "multi_path_rate": 0.0,
             "avg_paths_per_customer": 0.0,
             "max_paths": 0,
@@ -781,6 +797,10 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
             "informational_recommendation_rate": 0.0,
             "empty_state_rate": 0.0,
             "zero_action_rate": 0.0,
+            "translated_from_latent_rate": 0.0,
+            "latent_plan_type_distribution": {},
+            "translated_action_distribution": {},
+            "translation_confidence_distribution": {},
             "mean_movement_score": 0.0,
             "mean_threshold_reach_probability": 0.0,
             "threshold_reach_priority_rate": 0.0,
@@ -829,6 +849,15 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
         .str.strip()
         .str.lower()
     )
+    selected_action_count = pd.to_numeric(
+        customer_df.get("selected_action_count", pd.Series([0] * len(customer_df))),
+        errors="coerce",
+    ).fillna(0).astype(int)
+    actionable_mask = (selected_recommendation_source == "selected_plan") & (selected_action_count > 0)
+    translated_from_latent = pd.to_numeric(
+        customer_df.get("translated_from_latent", pd.Series([0] * len(customer_df))),
+        errors="coerce",
+    ).fillna(0).astype(int)
     cohort_label = (
         customer_df.get("cohort_label", pd.Series([""] * len(customer_df), dtype=object))
         .astype(str)
@@ -836,6 +865,7 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
     )
     metrics = {
         "sample_size": int(len(customer_df)),
+        "actionable_rate": round(float(actionable_mask.mean()), 6),
         "multi_path_rate": round(float((customer_df["path_count"].astype(int) > 1).mean()), 6),
         "avg_paths_per_customer": round(float(customer_df["path_count"].astype(float).mean()), 6),
         "max_paths": int(customer_df["path_count"].astype(int).max()),
@@ -897,7 +927,8 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
         "limited_customer_rate": round(float((recourse_mode == "limited").mean()), 6),
         "informational_recommendation_rate": round(float((recommendation_mode == "informational").mean()), 6),
         "empty_state_rate": round(float((selected_recommendation_source == "empty_state").mean()), 6),
-        "zero_action_rate": round(float((customer_df["selected_action_count"].astype(int) == 0).mean()), 6),
+        "zero_action_rate": round(float((selected_action_count == 0).mean()), 6),
+        "translated_from_latent_rate": round(float(translated_from_latent.mean()), 6),
         "mean_movement_score": round(float(customer_df["movement_score"].astype(float).mean()), 6),
         "mean_threshold_reach_probability": round(
             float(customer_df["threshold_reach_probability"].astype(float).mean()),
@@ -931,6 +962,39 @@ def _aggregate_metrics(customer_df: pd.DataFrame) -> dict[str, Any]:
     metrics["action_category_distribution"] = {
         category: round(count / max(1, len(customer_df)), 6)
         for category, count in sorted(category_counts.items(), key=lambda item: (-item[1], item[0]))
+    }
+    metrics["latent_plan_type_distribution"] = {
+        key: round(float(value), 6)
+        for key, value in customer_df.get("latent_plan_type", pd.Series([""] * len(customer_df), dtype=object))
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+        .dropna()
+        .value_counts(normalize=True)
+        .sort_index()
+        .items()
+    }
+    metrics["translated_action_distribution"] = {
+        key: round(float(value), 6)
+        for key, value in customer_df.get("translated_action_text", pd.Series([""] * len(customer_df), dtype=object))
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+        .dropna()
+        .value_counts(normalize=True)
+        .sort_index()
+        .items()
+    }
+    metrics["translation_confidence_distribution"] = {
+        key: round(float(value), 6)
+        for key, value in customer_df.get("translation_confidence", pd.Series([""] * len(customer_df), dtype=object))
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+        .dropna()
+        .value_counts(normalize=True)
+        .sort_index()
+        .items()
     }
     return metrics
 
@@ -1631,6 +1695,22 @@ def run(args: argparse.Namespace) -> Path:
                     _select_live_value(roadmap_summary, metrics_summary, key="assisted_full_thresholds_json"),
                     _json_dumps({}),
                 ),
+                "hybrid_extraction_attempted": _safe_int(
+                    _select_live_value(roadmap_summary, metrics_summary, key="hybrid_extraction_attempted"),
+                    0,
+                ),
+                "hybrid_extraction_success": _safe_int(
+                    _select_live_value(roadmap_summary, metrics_summary, key="hybrid_extraction_success"),
+                    0,
+                ),
+                "hybrid_extracted_action_key": _safe_text(
+                    _select_live_value(roadmap_summary, metrics_summary, key="hybrid_extracted_action_key"),
+                    "",
+                ),
+                "hybrid_extraction_reason_code": _safe_text(
+                    _select_live_value(roadmap_summary, metrics_summary, key="hybrid_extraction_reason_code"),
+                    "",
+                ),
                 "pre_gate_best_plan_id": _safe_text(
                     _select_live_value(roadmap_summary, metrics_summary, key="pre_gate_best_plan_id"),
                     "",
@@ -1661,9 +1741,14 @@ def run(args: argparse.Namespace) -> Path:
                 ),
                 "selected_recommendation_source": selected_recommendation_source,
                 "selected_action_count": selected_action_count,
+                "selected_recommendation_text": _safe_text(roadmap_summary.get("selected_recommendation_text")),
                 "selected_recommendation_projection_version": _safe_text(
                     roadmap_summary.get("selected_recommendation_projection_version")
                 ),
+                "translated_from_latent": bool(roadmap_summary.get("translated_from_latent", False)),
+                "latent_plan_type": _safe_text(roadmap_summary.get("latent_plan_type")),
+                "translated_action_text": _safe_text(roadmap_summary.get("translated_action_text")),
+                "translation_confidence": _safe_text(roadmap_summary.get("translation_confidence")),
                 "primary_population": primary_population,
                 "in_global_denied_population": 1,
                 "in_recoverable_full_mode_population": int(primary_population == "recoverable_full_mode"),
@@ -1793,6 +1878,14 @@ def run(args: argparse.Namespace) -> Path:
                 "threshold_reach_priority_flag": customer_row["threshold_reach_priority_flag"],
                 "selected_path_movement_strength": customer_row["selected_path_movement_strength"],
                 "movement_rank_reason_codes_json": customer_row["movement_rank_reason_codes_json"],
+                "selected_recommendation_source": customer_row["selected_recommendation_source"],
+                "selected_action_count": customer_row["selected_action_count"],
+                "selected_recommendation_text": customer_row["selected_recommendation_text"],
+                "selected_recommendation_projection_version": customer_row["selected_recommendation_projection_version"],
+                "translated_from_latent": customer_row["translated_from_latent"],
+                "latent_plan_type": customer_row["latent_plan_type"],
+                "translated_action_text": customer_row["translated_action_text"],
+                "translation_confidence": customer_row["translation_confidence"],
             }
             selected_file.write(json.dumps(selected_payload, ensure_ascii=False) + "\n")
 

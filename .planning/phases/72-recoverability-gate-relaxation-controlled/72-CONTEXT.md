@@ -139,4 +139,3 @@ Hard guardrail:
 
 *Phase: 72-recoverability-gate-relaxation-controlled*  
 *Context gathered: 2026-04-18*
-

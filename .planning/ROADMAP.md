@@ -2,8 +2,9 @@
 
 ## Milestones
 
-- 🚧 **v2.5 Recoverable Customer Targeting & Movement Optimization** - Phases 61-67 (planning started 2026-04-05)
+- 🚧 **v2.7 Coverage Expansion & Action Surface Unlock** - Phases 71-77 (planning started 2026-04-14)
 - ✅ **v2.6 Real Cohort Evidence & Realization Proof** - Phase 68 (shipped 2026-04-11)
+- ✅ **v2.5 Recoverable Customer Targeting & Movement Optimization** - Phases 61-67 (foundation validated by v2.6 evidence run)
 - ✅ **v2.4 Recourse Capability Expansion & Action Semantics** - Phases 54-60 (shipped 2026-04-05; archive: `.planning/milestones/v2.4-ROADMAP.md`)
 - ✅ **v2.3 Threshold & Outcome Optimization** - Phases 49-53 (shipped 2026-04-03; archive: `.planning/milestones/v2.3-ROADMAP.md`)
 - ✅ **v1.0 Brownfield Baseline** - Phases 1-7 (historical baseline reconstructed from imported docs, shipped 2026-03-10)
@@ -17,91 +18,100 @@
 ## Inter-Milestone Carry-Forward
 
 - ✅ **Phase 42.5 Recommendation Validity Layer** - post-v2.1 carry-forward hardening (completed 2026-03-24; code validation passed, and large-sample reruns now execute locally via deterministic sample-CSV fallback while processed-data-specific reruns still depend on `credit-coach/data/processed/test.parquet`)
+- ○ **Phase 69: Evidence Amplification** - retained as post-v2.6 evidence backlog while v2.7 becomes the active milestone
+- ○ **Phase 70: Full Lending Club Dataset Validation** - retained as validation backlog / carry-forward work; phase numbering for v2.7 continues from 71
 
 ## Active Milestone
 
-### 🚧 v2.5 Recoverable Customer Targeting & Movement Optimization (Phases 61-67)
+### 🚧 v2.7 Coverage Expansion & Action Surface Unlock (Phases 71-77)
 
-**Goal:** Identify realistically recoverable denied customers, focus full recourse generation on them, and keep structurally limited customers in an honest limited-guidance mode.
+**Goal:** Expand actionable recommendation coverage beyond the current narrow recoverable slice and unlock multi-action, multi-step recommendation surfaces without breaking trust, validity, or consistency guarantees.
+
+**Why this milestone exists:**
+- v2.5 and v2.6 proved that recoverability gating and trust contracts work correctly
+- W2a results show only about `~3%` of customers receive actionable recommendations, with about `~97%` in empty-state limited mode
+- surfaced recommendations are overly concentrated in a single action type
+- internal planner generates diverse multi-path strategies, but the product surface does not expose that richness
+- the system is currently algorithmically strong but product-surface limited
 
 **Acceptance checks:**
-- recoverable customers are deterministically identified from shipped scores and path evidence
-- movement rate in the recoverable cohort is materially higher than the global denied baseline
-- structurally limited customers do not receive fake high-yield multi-path treatment
-- realized execution and outcome evidence are published without causal overclaim
+- actionable coverage increases from `~3%` to at least `10-20%`
+- mid-risk customers achieve non-zero actionable coverage
+- surfaced recommendations include multiple action types, with no single action type above `50%` dominance
+- multi-step or sequential plans are surfaced where applicable
+- overall median `movement_score` remains above `0`
 - `selected_invalid_winner_count = 0`
-- no selected-surface drift
-- no operator packet contradictions
+- `selected_surface_drift_count = 0`
+- `operator_packet_contradiction_count = 0`
 
 **Planned phases:**
-- Phase 61: Recoverability Signal Definition
-- Phase 62: Recoverable Customer Classifier
-- Phase 63: Recourse Gating By Recoverability
-- Phase 64: Movement-Focused Path Ranking
-- Phase 65: Targeted Cohort Evaluation
-- Phase 66: Demo & Narrative Alignment
-- Phase 67: Execution & Outcome Realization
+- Phase 71: Coverage Diagnostics & Failure Analysis
+- Phase 72: Recoverability Gate Relaxation (Controlled)
+- Phase 73: Action Surface Expansion
+- Phase 74: Multi-Step Plan Surfacing
+- Phase 75: Mid-Risk Segment Unlock
+- Phase 76: Performance & Artifact Optimization
+- Phase 77: Cohort Rerun & Comparative Evaluation
 
 **Phase details:**
 
-**Phase 61: Recoverability Signal Definition**
-Goal: derive deterministic recoverability fields from current score distance and shipped structural signals.
-Requirements: `RECV-01`, `RECV-02`, `RECV-03`, `RECV-04`
+**Phase 71: Coverage Diagnostics & Failure Analysis**
+Goal: explain why customers fall into limited mode and publish segment-level failure patterns that quantify the true coverage bottleneck.
+Requirements: `COV-01`, `COV-02`, `COV-03`
 Success criteria:
-- `approval_gap` is emitted per customer from current score vs threshold
-- `normalized_gap` and `recoverability_score` are deterministic and explainable
-- `risk_band` and `recoverability_bucket` classify customers into `near_threshold`, `mid_risk`, or `structural_limited`
-- the new fields appear in customer and cohort evaluation artifacts without model retraining
+- a machine-readable diagnostic artifact explains recommendation-mode outcomes per customer
+- failure reasons are broken down across at least `near_threshold`, `mid_risk`, and `hard_denied` segments
+- empty-state rate, actionability rate, and winner-selection availability are published overall and by segment
 
-**Phase 62: Recoverable Customer Classifier**
-Goal: turn recoverability signals and path evidence into an explicit recoverable customer decision.
-Requirements: `CLSF-01`, `CLSF-02`, `CLSF-03`
+**Phase 72: Recoverability Gate Relaxation (Controlled)**
+Goal: introduce a safer intermediate recommendation tier that reduces empty-state overuse without compromising trust contracts.
+Requirements: `GATE-01`, `GATE-02`, `GATE-03`, `TRUST-01`, `TRUST-02`, `TRUST-03`
 Success criteria:
-- `recoverable_flag` is true only when approval gap, valid-path existence, and structural-limit checks all pass
-- `recoverable_reason_codes` explain positive and negative outcomes
-- reruns remain deterministic for the same inputs
+- an intermediate tier such as `assisted_full` is available for credible but lower-confidence progress recommendations
+- relaxed gating still prevents invalid selected winners, surface drift, and operator contradictions
+- surfaced output explains why each customer is in `full`, `assisted_full`, or `limited`
 
-**Phase 63: Recourse Gating By Recoverability**
-Goal: use recoverability to decide whether each customer receives full recourse or limited informational mode.
-Requirements: `GATE-01`, `GATE-02`, `GATE-03`
+**Phase 73: Action Surface Expansion**
+Goal: move from single-action surfacing to top-k surfaced actions using already-supported internal action diversity.
+Requirements: `SURF-01`, `SURF-02`, `SURF-03`, `TRUST-04`
 Success criteria:
-- recoverable customers enter `recourse_mode=full`
-- non-recoverable customers enter `recourse_mode=limited`
-- limited mode avoids aggressive low-yield path generation while preserving trust and planner validity contracts
+- customers can receive more than one surfaced actionable recommendation when multiple valid action families exist
+- surfaced recommendations use existing semantics such as refinance, consolidation, restructuring, or loan-amount adjustment where internally available
+- cohort artifacts publish action-type distribution metrics and show reduced single-action dominance
 
-**Phase 64: Movement-Focused Path Ranking**
-Goal: rank plans for realistic progress toward threshold instead of generic best-plan selection alone.
-Requirements: `MOVE-01`, `MOVE-02`, `MOVE-03`
+**Phase 74: Multi-Step Plan Surfacing**
+Goal: expose sequential or staged plans when honest customer guidance requires order, dependencies, or time-based progression.
+Requirements: `STEP-01`, `STEP-02`, `STEP-03`, `TRUST-04`
 Success criteria:
-- `movement_score` favors threshold progress, feasibility, and simpler action sets
-- heuristic `threshold_reach_probability` is emitted for ranked or selected paths
-- ranking changes preserve valid winner selection and do not regress trust counters
+- surfaced output can represent ordered multi-step plans instead of only flat single actions
+- narratives remain aligned with selected-plan evidence and do not imply unattested approval outcomes
+- step ordering remains deterministic and reproducible for the same inputs
 
-**Phase 65: Targeted Cohort Evaluation**
-Goal: prove whether recoverability targeting improves movement concentration relative to the global denied baseline.
-Requirements: `EVAL-01`, `EVAL-02`, `EVAL-03`
+**Phase 75: Mid-Risk Segment Unlock**
+Goal: bring mid-risk customers into the actionable surface through longer-horizon and partial-progress recommendations.
+Requirements: `MID-01`, `MID-02`, `MID-03`, `TRUST-04`
 Success criteria:
-- cohort evaluation compares global denied vs recoverable-only populations
-- required metrics are published, including movement, recommendation mode, and threshold-gap distributions
-- the report explicitly distinguishes capability concentration from business uplift claims
+- mid-risk customers receive non-empty recommendations even when one-step threshold reach is unlikely
+- product messaging frames these plans as progress, readiness, or staged improvement rather than implied approval certainty
+- evaluation artifacts separately publish mid-risk actionable coverage
 
-**Phase 66: Demo & Narrative Alignment**
-Goal: make recoverable vs structural-limited outcomes visible and honest in narratives and demo surfaces.
-Requirements: `NARR-01`, `NARR-02`, `NARR-03`
+**Phase 76: Performance & Artifact Optimization**
+Goal: keep broader action surfacing evaluation-feasible and artifact generation reproducible at larger candidate volumes.
+Requirements: `PERF-01`, `PERF-02`, `PERF-03`
 Success criteria:
-- recoverable customers get `narrative_type=actionable`
-- non-recoverable customers get `narrative_type=informational`
-- customer and demo-facing artifacts stay aligned with recoverability and recourse mode decisions
+- candidate payload size and repeated computations are reduced through caching, reuse, batching, or equivalent optimization
+- performance changes do not silently alter recommendation semantics
+- artifacts remain reproducible and comparable to the W2a baseline
 
-**Phase 67: Execution & Outcome Realization**
-Goal: measure whether selected-path recommendations are actually executed and whether they produce observed downstream movement.
-Requirements: `REAL-01`, `REAL-02`, `REAL-03`
+**Phase 77: Cohort Rerun & Comparative Evaluation**
+Goal: rerun the cohort under v2.7 logic and publish a structured comparison against the W2a baseline.
+Requirements: `EVAL-01`, `EVAL-02`, `EVAL-03`, `TRUST-01`, `TRUST-02`, `TRUST-03`
 Success criteria:
-- selected-path execution events and realization context are stored additively without changing decision logic
-- machine-readable artifacts publish action execution, path realization, and realized-outcome metrics
-- final reporting compares predicted versus observed realization descriptively, without causal or business-uplift overclaim
+- comparison artifacts report coverage, movement, recommendation-mode mix, and action diversity against W2a
+- segment-level outcomes are published for at least `near_threshold`, `mid_risk`, and `hard_denied`
+- the final report explicitly states whether trust counters stayed clean and whether milestone targets were achieved
 
-## Next Milestone (Planned)
+## Recent Prior Milestone & Deferred Backlog
 
 ### ✅ v2.6 Real Cohort Evidence & Realization Proof (Phase 68) — SHIPPED 2026-04-11
 
@@ -123,6 +133,19 @@ Success criteria:
 ### ○ Phase 69: Evidence Amplification (Planned)
 
 **Goal:** increase evidence strength and observation coverage over the shipped runtime without changing model, thresholds, planner, or recourse logic.
+
+### ○ Phase 70: Full Lending Club Dataset Validation (Planned)
+
+**Goal:** validate the full system end-to-end on the complete Lending Club dataset (~1.3M rows, same locked 48-feature schema) without changing any model, `tau_0`, planner, recourse, or ranking logic.
+
+Requirements: `LCFULL-01`, `LCFULL-02`, `LCFULL-03`, `LCFULL-04`
+
+**Acceptance checks:**
+- full dataset is prepared into parquet under a dedicated processed-data root (non-destructive)
+- schema remains compatible with the existing 48-feature contract (no feature changes)
+- cohort evaluations run at increasing scale (smoke → medium → large) with artifacts captured under `v26_lendingclub_full_*`
+- trust counters remain clean (or breakage is detected and reported explicitly)
+- Phase 70 report is descriptive, non-causal, and classifies evidence strength as `strong / weak / inconclusive`
 
 <details>
 <summary>✅ v2.4 Recourse Capability Expansion & Action Semantics (Phases 54-60) - SHIPPED 2026-04-05</summary>

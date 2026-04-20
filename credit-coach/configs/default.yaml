@@ -11,7 +11,8 @@ paths:
   splits: data/splits/
   artifacts: artifacts/
   configs: configs/
-  raw_csv: data/lending club/lending_club_48_features_20251026_114053.csv
+  # NOTE: Use CSV as the raw source to avoid Parquet reader incompatibilities across Arrow versions.
+  raw_csv: data/lending_club/lending_club_48_features_20251026_114053.csv
 
 logging:
   level: INFO

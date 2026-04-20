@@ -1,107 +1,99 @@
-# Requirements: Credit Coach
+# Requirements: v2.7 Coverage Expansion & Action Surface Unlock
 
-**Defined:** 2026-04-05
-**Core Value:** Generate customer-specific credit action plans that are actionable, behaviorally realistic, governance-safe, and measurably useful enough to improve denied-customer outcomes without breaking enterprise trust.
+## Milestone Summary
 
-## v1 Requirements
+This milestone expands the surfaced action space from a narrow recoverable-only slice into a broader, still-trust-safe recommendation product. The core challenge is not planner capability; it is how recoverability gating and surface rendering collapse rich internal plans into sparse, often empty user output.
 
-Requirements for milestone `v2.5 Recoverable Customer Targeting & Movement Optimization`. Each maps to exactly one roadmap phase.
+## Goals
 
-### Recoverability Signals
+- increase actionable recommendation coverage from `~3%` to at least `10-20%`
+- unlock non-zero actionable coverage for the mid-risk segment
+- reduce single-action dominance in surfaced output
+- expose multi-step plans where staged progression is more honest or useful than a flat single action
+- preserve all trust, validity, and consistency counters at zero
 
-- [x] **RECV-01**: System computes `approval_gap` for each evaluated customer as deterministic distance from current score to approval threshold.
-- [x] **RECV-02**: System computes `normalized_gap` and `recoverability_score` using existing shipped scores and signals only, with no model retraining.
-- [x] **RECV-03**: System assigns `risk_band` and `recoverability_bucket` (`near_threshold`, `mid_risk`, `structural_limited`) deterministically for each evaluated customer.
-- [x] **RECV-04**: Recoverability signal fields are emitted into evaluation artifacts so cohort analysis can audit them directly.
+## Out Of Scope
 
-### Recoverable Classification
+- retraining or replacing the underlying model
+- redesigning approval thresholds or lender policy
+- integrating new external datasets
+- inventing action semantics beyond the current supported action family
 
-- [x] **CLSF-01**: System marks `recoverable_flag=true` only when approval gap is within the defined band, at least one valid recourse path exists, and structural blockers do not dominate.
-- [x] **CLSF-02**: System emits `recoverable_reason_codes` explaining why a customer is or is not recoverable.
-- [x] **CLSF-03**: Recoverable classification remains explainable and deterministic across reruns.
+## Functional Requirements
 
-### Recourse Gating
+### Coverage Diagnostics
 
-- [x] **GATE-01**: Recoverable customers enter `recourse_mode=full` and receive the full multi-path recourse pipeline.
-- [x] **GATE-02**: Non-recoverable customers enter `recourse_mode=limited` and avoid aggressive low-yield action generation.
-- [x] **GATE-03**: Gating does not break planner validity, winner-selection, or trust contracts inherited from `v2.2` and `v2.4`.
+- `COV-01`: The system MUST emit a machine-readable coverage diagnostic artifact that explains why each evaluated customer entered `full`, `assisted_full`, or `limited` recommendation mode.
+- `COV-02`: The diagnostic artifact MUST bucket failure reasons by customer segment, including at least `near_threshold`, `mid_risk`, and `hard_denied`.
+- `COV-03`: The diagnostic artifact MUST quantify empty-state rate, actionability rate, and winner-selection availability by segment and overall cohort.
 
-### Movement Ranking
+### Controlled Gate Relaxation
 
-- [x] **MOVE-01**: Planner emits `movement_score` that favors threshold progress, feasibility, and action simplicity.
-- [x] **MOVE-02**: Planner emits heuristic `threshold_reach_probability` for selected or ranked paths.
-- [x] **MOVE-03**: Movement-aware ranking does not introduce invalid winners or trust regressions.
+- `GATE-01`: The recoverability layer MUST support at least one intermediate non-empty recommendation tier for customers who do not qualify for strict full recourse but still have credible progress actions.
+- `GATE-02`: Relaxed gating MUST never allow a surfaced recommendation whose selected winner violates existing validity checks or operator packet consistency.
+- `GATE-03`: Each relaxed-gate recommendation MUST carry explicit provenance showing whether it is `full`, `assisted_full`, or `limited`, and why.
 
-### Targeted Evaluation
+### Action Surface Expansion
 
-- [x] **EVAL-01**: Cohort evaluation compares global denied customers against the recoverable-only subset.
-- [x] **EVAL-02**: Evaluation publishes `recoverable_customer_rate`, `movement_rate_recoverable`, `movement_rate_global`, `structural_limited_rate`, `recommendation_mode_distribution`, and `threshold_gap_distribution`.
-- [x] **EVAL-03**: Evaluation explicitly states whether targeting improves movement concentration or not, without assuming uplift.
+- `SURF-01`: The product surface MUST be able to expose more than one actionable recommendation candidate when multiple valid action families exist.
+- `SURF-02`: Surfaced action diversity MUST draw only from existing internal action semantics already produced by the planner or heuristics.
+- `SURF-03`: The surfaced output MUST publish action-type distribution metrics so dominance by a single action family can be detected in cohort evaluation.
 
-### Narrative Alignment
+### Multi-Step Plan Surfacing
 
-- [x] **NARR-01**: Recoverable customers receive `narrative_type=actionable` with strong, focused next-step messaging.
-- [x] **NARR-02**: Non-recoverable customers receive `narrative_type=informational` with honest structural-limit messaging.
-- [x] **NARR-03**: Customer and demo-facing surfaces distinguish actionable versus informational modes without contradiction.
+- `STEP-01`: The system MUST support surfaced plans with ordered steps when the selected internal strategy contains meaningful sequencing or dependency structure.
+- `STEP-02`: Step-by-step narratives MUST stay aligned with the underlying selected-plan evidence and MUST not imply unattested outcomes.
+- `STEP-03`: Multi-step surfacing MUST preserve deterministic ordering and reproducible artifact output for the same inputs.
 
-### Execution & Outcome Realization
+### Mid-Risk Unlock
 
-- [x] **REAL-01**: System stores selected-path realization context and selected-action execution events additively, without changing core decision or recommendation logic.
-- [x] **REAL-02**: System publishes deterministic action execution, path realization, realized movement, and observation-coverage artifacts from stored observations.
-- [x] **REAL-03**: System evaluates predicted versus observed realization descriptively across recoverable/full versus limited/control posture, without causal or uplift overclaim.
+- `MID-01`: Mid-risk customers MUST be eligible for non-empty progress recommendations even when full threshold reach is unlikely in one step.
+- `MID-02`: These recommendations MUST frame progress honestly as partial improvement, staged readiness, or longer-horizon movement rather than implied approval certainty.
+- `MID-03`: Cohort reporting MUST separately publish actionable coverage for the mid-risk segment.
 
-## v2 Requirements
+### Performance And Artifact Integrity
 
-Deferred until a later milestone.
+- `PERF-01`: Larger surfaced candidate sets MUST remain evaluation-feasible through payload reduction, caching, reuse, batching, or equivalent implementation improvements.
+- `PERF-02`: Performance optimizations MUST not change recommendation semantics silently; any ranking or surfacing effect MUST remain measurable and attributable.
+- `PERF-03`: Artifact generation MUST stay reproducible and comparable to the W2a baseline, including evaluation metadata and cohort summaries.
 
-### Future Optimization
+### Comparative Evaluation
 
-- **FUTR-01**: Revisit model retraining or alternative threshold policy only if deterministic recoverability targeting still fails to create enough movement.
-- **FUTR-02**: Consider external institution data or live offer data only after recoverability targeting is proven valuable.
-- **FUTR-03**: Consider new action types only after recoverability targeting exhausts the current governed action surface.
+- `EVAL-01`: Cohort reruns MUST compare the v2.7 logic against the W2a baseline for coverage, movement, recommendation mode, and action diversity.
+- `EVAL-02`: The comparison report MUST include overall and segment-level metrics, including at least `near_threshold`, `mid_risk`, and `hard_denied`.
+- `EVAL-03`: The final comparison report MUST explicitly state whether trust counters remained clean and whether milestone success criteria were met.
 
-## Out of Scope
+### Trust And Consistency Guardrails
 
-| Feature | Reason |
-|---------|--------|
-| Model retraining | This milestone must use existing shipped scores and signals only |
-| Threshold policy redesign | `v2.3` already proved bounded threshold tuning was not the immediate lever |
-| New action types | The bottleneck is targeting and movement concentration, not action-surface richness |
-| External data integration | Keep the milestone evaluation-only and deterministic on current data/assets |
-| Broad recommendation expansion for structural users | This milestone should avoid pretending to help customers with no realistic movement path |
+- `TRUST-01`: `selected_invalid_winner_count` MUST remain `0`.
+- `TRUST-02`: `selected_surface_drift_count` MUST remain `0`.
+- `TRUST-03`: `operator_packet_contradiction_count` MUST remain `0`.
+- `TRUST-04`: Recommendation expansion MUST not introduce narrative or surface claims that exceed the evidence in the selected internal plan.
 
-## Traceability
+## Phase Mapping
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| RECV-01 | Phase 61 | Complete |
-| RECV-02 | Phase 61 | Complete |
-| RECV-03 | Phase 61 | Complete |
-| RECV-04 | Phase 61 | Complete |
-| CLSF-01 | Phase 62 | Complete |
-| CLSF-02 | Phase 62 | Complete |
-| CLSF-03 | Phase 62 | Complete |
-| GATE-01 | Phase 63 | Complete |
-| GATE-02 | Phase 63 | Complete |
-| GATE-03 | Phase 63 | Complete |
-| MOVE-01 | Phase 64 | Complete |
-| MOVE-02 | Phase 64 | Complete |
-| MOVE-03 | Phase 64 | Complete |
-| EVAL-01 | Phase 65 | Complete |
-| EVAL-02 | Phase 65 | Complete |
-| EVAL-03 | Phase 65 | Complete |
-| NARR-01 | Phase 66 | Complete |
-| NARR-02 | Phase 66 | Complete |
-| NARR-03 | Phase 66 | Complete |
-| REAL-01 | Phase 67 | Complete |
-| REAL-02 | Phase 67 | Complete |
-| REAL-03 | Phase 67 | Complete |
+- **Phase 71: Coverage Diagnostics & Failure Analysis**
+  - `COV-01`, `COV-02`, `COV-03`
+- **Phase 72: Recoverability Gate Relaxation (Controlled)**
+  - `GATE-01`, `GATE-02`, `GATE-03`, `TRUST-01`, `TRUST-02`, `TRUST-03`
+- **Phase 73: Action Surface Expansion**
+  - `SURF-01`, `SURF-02`, `SURF-03`, `TRUST-04`
+- **Phase 74: Multi-Step Plan Surfacing**
+  - `STEP-01`, `STEP-02`, `STEP-03`, `TRUST-04`
+- **Phase 75: Mid-Risk Segment Unlock**
+  - `MID-01`, `MID-02`, `MID-03`, `TRUST-04`
+- **Phase 76: Performance & Artifact Optimization**
+  - `PERF-01`, `PERF-02`, `PERF-03`
+- **Phase 77: Cohort Rerun & Comparative Evaluation**
+  - `EVAL-01`, `EVAL-02`, `EVAL-03`, `TRUST-01`, `TRUST-02`, `TRUST-03`
 
-**Coverage:**
-- v1 requirements: 22 total
-- Mapped to phases: 22
-- Unmapped: 0 ✓
+## Acceptance Bar
 
----
-*Requirements defined: 2026-04-05*
-*Last updated: 2026-04-10 after adding Phase 67 Execution & Outcome Realization requirements*
+The milestone is complete only if:
+
+- actionable coverage reaches at least `10-20%`
+- mid-risk actionable coverage is measurably above zero
+- no single surfaced action family exceeds `50%` of actionable outputs
+- multi-step plans are surfaced where applicable
+- median `movement_score` remains above `0`
+- trust counters remain clean

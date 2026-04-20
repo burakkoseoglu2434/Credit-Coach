@@ -28,7 +28,7 @@ def main() -> None:
     prep_cfg = cfg.get("prepare_data", {})
 
     raw_csv = cfg.get("paths", {}).get(
-        "raw_csv", "data/lending club/lending_club_48_features_20251026_114053.csv"
+        "raw_csv", "data/lending_club/lending_club_48_features_20251026_114053.parquet"
     )
     features_cfg = cfg.get("features_config", "configs/features_48.yaml")
     sample_rows = args.sample_rows if args.sample_rows is not None else prep_cfg.get("sample_rows")

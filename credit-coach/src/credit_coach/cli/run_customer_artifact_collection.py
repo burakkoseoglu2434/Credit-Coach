@@ -794,6 +794,18 @@ def _augment_metrics_row(
                     0,
                 )
             ),
+            "translated_from_latent": int(
+                bool(metrics.get("translated_from_latent", roadmap_summary.get("translated_from_latent", False)))
+            ),
+            "latent_plan_type": str(
+                metrics.get("latent_plan_type", roadmap_summary.get("latent_plan_type", "")) or ""
+            ),
+            "translated_action_text": str(
+                metrics.get("translated_action_text", roadmap_summary.get("translated_action_text", "")) or ""
+            ),
+            "translation_confidence": str(
+                metrics.get("translation_confidence", roadmap_summary.get("translation_confidence", "")) or ""
+            ),
             "selected_recommendation_projection_version": str(
                 metrics.get(
                     "selected_recommendation_projection_version",
@@ -1024,25 +1036,29 @@ def _augment_plans_df(
         _safe_text(summary.get("selected_recommendation_projection_version")),
     )
     out.insert(17, "selected_action_count", int(_safe_int(summary.get("selected_action_count", 0), 0)))
-    out.insert(18, "selected_path_id", _safe_text(summary.get("selected_path_id")))
-    out.insert(19, "selected_path_type", _safe_text(summary.get("selected_path_type")))
-    out.insert(20, "selected_path_rank", int(_safe_int(summary.get("selected_path_rank", 0), 0)))
-    out.insert(21, "movement_score", _safe_float(summary.get("movement_score", 0.0), 0.0))
-    out.insert(22, "threshold_reach_probability", _safe_float(summary.get("threshold_reach_probability", 0.0), 0.0))
-    out.insert(23, "threshold_reach_priority_flag", int(_safe_int(summary.get("threshold_reach_priority_flag", 0), 0)))
-    out.insert(24, "selected_path_movement_strength", _safe_text(summary.get("selected_path_movement_strength")))
-    out.insert(25, "movement_rank_reason_codes_json", _json_dumps_compact(summary.get("movement_rank_reason_codes", [])))
-    out.insert(26, "selected_path_customer_summary", _safe_text(summary.get("selected_path_customer_summary")))
-    out.insert(27, "selected_path_operator_summary", _safe_text(summary.get("selected_path_operator_summary")))
-    out.insert(28, "selected_path_render_version", _safe_text(summary.get("selected_path_render_version")))
+    out.insert(18, "translated_from_latent", int(bool(summary.get("translated_from_latent", False))))
+    out.insert(19, "latent_plan_type", _safe_text(summary.get("latent_plan_type")))
+    out.insert(20, "translated_action_text", _safe_text(summary.get("translated_action_text")))
+    out.insert(21, "translation_confidence", _safe_text(summary.get("translation_confidence")))
+    out.insert(22, "selected_path_id", _safe_text(summary.get("selected_path_id")))
+    out.insert(23, "selected_path_type", _safe_text(summary.get("selected_path_type")))
+    out.insert(24, "selected_path_rank", int(_safe_int(summary.get("selected_path_rank", 0), 0)))
+    out.insert(25, "movement_score", _safe_float(summary.get("movement_score", 0.0), 0.0))
+    out.insert(26, "threshold_reach_probability", _safe_float(summary.get("threshold_reach_probability", 0.0), 0.0))
+    out.insert(27, "threshold_reach_priority_flag", int(_safe_int(summary.get("threshold_reach_priority_flag", 0), 0)))
+    out.insert(28, "selected_path_movement_strength", _safe_text(summary.get("selected_path_movement_strength")))
+    out.insert(29, "movement_rank_reason_codes_json", _json_dumps_compact(summary.get("movement_rank_reason_codes", [])))
+    out.insert(30, "selected_path_customer_summary", _safe_text(summary.get("selected_path_customer_summary")))
+    out.insert(31, "selected_path_operator_summary", _safe_text(summary.get("selected_path_operator_summary")))
+    out.insert(32, "selected_path_render_version", _safe_text(summary.get("selected_path_render_version")))
     if "action_count" in out.columns:
-        out.insert(29, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
+        out.insert(33, "plan_step_count", pd.to_numeric(out["action_count"], errors="coerce").fillna(0).astype(int))
     else:
-        out.insert(29, "plan_step_count", 0)
+        out.insert(33, "plan_step_count", 0)
     plan_contract_pass = pd.Series([pd.NA] * len(out), index=out.index, dtype="object")
     selected_mask = out["selected_best_flag"].astype(int) == 1
     plan_contract_pass.loc[selected_mask] = int(_safe_int(summary.get("plan_contract_pass", 0), 0))
-    out.insert(30, "plan_contract_pass", plan_contract_pass)
+    out.insert(34, "plan_contract_pass", plan_contract_pass)
     return out
 
 

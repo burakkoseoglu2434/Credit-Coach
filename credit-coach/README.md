@@ -43,6 +43,14 @@ cp .env.example .env
 pytest
 ```
 
+## Veri (CSV → Parquet)
+
+Büyük dosyalarla daha hızlı çalışmak için raw CSV'yi Parquet'e çevir:
+
+```bash
+python -m credit_coach.cli.run_convert_raw_data --input data/lending_club
+```
+
 ## API Guvenlik Notu
 - `score/demo` endpoint'i `Bearer` token ister.
 - Token ayari:

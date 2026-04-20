@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -53,6 +54,7 @@ from credit_coach.model.registry import load_model_bundle
 from credit_coach.recourse.action_space import (
     estimate_action_cost_usd,
     get_action_metadata,
+    get_action_template,
     get_dice_generatable_features,
     get_action_spec,
     normalize_dice_target_value,
@@ -164,6 +166,47 @@ _VALID_INTERNAL_DECISIONS = {"APPROVED", "CONDITIONAL", "REJECTED", "NEEDS_REVIE
 _SELECTED_RECOMMENDATION_EMPTY_STATE_EN = "No valid recommendation path is currently available."
 _SELECTED_RECOMMENDATION_EMPTY_STATE_TR = "Su an icin gecerli bir oneri yolu yok."
 _SELECTED_RECOMMENDATION_PROJECTION_VERSION = "v2.2_phase_47"
+_LATENT_TRANSLATABLE_PATH_TYPES = {"hybrid", "institution_assisted"}
+_LATENT_INTENT_PRIORITY = (
+    "debt_consolidation",
+    "refinance",
+    "settlement",
+    "credit_structure",
+)
+_LATENT_ACTION_KEY_TO_INTENT = {
+    "debt_consolidation": "debt_consolidation",
+    "refinance": "refinance",
+    "settlement_discount": "settlement",
+    "installment_plan": "refinance",
+    "credit_limit_adjustment": "credit_structure",
+    "limit_credit_usage": "credit_structure",
+}
+_LATENT_CATEGORY_TO_INTENT = {
+    "credit_structure": "credit_structure",
+    "institution_relief": "credit_structure",
+}
+_LATENT_TRANSLATION_TEXT = {
+    "debt_consolidation": {
+        "tr": "En yuksek faizli borcu once kapatmaya odaklan.",
+        "en": "Prioritize closing the highest-interest debt first.",
+    },
+    "refinance": {
+        "tr": "Mumkunse daha dusuk maliyetli yeniden yapilandirma basvurusu yap.",
+        "en": "Apply for lower-cost restructuring if available.",
+    },
+    "settlement": {
+        "tr": "Mumkunse gecikmis borc icin kismi odeme uzlasmasi gorus.",
+        "en": "Negotiate a partial repayment on overdue debt if a settlement option is available.",
+    },
+    "credit_structure": {
+        "tr": "Aktif hesaplarda kredi kullanim oranini dusur.",
+        "en": "Reduce credit utilization across active accounts.",
+    },
+}
+_INSTALLMENT_TRANSLATION_TEXT = {
+    "tr": "Mumkunse daha dusuk aylik taksit planina gec.",
+    "en": "Shift to a lower monthly installment plan if available.",
+}
 
 
 @dataclass
@@ -592,6 +635,224 @@ def _select_assisted_full_step(
     return candidates[0][1], candidates[0][2]
 
 
+def _roadmap_step_owner(step: Mapping[str, Any]) -> str:
+    action_key = _safe_text(step.get("action_key")).lower()
+    if action_key:
+        try:
+            return _safe_text(get_action_template(action_key).action_owner).lower()
+        except Exception:
+            pass
+
+    business_view = step.get("business_view")
+    if isinstance(business_view, Mapping):
+        owner = _safe_text(business_view.get("action_owner")).lower()
+        if owner:
+            return owner
+
+    if bool(int(_safe_int(step.get("requires_institutional_approval", 0), 0))):
+        return "institution"
+    return ""
+
+
+def _roadmap_step_category(step: Mapping[str, Any]) -> str:
+    action_key = _safe_text(step.get("action_key")).lower()
+    if action_key:
+        try:
+            return _safe_text(get_action_template(action_key).action_category).lower()
+        except Exception:
+            pass
+
+    business_view = step.get("business_view")
+    if isinstance(business_view, Mapping):
+        category = _safe_text(business_view.get("action_category")).lower()
+        if category:
+            return category
+    return ""
+
+
+def _latent_translation_defaults() -> dict[str, Any]:
+    return {
+        "translated_from_latent": False,
+        "latent_plan_type": "",
+        "translated_action_text": "",
+        "translation_confidence": "",
+    }
+
+
+def _selected_path_payload(roadmap: Mapping[str, Any]) -> dict[str, Any] | None:
+    raw_paths = roadmap.get("paths", [])
+    if not isinstance(raw_paths, list):
+        return None
+    for raw_path in raw_paths:
+        if isinstance(raw_path, Mapping) and bool(raw_path.get("selected_path_flag")):
+            return dict(raw_path)
+    return None
+
+
+def _latent_intent_from_action_key(action_key: str) -> str:
+    return _LATENT_ACTION_KEY_TO_INTENT.get(_safe_text(action_key).lower(), "")
+
+
+def _latent_intent_from_category(category: str) -> str:
+    return _LATENT_CATEGORY_TO_INTENT.get(_safe_text(category).lower(), "")
+
+
+def _translated_action_payload_for_intent(*, intent: str, source_action_key: str) -> dict[str, str] | None:
+    if intent == "refinance" and _safe_text(source_action_key).lower() == "installment_plan":
+        return dict(_INSTALLMENT_TRANSLATION_TEXT)
+    payload = _LATENT_TRANSLATION_TEXT.get(intent)
+    if payload is None:
+        return None
+    return dict(payload)
+
+
+def _infer_latent_translation(roadmap: Mapping[str, Any]) -> dict[str, Any] | None:
+    summary = dict(roadmap.get("summary", {}) or {})
+    selected_path_type = _safe_text(
+        summary.get("pre_gate_selected_path_type"),
+        _safe_text(summary.get("selected_path_type")),
+    ).lower()
+    if selected_path_type not in _LATENT_TRANSLATABLE_PATH_TYPES:
+        return None
+    if _safe_text(summary.get("selection_outcome")) == "no_valid_winner":
+        return None
+    if not _safe_text(summary.get("best_plan_id"), _safe_text(roadmap.get("best_plan_id"))):
+        return None
+
+    intent_scores: Counter[str] = Counter()
+    first_source_action_by_intent: dict[str, str] = {}
+    confidence_by_intent: dict[str, str] = {}
+
+    for phase in list(roadmap.get("phases", [])):
+        if not isinstance(phase, Mapping):
+            continue
+        for step in list(phase.get("steps", [])):
+            if not isinstance(step, Mapping):
+                continue
+            if _roadmap_step_owner(step) == "customer":
+                continue
+            action_key = _safe_text(step.get("action_key")).lower()
+            direct_intent = _latent_intent_from_action_key(action_key)
+            if direct_intent:
+                intent_scores[direct_intent] += 2
+                first_source_action_by_intent.setdefault(direct_intent, action_key)
+                confidence_by_intent[direct_intent] = "high"
+                continue
+            category_intent = _latent_intent_from_category(_roadmap_step_category(step))
+            if category_intent:
+                intent_scores[category_intent] += 1
+                confidence_by_intent.setdefault(category_intent, "medium")
+
+    selected_path = _selected_path_payload(roadmap)
+    if selected_path is not None:
+        if not intent_scores:
+            for raw_action_key in list(selected_path.get("action_keys", []) or []):
+                action_key = _safe_text(raw_action_key).lower()
+                direct_intent = _latent_intent_from_action_key(action_key)
+                if not direct_intent:
+                    continue
+                intent_scores[direct_intent] += 2
+                first_source_action_by_intent.setdefault(direct_intent, action_key)
+                confidence_by_intent[direct_intent] = "high"
+        if not intent_scores:
+            for raw_category in list(selected_path.get("action_categories", []) or []):
+                category_intent = _latent_intent_from_category(_safe_text(raw_category).lower())
+                if not category_intent:
+                    continue
+                intent_scores[category_intent] += 1
+                confidence_by_intent.setdefault(category_intent, "medium")
+
+    if not intent_scores:
+        return None
+
+    ranked_intents = sorted(
+        intent_scores.items(),
+        key=lambda item: (-int(item[1]), _LATENT_INTENT_PRIORITY.index(item[0])),
+    )
+    dominant_intent = ranked_intents[0][0]
+    source_action_key = first_source_action_by_intent.get(dominant_intent, "")
+    translated_payload = _translated_action_payload_for_intent(
+        intent=dominant_intent,
+        source_action_key=source_action_key,
+    )
+    if translated_payload is None:
+        return None
+    return {
+        "translated_from_latent": True,
+        "latent_plan_type": dominant_intent,
+        "translated_action_text": _safe_text(translated_payload.get("en")),
+        "translation_confidence": confidence_by_intent.get(dominant_intent, "low"),
+        "translated_action_text_localized": translated_payload,
+        "translated_action_key": source_action_key or dominant_intent,
+    }
+
+
+def _overlay_latent_translation(roadmap: dict[str, Any], translation: Mapping[str, Any]) -> dict[str, Any]:
+    out = dict(roadmap or {})
+    summary = dict(out.get("summary", {}) or {})
+    summary.update(
+        {
+            "translated_from_latent": bool(translation.get("translated_from_latent", False)),
+            "latent_plan_type": _safe_text(translation.get("latent_plan_type")),
+            "translated_action_text": _safe_text(translation.get("translated_action_text")),
+            "translation_confidence": _safe_text(translation.get("translation_confidence")),
+            "selected_action_count": 1,
+        }
+    )
+    out["summary"] = summary
+
+    narrative = dict(out.get("narrative", {}) or {})
+    narrative["steps"] = [
+        {
+            "step_id": "selected_projection:latent_translation",
+            "action_key": _safe_text(translation.get("translated_action_key")),
+            "action_summary": dict(translation.get("translated_action_text_localized", {}) or {}),
+            "primary_recommendation": dict(translation.get("translated_action_text_localized", {}) or {}),
+            "institution_condition": None,
+        }
+    ]
+    out["narrative"] = narrative
+    return out
+
+
+def _extract_hybrid_customer_step(
+    phases: Sequence[Any],
+    *,
+    allowlisted_action_keys: Sequence[str],
+    preference_order: Sequence[str],
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None, str]:
+    allowlisted = {str(v).strip().lower() for v in allowlisted_action_keys if _safe_text(v)}
+    customer_candidates: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
+    for phase in phases:
+        if not isinstance(phase, dict):
+            continue
+        for step in list(phase.get("steps", [])):
+            if not isinstance(step, dict):
+                continue
+            if _roadmap_step_owner(step) != "customer":
+                continue
+            if bool(int(_safe_int(step.get("requires_institutional_approval", 0), 0))):
+                continue
+            if bool(int(_safe_int(step.get("requires_acceptance", 0), 0))):
+                continue
+            action_key = _safe_text(step.get("action_key")).lower()
+            customer_candidates.append((action_key, phase, step))
+
+    if not customer_candidates:
+        return None, None, "no_customer_action"
+
+    allowlisted_candidates = [candidate for candidate in customer_candidates if candidate[0] and candidate[0] in allowlisted]
+    if not allowlisted_candidates:
+        return None, None, "not_in_allowlist"
+
+    preference = [str(v).strip().lower() for v in preference_order if _safe_text(v)]
+    for preferred_key in preference:
+        for action_key, phase, step in allowlisted_candidates:
+            if action_key == preferred_key:
+                return phase, step, "success"
+    return allowlisted_candidates[0][1], allowlisted_candidates[0][2], "success"
+
+
 def _prune_roadmap_to_step(out: dict[str, Any], *, selected_phase: dict[str, Any], selected_step: dict[str, Any]) -> None:
     phases: list[dict[str, Any]] = []
     for phase in list(out.get("phases", [])):
@@ -647,6 +908,11 @@ def _prune_roadmap_to_step(out: dict[str, Any], *, selected_phase: dict[str, Any
 def _apply_recourse_gate_to_roadmap(roadmap: dict[str, Any]) -> dict[str, Any]:
     out = dict(roadmap or {})
     summary = dict(out.get("summary", {}) or {})
+    summary.setdefault("hybrid_extraction_attempted", False)
+    summary.setdefault("hybrid_extraction_success", False)
+    summary.setdefault("hybrid_extracted_action_key", None)
+    summary.setdefault("hybrid_extraction_reason_code", None)
+    summary.update({**_latent_translation_defaults(), **summary})
     _attach_pre_gate_shadow_fields(out, summary)
     policy = _assisted_full_policy_config(out)
     _attach_gap_proxy_fields(summary, gap_divide_epsilon=float(policy.get("gap_divide_epsilon", 1e-6)))
@@ -684,6 +950,12 @@ def _apply_recourse_gate_to_roadmap(roadmap: dict[str, Any]) -> dict[str, Any]:
                 _prune_roadmap_to_step(out, selected_phase=selected_phase, selected_step=selected_step)
                 return _build_selected_surface_projection(out)
             eligibility_reasons.append("assisted_full:fallback:no_allowlisted_step")
+        elif pre_gate_path_type in _LATENT_TRANSLATABLE_PATH_TYPES:
+            translated = _infer_latent_translation(out)
+            if translated is not None:
+                translated_out = _overlay_latent_translation(out, translated)
+                return _build_selected_surface_projection(translated_out)
+            eligibility_reasons.append(f"assisted_full:fallback:latent_translation:{pre_gate_path_type}:no_supported_intent")
         else:
             eligibility_reasons.append(f"assisted_full:fallback:path_type:{pre_gate_path_type or 'missing'}")
 
@@ -1021,7 +1293,12 @@ def _build_selected_surface_projection(roadmap: dict[str, Any]) -> dict[str, Any
     selection_outcome = _safe_text(summary.get("selection_outcome"))
     selected_decision_status = _safe_text(summary.get("decision_status"), "CONDITIONAL")
     selected_plan_status_internal = _safe_text(summary.get("selected_plan_status_internal"), _safe_text(out.get("best_status")))
-    selected_action_count = int(_safe_int(summary.get("best_action_count", len(steps)), len(steps)))
+    selected_action_count = int(
+        _safe_int(
+            summary.get("selected_action_count", summary.get("best_action_count", len(steps))),
+            _safe_int(summary.get("best_action_count", len(steps)), len(steps)),
+        )
+    )
 
     if selection_outcome == "no_valid_winner" or not _safe_text(summary.get("best_plan_id")):
         summary.update(
@@ -1035,6 +1312,7 @@ def _build_selected_surface_projection(roadmap: dict[str, Any]) -> dict[str, Any
                 "selected_recommendation_source": "empty_state",
                 "selected_action_count": 0,
                 "selected_recommendation_projection_version": _SELECTED_RECOMMENDATION_PROJECTION_VERSION,
+                **_latent_translation_defaults(),
             }
         )
         out["summary"] = summary
@@ -1066,6 +1344,10 @@ def _build_selected_surface_projection(roadmap: dict[str, Any]) -> dict[str, Any
             "selected_recommendation_source": "selected_plan",
             "selected_action_count": max(0, selected_action_count),
             "selected_recommendation_projection_version": _SELECTED_RECOMMENDATION_PROJECTION_VERSION,
+            "translated_from_latent": bool(summary.get("translated_from_latent", False)),
+            "latent_plan_type": _safe_text(summary.get("latent_plan_type"), ""),
+            "translated_action_text": _safe_text(summary.get("translated_action_text"), ""),
+            "translation_confidence": _safe_text(summary.get("translation_confidence"), ""),
         }
     )
     out["summary"] = summary
@@ -1284,6 +1566,10 @@ def _sync_metrics_summary_with_roadmap_summary(
                 summary.get("selected_recommendation_projection_version"),
                 "",
             ),
+            "translated_from_latent": bool(summary.get("translated_from_latent", False)),
+            "latent_plan_type": _safe_text(summary.get("latent_plan_type"), ""),
+            "translated_action_text": _safe_text(summary.get("translated_action_text"), ""),
+            "translation_confidence": _safe_text(summary.get("translation_confidence"), ""),
             "path_count": int(_safe_int(summary.get("path_count", 0), 0)),
             "rankable_path_count": int(_safe_int(summary.get("rankable_path_count", 0), 0)),
             "multi_path_flag": int(_safe_int(summary.get("multi_path_flag", 0), 0)),
@@ -1371,6 +1657,10 @@ def _sync_metrics_summary_with_roadmap_summary(
                 summary.get("recourse_gate_reason_codes", []),
                 ensure_ascii=False,
             ),
+            "hybrid_extraction_attempted": int(bool(summary.get("hybrid_extraction_attempted", False))),
+            "hybrid_extraction_success": int(bool(summary.get("hybrid_extraction_success", False))),
+            "hybrid_extracted_action_key": _safe_text(summary.get("hybrid_extracted_action_key"), ""),
+            "hybrid_extraction_reason_code": _safe_text(summary.get("hybrid_extraction_reason_code"), ""),
             "realization_anchor": _safe_float(summary.get("realization_anchor", 0.0), 0.0),
             "strong_execution_flag": int(bool(_safe_int(summary.get("strong_execution_flag", 0), 0))),
             "offer_maturity": _safe_text(summary.get("offer_maturity"), ""),

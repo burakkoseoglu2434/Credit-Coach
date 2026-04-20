@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import pyarrow.dataset as ds
 
 from credit_coach.utils.run_context import load_config
 
@@ -48,7 +49,18 @@ def load_raw_dataset(raw_csv: str | Path, nrows: int | None = None) -> pd.DataFr
     path = Path(raw_csv)
     if not path.exists():
         raise FileNotFoundError(f"Raw dataset not found: {path}")
-    return pd.read_csv(path, nrows=nrows)
+
+    suffix = path.suffix.lower()
+    if suffix == ".csv":
+        return pd.read_csv(path, nrows=nrows)
+
+    if suffix in {".parquet", ".pq"}:
+        if nrows is None:
+            return pd.read_parquet(path)
+        table = ds.dataset(path, format="parquet").head(int(nrows))
+        return table.to_pandas()
+
+    raise ValueError(f"Unsupported raw dataset format: {suffix} ({path})")
 
 
 def ingest_data(

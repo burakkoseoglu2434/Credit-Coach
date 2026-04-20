@@ -111,7 +111,7 @@ def test_assisted_full_routing_and_pruning_surfaces_exactly_one_allowlisted_step
     }
 
 
-def test_assisted_full_falls_back_when_selected_path_is_not_customer_only() -> None:
+def test_assisted_full_translates_hybrid_selected_plan_to_single_user_facing_action() -> None:
     out = _apply_recourse_gate_to_roadmap(
         _roadmap(
             selected_path_type="hybrid",
@@ -128,6 +128,11 @@ def test_assisted_full_falls_back_when_selected_path_is_not_customer_only() -> N
                     "phase_id": "phase_1",
                     "steps": [
                         {
+                            "action_key": "debt_consolidation",
+                            "requires_institutional_approval": 0,
+                            "requires_acceptance": 0,
+                        },
+                        {
                             "action_key": "adjust_requested_loan_amount",
                             "requires_institutional_approval": 0,
                             "requires_acceptance": 0,
@@ -137,8 +142,118 @@ def test_assisted_full_falls_back_when_selected_path_is_not_customer_only() -> N
             ],
             narrative_steps=[
                 {
+                    "action_key": "debt_consolidation",
+                    "primary_recommendation": {"en": "Debt consolidation", "tr": "Debt consolidation"},
+                    "requires_institutional_approval": False,
+                    "requires_acceptance": False,
+                },
+                {
                     "action_key": "adjust_requested_loan_amount",
                     "primary_recommendation": {"en": "Lower requested amount", "tr": "Lower requested amount"},
+                    "requires_institutional_approval": False,
+                    "requires_acceptance": False,
+                }
+            ],
+        )
+    )
+    summary = out.get("summary", {}) or {}
+
+    assert summary.get("recourse_mode") == "assisted_full"
+    assert int(summary.get("assisted_full_flag", 0)) == 1
+    assert bool(summary.get("translated_from_latent", False)) is True
+    assert summary.get("latent_plan_type") == "debt_consolidation"
+    assert summary.get("translated_action_text") == "Prioritize closing the highest-interest debt first."
+    assert summary.get("translation_confidence") == "high"
+    assert summary.get("selected_recommendation_text") == "Prioritize closing the highest-interest debt first."
+
+    assert len(out.get("phases", [])) == 1
+    assert len(out["phases"][0].get("steps", [])) == 2
+    assert len(out.get("narrative", {}).get("steps", [])) == 1
+    assert out["narrative"]["steps"][0].get("action_key") == "debt_consolidation"
+
+    assert json.loads(summary.get("assisted_full_reason_codes_json", "[]")) == [
+        "assisted_full:prob_ok:1",
+        "assisted_full:gap_ok:0",
+    ]
+
+
+def test_assisted_full_translates_institution_assisted_selected_plan_to_single_user_facing_action() -> None:
+    out = _apply_recourse_gate_to_roadmap(
+        _roadmap(
+            selected_path_type="institution_assisted",
+            recourse_gate_config={
+                "assisted_full": {
+                    "enabled": True,
+                    "threshold_prob_min": 0.20,
+                    "gap_closure_min": 1e9,
+                    "gap_divide_epsilon": 1e-6,
+                }
+            },
+            phases=[
+                {
+                    "phase_id": "phase_1",
+                    "steps": [
+                        {"action_key": "settlement_discount", "requires_institutional_approval": 1, "requires_acceptance": 1}
+                    ],
+                }
+            ],
+            narrative_steps=[
+                {
+                    "action_key": "settlement_discount",
+                    "primary_recommendation": {"en": "Settlement discount", "tr": "Settlement discount"},
+                    "requires_institutional_approval": True,
+                    "requires_acceptance": True,
+                }
+            ],
+        )
+    )
+    summary = out.get("summary", {}) or {}
+
+    assert summary.get("recourse_mode") == "assisted_full"
+    assert int(summary.get("assisted_full_flag", 0)) == 1
+    assert bool(summary.get("translated_from_latent", False)) is True
+    assert summary.get("latent_plan_type") == "settlement"
+    assert summary.get("translation_confidence") == "high"
+    assert summary.get("selected_recommendation_text") == (
+        "Negotiate a partial repayment on overdue debt if a settlement option is available."
+    )
+    assert len(out.get("narrative", {}).get("steps", [])) == 1
+    assert out["narrative"]["steps"][0].get("action_key") == "settlement_discount"
+
+    assert json.loads(summary.get("assisted_full_reason_codes_json", "[]")) == [
+        "assisted_full:prob_ok:1",
+        "assisted_full:gap_ok:0",
+    ]
+
+
+def test_assisted_full_hybrid_translation_falls_back_when_no_supported_intent_exists() -> None:
+    out = _apply_recourse_gate_to_roadmap(
+        _roadmap(
+            selected_path_type="hybrid",
+            recourse_gate_config={
+                "assisted_full": {
+                    "enabled": True,
+                    "threshold_prob_min": 0.20,
+                    "gap_closure_min": 1e9,
+                    "gap_divide_epsilon": 1e-6,
+                }
+            },
+            phases=[
+                {
+                    "phase_id": "phase_1",
+                    "steps": [
+                        {
+                            "action_key": "verify_income_documentation",
+                            "requires_institutional_approval": 0,
+                            "requires_acceptance": 0,
+                        }
+                    ],
+                }
+            ],
+            narrative_steps=[
+                {
+                    "action_key": "verify_income_documentation",
+                    "primary_recommendation": {"en": "Verify income", "tr": "Verify income"},
                     "requires_institutional_approval": False,
                     "requires_acceptance": False,
                 }
@@ -151,11 +266,13 @@ def test_assisted_full_falls_back_when_selected_path_is_not_customer_only() -> N
     assert int(summary.get("assisted_full_flag", 0)) == 0
     assert out.get("phases", []) == []
     assert out.get("narrative", {}).get("steps", []) == []
+    assert bool(summary.get("translated_from_latent", False)) is False
+    assert summary.get("latent_plan_type", "") == ""
 
     assert json.loads(summary.get("assisted_full_reason_codes_json", "[]")) == [
         "assisted_full:prob_ok:1",
         "assisted_full:gap_ok:0",
-        "assisted_full:fallback:path_type:hybrid",
+        "assisted_full:fallback:latent_translation:hybrid:no_supported_intent",
     ]
 
 
