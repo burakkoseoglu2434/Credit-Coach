@@ -346,3 +346,8 @@ Historical archive: `.planning/milestones/v2.2-ROADMAP.md`
 | 65. Targeted Cohort Evaluation | v2.5 | 3/3 | Complete | 2026-04-10 |
 | 66. Demo & Narrative Alignment | v2.5 | 3/3 | Complete | 2026-04-10 |
 | 67. Execution & Outcome Realization | v2.5 | 3/3 | Complete | 2026-04-10 |
+| 68. Real Cohort Evidence Run | v2.6 | 3/3 | Complete | 2026-04-11 |
+| 69. Evidence Amplification | v2.6 | 3/3 | Complete | 2026-04-11 |
+| 70. LendingClub Full Dataset Validation | v2.6 | 0/3 | Not Started (superseded by 71-72) | - |
+| 71. Coverage Diagnostics & Failure Analysis | v2.7 | 2/2 | Complete | 2026-04-18 |
+| 72. Recoverability Gate Relaxation (Controlled) | v2.7 | 2/2 | Complete | 2026-04-20 |
