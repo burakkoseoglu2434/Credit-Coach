@@ -78,6 +78,9 @@ Success criteria:
 - customers can receive more than one surfaced actionable recommendation when multiple valid action families exist
 - surfaced recommendations use existing semantics such as refinance, consolidation, restructuring, or loan-amount adjustment where internally available
 - cohort artifacts publish action-type distribution metrics and show reduced single-action dominance
+Plans: 2 plans
+- [ ] 73-01-PLAN.md — top-k=2 secondary action surfacing (full-tier, diversity-first, institutional-excluded) [SURF-01, SURF-02, TRUST-04]
+- [ ] 73-02-PLAN.md — action-type distribution cohort metrics + n=500 trust-counter re-run [SURF-03, TRUST-04]
 
 **Phase 74: Multi-Step Plan Surfacing**
 Goal: expose sequential or staged plans when honest customer guidance requires order, dependencies, or time-based progression.
