@@ -1741,6 +1741,9 @@ def run(args: argparse.Namespace) -> Path:
                 ),
                 "selected_recommendation_source": selected_recommendation_source,
                 "selected_action_count": selected_action_count,
+                "selected_action_family": _safe_text(roadmap_summary.get("selected_action_family")),
+                "selected_secondary_action_family": _safe_text(roadmap_summary.get("selected_secondary_action_family")),
+                "selected_secondary_action_present": _safe_int(roadmap_summary.get("selected_secondary_action_present", 0), 0),
                 "selected_recommendation_text": _safe_text(roadmap_summary.get("selected_recommendation_text")),
                 "selected_recommendation_projection_version": _safe_text(
                     roadmap_summary.get("selected_recommendation_projection_version")

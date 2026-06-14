@@ -1,0 +1,13 @@
+overlay_name: default_bank_policy
+cadence_mode: weekly_during_pilot
+allowed_cohort_policies:
+  - pilot_mixed
+  - ops_queue_replay
+wording_guardrails:
+  - proof_without_leakage
+  - no_internal_state_language
+usage_constraints:
+  manual_review_required_for_rejected: true
+  proof_surface_status_vocabulary:
+    - safe_to_pilot
+    - pilot_watchlist

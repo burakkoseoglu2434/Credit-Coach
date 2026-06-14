@@ -1,0 +1,6 @@
+profile_name: default_pilot_profile
+profile_key: default_pilot_profile
+selection_policy_name: pilot_mixed
+selection_fill_behavior: quota-first deterministic soft-fill
+notes:
+  - Controlled, governed, repeatable pilot baseline

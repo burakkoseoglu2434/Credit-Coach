@@ -1,0 +1,24 @@
+# monitoring.yaml — operasyonel izleme eşikleri
+
+psi:
+  bins: 10
+
+thresholds:
+  psi_warn: 0.10
+  psi_fail: 0.20
+  min_approval_rate: 0.60
+  min_avg_risk_margin: 0.00
+  min_reliability: 0.70
+  max_fairness_gap: 0.10
+  max_high_stress_fairness_gap: 0.10
+
+telemetry:
+  enabled: true
+  mode: prometheus            # prometheus | otlp
+  endpoint_url: "http://127.0.0.1:4318/metrics/job/credit_coach"
+  timeout_seconds: 3.0
+  ingest_lag_s_p95: 1.0
+  namespace: credit_coach
+  service_name: credit-coach
+  labels:
+    environment: local-smoke

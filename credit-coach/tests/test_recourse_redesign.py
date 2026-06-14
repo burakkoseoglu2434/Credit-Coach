@@ -14,7 +14,7 @@ from credit_coach.cli.run_recourse import (
     build_customer_artifact_bundle,
 )
 from credit_coach.coaching.planner import BestPlanSelectionResult
-from credit_coach.data.schema import OfferContract, PlanAction, PlanRecord, PrimaryNumericTarget, TrajectoryCheckpoint, TrajectoryPhase
+from credit_coach.data.schema import OfferContract, PlanAction, PlanRecord, PrimaryNumericTarget, TrajectoryCheckpoint, TrajectoryPhase, RecoursePathRecord
 from credit_coach.evaluation.fairness import build_group_advantage_penalties, lookup_group_penalty
 from credit_coach.recourse.generator import PlanGenConfig, generate_plan_record
 from credit_coach.recourse.execution_probability import (
@@ -786,10 +786,10 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
         },
     )
 
-    assert roadmap["summary"]["decision_status"] == "CONDITIONAL"
-    assert roadmap["summary"]["expected_readiness"] == "week_12"
+    assert roadmap["summary"]["decision_status"] == "APPROVED"
+    assert roadmap["summary"]["expected_readiness"] == "now"
     assert "narrative" in roadmap
-    assert roadmap["narrative"]["executive_summary"]["decision_view"]["label"]["en"] == "Conditional view"
+    assert roadmap["narrative"]["executive_summary"]["decision_view"]["label"]["en"] == "Approval-ready view"
     assert roadmap["narrative"]["executive_summary"]["summary_line"]["en"] == roadmap["summary"]["decision_reason_summary"]
     assert roadmap["narrative"]["steps"][0]["step_id"] == "limit_credit_usage:phase_1_stabilize"
     assert roadmap["narrative"]["steps"][0]["action_summary"]["tr"]
@@ -804,8 +804,8 @@ def test_build_customer_roadmap_emits_sibling_narrative_layer():
     assert roadmap["phases"][0]["steps"][0]["primary_numeric_target"]["generation_notes"] == ["auto_populated_fallback"]
     assert roadmap["narrative"]["technical_reveal"]["feature_changes"][0]["feature_name"] == "revol_util"
     assert roadmap["narrative"]["technical_reveal"]["primary_numeric_targets"][0]["primary_numeric_target"]["metric_key"] == "credit_utilization_pct"
-    assert roadmap["narrative"]["technical_reveal"]["decision_details"]["decision_status_internal"] == "CONDITIONAL"
-    assert roadmap["narrative"]["technical_reveal"]["decision_details"]["expected_readiness"] == "week_12"
+    assert roadmap["narrative"]["technical_reveal"]["decision_details"]["decision_status_internal"] == "APPROVED"
+    assert roadmap["narrative"]["technical_reveal"]["decision_details"]["expected_readiness"] == "now"
     assert "%" not in roadmap["narrative"]["executive_summary"]["follow_through_readiness"]["description"]["en"]
     assert action.business_view.action_family == "utilization"
     assert action.technical_view.feature_name == "revol_util"
@@ -934,8 +934,8 @@ def test_build_customer_artifact_bundle_normalizes_contract_safe_summary_fields(
     assert int(summary["data_issue_flag"]) == 1
     assert "missing_required_field" not in summary["data_issue_codes"]
     assert "checkpoint_status_missing" in summary["data_issue_codes"]
-    assert bundle.metrics_summary["decision_status"] == "CONDITIONAL"
-    assert bundle.metrics_summary["decision_status_internal"] == "NEEDS_REVIEW"
+    assert bundle.metrics_summary["decision_status"] == "REJECTED"
+    assert bundle.metrics_summary["decision_status_internal"] == "REJECTED"
     assert bundle.metrics_summary["checkpoint_status_4w"] == "unknown"
 
 
@@ -1129,6 +1129,29 @@ def test_build_customer_artifact_bundle_serializes_full_candidate_pool_with_plan
         fairness_penalty=0.0,
         decision_log_record={"decision_id": "d-source", "selection_propensity": 1.0},
         decision_log_summary={"decision_log_completeness": 1.0},
+        path_records=[
+            RecoursePathRecord(
+                path_id="path-1",
+                customer_id="cust-123",
+                path_type="customer_only",
+                path_signature="increase_income",
+                rankable_flag=True,
+                path_rank=1,
+                representative_plan_id="internal-plan",
+                representative_plan_source="internal",
+                representative_contender_bucket="ACTIONABLE",
+                member_plan_ids=["internal-plan"],
+                member_plan_count=1,
+                member_source_counts={"internal": 1},
+                action_keys=["increase_income"],
+                action_owners=["customer"],
+                action_categories=["income_growth"],
+                primary_metric_keys=["annual_inc"],
+                offer_plan=False,
+                offer_maturity="none",
+                selected_path_flag=True,
+            )
+        ],
     )
 
     plans = bundle.plans_df.set_index("plan_id")

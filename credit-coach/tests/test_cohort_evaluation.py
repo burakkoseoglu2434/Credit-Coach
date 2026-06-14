@@ -124,7 +124,7 @@ def test_summarize_population_metrics_from_rows_uses_existing_batch_contract() -
     assert metrics["recoverability_bucket_distribution"] == {"mid_risk": 0.5, "near_threshold": 0.5}
     assert metrics["recoverable_flag_distribution"] == {"recoverable": 0.5, "not_recoverable": 0.5}
     assert metrics["recoverability_classifier_version_distribution"] == {"phase_62_v1": 1.0}
-    assert metrics["recourse_mode_distribution"] == {"full": 0.5, "limited": 0.5}
+    assert metrics["recourse_mode_distribution"] == {"full": 0.5, "assisted_full": 0.0, "limited": 0.5}
     assert metrics["recommendation_mode_distribution"] == {"actionable": 0.5, "informational": 0.5}
     assert metrics["limited_customer_rate"] == 0.5
     assert metrics["informational_recommendation_rate"] == 0.5
@@ -290,6 +290,7 @@ def test_phase60_summary_and_artifact_writer_materialize_expected_files(tmp_path
         "path_diversity_table_csv",
         "action_coverage_table_csv",
         "selected_path_distribution_table_csv",
+        "action_type_distribution_table_csv",
         "movement_ranking_table_csv",
         "targeted_evaluation_table_csv",
         "recoverability_signal_table_csv",
@@ -667,7 +668,7 @@ def test_cohort_evaluation_main_writes_recoverability_fields(tmp_path, monkeypat
         "near_threshold_denied": 0.333333,
     }
     recourse_row = next(row for row in phase_60_payload["recourse_gate_table"] if row["population"] == "overall")
-    assert recourse_row["recourse_mode_distribution"] == {"full": 1.0, "limited": 0.0}
+    assert recourse_row["recourse_mode_distribution"] == {"full": 1.0, "assisted_full": 0.0, "limited": 0.0}
     assert recourse_row["recommendation_mode_distribution"] == {"actionable": 1.0, "informational": 0.0}
 
 
@@ -988,3 +989,90 @@ def test_manifest_helpers_preserve_order_and_validate_membership(tmp_path) -> No
             manifest_path=missing_path,
         )
     assert "not present in denied population" in str(exc_info.value)
+
+
+def test_build_cohort_evidence_package_emits_action_type_distribution() -> None:
+    metrics = {
+        "non_empty_contender_share": 0.80,
+        "approved_or_conditional_contender_share": 0.65,
+        "mean_execution_aware_value": -2.0,
+        "multi_path_rate": 0.45,
+        "path_count": 2.2,
+        "rankable_path_count": 1.8,
+        "action_diversity_index": 0.55,
+        "non_utilization_action_rate": 0.35,
+        "institution_action_rate": 0.20,
+        "offer_ready_contender_share": 0.25,
+        "approval_shell_only_share": 0.10,
+        "selected_plan_category_customer_only_rate": 0.70,
+        "selected_plan_category_institution_assisted_rate": 0.20,
+        "selected_plan_category_hybrid_rate": 0.10,
+        "mean_approval_gap": 0.11,
+        "mean_recoverability_score": 0.42,
+        "threshold_reach_possible_rate": 0.18,
+        "recoverable_customer_rate": 0.12,
+        "recoverability_bucket_distribution": {"mid_risk": 0.60, "near_threshold": 0.40},
+        "recoverable_flag_distribution": {"recoverable": 0.12, "not_recoverable": 0.88},
+        "recoverability_classifier_version_distribution": {"phase_62_v1": 1.0},
+        "recourse_mode_distribution": {"full": 0.88, "limited": 0.12},
+        "recommendation_mode_distribution": {"actionable": 0.88, "informational": 0.12},
+        "limited_customer_rate": 0.12,
+        "informational_recommendation_rate": 0.12,
+        "empty_state_rate": 0.12,
+        "zero_action_rate": 0.18,
+        "movement_rate": 0.88,
+        "strong_movement_rate": 0.30,
+        "mean_movement_score": 0.44,
+        "mean_threshold_reach_probability": 0.31,
+        "threshold_reach_priority_rate": 0.18,
+        "selected_path_movement_strength_distribution": {"moderate": 0.70, "strong": 0.30},
+        "threshold_gap_distribution": {"mid_risk_denied": 0.60, "near_threshold_denied": 0.40},
+        "combined_action_family_distribution": {"application_sizing": 0.6, "debt_restructuring": 0.4},
+        "action1_family_distribution": {"application_sizing": 0.8, "debt_restructuring": 0.2},
+        "action2_family_distribution": {"application_sizing": 0.2, "debt_restructuring": 0.8},
+        "secondary_action_present_rate": 0.4,
+    }
+    movement = {
+        "dominant_movement_bottleneck": "structural_cohort_limited",
+        "movement_guardrail_summary": "Structural cohort pressure remains dominant.",
+        "trust_guardrails": {
+            "selected_invalid_winner_count": 0,
+            "selected_dice_valid_rate": 1.0,
+            "selected_decision_mismatch_count": 0,
+            "approved_with_blocker_count": 0,
+            "approved_with_action_count": 0,
+            "approved_with_upgrade_condition_count": 0,
+            "action_blocker_mismatch_count": 0,
+            "readiness_decision_mismatch_count": 0,
+        },
+    }
+
+    pkg = build_cohort_evidence_package("pilot_mixed", metrics, movement)
+
+    assert pkg["action_type_distribution"]["population"] == "pilot_mixed"
+    assert pkg["action_type_distribution"]["combined_action_family_distribution"] == {"application_sizing": 0.6, "debt_restructuring": 0.4}
+    assert pkg["action_type_distribution"]["dominant_action_family"] == "application_sizing"
+    assert pkg["action_type_distribution"]["dominant_action_family_share"] == 0.6
+    assert pkg["action_type_distribution"]["secondary_action_present_rate"] == 0.4
+
+
+def test_write_phase60_evidence_artifacts_includes_action_type_distribution_csv(tmp_path) -> None:
+    summary = {
+        "action_type_distribution_table": [
+            {
+                "population": "denied",
+                "combined_action_family_distribution": {"application_sizing": 0.6, "debt_restructuring": 0.4},
+                "action1_family_distribution": {"application_sizing": 0.8, "debt_restructuring": 0.2},
+                "action2_family_distribution": {"application_sizing": 0.2, "debt_restructuring": 0.8},
+                "secondary_action_present_rate": 0.4,
+                "dominant_action_family": "application_sizing",
+                "dominant_action_family_share": 0.6,
+            }
+        ]
+    }
+    
+    files = write_phase60_evidence_artifacts(tmp_path, summary, prefix="phase_60_test")
+    
+    assert "action_type_distribution_table_csv" in files
+    assert files["action_type_distribution_table_csv"] == "phase_60_test_action_type_distribution_table.csv"
+    assert (tmp_path / "phase_60_test_action_type_distribution_table.csv").exists()

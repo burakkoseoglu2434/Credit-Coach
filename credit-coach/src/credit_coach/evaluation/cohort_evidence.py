@@ -120,6 +120,10 @@ def summarize_population_metrics_from_rows(
             "movement_rate": 0.0,
             "strong_movement_rate": 0.0,
             "threshold_gap_distribution": {},
+            "action1_family_distribution": {},
+            "action2_family_distribution": {},
+            "combined_action_family_distribution": {},
+            "secondary_action_present_rate": 0.0,
             "selected_source_distribution": {},
         }
         for source in resolved_catalog:
@@ -156,6 +160,9 @@ def summarize_population_metrics_from_rows(
         .str.lower()
     )
     cohort_label = rows.get("cohort_label", pd.Series([""] * len(rows), dtype=object)).astype(str).str.strip()
+    selected_action_family = rows.get("selected_action_family", pd.Series([""] * len(rows), dtype=object)).astype(str).str.strip().str.lower()
+    selected_secondary_action_family = rows.get("selected_secondary_action_family", pd.Series([""] * len(rows), dtype=object)).astype(str).str.strip().str.lower()
+    selected_secondary_action_present = pd.to_numeric(rows.get("selected_secondary_action_present", pd.Series([0] * len(rows))), errors="coerce").fillna(0).astype(int)
 
     metrics: dict[str, float | dict[str, float]] = {
         "candidate_pool_diversity_index": _mean_numeric(rows, "candidate_pool_diversity_index"),
@@ -231,6 +238,20 @@ def summarize_population_metrics_from_rows(
         metrics[f"best_source_{source}_rate"] = rate
         selected_source_distribution[source] = rate
     metrics["selected_source_distribution"] = selected_source_distribution
+
+    metrics["action1_family_distribution"] = _distribution_from_rows(rows, "selected_action_family")
+    metrics["action2_family_distribution"] = _distribution_from_rows(rows[selected_secondary_action_present == 1], "selected_secondary_action_family") if (selected_secondary_action_present == 1).any() else {}
+    
+    action1_counts = selected_action_family[selected_action_family != ""].value_counts()
+    action2_counts = selected_secondary_action_family[(selected_secondary_action_present == 1) & (selected_secondary_action_family != "")].value_counts()
+    combined_counts = action1_counts.add(action2_counts, fill_value=0)
+    total_actions = combined_counts.sum()
+    metrics["combined_action_family_distribution"] = {
+        key: _round_metric(value / total_actions)
+        for key, value in combined_counts.sort_index().items()
+    } if total_actions > 0 else {}
+    metrics["secondary_action_present_rate"] = _round_metric(selected_secondary_action_present.mean())
+
     return metrics
 
 
@@ -350,6 +371,15 @@ def build_cohort_evidence_package(
             ),
             "selected_source_distribution": selected_source_distribution,
         },
+        "action_type_distribution": {
+            "population": population_name,
+            "action1_family_distribution": dict(metrics.get("action1_family_distribution", {}) or {}),
+            "action2_family_distribution": dict(metrics.get("action2_family_distribution", {}) or {}),
+            "combined_action_family_distribution": dict(metrics.get("combined_action_family_distribution", {}) or {}),
+            "secondary_action_present_rate": _safe_float(metrics.get("secondary_action_present_rate", 0.0), 0.0),
+            "dominant_action_family": max(dict(metrics.get("combined_action_family_distribution", {}) or {}).items(), key=lambda x: x[1])[0] if metrics.get("combined_action_family_distribution") else "",
+            "dominant_action_family_share": max(dict(metrics.get("combined_action_family_distribution", {}) or {}).values()) if metrics.get("combined_action_family_distribution") else 0.0,
+        },
         "movement_ranking": {
             "population": population_name,
             "mean_movement_score": _safe_float(metrics.get("mean_movement_score", 0.0), 0.0),
@@ -448,6 +478,7 @@ def build_phase60_evidence_summary(
     path_diversity_table = [dict(pkg.get("path_diversity", {}) or {}) for pkg in package_list]
     action_coverage_table = [dict(pkg.get("action_coverage", {}) or {}) for pkg in package_list]
     selected_path_distribution_table = [dict(pkg.get("selected_path_distribution", {}) or {}) for pkg in package_list]
+    action_type_distribution_table = [dict(pkg.get("action_type_distribution", {}) or {}) for pkg in package_list]
     movement_ranking_table = [dict(pkg.get("movement_ranking", {}) or {}) for pkg in package_list]
     targeted_evaluation_table = [dict(pkg.get("targeted_evaluation", {}) or {}) for pkg in package_list]
     recoverability_signal_table = [dict(pkg.get("recoverability_signal", {}) or {}) for pkg in package_list]
@@ -463,6 +494,7 @@ def build_phase60_evidence_summary(
         "path_diversity_table": path_diversity_table,
         "action_coverage_table": action_coverage_table,
         "selected_path_distribution_table": selected_path_distribution_table,
+        "action_type_distribution_table": action_type_distribution_table,
         "movement_ranking_table": movement_ranking_table,
         "targeted_evaluation_table": targeted_evaluation_table,
         "recoverability_signal_table": recoverability_signal_table,
@@ -512,6 +544,20 @@ def render_phase60_evidence_markdown(summary: Mapping[str, Any]) -> str:
                 f"path_count={_safe_float(row.get('mean_path_count'), 0.0):.4f}, "
                 f"rankable_path_count={_safe_float(row.get('mean_rankable_path_count'), 0.0):.4f}, "
                 f"action_diversity={_safe_float(row.get('mean_action_diversity_index'), 0.0):.4f}"
+            )
+    else:
+        lines.append("- n/a")
+    lines.extend(["", "## Action Type Distribution"])
+    action_type_rows = list(summary.get("action_type_distribution_table", []) or [])
+    if action_type_rows:
+        for row in action_type_rows:
+            lines.append(
+                "- "
+                f"{_safe_str(row.get('population'), 'unknown')}: "
+                f"secondary_action_present_rate={_safe_float(row.get('secondary_action_present_rate'), 0.0):.4f}, "
+                f"dominant_action_family={_safe_str(row.get('dominant_action_family'), '')}, "
+                f"dominant_action_family_share={_safe_float(row.get('dominant_action_family_share'), 0.0):.4f}, "
+                f"combined_action_family_distribution={json.dumps(dict(row.get('combined_action_family_distribution', {}) or {}), ensure_ascii=False, sort_keys=True)}"
             )
     else:
         lines.append("- n/a")
@@ -607,6 +653,7 @@ def write_phase60_evidence_artifacts(
     path_csv = output_root / f"{prefix}_path_diversity_table.csv"
     action_csv = output_root / f"{prefix}_action_coverage_table.csv"
     selected_csv = output_root / f"{prefix}_selected_path_distribution_table.csv"
+    action_type_csv = output_root / f"{prefix}_action_type_distribution_table.csv"
     movement_ranking_csv = output_root / f"{prefix}_movement_ranking_table.csv"
     targeted_evaluation_csv = output_root / f"{prefix}_targeted_evaluation_table.csv"
     recoverability_csv = output_root / f"{prefix}_recoverability_signal_table.csv"
@@ -619,6 +666,7 @@ def write_phase60_evidence_artifacts(
     pd.DataFrame(list(summary.get("path_diversity_table", []) or [])).to_csv(path_csv, index=False)
     pd.DataFrame(list(summary.get("action_coverage_table", []) or [])).to_csv(action_csv, index=False)
     pd.DataFrame(list(summary.get("selected_path_distribution_table", []) or [])).to_csv(selected_csv, index=False)
+    pd.DataFrame(list(summary.get("action_type_distribution_table", []) or [])).to_csv(action_type_csv, index=False)
     pd.DataFrame(list(summary.get("movement_ranking_table", []) or [])).to_csv(movement_ranking_csv, index=False)
     pd.DataFrame(list(summary.get("targeted_evaluation_table", []) or [])).to_csv(targeted_evaluation_csv, index=False)
     pd.DataFrame(list(summary.get("recoverability_signal_table", []) or [])).to_csv(recoverability_csv, index=False)
@@ -631,6 +679,7 @@ def write_phase60_evidence_artifacts(
         "path_diversity_table_csv": path_csv.name,
         "action_coverage_table_csv": action_csv.name,
         "selected_path_distribution_table_csv": selected_csv.name,
+        "action_type_distribution_table_csv": action_type_csv.name,
         "movement_ranking_table_csv": movement_ranking_csv.name,
         "targeted_evaluation_table_csv": targeted_evaluation_csv.name,
         "recoverability_signal_table_csv": recoverability_csv.name,
