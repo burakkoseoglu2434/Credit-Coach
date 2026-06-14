@@ -1,3 +1,17 @@
+---
+gsd_state_version: 1.0
+milestone: v2.7
+milestone_name: Coverage Expansion & Action Surface Unlock
+status: unknown
+last_updated: "2026-06-14T13:36:37.687Z"
+progress:
+  total_phases: 64
+  completed_phases: 61
+  total_plans: 181
+  completed_plans: 183
+  percent: 95
+---
+
 # Planning State
 
 ## Status
