@@ -52,6 +52,8 @@ from credit_coach.macro.stress_index import compute_macro_stress_index
 from credit_coach.model.predict import predict_proba_pd
 from credit_coach.model.registry import load_model_bundle
 from credit_coach.recourse.action_space import (
+    ACTION_CATALOG,
+    LEGACY_ACTION_FAMILY_BY_ACTION_KEY,
     estimate_action_cost_usd,
     get_action_metadata,
     get_action_template,
@@ -967,6 +969,22 @@ def _apply_recourse_gate_to_roadmap(roadmap: dict[str, Any]) -> dict[str, Any]:
         summary["recourse_gate_reason_codes_json"] = json.dumps(gate["recourse_gate_reason_codes"], ensure_ascii=False)
         out["summary"] = summary
 
+    if _safe_text(gate.get("recourse_mode")) == "full":
+        selected_path = _selected_path_payload(out)
+        primary_action_key = ""
+        if selected_path:
+            action_keys = selected_path.get("action_keys", [])
+            if action_keys:
+                primary_action_key = str(action_keys[0])
+        if not primary_action_key:
+            narrative_steps = out.get("narrative", {}).get("steps", [])
+            if narrative_steps and isinstance(narrative_steps, list) and isinstance(narrative_steps[0], dict):
+                primary_action_key = _safe_text(narrative_steps[0].get("action_key"))
+
+        secondary_path = _select_secondary_action_for_full_mode(out, primary_action_key=primary_action_key)
+        if secondary_path is not None:
+            out["_secondary_action_path"] = secondary_path
+
     if _safe_text(gate.get("recourse_mode")) != "limited":
         return _build_selected_surface_projection(out)
 
@@ -1257,6 +1275,50 @@ def _derive_nominal_pd_improvement(*, base_pd: float, plan: PlanRecord) -> float
     return float(base_pd - _safe_float(predicted_pd, base_pd))
 
 
+def _action_family_for_key(action_key: str) -> str | None:
+    return LEGACY_ACTION_FAMILY_BY_ACTION_KEY.get(str(action_key or "").strip())
+
+
+def _is_institutional_action(action_key: str) -> bool:
+    key = str(action_key or "").strip()
+    template = ACTION_CATALOG.get(key)
+    if template is not None:
+        return template.action_owner == "institution"
+    return False
+
+
+def _select_secondary_action_for_full_mode(roadmap: dict[str, Any], *, primary_action_key: str) -> dict[str, Any] | None:
+    paths = roadmap.get("paths", [])
+    if not isinstance(paths, list):
+        return None
+
+    primary_family = _action_family_for_key(primary_action_key)
+
+    rankable_paths = []
+    for p in paths:
+        if not isinstance(p, dict):
+            continue
+        if p.get("rankable_flag") and not p.get("selected_path_flag"):
+            rankable_paths.append(p)
+
+    sorted_paths = sorted(rankable_paths, key=lambda p: int(p.get("path_rank") or 999999))
+
+    for p in sorted_paths:
+        action_keys = p.get("action_keys", [])
+        if not isinstance(action_keys, list) or not action_keys:
+            continue
+        first_key = str(action_keys[0])
+
+        if _is_institutional_action(first_key):
+            continue
+
+        family = _action_family_for_key(first_key)
+        if family and family != primary_family:
+            return p
+
+    return None
+
+
 def _localized_projection_payload(payload: Any) -> dict[str, str] | None:
     if isinstance(payload, dict):
         tr = _safe_text(payload.get("tr"))
@@ -1350,6 +1412,35 @@ def _build_selected_surface_projection(roadmap: dict[str, Any]) -> dict[str, Any
             "translation_confidence": _safe_text(summary.get("translation_confidence"), ""),
         }
     )
+
+    if summary.get("recourse_mode") == "full":
+        secondary_path = out.get("_secondary_action_path")
+        if isinstance(secondary_path, dict):
+            secondary_action_keys = secondary_path.get("action_keys", [])
+            sec_action_key = str(secondary_action_keys[0]) if secondary_action_keys else ""
+            secondary_payload = _localized_projection_payload(secondary_path.get("customer_summary"))
+
+            summary.update({
+                "selected_secondary_action_present": 1,
+                "selected_secondary_action_key": sec_action_key or None,
+                "selected_secondary_action_family": _action_family_for_key(sec_action_key) or None,
+                "selected_secondary_path_id": _safe_text(secondary_path.get("path_id")) or None,
+                "selected_secondary_path_type": _safe_text(secondary_path.get("path_type")) or None,
+                "selected_secondary_recommendation_text": _localized_projection_text(secondary_payload, locale="en"),
+                "selected_secondary_recommendation_text_localized": secondary_payload,
+                "selected_action_count": 2,
+            })
+        else:
+            summary.update({
+                "selected_secondary_action_present": 0,
+                "selected_secondary_action_key": None,
+                "selected_secondary_action_family": None,
+                "selected_secondary_path_id": None,
+                "selected_secondary_path_type": None,
+                "selected_secondary_recommendation_text": None,
+                "selected_secondary_recommendation_text_localized": None,
+            })
+
     out["summary"] = summary
     return out
 
