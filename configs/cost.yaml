@@ -42,18 +42,25 @@ onay_esigi_referans:
   break_even_pd_median: 0.31341689149522484
   birincil: mean
 hurdle:
-  # Birim: funded_amnt'ın oranı, kredi ömrü (36 ay) boyunca toplam. Değerler kullanıcıdan istenir.
+  # Birim: funded_amnt'ın oranı, kredi ömrü (36 ay) boyunca toplam.
   # Onay kuralı: (1-PD)*getiri - PD*kayip >= asgari_marj + fon_maliyeti + isletme_gideri
+  # Toplam hurdle: 0.11
   asgari_marj:
-    etiket: varsayım
-    deger: null
-    gerekce: null
+    etiket: tez varsayımı
+    deger: 0.03
+    gerekce: >-
+      Tez varsayımı (kullanıcı tarafından verildi): kredi ömrü boyunca funded_amnt'ın %3'ü
+      asgari kâr marjı. Dış bir kaynak belirtilmedi.
   fon_maliyeti:
-    etiket: varsayım
-    deger: null
-    gerekce: null
+    etiket: tez varsayımı
+    deger: 0.05
+    gerekce: >-
+      Tez varsayımı (kullanıcı tarafından verildi). Hesap yolu: yıllık %3 fon maliyeti x ~0.55
+      ortalama kalan anapara (36 ayda amorti olan kredi) x 3 yıl = 0.0495, 0.05'e yuvarlandı.
   isletme_gideri:
-    etiket: varsayım
-    deger: null
-    gerekce: null
+    etiket: tez varsayımı
+    deger: 0.03
+    gerekce: >-
+      Tez varsayımı (kullanıcı tarafından verildi): kredi ömrü boyunca funded_amnt'ın %3'ü
+      işletme gideri. Dış bir kaynak belirtilmedi.
 ret_esigi: null

@@ -75,5 +75,16 @@ def test_hurdle_fields_exist_and_are_labelled_assumptions():
 
     doc = yaml.safe_load((MANIFEST_PATH.parent / "cost.yaml").read_text())
     for key in ("asgari_marj", "fon_maliyeti", "isletme_gideri"):
-        assert doc["hurdle"][key]["etiket"] == "varsayım"
+        assert "varsayım" in doc["hurdle"][key]["etiket"]
         assert "deger" in doc["hurdle"][key] and "gerekce" in doc["hurdle"][key]
+
+
+def test_hurdle_values_total_011():
+    from credit_coach.decision import load_cost, total_hurdle
+
+    doc = load_cost()
+    assert total_hurdle(doc) == pytest.approx(0.11)
+    assert doc["hurdle"]["fon_maliyeti"]["deger"] == pytest.approx(0.05)
+    assert 0.03 * 0.55 * 3 == pytest.approx(0.0495)  # documented derivation of fon_maliyeti
+    for key in ("asgari_marj", "fon_maliyeti", "isletme_gideri"):
+        assert doc["hurdle"][key]["gerekce"].strip()
