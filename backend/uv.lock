@@ -584,6 +584,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "matplotlib" },
     { name = "mlflow" },
     { name = "pandas" },
     { name = "pandera" },
@@ -591,6 +592,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "scikit-learn" },
     { name = "uvicorn" },
+    { name = "venn-abers" },
     { name = "xgboost" },
 ]
 
@@ -605,6 +607,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "matplotlib", specifier = ">=3.11.2" },
     { name = "mlflow", specifier = ">=3.18.0" },
     { name = "pandas", specifier = ">=3.1.1" },
     { name = "pandera", specifier = ">=0.36.0" },
@@ -612,6 +615,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
     { name = "uvicorn", specifier = ">=0.30" },
+    { name = "venn-abers", specifier = ">=1.5.4" },
     { name = "xgboost", specifier = ">=3.4.1" },
 ]
 
@@ -2820,6 +2824,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/da/34/30e9280707135d2cf
 wheels = [
     { url = "https://files.pythonhosted.org/packages/38/0c/b54a4fdd7f90a3af8b02ebc9ce6712c2c208b7926a2f7bad95c33ebbe943/uvicorn-0.54.0-py3-none-any.whl", hash = "sha256:505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf", size = 87427, upload-time = "2026-09-25T06:52:35.829Z" },
 ]
+
+[[package]]
+name = "venn-abers"
+version = "1.5.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "scikit-learn" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cb/30/3988e57974170121201bf1e21815c9ee30e605d0661369a9fad7aa732165/venn_abers-1.5.4.tar.gz", hash = "sha256:a6bf5383e618ce42d0ecb2335bba0d6b104ecbe979041f10019b57572364bc69", size = 20808, upload-time = "2026-08-12T04:57:37.42Z" }
 
 [[package]]
 name = "waitress"
