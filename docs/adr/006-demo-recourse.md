@@ -80,7 +80,7 @@ Geçerli plan koşulları (hepsi sağlanmalı):
    parametresi, varsayılan **0,02**, etiket "varsayım: ölçülmedi". **δ'nın anlamı:** dönem
    kayması ve model belirsizliği için bir güven payı varsayımıdır. Venn-Abers aralığı değildir:
    aralık zaten `p_high` içinde, δ onun üstüne konan ayrı bir paydır ve istatistiksel bir
-   kapsama garantisi taşımaz (ADR-004 band'ı 0,0027).
+   kapsama özelliği taşımaz (ADR-004 band'ı 0,0027).
 2. **Derin seviye koşulu:** bir eylemin seviyeleri sığdan derine sıralıdır. Bir seviyenin
    `p_after` değeri **başlangıç PD'sinden** veya **aynı eylemin bir üst (daha sığ) seviyesinden**
    yüksekse o seviye geçersizdir ve hiçbir planda yer almaz. Çok eylemli planda `p_after`
