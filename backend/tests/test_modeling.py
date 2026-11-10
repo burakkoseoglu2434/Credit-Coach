@@ -100,3 +100,18 @@ def test_training_is_deterministic():
     a = monotone_xgb(X.columns, n_estimators=50, min_child_weight=1).fit(X, y).predict_proba(X)
     b = monotone_xgb(X.columns, n_estimators=50, min_child_weight=1).fit(X, y).predict_proba(X)
     assert (a == b).all()
+
+
+@pytest.mark.skipif(
+    not (CSV.exists() and (CSV.parents[3] / "backend/.models/pd_monotone.json").exists()),
+    reason="raw data or trained model not available locally",
+)
+def test_real_saved_model_is_monotone_on_calibration_sample():
+    from xgboost import XGBClassifier
+
+    from credit_coach.modeling import check_monotone, split_xy
+
+    _, _, X_ca, _ = split_xy(dev_frame(pd.read_csv(CSV)))
+    model = XGBClassifier()
+    model.load_model(CSV.parents[3] / "backend/.models/pd_monotone.json")
+    assert check_monotone(model, X_ca) == []
