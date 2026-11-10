@@ -41,8 +41,8 @@ Dayanıklılık, DAG özdeşlikleri, likidite koruması (5. hafta); ortak başvu
 ## Revizyon notu (2026-11-10)
 İlk metin silinmedi; aşağıdakiler üstüne eklendi.
 - **Nedensel dil kaldırıldı.** Katalogdaki eylemlerin etkisi model ilişkisi olarak anlatılır:
-  "bu profilde benzer kişilerin riski modele göre daha düşük". "Onaylanırsın", "riskin düşecek"
-  gibi vaatler yazılmaz.
+  "bu profilde benzer kişilerin riski modele göre daha düşük". Sonuç vaadi cümleleri
+  ("onaylanırsın", "riskin düşecek") yazılmaz.
 - **Etiket: tek fiyatlı kurgusal kredi veren.** Eşik ve maliyetler kurgusal, tek fiyatlı bir kredi
   verene aittir (`kurgu_etiketi`, ADR-003 revizyon notu).
 - **Birim.** `revol_util` hedefleri yüzde ölçeğinde (70/50/30) yazılır; `hedef_birimleri` alanı
