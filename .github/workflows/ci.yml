@@ -8,6 +8,20 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: cc_owner
+          POSTGRES_PASSWORD: cc_owner_dev
+          POSTGRES_DB: credit_coach
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U cc_owner -d credit_coach"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      CREDIT_COACH_TEST_DB_URL: postgresql+psycopg://cc_owner:cc_owner_dev@localhost:55432/credit_coach
     defaults:
       run:
         working-directory: backend
