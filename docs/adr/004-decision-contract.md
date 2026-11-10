@@ -106,3 +106,13 @@ dondurulmuş kalibratörle %0,12. Test dilimi de %0,12. Fark hata değil: iki fa
 İzotonik basamakların konumu, eşiğin (0,109) ±band penceresine kaç kaydın düştüğünü belirliyor.
 `R3` bu eşikte hiç tetiklenmiyor (zayıf destek aralıkları eşikten uzakta); v1'de yalnızca sentetik
 senaryolarla tetiklenebilir.
+
+## Kayıt ve replay notları (3.3, 3.4)
+- **Üretim uyarısı:** üretimde `cc_app` şifresi ve veritabanı sahibi rolü ayrılmalı; migration'daki
+  `cc_app_dev` yalnızca geliştirme varsayılanıdır. Sahip rolü trigger'ı kapatabilir; bunu yalnızca
+  zincir doğrulaması (`verify_chain`) ve replay yakalar.
+- **Replay kapsamı:** yalnızca karar katmanı (`decide`). Kayıt `p_low/p_point/p_high/ham_skor`
+  değerlerini girdi olarak taşır; model ve skor üretimi yeniden çalıştırılmaz. Skor katmanı için ayrı kontrol
+  gerekir (henüz yok).
+- Her kayıt `politika_sha256` (politika dosyası) ve `bundle_sha256` (`bundle.lock.json`) taşır.
+  Politika dosyası hash'i uymazsa replay durur; bundle farkı yalnızca raporlanır.
