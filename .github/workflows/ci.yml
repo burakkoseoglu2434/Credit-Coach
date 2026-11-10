@@ -22,6 +22,7 @@ jobs:
           --health-interval 2s --health-timeout 5s --health-retries 30
     env:
       CREDIT_COACH_TEST_DB_URL: postgresql+psycopg://cc_owner:cc_owner_dev@localhost:55432/credit_coach
+      CREDIT_COACH_APP_DB_URL: postgresql+psycopg://cc_app:cc_app_dev@localhost:55432/credit_coach
     defaults:
       run:
         working-directory: backend
