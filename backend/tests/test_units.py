@@ -9,7 +9,7 @@ from credit_coach.features import load_manifest
 def test_every_allowed_numeric_feature_has_unit():
     for c in load_manifest():
         if c.izin_verilen and c.tip in ("float", "int"):
-            assert c.birim in {"yuzde", "oran", "adet", "dolar"}, c.ad
+            assert c.birim in {"yuzde", "oran", "adet", "dolar", "puan"}, c.ad
 
 
 def test_revol_util_and_dti_are_percent():
@@ -55,3 +55,8 @@ def test_manifest_rejects_numeric_without_unit(tmp_path):
     )
     with pytest.raises(ValueError, match="birim"):
         load_manifest(p)
+
+
+def test_fico_is_score_points():
+    b = {c.ad: c.birim for c in load_manifest()}
+    assert b["fico_range_low"] == "puan" and b["fico_range_high"] == "puan"

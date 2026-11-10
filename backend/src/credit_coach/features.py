@@ -14,7 +14,7 @@ CLASSES = frozenset(
     {"APPLICATION_TIME", "PRICING", "POST_ORIGINATION", "TARGET_SOURCE", "ID_OR_META"}
 )
 TYPES = {"float": float, "int": int, "str": str}
-BIRIMLER = frozenset({"yuzde", "oran", "adet", "dolar"})
+BIRIMLER = frozenset({"yuzde", "oran", "adet", "dolar", "puan"})
 
 
 @dataclass(frozen=True)

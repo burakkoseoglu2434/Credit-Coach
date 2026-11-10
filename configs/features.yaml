@@ -1,8 +1,7 @@
 # Özellik manifestosu: her ham sütun için sınıf ve izin. Tek doğruluk kaynağı.
 # sinif: APPLICATION_TIME | PRICING | POST_ORIGINATION | TARGET_SOURCE | ID_OR_META
 version: 1
-# birim (yalnızca izinli sayısal özellikler): yuzde (0-100 ölçeği, 0-1 değil) | oran (0-1) | adet | dolar.
-# fico_range_*: skor puanı, dört birimden en yakını adet olarak işaretlendi.
+# birim (yalnızca izinli sayısal özellikler): yuzde (0-100 ölçeği, 0-1 değil) | oran (0-1) | adet | dolar | puan (skor puanı, fico_range_*).
 source: lending_club_48_features_20251026_114053.csv
 columns:
   - ad: loan_amnt
@@ -108,13 +107,13 @@ columns:
   - ad: fico_range_low
     sinif: APPLICATION_TIME
     tip: float
-    birim: adet
+    birim: puan
     izin_verilen: true
     gerekce: "Başvuru anında çekilen FICO."
   - ad: fico_range_high
     sinif: APPLICATION_TIME
     tip: float
-    birim: adet
+    birim: puan
     izin_verilen: true
     gerekce: "Başvuru anında çekilen FICO."
   - ad: last_fico_range_low

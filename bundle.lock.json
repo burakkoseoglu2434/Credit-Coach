@@ -14,7 +14,7 @@
     },
     "features_manifest": {
       "path": "configs/features.yaml",
-      "sha256": "8c2585d0481517e7ab6ef5711eda3227bce9765076446670d944c08383ba2376"
+      "sha256": "85ea125e4ad39e45b6d32cda5d70a6d57db3bda7c37e95ce3f4baf8198c697bc"
     },
     "model": {
       "path": "bundle/pd_monotone.json",
