@@ -24,6 +24,10 @@
       "path": "configs/monotone.yaml",
       "sha256": "8a4145e4337b3129c541373d8fa4543d56bcad255515212e8c93599f71ae2d35"
     },
+    "policy_v1": {
+      "path": "configs/policy/v1.yaml",
+      "sha256": "8438ce5a34912b000a20182f873ad2aed178453f5fc34a52f2daf6e2999d5aba"
+    },
     "split": {
       "path": "configs/split.yaml",
       "sha256": "1b1679cbf5aed5747b7f44f881b8d7c72a3e05b2b5f8584de18d581eb557712c"
