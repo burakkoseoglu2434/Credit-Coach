@@ -32,6 +32,7 @@ def upgrade() -> None:
           cikti_json TEXT NOT NULL,
           politika_surumu TEXT NOT NULL,
           politika_sha256 TEXT NOT NULL,
+          bundle_sha256 TEXT NOT NULL,
           prev_hash TEXT NOT NULL UNIQUE,
           row_hash TEXT NOT NULL UNIQUE,
           CONSTRAINT hash_len CHECK (length(prev_hash) = 64 AND length(row_hash) = 64),

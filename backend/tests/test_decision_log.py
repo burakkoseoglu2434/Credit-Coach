@@ -230,8 +230,8 @@ def test_fork_is_blocked_by_unique_prev_hash_even_without_the_lock(db):
         c.execute(
             text(
                 "INSERT INTO decision_log (decision_id, kayit_zamani, girdi_json, cikti_json, "
-                "politika_surumu, politika_sha256, prev_hash, row_hash) VALUES "
-                "('x','t','{}','{}','v1','s', :p, :h)"
+                "politika_surumu, politika_sha256, bundle_sha256, prev_hash, row_hash) VALUES "
+                "('x','t','{}','{}','v1','s','b', :p, :h)"
             ),
             {"p": GENESIS_HASH, "h": "a" * 64},
         )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import sys
+from pathlib import Path
 
 import yaml
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -63,10 +64,10 @@ class Policy(BaseModel):
         return self
 
 
-def load_policy(surum: str) -> Policy:
+def load_policy(surum: str, policy_dir: Path = POLICY_DIR) -> Policy:
     if not re.fullmatch(r"v\d+", surum):
         raise UnknownPolicyVersion(f"invalid policy version: {surum!r}")
-    path = POLICY_DIR / f"{surum}.yaml"
+    path = policy_dir / f"{surum}.yaml"
     if not path.exists():
         raise UnknownPolicyVersion(f"unknown policy version: {surum!r}")
     return Policy(**yaml.safe_load(path.read_text()))

@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import Connection, Engine, text
 
+from credit_coach.bundle import LOCK_PATH
 from credit_coach.bundle import sha256 as file_sha256
 from credit_coach.canonical import canonical_text, model_canonical_text, sha256_hex
 from credit_coach.contract import DecisionInput, InternalDecision
@@ -38,12 +39,18 @@ class LogRow:
     cikti_json: str
     politika_surumu: str
     politika_sha256: str
+    bundle_sha256: str
     prev_hash: str
     row_hash: str
 
 
 def policy_file_sha256(surum: str) -> str:
     return file_sha256(POLICY_DIR / f"{surum}.yaml")
+
+
+def current_bundle_sha256() -> str:
+    """SHA-256 of bundle.lock.json: identifies the frozen model/calibrator/policy set."""
+    return file_sha256(LOCK_PATH)
 
 
 def utc_now_text() -> str:
@@ -58,6 +65,7 @@ def compute_row_hash(
     cikti_json: str,
     politika_surumu: str,
     politika_sha256: str,
+    bundle_sha256: str,
     prev_hash: str,
 ) -> str:
     return sha256_hex(
@@ -69,6 +77,7 @@ def compute_row_hash(
                 "cikti_json": cikti_json,
                 "politika_surumu": politika_surumu,
                 "politika_sha256": politika_sha256,
+                "bundle_sha256": bundle_sha256,
                 "prev_hash": prev_hash,
             }
         )
@@ -77,7 +86,7 @@ def compute_row_hash(
 
 _COLS = (
     "seq, decision_id, kayit_zamani, girdi_json, cikti_json, politika_surumu, "
-    "politika_sha256, prev_hash, row_hash"
+    "politika_sha256, bundle_sha256, prev_hash, row_hash"
 )
 
 
@@ -88,6 +97,7 @@ def append(
     cikti_json: str,
     politika_surumu: str,
     politika_sha256: str,
+    bundle_sha256: str | None = None,
     decision_id: str | None = None,
     kayit_zamani: str | None = None,
 ) -> LogRow:
@@ -102,15 +112,16 @@ def append(
         "cikti_json": cikti_json,
         "politika_surumu": politika_surumu,
         "politika_sha256": politika_sha256,
+        "bundle_sha256": bundle_sha256 or current_bundle_sha256(),
         "prev_hash": prev,
     }
     fields["row_hash"] = compute_row_hash(**fields)
     row = conn.execute(
         text(
             "INSERT INTO decision_log (decision_id, kayit_zamani, girdi_json, cikti_json, "
-            "politika_surumu, politika_sha256, prev_hash, row_hash) VALUES "
+            "politika_surumu, politika_sha256, bundle_sha256, prev_hash, row_hash) VALUES "
             "(:decision_id, :kayit_zamani, :girdi_json, :cikti_json, :politika_surumu, "
-            f":politika_sha256, :prev_hash, :row_hash) RETURNING {_COLS}"
+            f":politika_sha256, :bundle_sha256, :prev_hash, :row_hash) RETURNING {_COLS}"
         ),
         fields,
     ).one()
@@ -165,6 +176,7 @@ def verify_chain(conn: Connection) -> int:
             cikti_json=r.cikti_json,
             politika_surumu=r.politika_surumu,
             politika_sha256=r.politika_sha256,
+            bundle_sha256=r.bundle_sha256,
             prev_hash=r.prev_hash,
         )
         if expected != r.row_hash:
