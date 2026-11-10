@@ -2,3 +2,7 @@
 *.docx
 .claude/
 .codex/
+
+# macOS/iCloud duplicate-name files
+* [0-9]
+* [0-9].*
