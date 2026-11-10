@@ -17,6 +17,8 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run pytest -q
+      - name: Frozen bundle hashes match bundle.lock.json
+        run: uv run python -m credit_coach.bundle verify
 
   types:
     runs-on: ubuntu-latest

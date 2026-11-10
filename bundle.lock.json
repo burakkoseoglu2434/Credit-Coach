@@ -1,0 +1,33 @@
+{
+  "files": {
+    "calibrator_data": {
+      "path": "bundle/calibration_data.npz",
+      "sha256": "c324fdf092767db0e50bea1070cf13fdc70cd94c984ca9028e0512e653d4adb9"
+    },
+    "cost_and_thresholds": {
+      "path": "configs/cost.yaml",
+      "sha256": "f531c1a4003d277405c0498a8aa790e8013c004545164e565a3e3278a59a784b"
+    },
+    "decision": {
+      "path": "configs/decision.yaml",
+      "sha256": "02491c2d1d73e65987144a6ef89864247633b116453be9f114272e784985453b"
+    },
+    "features_manifest": {
+      "path": "configs/features.yaml",
+      "sha256": "a75e08ed5cf23583558c0f2cc7e75ea96925ec435d23181d136748aab4f63713"
+    },
+    "model": {
+      "path": "bundle/pd_monotone.json",
+      "sha256": "24fbf24d0e852a5614bab3c888104cc3c315c41b6b9a9001a8cb5131752fdffe"
+    },
+    "monotone": {
+      "path": "configs/monotone.yaml",
+      "sha256": "8a4145e4337b3129c541373d8fa4543d56bcad255515212e8c93599f71ae2d35"
+    },
+    "split": {
+      "path": "configs/split.yaml",
+      "sha256": "1b1679cbf5aed5747b7f44f881b8d7c72a3e05b2b5f8584de18d581eb557712c"
+    }
+  },
+  "version": 1
+}

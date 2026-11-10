@@ -29,6 +29,5 @@ def test_missing_file_is_detected(tmp_path):
 
 def test_repo_lock_matches_files_when_present():
     """The committed bundle.lock.json must match the frozen files (this is the CI hash check)."""
-    if not LOCK_PATH.exists():
-        return
+    assert LOCK_PATH.exists(), "bundle.lock.json missing: run `python -m credit_coach.bundle write`"
     assert verify_lock(json.loads(LOCK_PATH.read_text())) == []
