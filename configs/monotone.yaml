@@ -1,0 +1,89 @@
+# Monotonluk haritası (onaylandı). yon: +1 özellik arttıkça PD artar, -1 azalır, 0 kısıt yok.
+# Kategorik sütunlar (purpose=*, home_ownership=*, application_type=*) sıralı değildir, kısıtsızdır.
+version: 1
+unconstrained_prefixes:
+  - "purpose="
+  - "home_ownership="
+  - "application_type="
+features:
+  - ad: fico_range_low
+    yon: -1
+    gerekce: "Yüksek skor, düşük risk."
+  - ad: annual_inc
+    yon: -1
+    gerekce: "Ödeme kapasitesi."
+  - ad: credit_history_months
+    yon: -1
+    gerekce: "Uzun geçmiş, kanıtlanmış davranış."
+  - ad: mort_acc
+    yon: -1
+    gerekce: "Konut/varlık sahipliği göstergesi (orta güven)."
+  - ad: total_rev_hi_lim
+    yon: -1
+    gerekce: "Diğer kredi verenlerin tanıdığı limit, güven sinyali (orta güven)."
+  - ad: total_bc_limit
+    yon: -1
+    gerekce: "Diğer kredi verenlerin tanıdığı limit, güven sinyali (orta güven)."
+  - ad: tot_hi_cred_lim
+    yon: -1
+    gerekce: "Diğer kredi verenlerin tanıdığı limit, güven sinyali (orta güven)."
+  - ad: dti
+    yon: 1
+    gerekce: "Borç yükü."
+  - ad: revol_util
+    yon: 1
+    gerekce: "Yüksek limit kullanımı, finansal baskı."
+  - ad: inq_last_6mths
+    yon: 1
+    gerekce: "Kredi arayışı."
+  - ad: acc_open_past_24mths
+    yon: 1
+    gerekce: "Yakın zamanda çok hesap açma."
+  - ad: delinq_2yrs
+    yon: 1
+    gerekce: "Geçmiş ödeme sorunu, kayıt veya tahsilat işareti."
+  - ad: pub_rec
+    yon: 1
+    gerekce: "Geçmiş ödeme sorunu, kayıt veya tahsilat işareti."
+  - ad: pub_rec_bankruptcies
+    yon: 1
+    gerekce: "Geçmiş ödeme sorunu, kayıt veya tahsilat işareti."
+  - ad: collections_12_mths_ex_med
+    yon: 1
+    gerekce: "Geçmiş ödeme sorunu, kayıt veya tahsilat işareti."
+  - ad: acc_now_delinq
+    yon: 1
+    gerekce: "Geçmiş ödeme sorunu, kayıt veya tahsilat işareti."
+  - ad: delinq_amnt
+    yon: 1
+    gerekce: "Geçmiş ödeme sorunu, kayıt veya tahsilat işareti."
+  - ad: tax_liens
+    yon: 1
+    gerekce: "Geçmiş ödeme sorunu, kayıt veya tahsilat işareti."
+  - ad: chargeoff_within_12_mths
+    yon: 1
+    gerekce: "Geçmiş ödeme sorunu, kayıt veya tahsilat işareti."
+  - ad: tot_coll_amt
+    yon: 1
+    gerekce: "Geçmiş ödeme sorunu, kayıt veya tahsilat işareti."
+  - ad: loan_amnt
+    yon: 0
+    gerekce: "Büyük kredi hem yük hem iyi borçlu işareti, yön savunulamaz."
+  - ad: revol_bal
+    yon: 0
+    gerekce: "Bakiye gelire göre anlamlı, tek başına yönü belirsiz."
+  - ad: tot_cur_bal
+    yon: 0
+    gerekce: "Bakiye gelire göre anlamlı, tek başına yönü belirsiz."
+  - ad: total_bal_ex_mort
+    yon: 0
+    gerekce: "Bakiye gelire göre anlamlı, tek başına yönü belirsiz."
+  - ad: total_acc
+    yon: 0
+    gerekce: "Etkisi belirsiz."
+  - ad: open_acc
+    yon: 0
+    gerekce: "Etkisi belirsiz."
+  - ad: emp_length
+    yon: 0
+    gerekce: "Ampirik olarak karışık, yaş vekili olabilir."

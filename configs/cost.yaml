@@ -1,0 +1,66 @@
+# Maliyet varsayımları (onay eşiği için).
+# BU ALANLAR MODEL GİRDİSİ DEĞİLDİR: funded_amnt, total_rec_prncp, total_rec_int, recoveries ve
+# loan_status kredi sonrası sonuçlardır (yasak sütunlar). Yalnızca maliyet kalibrasyonunda,
+# ayrı bir yükleyiciyle ve yalnızca EĞİTİM diliminden okunur; eğitim matrisine girmez.
+# Kalibrasyon ve test dilimlerinin sonuçlarına bakılmaz.
+version: 1
+etiket: 'varsayım: eğitim diliminden ampirik, vade ve fon maliyeti dahil değil'
+kaynak_pencere:
+  term: 36 months
+  issue_d_start: 2012-01-01
+  issue_d_end: 2014-12-01
+  sonuclanmis_kredi: 306462
+  temerrut_orani: 0.13246666797188558
+lgd:
+  etiket: 'varsayım: eğitim diliminden ampirik, vade ve fon maliyeti dahil değil'
+  mean: 0.5029674184201456
+  median: 0.5168479912280701
+  n: 40596
+  formul: (funded_amnt - total_rec_prncp - recoveries) / funded_amnt, temerrütlü krediler
+saglam_kredi_getirisi:
+  etiket: 'varsayım: eğitim diliminden ampirik, vade ve fon maliyeti dahil değil'
+  mean: 0.16660143782393022
+  median: 0.16283
+  n: 265866
+  formul: total_rec_int / funded_amnt, tam ödenen krediler
+temerrutte_tahsil_edilen_faiz:
+  etiket: 'varsayım: eğitim diliminden ampirik, vade ve fon maliyeti dahil değil'
+  mean: 0.15108863394241373
+  median: 0.14682091666666666
+  n: 40596
+  formul: total_rec_int / funded_amnt, temerrütlü krediler
+temerrut_kaybi:
+  etiket: 'varsayım: eğitim diliminden ampirik, vade ve fon maliyeti dahil değil'
+  mean: 0.35187878447773197
+  median: 0.3567016666666667
+  n: 40596
+  formul: LGD - tahsil edilen faiz / funded_amnt
+onay_esigi_referans:
+  etiket: 'varsayım: eğitim diliminden ampirik, vade ve fon maliyeti dahil değil'
+  formul: PD* = getiri / (getiri + kayip), yani hurdle = 0 referansı; nihai eşik hurdle ile hesaplanır
+  break_even_pd_mean: 0.32132650515451705
+  break_even_pd_median: 0.31341689149522484
+  birincil: mean
+hurdle:
+  # Birim: funded_amnt'ın oranı, kredi ömrü (36 ay) boyunca toplam.
+  # Onay kuralı: (1-PD)*getiri - PD*kayip >= asgari_marj + fon_maliyeti + isletme_gideri
+  # Toplam hurdle: 0.11
+  asgari_marj:
+    etiket: tez varsayımı
+    deger: 0.03
+    gerekce: >-
+      Tez varsayımı (kullanıcı tarafından verildi): kredi ömrü boyunca funded_amnt'ın %3'ü
+      asgari kâr marjı. Dış bir kaynak belirtilmedi.
+  fon_maliyeti:
+    etiket: tez varsayımı
+    deger: 0.05
+    gerekce: >-
+      Tez varsayımı (kullanıcı tarafından verildi). Hesap yolu: yıllık %3 fon maliyeti x ~0.55
+      ortalama kalan anapara (36 ayda amorti olan kredi) x 3 yıl = 0.0495, 0.05'e yuvarlandı.
+  isletme_gideri:
+    etiket: tez varsayımı
+    deger: 0.03
+    gerekce: >-
+      Tez varsayımı (kullanıcı tarafından verildi): kredi ömrü boyunca funded_amnt'ın %3'ü
+      işletme gideri. Dış bir kaynak belirtilmedi.
+ret_esigi: null

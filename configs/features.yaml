@@ -1,0 +1,245 @@
+# Özellik manifestosu: her ham sütun için sınıf ve izin. Tek doğruluk kaynağı.
+# sinif: APPLICATION_TIME | PRICING | POST_ORIGINATION | TARGET_SOURCE | ID_OR_META
+version: 1
+source: lending_club_48_features_20251026_114053.csv
+columns:
+  - ad: loan_amnt
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Talep edilen kredi tutarı, başvuruda bilinir."
+  - ad: funded_amnt
+    sinif: PRICING
+    tip: float
+    izin_verilen: false
+    gerekce: "Yatırımcı fonlaması sonucu, karardan sonra belli olur."
+  - ad: term
+    sinif: APPLICATION_TIME
+    tip: str
+    izin_verilen: true
+    gerekce: "Başvuruda seçilen vade."
+  - ad: int_rate
+    sinif: PRICING
+    tip: float
+    izin_verilen: false
+    gerekce: "Kurumun fiyatlama kararı, yasak."
+  - ad: installment
+    sinif: PRICING
+    tip: float
+    izin_verilen: false
+    gerekce: "loan_amnt, int_rate ve term'den hesaplanır, fiyatlamayı dolaylı taşır."
+  - ad: grade
+    sinif: PRICING
+    tip: str
+    izin_verilen: false
+    gerekce: "Kurumun fiyatlama kararı, yasak."
+  - ad: sub_grade
+    sinif: PRICING
+    tip: str
+    izin_verilen: false
+    gerekce: "Kurumun fiyatlama kararı, yasak."
+  - ad: purpose
+    sinif: APPLICATION_TIME
+    tip: str
+    izin_verilen: true
+    gerekce: "Başvuruda beyan edilir."
+  - ad: application_type
+    sinif: APPLICATION_TIME
+    tip: str
+    izin_verilen: true
+    gerekce: "Başvuruda belli (bireysel/ortak)."
+  - ad: annual_inc
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuruda beyan edilen gelir."
+  - ad: emp_title
+    sinif: ID_OR_META
+    tip: str
+    izin_verilen: false
+    gerekce: "Serbest metin, yüksek kardinalite; modele girmez."
+  - ad: emp_length
+    sinif: APPLICATION_TIME
+    tip: str
+    izin_verilen: true
+    gerekce: "Başvuruda beyan edilir."
+  - ad: home_ownership
+    sinif: APPLICATION_TIME
+    tip: str
+    izin_verilen: true
+    gerekce: "Başvuruda beyan edilir."
+  - ad: verification_status
+    sinif: POST_ORIGINATION
+    tip: str
+    izin_verilen: false
+    gerekce: "Doğrulama başvurudan sonra yapılır."
+  - ad: addr_state
+    sinif: APPLICATION_TIME
+    tip: str
+    izin_verilen: false
+    gerekce: "Korunan gruplar için vekil olabilir; ilk sürümde izinsiz (adil kredi)."
+  - ad: zip_code
+    sinif: APPLICATION_TIME
+    tip: str
+    izin_verilen: false
+    gerekce: "Korunan gruplar için vekil olabilir; izinsiz (adil kredi)."
+  - ad: dti
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anındaki borç/gelir oranı."
+  - ad: revol_bal
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: revol_util
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: fico_range_low
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında çekilen FICO."
+  - ad: fico_range_high
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında çekilen FICO."
+  - ad: last_fico_range_low
+    sinif: POST_ORIGINATION
+    tip: float
+    izin_verilen: false
+    gerekce: "Kredi sonrası güncel FICO, klasik sızıntı."
+  - ad: last_fico_range_high
+    sinif: POST_ORIGINATION
+    tip: float
+    izin_verilen: false
+    gerekce: "Kredi sonrası güncel FICO, klasik sızıntı."
+  - ad: earliest_cr_line
+    sinif: APPLICATION_TIME
+    tip: str
+    izin_verilen: true
+    gerekce: "Kredi geçmişinin başlangıcı, başvuruda bilinir."
+  - ad: issue_d
+    sinif: ID_OR_META
+    tip: str
+    izin_verilen: false
+    gerekce: "Zamana göre bölme anahtarı, özellik değil."
+  - ad: open_acc
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: total_acc
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: total_rev_hi_lim
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: tot_cur_bal
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: tot_coll_amt
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: mort_acc
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: total_bal_ex_mort
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: total_bc_limit
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: delinq_2yrs
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: inq_last_6mths
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: pub_rec
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: pub_rec_bankruptcies
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: acc_now_delinq
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: delinq_amnt
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: collections_12_mths_ex_med
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: chargeoff_within_12_mths
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: tax_liens
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: tot_hi_cred_lim
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: initial_list_status
+    sinif: POST_ORIGINATION
+    tip: str
+    izin_verilen: false
+    gerekce: "LC listeleme sırasında atar."
+  - ad: acc_open_past_24mths
+    sinif: APPLICATION_TIME
+    tip: float
+    izin_verilen: true
+    gerekce: "Başvuru anında kredi bürosundan."
+  - ad: debt_settlement_flag
+    sinif: POST_ORIGINATION
+    tip: str
+    izin_verilen: false
+    gerekce: "Kredi sonrası olay, yasak."
+  - ad: disbursement_method
+    sinif: POST_ORIGINATION
+    tip: str
+    izin_verilen: false
+    gerekce: "Onaydan sonraki seçim."
+  - ad: target
+    sinif: TARGET_SOURCE
+    tip: int
+    izin_verilen: false
+    gerekce: "Hedef değişken; özellik olamaz."

@@ -1,0 +1,3 @@
+# raw and parquet data never enter git
+*
+!.gitignore
