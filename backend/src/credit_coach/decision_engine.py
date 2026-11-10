@@ -14,9 +14,11 @@ from credit_coach.contract import (
     PublicReasonCode,
     ReasonCode,
     RuleId,
+    SupportDecision,
     check_invariants,
 )
 from credit_coach.policy import Policy
+from credit_coach.support import Support, violations
 
 _ORDER = {c: i for i, c in enumerate(ReasonCode)}
 _PUBLIC = {c.value for c in PublicReasonCode}
@@ -91,6 +93,33 @@ def decide(girdi: DecisionInput, politika: Policy) -> InternalDecision:
         conditional_type=cond_type,
         upgrade_condition=upgrade,
         politika_surumu=politika.surum,
+    )
+
+
+def decide_with_support(
+    girdi: DecisionInput, politika: Policy, support: Support
+) -> InternalDecision:
+    """Support check first. Any violation: CONDITIONAL / DATA_ISSUE, no plan, no PD rules.
+
+    Inside the support the result is exactly `decide(girdi, politika)`.
+    """
+    check_invariants(girdi)
+    if girdi.politika_surumu != politika.surum:
+        raise InvalidDecisionInput(
+            f"policy version mismatch: input {girdi.politika_surumu!r} vs policy {politika.surum!r}"
+        )
+    bad = violations(girdi.basvuru.model_dump(), support)
+    if not bad:
+        return decide(girdi, politika)
+    return SupportDecision(
+        dis_durum=OuterStatus.CONDITIONAL,
+        ic_durum=InnerStatus.NEEDS_REVIEW,
+        gerekce_kodlari=_codes(ReasonCode.REVIEW_REQUIRED, ReasonCode.OUT_OF_SUPPORT),
+        tetiklenen_kurallar=(RuleId.R0_SUPPORT_CHECK,),
+        conditional_type=ConditionalType.DATA_ISSUE,
+        upgrade_condition=HUMAN_REVIEW_COMPLETED,
+        politika_surumu=politika.surum,
+        destek_ihlalleri=bad,
     )
 
 

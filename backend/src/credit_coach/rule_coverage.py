@@ -11,8 +11,14 @@ from collections import defaultdict
 
 from credit_coach.bundle import ROOT
 from credit_coach.contract import ReasonCode, RuleId, parse_input
-from credit_coach.decision_engine import decide
-from credit_coach.decision_scenarios import policy_variant, sample_basvuru, scenarios
+from credit_coach.decision_engine import decide, decide_with_support
+from credit_coach.decision_scenarios import (
+    in_support_basvuru,
+    policy_variant,
+    sample_basvuru,
+    scenarios,
+)
+from credit_coach.support import load_support
 
 REPORT = ROOT / "docs" / "week3_rule_coverage.md"
 
@@ -38,6 +44,24 @@ def run() -> tuple[dict[str, list[str]], dict[str, list[str]]]:
             by_rule[r.value].append(label)
         for c in d.gerekce_kodlari:
             by_code[c.value].append(label)
+    support = load_support()
+    out = {**in_support_basvuru(support), "dti": 999.0}
+    girdi = parse_input(
+        {
+            "basvuru": out,
+            "p_low": 0.05,
+            "p_point": 0.05,
+            "p_high": 0.05,
+            "ham_skor": 0.05,
+            "politika_surumu": "v1",
+            "plan_available": True,
+        }
+    )
+    d = decide_with_support(girdi, policy_variant(), support)
+    for r in d.tetiklenen_kurallar:
+        by_rule[r.value].append("destek_disi_dti_999 (destek kontrolü)")
+    for c in d.gerekce_kodlari:
+        by_code[c.value].append("destek_disi_dti_999 (destek kontrolü)")
     return by_rule, by_code
 
 
