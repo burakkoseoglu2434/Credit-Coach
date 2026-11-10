@@ -24,6 +24,7 @@ FILES = {
     "decision": "configs/decision.yaml",
     "policy_v1": "configs/policy/v1.yaml",
     "support": "configs/support.yaml",
+    "catalog_demo_v0": "configs/catalog/demo_v0.yaml",
 }
 
 

@@ -4,6 +4,10 @@
       "path": "bundle/calibration_data.npz",
       "sha256": "c324fdf092767db0e50bea1070cf13fdc70cd94c984ca9028e0512e653d4adb9"
     },
+    "catalog_demo_v0": {
+      "path": "configs/catalog/demo_v0.yaml",
+      "sha256": "2fbba7d0cca5bde776e2e92b801331d3c350ccb3a20c3f67c703cf1b7f05adb2"
+    },
     "cost_and_thresholds": {
       "path": "configs/cost.yaml",
       "sha256": "f531c1a4003d277405c0498a8aa790e8013c004545164e565a3e3278a59a784b"
