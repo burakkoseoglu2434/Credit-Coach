@@ -62,3 +62,41 @@ def test_monotone_unknown_column_is_rejected():
 
     with pytest.raises(ValueError):
         monotone_constraints(["surprise_feature"])
+
+
+def _synthetic_xy(n=4000, seed=0):
+    import numpy as np
+
+    rng = np.random.default_rng(seed)
+    X = pd.DataFrame(rng.normal(size=(n, 3)), columns=["dti", "fico_range_low", "loan_amnt"])
+    logit = 0.9 * X["dti"] - 0.9 * X["fico_range_low"] + np.sin(3 * X["loan_amnt"])
+    y = (rng.random(n) < 1 / (1 + np.exp(-logit))).astype(int)
+    return X, y
+
+
+def test_monotone_model_property_holds_and_unconstrained_can_violate():
+    from credit_coach.modeling import check_monotone, monotone_xgb
+
+    X, y = _synthetic_xy()
+    m = monotone_xgb(X.columns, n_estimators=80, max_depth=4, min_child_weight=1).fit(X, y)
+    assert check_monotone(m, X) == []
+
+
+def test_property_check_detects_wrong_direction():
+    from xgboost import XGBClassifier
+
+    from credit_coach.modeling import check_monotone
+
+    X, y = _synthetic_xy()
+    # dti has +1 in monotone.yaml; a free model trained on the flipped target must violate it
+    flipped = XGBClassifier(n_estimators=80, max_depth=4, random_state=0, n_jobs=1).fit(X, 1 - y)
+    assert check_monotone(flipped, X) != []
+
+
+def test_training_is_deterministic():
+    from credit_coach.modeling import monotone_xgb
+
+    X, y = _synthetic_xy()
+    a = monotone_xgb(X.columns, n_estimators=50, min_child_weight=1).fit(X, y).predict_proba(X)
+    b = monotone_xgb(X.columns, n_estimators=50, min_child_weight=1).fit(X, y).predict_proba(X)
+    assert (a == b).all()

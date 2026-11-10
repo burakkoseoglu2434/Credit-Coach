@@ -131,3 +131,38 @@ def monotone_constraints(columns, path=MONOTONE_PATH) -> tuple[int, ...]:
         else:
             raise ValueError(f"no monotone decision for column {c}")
     return tuple(out)
+
+
+def monotone_xgb(columns, **overrides) -> XGBClassifier:
+    """XGBoost with the approved monotone constraints (deterministic: fixed seed, 1 thread)."""
+    mc = monotone_constraints(columns)
+    return XGBClassifier(**{**xgb_params(), **overrides}, monotone_constraints=mc)
+
+
+# Inner time validation inside TRAIN only: fit up to FIT_END, validate from DEV_START (gap between).
+INNER_FIT_END = pd.Timestamp("2014-03-01")
+INNER_DEV_START = pd.Timestamp("2014-07-01")
+
+
+def inner_masks(issue_date: pd.Series) -> tuple[pd.Series, pd.Series]:
+    return issue_date <= INNER_FIT_END, issue_date >= INNER_DEV_START
+
+
+def check_monotone(model, X: pd.DataFrame, n_rows: int = 500, n_grid: int = 25) -> list[str]:
+    """Property check: sweep each constrained feature alone; PD must never move against its sign."""
+    cons = dict(zip(X.columns, monotone_constraints(X.columns), strict=True))
+    sample = X.sample(n=min(n_rows, len(X)), random_state=SEED)
+    violations = []
+    for col, sign in cons.items():
+        if sign == 0:
+            continue
+        grid = np.unique(X[col].dropna().quantile(np.linspace(0.02, 0.98, n_grid)).to_numpy())
+        preds = []
+        for v in grid:
+            tmp = sample.copy()
+            tmp[col] = v
+            preds.append(model.predict_proba(tmp)[:, 1])
+        diffs = np.diff(np.vstack(preds), axis=0) * sign
+        if (diffs < -1e-9).any():
+            violations.append(col)
+    return violations

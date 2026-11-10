@@ -4,6 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115",
+  "mlflow>=3.18.0",
   "pandas>=3.1.1",
   "pandera>=0.36.0",
   "pydantic>=2.8",
