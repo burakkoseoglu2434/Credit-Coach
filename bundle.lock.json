@@ -31,6 +31,10 @@
     "split": {
       "path": "configs/split.yaml",
       "sha256": "1b1679cbf5aed5747b7f44f881b8d7c72a3e05b2b5f8584de18d581eb557712c"
+    },
+    "support": {
+      "path": "configs/support.yaml",
+      "sha256": "eb78631bfd7cbd00ef98e1705a810ebf586cf5673c8f5bf702f54d2795573130"
     }
   },
   "version": 1

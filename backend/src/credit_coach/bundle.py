@@ -23,6 +23,7 @@ FILES = {
     "cost_and_thresholds": "configs/cost.yaml",
     "decision": "configs/decision.yaml",
     "policy_v1": "configs/policy/v1.yaml",
+    "support": "configs/support.yaml",
 }
 
 
