@@ -46,3 +46,19 @@ def test_real_dev_frame_has_no_test_rows():
     assert set(dev["split"]) == set(DEV_SPLITS)
     X, _ = design_matrix(dev)
     assert len(X) == len(dev)
+
+
+def test_monotone_covers_every_design_column_and_matches_approved_counts():
+    from credit_coach.modeling import monotone_constraints
+
+    X, _ = design_matrix(dev_frame(_raw()))
+    mc = monotone_constraints(X.columns)
+    assert len(mc) == X.shape[1]
+    assert mc.count(1) == 13 and mc.count(-1) == 7
+
+
+def test_monotone_unknown_column_is_rejected():
+    from credit_coach.modeling import monotone_constraints
+
+    with pytest.raises(ValueError):
+        monotone_constraints(["surprise_feature"])

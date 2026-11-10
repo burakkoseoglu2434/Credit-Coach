@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import yaml
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
@@ -11,7 +12,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
 
-from credit_coach.features import allowed_features
+from credit_coach.features import MANIFEST_PATH, allowed_features
 from credit_coach.leakage import assert_columns_allowed
 from credit_coach.split import assign_split, cohort
 
@@ -103,3 +104,30 @@ def metrics(model, X, y) -> dict[str, float]:
         "logloss": float(log_loss(y, p)),
         "mean_pd": float(np.mean(p)),
     }
+
+
+MONOTONE_PATH = MANIFEST_PATH.parents[0] / "monotone.yaml"
+
+
+def load_monotone(path=MONOTONE_PATH) -> dict[str, int]:
+    raw = yaml.safe_load(path.read_text())
+    out = {f["ad"]: int(f["yon"]) for f in raw["features"]}
+    for f in raw["features"]:
+        if f["yon"] not in (-1, 0, 1) or not f["gerekce"].strip():
+            raise ValueError(f"bad monotone entry: {f['ad']}")
+    return out
+
+
+def monotone_constraints(columns, path=MONOTONE_PATH) -> tuple[int, ...]:
+    """Constraint vector aligned to design-matrix columns; every column must be accounted for."""
+    raw = yaml.safe_load(path.read_text())
+    table, prefixes = load_monotone(path), tuple(raw["unconstrained_prefixes"])
+    out = []
+    for c in columns:
+        if c in table:
+            out.append(table[c])
+        elif c.startswith(prefixes):
+            out.append(0)
+        else:
+            raise ValueError(f"no monotone decision for column {c}")
+    return tuple(out)
