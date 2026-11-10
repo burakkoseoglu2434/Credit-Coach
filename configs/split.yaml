@@ -1,0 +1,17 @@
+# Zamana göre bölme (ADR-002). Tarihler issue_d ayının ilk günüdür, uçlar dahildir.
+# Rastgele bölme yasaktır.
+cohort:
+  term: "36 months"          # yalnızca 36 aylık krediler
+  issue_d_min: 2012-01-01
+  issue_d_max: 2015-12-01    # bu tarihte açılan 36 aylık krediler 2018-12'ye kadar olgunlaşır
+min_gap_months: 2            # dilimler arası en az boşluk (ay)
+splits:
+  train:
+    start: 2012-01-01
+    end: 2014-12-01
+  calibration:
+    start: 2015-03-01
+    end: 2015-06-01
+  test:
+    start: 2015-09-01
+    end: 2015-12-01
