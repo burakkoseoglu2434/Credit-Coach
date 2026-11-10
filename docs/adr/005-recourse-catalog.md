@@ -37,3 +37,13 @@ institution (`institution_assisted`).
 
 ## Kapsam dışı (bilinçli)
 Dayanıklılık, DAG özdeşlikleri, likidite koruması (5. hafta); ortak başvuru; ürün/vade değişikliği.
+
+## Revizyon notu (2026-11-10)
+İlk metin silinmedi; aşağıdakiler üstüne eklendi.
+- **Nedensel dil kaldırıldı.** Katalogdaki eylemlerin etkisi model ilişkisi olarak anlatılır:
+  "bu profilde benzer kişilerin riski modele göre daha düşük". "Onaylanırsın", "riskin düşecek"
+  gibi vaatler yazılmaz.
+- **Etiket: tek fiyatlı kurgusal kredi veren.** Eşik ve maliyetler kurgusal, tek fiyatlı bir kredi
+  verene aittir (`kurgu_etiketi`, ADR-003 revizyon notu).
+- **Birim.** `revol_util` hedefleri yüzde ölçeğinde (70/50/30) yazılır; `hedef_birimleri` alanı
+  `features.yaml` `birim` değeriyle test ile eşleştirilir.

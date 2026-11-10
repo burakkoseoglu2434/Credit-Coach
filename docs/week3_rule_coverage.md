@@ -1,5 +1,7 @@
 # Hafta 3: kural kapsama raporu
 
+> Etiket: tek fiyatlı kurgusal kredi veren. Bu çalışmadaki kredi veren tek bir sabit getiri, kayıp ve hurdle ile varsayılmıştır; gerçek bir kurumun fiyatlama politikası değildir.
+
 Her kural ve gerekçe kodu en az bir senaryoyla tetiklenmelidir. "politika varyantı" işaretli senaryolar v1'in kendisiyle değil, ret eşiği veya zayıf destek aralığı değiştirilmiş bir politikayla çalışır (v1'de R1 pasif, R3 bu eşikte hiç tetiklenmez).
 
 | Kural | Tetikleyen senaryolar |

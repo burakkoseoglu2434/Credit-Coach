@@ -1,4 +1,5 @@
-# Monotonluk haritası (onaylandı). yon: +1 özellik arttıkça PD artar, -1 azalır, 0 kısıt yok.
+# Monotonluk haritası (onaylandı). yon: +1 modelin PD tahmini özellikle birlikte artar, -1 azalır,
+# 0 kısıt yok. Bu bir model ilişkisidir; nedensellik iddiası değildir.
 # Kategorik sütunlar (purpose=*, home_ownership=*, application_type=*) sıralı değildir, kısıtsızdır.
 version: 1
 unconstrained_prefixes:
@@ -8,13 +9,13 @@ unconstrained_prefixes:
 features:
   - ad: fico_range_low
     yon: -1
-    gerekce: "Yüksek skor, düşük risk."
+    gerekce: "Yüksek skor, modelde daha düşük risk tahmini ile birlikte gider."
   - ad: annual_inc
     yon: -1
     gerekce: "Ödeme kapasitesi."
   - ad: credit_history_months
     yon: -1
-    gerekce: "Uzun geçmiş, kanıtlanmış davranış."
+    gerekce: "Uzun geçmiş, modelde daha düşük risk tahmini ile birlikte gider."
   - ad: mort_acc
     yon: -1
     gerekce: "Konut/varlık sahipliği göstergesi (orta güven)."

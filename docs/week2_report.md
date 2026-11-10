@@ -1,5 +1,7 @@
 # Hafta 2.5: tek seferlik test raporu
 
+> Etiket: tek fiyatlı kurgusal kredi veren. Bu çalışmadaki kredi veren tek bir sabit getiri, kayıp ve hurdle ile varsayılmıştır; gerçek bir kurumun fiyatlama politikası değildir.
+
 Test dilimi (2015-09..2015-12, 36 ay) 107434 kayıt, gözlenen temerrüt oranı 0.1484. Dondurulmuş paket (bundle.lock.json doğrulandı), git `3f48bcf549`. Test dilimi yalnızca bir kez çalıştırıldı; hiçbir ayar yapılmadı.
 
 | Metrik | Değer |

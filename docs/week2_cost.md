@@ -1,5 +1,7 @@
 # Hafta 2.4: maliyet varsayımları ve onay eşiği duyarlılığı
 
+> Etiket: tek fiyatlı kurgusal kredi veren. Bu çalışmadaki kredi veren tek bir sabit getiri, kayıp ve hurdle ile varsayılmıştır; gerçek bir kurumun fiyatlama politikası değildir.
+
 Kaynak: yalnızca eğitim penceresi (2012-01-01..2014-12-01, 36 months), 306462 sonuçlanmış kredi, temerrüt oranı 0.1325. varsayım: eğitim diliminden ampirik, vade ve fon maliyeti dahil değil.
 
 | Büyüklük | Ortalama | Medyan | n |

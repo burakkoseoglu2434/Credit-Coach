@@ -1,9 +1,12 @@
 # Eylem kataloğu v1 (TASLAK, onay bekliyor). ADR-005.
 # Her süre, maliyet ve parametre "varsayım" etiketlidir: ölçülmüş değil, uydurma değil, tahmin.
-# Etki kanıt sınıfı M (model ilişkisi): "ilişkilidir", "düşecek" denmez.
+# Etki kanıt sınıfı M (model ilişkisi): "bu profilde benzer kişilerin riski modele göre daha
+# düşüktür" dili kullanılır; sonuç vaadi ("onaylanırsın", "riskin düşecek") yazılmaz.
+# Kredi veren: tek fiyatlı kurgusal kredi veren (ADR-003 revizyon notu).
 version: 1
 etiket: 'varsayım: ölçülmedi; süre, maliyet ve yürütme parametreleri insan kararıdır'
 kanit_sinifi: M
+kurgu_etiketi: "tek fiyatlı kurgusal kredi veren"
 max_eylem: 3            # config parametresi; hafta sonu kararı: gerekirse 2
 sahipler: [customer, institution]
 

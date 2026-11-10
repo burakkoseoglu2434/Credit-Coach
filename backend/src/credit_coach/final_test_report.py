@@ -25,6 +25,7 @@ from credit_coach.decision import (
     load_cost,
     total_hurdle,
 )
+from credit_coach.labels import KURGUSAL_VEREN
 from credit_coach.modeling import design_matrix, dev_frame, split_xy
 from credit_coach.split import assign_split, cohort
 
@@ -104,7 +105,7 @@ def main() -> None:
         else "üstünde"
     )
     REPORT.write_text(
-        "# Hafta 2.5: tek seferlik test raporu\n\n"
+        "# Hafta 2.5: tek seferlik test raporu\n\n" + KURGUSAL_VEREN + "\n\n"
         f"Test dilimi (2015-09..2015-12, 36 ay) {res['n']} kayıt, gözlenen temerrüt oranı "
         f"{res['bad_rate']:.4f}. Dondurulmuş paket (bundle.lock.json doğrulandı), git "
         f"`{commit[:10]}`. Test dilimi yalnızca bir kez çalıştırıldı; hiçbir ayar yapılmadı.\n\n"

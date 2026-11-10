@@ -18,6 +18,7 @@ from credit_coach.decision_scenarios import (
     sample_basvuru,
     scenarios,
 )
+from credit_coach.labels import KURGUSAL_VEREN
 from credit_coach.support import load_support
 
 REPORT = ROOT / "docs" / "week3_rule_coverage.md"
@@ -68,6 +69,8 @@ def run() -> tuple[dict[str, list[str]], dict[str, list[str]]]:
 def render(by_rule: dict[str, list[str]], by_code: dict[str, list[str]]) -> str:
     lines = [
         "# Hafta 3: kural kapsama raporu",
+        "",
+        KURGUSAL_VEREN,
         "",
         "Her kural ve gerekçe kodu en az bir senaryoyla tetiklenmelidir. "
         '"politika varyantı" işaretli senaryolar v1\'in kendisiyle değil, ret eşiği veya '
