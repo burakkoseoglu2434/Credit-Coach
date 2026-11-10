@@ -1,0 +1,99 @@
+# Eylem kataloğu v1 (TASLAK, onay bekliyor). ADR-005.
+# Her süre, maliyet ve parametre "varsayım" etiketlidir: ölçülmüş değil, uydurma değil, tahmin.
+# Etki kanıt sınıfı M (model ilişkisi): "ilişkilidir", "düşecek" denmez.
+version: 1
+etiket: 'varsayım: ölçülmedi; süre, maliyet ve yürütme parametreleri insan kararıdır'
+kanit_sinifi: M
+max_eylem: 3            # config parametresi; hafta sonu kararı: gerekirse 2
+sahipler: [customer, institution]
+
+eylemler:
+  - id: revolving_paydown
+    aile: REVOLVING_DEBT
+    sahip: customer
+    ozellikler: [revol_util, revol_bal, dti, total_bal_ex_mort, tot_cur_bal]   # çok özellikli
+    seviyeler:                      # ayrık hedefler; bir eylemden en çok bir seviye seçilir
+      - {id: util_70, revol_util_hedef: 0.70, sure_hafta: [4, 12]}
+      - {id: util_50, revol_util_hedef: 0.50, sure_hafta: [8, 20]}
+      - {id: util_30, revol_util_hedef: 0.30, sure_hafta: [12, 32]}
+    gecerlilik: "revol_util > hedef ve revol_bal > 0; aksi halde eylem uygulanmaz"
+    delta_kurali:
+      revol_util: "min(mevcut, hedef)"
+      revol_bal: "revol_bal * hedef / revol_util; delta_bal = eski - yeni"
+      total_bal_ex_mort: "- delta_bal (alt sınır 0)"
+      tot_cur_bal: "- delta_bal (alt sınır 0)"
+      dti: "- 100 * min_odeme_orani * delta_bal / (annual_inc / 12) (alt sınır 0)"
+    parametreler:
+      min_odeme_orani: {deger: 0.02, etiket: 'varsayım: aylık asgari ödeme / bakiye'}
+    maliyet: {birim: "USD nakit çıkışı", aralik: "[delta_bal, delta_bal]", etiket: 'varsayım: borç kapatma nakit gerektirir, kayıp değildir'}
+    yurutme_olasiligi: {aralik: [0.3, 0.7], etiket: 'varsayım: ölçülmedi'}
+    model_notu: "revol_util ve dti monoton (+1); revol_bal, tot_cur_bal, total_bal_ex_mort kısıtsız (0), dalda budama yapılmaz"
+
+  - id: cure_delinquency
+    aile: DELINQUENCY
+    sahip: customer
+    ozellikler: [acc_now_delinq, delinq_amnt]                                    # çok özellikli
+    seviyeler:
+      - {id: cure_all, acc_now_delinq_hedef: 0, delinq_amnt_hedef: 0, sure_hafta: [4, 12]}
+    gecerlilik: "acc_now_delinq > 0 veya delinq_amnt > 0"
+    delta_kurali:
+      acc_now_delinq: "hedef (0)"
+      delinq_amnt: "hedef (0)"
+    maliyet: {birim: "USD nakit çıkışı", aralik: "[delinq_amnt, 1.2 * delinq_amnt]", etiket: 'varsayım: gecikmiş tutar + ücret/faiz payı'}
+    yurutme_olasiligi: {aralik: [0.5, 0.9], etiket: 'varsayım: ölçülmedi'}
+    model_notu: "ikisi de monoton (+1); bürolar gecikme izini hemen silmeyebilir, bu yüzden yalnızca ilişkidir"
+
+  - id: settle_collections
+    aile: COLLECTIONS
+    sahip: customer
+    ozellikler: [tot_coll_amt]
+    seviyeler:
+      - {id: settle_all, tot_coll_amt_hedef: 0, sure_hafta: [4, 16]}
+    gecerlilik: "tot_coll_amt > 0"
+    delta_kurali:
+      tot_coll_amt: "hedef (0)"
+    maliyet: {birim: "USD nakit çıkışı", aralik: "[0.4 * tot_coll_amt, 1.0 * tot_coll_amt]", etiket: 'varsayım: uzlaşma oranı'}
+    yurutme_olasiligi: {aralik: [0.4, 0.8], etiket: 'varsayım: ölçülmedi'}
+    model_notu: "monoton (+1). collections_12_mths_ex_med sayısı değişmez (geçmiş kayıt), yalnızca tutar"
+
+  - id: counteroffer_lower_amount
+    aile: LOAN_AMOUNT
+    sahip: institution              # kurum daha düşük tutar önerir; müşteri kabul eder
+    ozellikler: [loan_amnt]
+    seviyeler:
+      - {id: amnt_90, loan_amnt_carpan: 0.90, sure_hafta: [0, 1]}
+      - {id: amnt_75, loan_amnt_carpan: 0.75, sure_hafta: [0, 1]}
+      - {id: amnt_50, loan_amnt_carpan: 0.50, sure_hafta: [0, 1]}
+    gecerlilik: "yeni tutar >= 1000 (alt sınır, varsayım)"
+    delta_kurali:
+      loan_amnt: "round(mevcut * carpan, -2)"
+    maliyet: {birim: "kaybedilen kredi hacmi (USD)", aralik: "[0.1 * loan_amnt, 0.5 * loan_amnt]", etiket: 'varsayım: müşteri ihtiyacının karşılanmayan kısmı'}
+    yurutme_olasiligi: {aralik: [0.5, 0.9], etiket: 'varsayım: ölçülmedi'}
+    model_notu: "loan_amnt KISITSIZ (0): yön savunulamaz, etki işareti bilinmez; dalda budama yapılmaz, plan modelden yalnızca ilişki olarak okunur"
+
+degistirilemeyenler:
+  term: "36 ay kohortu dışında model eğitilmedi; eğitimde ayrıca düşürülmüş sütun"
+  fico_range_low: "kaldıraç değil sonuç: diğer eylemlerin çıktısı; çift sayım olur"
+  fico_range_high: "modelden düşürülmüş sütun"
+  annual_inc: "kısa vadede değişmez; beyan değerini değiştirmek yanlış beyan olur, doğrulama değeri değiştirmez"
+  application_type: "ortak başvuru gelir tanımını değiştirir; veri yok, etkisi bilinmez"
+  purpose: "etiketi değiştirmek finansal bir değişiklik değildir, manipülasyona açık"
+  emp_length: "zamanla değişir, eylem değil"
+  home_ownership: "kısa vadede değişmez"
+  inq_last_6mths: "yalnızca zamanla düşer; sorgu tarihleri veride yok"
+  acc_open_past_24mths: "geçmiş olgu"
+  delinq_2yrs: "geçmiş olgu"
+  pub_rec: "geçmiş olgu"
+  pub_rec_bankruptcies: "geçmiş olgu"
+  tax_liens: "geçmiş olgu"
+  chargeoff_within_12_mths: "geçmiş olgu"
+  collections_12_mths_ex_med: "geçmiş olgu (sayı)"
+  earliest_cr_line: "geçmiş olgu"
+  total_acc: "geçmiş olgu"
+  open_acc: "hesap kapatmak kısa vadede zarar verir, öneri olmaz"
+  mort_acc: "kısa vadede değişmez"
+  total_rev_hi_lim: "başka kredi verenin kararı, yürütme bize bağlı değil"
+  total_bc_limit: "başka kredi verenin kararı"
+  tot_hi_cred_lim: "başka kredi verenin kararı"
+
+tutarlilik_notu: "revolving_paydown ve cure_delinquency çok özellikli; tutarlılık kuralları 5. haftada"
