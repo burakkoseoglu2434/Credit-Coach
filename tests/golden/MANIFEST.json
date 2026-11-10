@@ -1,0 +1,15 @@
+{
+ "files": {
+  "expected_v1.jsonl": "c4a7ebde644e28fd220cb3a902cc4b5f2c907fa58b8cf6b48f17353264fe6761",
+  "inputs_v1.jsonl": "af63f4472b436c5de0cb86ef4dbdd40f095fe3e74abb2a08d88786f7059fe7cb",
+  "variants_expected.jsonl": "fc3ff8305b1c3ede5cb10a475baaf08f4193756ade9b1569fc4454de721a4518",
+  "variants_inputs.jsonl": "0cef0ec289c8cca5283969f847a16ace6d712739a8ff983f321ef9a0adf29b8e"
+ },
+ "golden_version": "v1",
+ "policy_v1_sha256": "8438ce5a34912b000a20182f873ad2aed178453f5fc34a52f2daf6e2999d5aba",
+ "selection": {
+  "rule": "see README.md",
+  "seed": 42,
+  "source": "calibration split only"
+ }
+}

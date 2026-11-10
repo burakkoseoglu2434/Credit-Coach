@@ -1,0 +1,24 @@
+# Politika v1 (ADR-004). Donduruldu: değiştirme, yeni sürüm ekle.
+surum: v1
+kural_sirasi:
+- R1_HARD_REJECT
+- R2_THRESHOLD_BAND
+- R3_WEAK_SUPPORT_NEAR
+- R4_APPROVE
+- R5_NOT_APPROVED_PLAN
+- R6_NOT_APPROVED
+onay_esigi: 0.10916797862156132
+band: 0.0027197046452701046
+zayif_destek_araliklari:
+- - 0.0036780002992600203
+  - 0.046160999685525894
+- - 0.2571091055870056
+  - 0.781679630279541
+zayif_destek_yakinlik_carpani: 3
+ret_esigi: null
+kaynak:
+  cost_yaml_sha256: f531c1a4003d277405c0498a8aa790e8013c004545164e565a3e3278a59a784b
+  decision_yaml_sha256: 02491c2d1d73e65987144a6ef89864247633b116453be9f114272e784985453b
+  getiri: 0.16660143782393022
+  kayip: 0.35187878447773197
+  hurdle: 0.11

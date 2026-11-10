@@ -1,0 +1,14 @@
+# Local PostgreSQL for the decision log (week 3.3). Docker only; do not use a system PostgreSQL.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: cc_owner
+      POSTGRES_PASSWORD: cc_owner_dev
+      POSTGRES_DB: credit_coach
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cc_owner -d credit_coach"]
+      interval: 2s
+      retries: 30
