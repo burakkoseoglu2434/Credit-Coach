@@ -1,6 +1,6 @@
 # ADR-006: Demo v0 recourse tasarımı
 
-Durum: **TASLAK, onay bekliyor** (kod yok). Kapsam: demo v0, iki eylem. ADR-005'in dört eylemlik
+Durum: **Kabul edildi** (2026-11-11; A ve B kararları aşağıda işlendi). Kapsam: demo v0, iki eylem. ADR-005'in dört eylemlik
 kataloğunun demo için daraltılmış hâlidir; ADR-005 değişmez.
 
 > Etiket: tek fiyatlı kurgusal kredi veren. Bu çalışmadaki kredi veren tek bir sabit getiri,
@@ -41,7 +41,7 @@ Gösterim: `u`=mevcut `revol_util`, `h`=hedef, `B`=mevcut `revol_bal`, `Δ`=öde
 | `Δ` | `B - B x h / u` | özdeşlik (nakit çıkışı = bakiye farkı) |
 | `total_bal_ex_mort` | `- Δ` (alt sınır 0, kırpılırsa "kırpıldı") | özdeşlik: revolving bakiye toplamın parçası |
 | `tot_cur_bal` | `- Δ` (alt sınır 0, kırpılırsa "kırpıldı") | özdeşlik: aynı gerekçe |
-| `dti` | `- 100 x m x Δ / (annual_inc / 12)` (alt sınır 0, kırpılırsa "kırpıldı") | **varsayım**, `m` = aylık asgari ödeme oranı = 0,02 |
+| `dti` | `- 100 x m x Δ / (annual_inc / 12)` (alt sınır 0, kırpılırsa "kırpıldı") | **varsayım**, `m` = aylık asgari ödeme oranı = 0,02. **Varsayılan KAPALI** (`dti_guncelle: false`, muhafazakâr: dti değişmez). Açık varyant yalnızca duyarlılık raporunda (adım 3) |
 
 Uygulanabilirlik: `u` ve `B` boş değil, `u > h`, `B > 0`. Aksi hâlde seviye uygulanmaz.
 Uygulama koşulu varsayımı: ödeme müşterinin nakdinden yapılır, yeni borç açılmaz.
@@ -64,7 +64,7 @@ Başka özellik güncellenmez. Veri sözlüğüne göre `dti` istenen krediyi i�
 | Alan | Durum |
 |---|---|
 | `fico_range_low/high` | Gerçekte kullanım azalınca skor değişir, ama formül ve bağımsız bir kaynak yok. Sabit tutulur. Model skoru görünce plan olduğundan farklı davranabilir. |
-| `dti` formülü (`m`, gelir bölümü) | Asgari ödeme oranı ve ödemenin dti'ye girdiği varsayımdır, ölçülmedi. |
+| `dti` formülü (`m`, gelir bölümü) | Asgari ödeme oranı ve ödemenin dti'ye girdiği varsayımdır, ölçülmedi. Bu yüzden varsayılan kapalı. |
 | `dti` ve istenen kredi | Tanımın istenen krediyi dışladığı doğrulanmadı. |
 | `total_rev_hi_lim`, `total_bc_limit`, `open_acc`, `total_acc`, `acc_open_past_24mths` | Hesap kapatılmaz, limit değişmez varsayılır. Doğrulanmadı. |
 | `tot_cur_bal`, `total_bal_ex_mort` boşsa | Boş kalır (model boşu kendi işler), güncellenmez. Eğitimde oranlar %7,4 ve %2,0. |
@@ -76,9 +76,11 @@ Her aday plan için **tam vektör yeniden skorlanır**: eylem etkileri uygulanm�
 özellik, aynı kalibratör ve modelden geçer. Kısayol veya türev tahmini yoktur.
 
 Geçerli plan koşulları (hepsi sağlanmalı):
-1. **Eşik koşulu:** `p_after < onay_esigi - δ`. `δ` config parametresi, varsayılan **0,02**,
-   etiket "varsayım: ölçülmedi, güven payı" (ADR-004 band'ı 0,0027; δ ondan büyüktür, R2 bandı
-   dışında kalır).
+1. **Eşik koşulu:** `p_after < onay_esigi - δ`, `p_after = p_high` (karar A). `δ` config
+   parametresi, varsayılan **0,02**, etiket "varsayım: ölçülmedi". **δ'nın anlamı:** dönem
+   kayması ve model belirsizliği için bir güven payı varsayımıdır. Venn-Abers aralığı değildir:
+   aralık zaten `p_high` içinde, δ onun üstüne konan ayrı bir paydır ve istatistiksel bir
+   kapsama garantisi taşımaz (ADR-004 band'ı 0,0027).
 2. **Derin seviye koşulu:** bir eylemin seviyeleri sığdan derine sıralıdır. Bir seviyenin
    `p_after` değeri **başlangıç PD'sinden** veya **aynı eylemin bir üst (daha sığ) seviyesinden**
    yüksekse o seviye geçersizdir ve hiçbir planda yer almaz. Çok eylemli planda `p_after`
@@ -87,11 +89,12 @@ Geçerli plan koşulları (hepsi sağlanmalı):
    geçersizdir. Kırpılan alan "kırpıldı" işaretlenir, işaretsiz kırpma yoktur.
 4. **Uygulanabilirlik:** her eylemin koşulu sağlanmalı.
 
-**Karar noktası A (senden):** `p_after` hangi büyüklük? Şu an karar kuralı R4 `p_high < eşik`
-ile onaylıyor. İsteğin "p_after < eşik − δ"; nokta tahmini ile yazarsan, plan "geçerli" çıkıp
-uygulanınca `decide()` yine onaylamayabilir. **Öneri: `p_after = p_high`** (R4 ile aynı büyüklük),
-ve bir invariant testi: kabul edilen her planın sonuç vektörü `decide()`'dan APPROVED almalı.
-Nokta tahmini istersen o invariant düşer, bunu bilerek seç.
+**Karar A (kabul edildi): `p_after = p_high`.** Kabul edilen her planın sonuç vektörü
+`decide_with_support()` ile APPROVED almak zorundadır; bu, kabul kriterinin 5. koşulu ve
+property testlerinden biridir (invariant).
+
+5. **Karar uyumu:** sonuç vektörü ve `p_after` üçlüsüyle `decide_with_support()` APPROVED vermeli
+   (δ = 0'da yakınlık bandı R2/R3 devreye girebilir, o zaman plan geçersizdir).
 
 ## 3. Arama
 
@@ -100,28 +103,29 @@ plan**. Hepsi taranır; budama yoktur (bu yüzden budamalı/budamasız denklik t
 Eylemler farklı özellik kümelerini oynattığı için etkiler birbirine girmez (sıra bağımsız,
 testte doğrulanır).
 
-Geçerli planlar arasından tek plan seçilir; **sıralama anahtarı**, küçükten büyüğe:
-1. `maliyet_ust` (USD, varsayım), 2. `sure_ust` (hafta, varsayım), 3. eylem sayısı, 4. plan id
-(eylem id'leri sıralı birleşim, sözlük sırası). Beraberlik kalmaz; aynı girdi aynı planı verir.
+Geçerli planlar yol tipine göre gruplanır. Her grupta **sıralama anahtarı**, küçükten büyüğe:
+1. `maliyet_usd`, 2. `sure_ust` (hafta, varsayım), 3. eylem sayısı, 4. plan id (`eylem:seviye`
+çiftlerinin sıralı birleşimi). Beraberlik kalmaz; aynı girdi aynı planı verir. Gruplar arasında
+sıralama yoktur.
 
-**Karar noktası B (senden): maliyet ortak birimi.** Katalogda `loan_amount_reduction` maliyeti
-seviyeden bağımsız bir aralıktı (0,1-0,5 x loan_amnt), yani %50 azaltma ile %10 azaltma aynı
-maliyetliydi. Bu bir kusur. **Öneri:** her iki eylemin maliyeti USD olarak ölçülür:
-`revolving_paydown` = `Δ` (nakit çıkışı), `loan_amount_reduction` = `loan_amnt - yeni_tutar`
-(karşılanmayan talep), ortak birim varsayımı ("1 USD nakit = 1 USD karşılanmayan talep")
-"varsayım" etiketli. Bu varsayımın tercihi dolaylı olarak kurum eylemini öne çıkarır; istersen
-kurum eylemini daha yüksek ağırlıkla çarpalım.
+**Karar B (kabul edildi): maliyet USD, yollar arası sıralama YOK.** Maliyet her iki eylem için
+USD ve tek değerdir: `revolving_paydown` = `Δ` (nakit çıkışı), `loan_amount_reduction` =
+`loan_amnt - yeni_tutar` (karşılanmayan talep). Farklı kaynaklı iki maliyeti tek sıraya koymak bir
+varsayım gerektirdiği için **yollar birbiriyle sıralanmaz**: üç yol tipi (`customer`, `hybrid`,
+`institution`) için ayrı ayrı, kendi içindeki en ucuz geçerli plan gösterilir. Yol, eylemlerin
+sahip kümesi ve eylem ailelerinden oluşan bir **imzadır**; imza yalnızca plan yapısına bağlıdır,
+skor veya PD'ye bağlı değildir. Seçilen plan kendi yolunun (imzasının) en ucuz geçerli planıdır.
 Süre: plan süresi = eylem sürelerinin **en büyüğü** (paralel yürütme varsayımı), alt/üst sınır
-ayrı tutulur, anahtar üst sınırı kullanır.
+ayrı tutulur.
 
 Yürütme olasılığı bu demoda **sıralamaya girmez**, rapora da yazılmaz (ölçülmedi).
 
-Sonuç tipi kapalıdır: `PLAN` (seçilen plan, maliyet ve süre aralıkları, eylem/seviye listesi,
-`p_after` üçlüsü) veya açık değer **`PLAN_YOK`**. Boş liste, `None` ya da istisna yoktur.
+Sonuç tipi kapalıdır: `PLAN` (yol başına bir plan: eylem/seviye listesi, USD maliyet, süre
+aralığı, `p_after` üçlüsü, kırpılan alanlar) veya açık değer **`PLAN_YOK`**. Boş liste, `None` ya da istisna yoktur.
 
 ## 4. `PLAN_YOK` modu
 
-Geçerli plan yoksa çıktı **yalnızca** şunları içerir:
+Geçerli plan yoksa çıktı **yalnızca** şunları içerir (yol veya plan yok):
 - `bagli_kisitlar`: kapalı listeden nedenler, eylem bazında: `UYGULANAMAZ` (koşul sağlanmıyor,
   örn. `revol_util` en düşük hedefin altında), `SEVIYE_GECERSIZ` (derin seviye koşulu), `DESTEK_DISI`,
   `ETKI_YETERSIZ` (en iyi seviye kombinasyonu bile eşik − δ'ya ulaşmıyor; yalnızca etiket, sayı yok).
