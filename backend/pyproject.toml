@@ -8,7 +8,9 @@ dependencies = [
   "pandera>=0.36.0",
   "pydantic>=2.8",
   "pyyaml>=6.0.3",
+  "scikit-learn>=1.9.1",
   "uvicorn>=0.30",
+  "xgboost>=3.4.1",
 ]
 
 [dependency-groups]
