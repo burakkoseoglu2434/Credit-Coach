@@ -12,10 +12,11 @@ eylemler:
     aile: REVOLVING_DEBT
     sahip: customer
     ozellikler: [revol_util, revol_bal, dti, total_bal_ex_mort, tot_cur_bal]   # çok özellikli
+    hedef_birimleri: {revol_util: yuzde}   # features.yaml birim alanıyla eşleşmek zorunda (test)
     seviyeler:                      # ayrık hedefler; bir eylemden en çok bir seviye seçilir
-      - {id: util_70, revol_util_hedef: 0.70, sure_hafta: [4, 12]}
-      - {id: util_50, revol_util_hedef: 0.50, sure_hafta: [8, 20]}
-      - {id: util_30, revol_util_hedef: 0.30, sure_hafta: [12, 32]}
+      - {id: util_70, revol_util_hedef: 70, sure_hafta: [4, 12]}
+      - {id: util_50, revol_util_hedef: 50, sure_hafta: [8, 20]}
+      - {id: util_30, revol_util_hedef: 30, sure_hafta: [12, 32]}
     gecerlilik: "revol_util > hedef ve revol_bal > 0; aksi halde eylem uygulanmaz"
     delta_kurali:
       revol_util: "min(mevcut, hedef)"
@@ -33,6 +34,7 @@ eylemler:
     aile: DELINQUENCY
     sahip: customer
     ozellikler: [acc_now_delinq, delinq_amnt]                                    # çok özellikli
+    hedef_birimleri: {acc_now_delinq: adet, delinq_amnt: dolar}
     seviyeler:
       - {id: cure_all, acc_now_delinq_hedef: 0, delinq_amnt_hedef: 0, sure_hafta: [4, 12]}
     gecerlilik: "acc_now_delinq > 0 veya delinq_amnt > 0"
@@ -47,6 +49,7 @@ eylemler:
     aile: COLLECTIONS
     sahip: customer
     ozellikler: [tot_coll_amt]
+    hedef_birimleri: {tot_coll_amt: dolar}
     seviyeler:
       - {id: settle_all, tot_coll_amt_hedef: 0, sure_hafta: [4, 16]}
     gecerlilik: "tot_coll_amt > 0"
@@ -60,6 +63,7 @@ eylemler:
     aile: LOAN_AMOUNT
     sahip: institution              # kurum daha düşük tutar önerir; müşteri kabul eder
     ozellikler: [loan_amnt]
+    hedef_birimleri: {loan_amnt: dolar}    # seviye alanı çarpandır (oran, boyutsuz), sonuç dolar
     seviyeler:
       - {id: amnt_90, loan_amnt_carpan: 0.90, sure_hafta: [0, 1]}
       - {id: amnt_75, loan_amnt_carpan: 0.75, sure_hafta: [0, 1]}

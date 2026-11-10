@@ -14,6 +14,7 @@ CLASSES = frozenset(
     {"APPLICATION_TIME", "PRICING", "POST_ORIGINATION", "TARGET_SOURCE", "ID_OR_META"}
 )
 TYPES = {"float": float, "int": int, "str": str}
+BIRIMLER = frozenset({"yuzde", "oran", "adet", "dolar"})
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,7 @@ class Column:
     tip: str
     izin_verilen: bool
     gerekce: str
+    birim: str | None = None
 
 
 def load_manifest(path: Path = MANIFEST_PATH) -> list[Column]:
@@ -38,6 +40,11 @@ def load_manifest(path: Path = MANIFEST_PATH) -> list[Column]:
             raise ValueError(f"{c.ad}: unknown type {c.tip}")
         if c.izin_verilen and c.sinif != "APPLICATION_TIME":
             raise ValueError(f"{c.ad}: only APPLICATION_TIME columns may be allowed")
+        if c.izin_verilen and c.tip in ("float", "int"):
+            if c.birim not in BIRIMLER:
+                raise ValueError(f"{c.ad}: allowed numeric feature needs a valid birim")
+        elif c.birim is not None:
+            raise ValueError(f"{c.ad}: birim only for allowed numeric features")
         if not c.gerekce.strip():
             raise ValueError(f"{c.ad}: empty rationale")
     return cols
