@@ -119,3 +119,17 @@ def test_near_threshold_outside_weak_range_stays_automatic():
     cfg = DecisionConfig(threshold=0.20, band=0.01, weak_support_ranges=((0.9, 1.0),))
     out = decide(np.array([0.174]), np.array([0.176]), np.array([0.175]), cfg)
     assert out[0] == APPROVE
+
+
+def test_approval_rate_never_rises_with_hurdle():
+    from credit_coach.approval_table import table
+
+    rng = np.random.default_rng(3)
+    s = rng.beta(1.5, 8, 5000)
+    y = (rng.random(5000) < s).astype(int)
+    t = table(
+        s - 0.001, s + 0.001, s, s, y, 0.17, 0.35, 0.003, [], 3.0, grid=(0.0, 0.05, 0.11, 0.15)
+    )
+    assert (t["esik"].diff().dropna() < 0).all()
+    assert (t["onay_orani"].diff().dropna() <= 1e-12).all()
+    assert np.isclose(t[["onay_orani", "insana_orani", "onay_degil_orani"]].sum(axis=1), 1).all()
