@@ -1,0 +1,16 @@
+# Karar yapılandırması: kalibrasyon diliminden, hurdle'dan bağımsız (ADR-003).
+version: 1
+band:
+  deger: 0.0027197046452701046
+  kural: kalibrasyon diliminde aylık |ort. kalibre PD - gözlenen oran| en büyüğü
+  aylik_kayma:
+    3: 0.0018004823029076078
+    4: -0.0009148859140718779
+    5: 0.0027197046452701046
+    6: -0.0011742858137571421
+zayif_destek_skor_araliklari:
+- - 0.0036780002992600203
+  - 0.046160999685525894
+- - 0.2571091055870056
+  - 0.781679630279541
+zayif_destek_kurali: ondalık ort. aralık genişliği > 2 x ondalık medyanı
