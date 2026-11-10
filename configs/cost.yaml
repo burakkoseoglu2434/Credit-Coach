@@ -35,10 +35,25 @@ temerrut_kaybi:
   median: 0.3567016666666667
   n: 40596
   formul: LGD - tahsil edilen faiz / funded_amnt
-onay_esigi:
+onay_esigi_referans:
   etiket: 'varsayım: eğitim diliminden ampirik, vade ve fon maliyeti dahil değil'
-  formul: PD* = getiri / (getiri + kayip); PD <= PD* ise onay
+  formul: PD* = getiri / (getiri + kayip), yani hurdle = 0 referansı; nihai eşik hurdle ile hesaplanır
   break_even_pd_mean: 0.32132650515451705
   break_even_pd_median: 0.31341689149522484
   birincil: mean
+hurdle:
+  # Birim: funded_amnt'ın oranı, kredi ömrü (36 ay) boyunca toplam. Değerler kullanıcıdan istenir.
+  # Onay kuralı: (1-PD)*getiri - PD*kayip >= asgari_marj + fon_maliyeti + isletme_gideri
+  asgari_marj:
+    etiket: varsayım
+    deger: null
+    gerekce: null
+  fon_maliyeti:
+    etiket: varsayım
+    deger: null
+    gerekce: null
+  isletme_gideri:
+    etiket: varsayım
+    deger: null
+    gerekce: null
 ret_esigi: null

@@ -59,8 +59,21 @@ def test_cost_yaml_is_labelled_and_consistent():
     for key in ("lgd", "saglam_kredi_getirisi", "temerrutte_tahsil_edilen_faiz", "temerrut_kaybi"):
         assert "varsayım" in doc[key]["etiket"] and "fon maliyeti dahil değil" in doc[key]["etiket"]
     gain, loss = doc["saglam_kredi_getirisi"]["mean"], doc["temerrut_kaybi"]["mean"]
-    assert doc["onay_esigi"]["break_even_pd_mean"] == pytest.approx(break_even_pd(gain, loss))
+    assert doc["onay_esigi_referans"]["break_even_pd_mean"] == pytest.approx(
+        break_even_pd(gain, loss)
+    )
     assert doc["temerrut_kaybi"]["mean"] == pytest.approx(
         doc["lgd"]["mean"] - doc["temerrutte_tahsil_edilen_faiz"]["mean"]
     )
     assert doc["ret_esigi"] is None
+
+
+def test_hurdle_fields_exist_and_are_labelled_assumptions():
+    import yaml
+
+    from credit_coach.features import MANIFEST_PATH
+
+    doc = yaml.safe_load((MANIFEST_PATH.parent / "cost.yaml").read_text())
+    for key in ("asgari_marj", "fon_maliyeti", "isletme_gideri"):
+        assert doc["hurdle"][key]["etiket"] == "varsayım"
+        assert "deger" in doc["hurdle"][key] and "gerekce" in doc["hurdle"][key]

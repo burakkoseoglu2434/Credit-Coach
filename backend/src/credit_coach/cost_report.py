@@ -42,6 +42,7 @@ def main() -> None:
     loss_m, loss_md = s["default_net_loss"]["mean"], s["default_net_loss"]["median"]
     be = {"mean": break_even_pd(gain_m, loss_m), "median": break_even_pd(gain_md, loss_md)}
     w = cfg.splits["train"]
+    old = yaml.safe_load(COST_YAML.read_text()) if COST_YAML.exists() else {}
     doc = {
         "version": 1,
         "etiket": LABEL,
@@ -73,13 +74,14 @@ def main() -> None:
             **s["default_net_loss"],
             "formul": "LGD - tahsil edilen faiz / funded_amnt",
         },
-        "onay_esigi": {
+        "onay_esigi_referans": {
             "etiket": LABEL,
             "formul": "PD* = getiri / (getiri + kayip); PD <= PD* ise onay",
             "break_even_pd_mean": be["mean"],
             "break_even_pd_median": be["median"],
             "birincil": "mean",
         },
+        "hurdle": old.get("hurdle"),  # kullanıcı değerleri korunur
         "ret_esigi": None,  # 4. haftada recourse fizibilitesinden türetilecek
     }
     COST_YAML.write_text(HEADER + yaml.safe_dump(doc, allow_unicode=True, sort_keys=False))
