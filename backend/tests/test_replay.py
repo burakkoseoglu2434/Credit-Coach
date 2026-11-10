@@ -190,3 +190,29 @@ def test_bundle_hash_helpers_are_stable():
 @pytest.fixture(autouse=True)
 def _pythonpath(monkeypatch):
     monkeypatch.setenv("PYTHONPATH", "src")
+
+
+def test_cli_exit_code_1_on_policy_mismatch_record(db):
+    """CI sees exit code 1 here: a deliberately bad record (policy hash matches no file)."""
+    import os
+
+    from credit_coach.decision_log import append
+
+    _, app = db
+    _fill(app, 1)
+    with app.begin() as c:
+        append(
+            c,
+            girdi_json=_rec_json(),
+            cikti_json=_out_json(),
+            politika_surumu="v1",
+            politika_sha256="0" * 64,
+        )
+    run = subprocess.run(
+        [sys.executable, "-m", "credit_coach.replay", "--all"],
+        capture_output=True,
+        text=True,
+        env={**os.environ},
+    )
+    assert run.returncode == 1, run.stdout + run.stderr
+    assert "POLICY_FILE_HASH_MISMATCH" in run.stdout

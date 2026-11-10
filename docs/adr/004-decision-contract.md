@@ -116,3 +116,6 @@ senaryolarla tetiklenebilir.
   gerekir (henüz yok).
 - Her kayıt `politika_sha256` (politika dosyası) ve `bundle_sha256` (`bundle.lock.json`) taşır.
   Politika dosyası hash'i uymazsa replay durur; bundle farkı yalnızca raporlanır.
+- **Migration kuralı:** `0001` bir kez yerinde düzenlendi (`bundle_sha256` kolonu, henüz kullanılan
+  DB yokken). Bundan sonra uygulanmış hiçbir migration değiştirilmez; her şema değişikliği yeni bir
+  migration olur.
