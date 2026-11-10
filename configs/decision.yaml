@@ -14,3 +14,4 @@ zayif_destek_skor_araliklari:
 - - 0.2571091055870056
   - 0.781679630279541
 zayif_destek_kurali: ondalık ort. aralık genişliği > 2 x ondalık medyanı
+zayif_destek_esik_yakinligi_carpani: 3  # zayıf destek yalnızca |PD - eşik| <= 3 x band ise insana_git

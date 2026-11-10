@@ -40,7 +40,9 @@ bu varsayımlara duyarlılığı 3. adımda hurdle grid'iyle raporlanır.
 Karar girdisi PD aralığı `[p_low, p_high]` (Venn-Abers).
 - Aralık, her iki yanda `band` kadar genişletildiğinde eşiği içeriyorsa: `insana_git`.
   (Eşiği kesen her aralık bu kapsamdadır.)
-- Ham skor zayıf destek ondalıklarından birindeyse: `insana_git`.
+- Ham skor zayıf destek ondalıklarından birindeyse VE `|PD - eşik| <= 3 * band` ise:
+  `insana_git` (PD = nokta tahmini). Zayıf destekli ama eşikten uzak başvurular otomatik karara
+  gider; kural 2. adımda daraltıldı, çünkü ilk hâli iki ondalığı (~%20) koşulsuz insana gönderiyordu.
 - Aksi halde `p_high < eşik` ise `onay`, değilse `onay_degil`. Ret eşiği 4. haftada tanımlanır.
 
 ### Bant genişliği (hurdle'dan bağımsız, kalibrasyon dilimi)

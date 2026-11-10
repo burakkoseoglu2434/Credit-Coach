@@ -63,7 +63,7 @@ def test_interval_rule_cases():
     high = np.array([0.06, 0.195, 0.21, 0.22, 0.41, 0.02])
     raw = np.array([0.05, 0.19, 0.2, 0.22, 0.4, 0.015])
     out = decide(low, high, raw, CFG)
-    assert list(out) == [APPROVE, HUMAN, HUMAN, NOT_APPROVED, NOT_APPROVED, HUMAN]
+    assert list(out) == [APPROVE, HUMAN, HUMAN, NOT_APPROVED, NOT_APPROVED, APPROVE]
 
 
 def test_straddling_interval_always_goes_to_human():
@@ -97,3 +97,25 @@ def test_state_sequence_is_ordered_as_pd_rises():
 def test_invalid_interval_rejected():
     with pytest.raises(ValueError):
         decide(np.array([0.3]), np.array([0.2]), np.array([0.2]), CFG)
+
+
+def test_weak_support_far_from_threshold_is_not_sent_to_human():
+    cfg = DecisionConfig(threshold=0.20, band=0.01, weak_support_ranges=((0.0, 0.5),))
+    # PD 0.05 and 0.60 are in the weak range but far from the threshold (> 3 * band)
+    out = decide(np.array([0.05, 0.60]), np.array([0.06, 0.61]), np.array([0.05, 0.4]), cfg)
+    assert list(out) == [APPROVE, NOT_APPROVED]
+
+
+def test_weak_support_near_threshold_goes_to_human():
+    cfg = DecisionConfig(threshold=0.20, band=0.01, weak_support_ranges=((0.0, 0.5),))
+    # PD 0.165: outside the plain band (0.035 > 0.01) but within 3 * band = 0.03? no (0.035 > 0.03)
+    far = decide(np.array([0.164]), np.array([0.166]), np.array([0.165]), cfg)
+    # PD 0.175: distance 0.025 <= 0.03, in weak range -> human, while not in plain band
+    near = decide(np.array([0.174]), np.array([0.176]), np.array([0.175]), cfg)
+    assert far[0] == APPROVE and near[0] == HUMAN
+
+
+def test_near_threshold_outside_weak_range_stays_automatic():
+    cfg = DecisionConfig(threshold=0.20, band=0.01, weak_support_ranges=((0.9, 1.0),))
+    out = decide(np.array([0.174]), np.array([0.176]), np.array([0.175]), cfg)
+    assert out[0] == APPROVE

@@ -46,26 +46,36 @@ class DecisionConfig:
     threshold: float
     band: float
     weak_support_ranges: tuple[tuple[float, float], ...] = ()
+    weak_near_multiplier: float = (
+        3.0  # weak support only matters within this many bands of the threshold
+    )
 
 
 def decide(
-    p_low: np.ndarray, p_high: np.ndarray, raw_score: np.ndarray, cfg: DecisionConfig
+    p_low: np.ndarray,
+    p_high: np.ndarray,
+    raw_score: np.ndarray,
+    cfg: DecisionConfig,
+    p_point: np.ndarray | None = None,
 ) -> np.ndarray:
     """Interval rule.
 
     HUMAN if the interval [p_low, p_high], widened by `band` on both sides, contains the threshold
-    (this includes every straddling interval), or if the raw score is in a weak-support range.
+    (this includes every straddling interval), OR if the raw score is in a weak-support range AND
+    |PD - threshold| <= weak_near_multiplier * band (PD = p_point, default interval midpoint).
     Otherwise APPROVE if the whole interval is below the threshold, else NOT_APPROVED.
     """
     lo, hi, s = (np.asarray(a, dtype=float) for a in (p_low, p_high, raw_score))
     if (lo > hi).any():
         raise ValueError("p_low must not exceed p_high")
+    pt = (lo + hi) / 2 if p_point is None else np.asarray(p_point, dtype=float)
     near = (lo - cfg.band <= cfg.threshold) & (hi + cfg.band >= cfg.threshold)
-    weak = np.zeros(len(s), dtype=bool)
+    in_weak = np.zeros(len(s), dtype=bool)
     for a, b in cfg.weak_support_ranges:
-        weak |= (s >= a) & (s <= b)
+        in_weak |= (s >= a) & (s <= b)
+    weak_near = in_weak & (np.abs(pt - cfg.threshold) <= cfg.weak_near_multiplier * cfg.band)
     out = np.where(hi < cfg.threshold, APPROVE, NOT_APPROVED).astype(object)
-    out[near | weak] = HUMAN
+    out[near | weak_near] = HUMAN
     return out
 
 
