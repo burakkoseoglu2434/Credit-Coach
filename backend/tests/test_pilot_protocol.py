@@ -123,3 +123,10 @@ def test_pilot_config_exists_and_matches_the_report_once_generated():
         cfg["butce_tavani_usd"]["deger"]
         == cfg["pilot_kredi_sayisi"]["deger"] * cfg["kredi_basina_tavan_usd"]["deger"]
     )
+
+
+def test_pool_note_only_when_the_rule_output_exceeds_the_pool():
+    from credit_coach.pilot_protocol import pool_note
+
+    assert pool_note(1000, 2000) == ""
+    assert "büyüktür" in pool_note(23600, 7167) and "23,600" in pool_note(23600, 7167)

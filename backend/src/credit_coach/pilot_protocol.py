@@ -149,6 +149,18 @@ def definition_text(doc: str) -> str:
     return doc[start : end if end >= 0 else len(doc)].rstrip() + "\n"
 
 
+def pool_note(n_pilot: int, pool_n: int) -> str:
+    """Mechanical check of the rule output against the data it was computed from."""
+    if n_pilot <= pool_n:
+        return ""
+    return (
+        f"> **Kural çıktısı notu:** `pilot_kredi_sayisi` ({n_pilot:,}) bu veride aynı segment ve δ'daki havuz "
+        f"kaydından ({pool_n:,}) büyüktür; yerine koymasız rastgele örnek bu havuzdan alınamaz. Bu değerler "
+        "tasarımdaki kuralın mekanik çıktısıdır, kural sonuç görüldükten sonra değiştirilmedi; uygulanabilir bir "
+        "pilot boyutu önerisi olarak okunmamalıdır."
+    )
+
+
 def pct(x: float) -> str:
     return f"{100 * x:.1f}%"
 
@@ -256,6 +268,10 @@ def render(pool: dict[float, list[Cand]], c: Cost, kat, tanim: str) -> tuple[str
         f"| `butce_tavani_usd` | {ref['butce_tavani_usd']:,} | `pilot_kredi_sayisi` × `kredi_basina_tavan_usd` |",
         f"| `durdurma_esigi` | {STOP_RATIO:.2f} | gerçekleşen kümülatif hurdle öncesi net sonuç / fonlanan toplam anapara bu değerin altına düşerse yeni fonlama durur |",
     ]
+    seg_ref, d_ref, _phi, _pw = REF
+    note = pool_note(ref["pilot_kredi_sayisi"], len(pick(pool[d_ref], SEGMENTS[seg_ref])))
+    if note:
+        rec += ["", note]
     L = [
         "# Pilot protokolü v0: tek kollu, tavanlı, rastgele seçilmiş karşı teklif pilotu",
         "",
