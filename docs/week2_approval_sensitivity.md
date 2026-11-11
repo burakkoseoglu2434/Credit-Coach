@@ -1,5 +1,7 @@
 # Hafta 2.4: hurdle duyarlılığı (yalnızca kalibrasyon dilimi, test dilimi kullanılmadı)
 
+> Etiket: tek fiyatlı kurgusal kredi veren. Bu çalışmadaki kredi veren tek bir sabit getiri, kayıp ve hurdle ile varsayılmıştır; gerçek bir kurumun fiyatlama politikası değildir.
+
 Kalibrasyon dilimi 81136 kayıt, genel temerrüt oranı 0.1539. Aralıklar leave-one-month-out. getiri/kayıp: eğitim dilimi ortalamaları (0.1666 / 0.3519). band 0.0027. Seçilen hurdle: 0.11 (onay oranlarına bakılmadan, ADR-003).
 
 |   hurdle |   esik |   onay_orani |   onay_temerrut |   insana_orani |   insana_temerrut |   onay_degil_orani |   onay_degil_temerrut |

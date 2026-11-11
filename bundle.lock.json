@@ -4,6 +4,10 @@
       "path": "bundle/calibration_data.npz",
       "sha256": "c324fdf092767db0e50bea1070cf13fdc70cd94c984ca9028e0512e653d4adb9"
     },
+    "catalog_demo_v0": {
+      "path": "configs/catalog/demo_v0.yaml",
+      "sha256": "c32fe81cff493fbe7dd23bcf5f9c1441c96c5b897cbabfa7909acdb6b4fd5abb"
+    },
     "cost_and_thresholds": {
       "path": "configs/cost.yaml",
       "sha256": "f531c1a4003d277405c0498a8aa790e8013c004545164e565a3e3278a59a784b"
@@ -14,7 +18,7 @@
     },
     "features_manifest": {
       "path": "configs/features.yaml",
-      "sha256": "a75e08ed5cf23583558c0f2cc7e75ea96925ec435d23181d136748aab4f63713"
+      "sha256": "85ea125e4ad39e45b6d32cda5d70a6d57db3bda7c37e95ce3f4baf8198c697bc"
     },
     "model": {
       "path": "bundle/pd_monotone.json",
@@ -22,7 +26,7 @@
     },
     "monotone": {
       "path": "configs/monotone.yaml",
-      "sha256": "8a4145e4337b3129c541373d8fa4543d56bcad255515212e8c93599f71ae2d35"
+      "sha256": "dd7c852aeb0a52d314bb0bf39b88c9229b80a16b308caa31d67f98aa43d87e20"
     },
     "policy_v1": {
       "path": "configs/policy/v1.yaml",
@@ -31,6 +35,10 @@
     "split": {
       "path": "configs/split.yaml",
       "sha256": "1b1679cbf5aed5747b7f44f881b8d7c72a3e05b2b5f8584de18d581eb557712c"
+    },
+    "support": {
+      "path": "configs/support.yaml",
+      "sha256": "eb78631bfd7cbd00ef98e1705a810ebf586cf5673c8f5bf702f54d2795573130"
     }
   },
   "version": 1

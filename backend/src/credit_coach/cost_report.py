@@ -18,6 +18,7 @@ from credit_coach.cost import (
     sensitivity,
 )
 from credit_coach.features import MANIFEST_PATH
+from credit_coach.labels import KURGUSAL_VEREN
 from credit_coach.split import load_split_config
 
 ROOT = MANIFEST_PATH.parents[1]
@@ -88,6 +89,8 @@ def main() -> None:
 
     lines = [
         "# Hafta 2.4: maliyet varsayımları ve onay eşiği duyarlılığı",
+        "",
+        KURGUSAL_VEREN,
         "",
         f"Kaynak: yalnızca eğitim penceresi ({w.start}..{w.end}, {cfg.term}), "
         f"{s['n_resolved']} sonuçlanmış kredi, temerrüt oranı {s['bad_rate']:.4f}. {LABEL}.",

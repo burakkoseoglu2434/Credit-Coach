@@ -1,0 +1,140 @@
+# Üretilir: python -m credit_coach.support build. Elle düzenlenmez.
+bilinen_sinirlar:
+- 'Aralık eğitim uç değerleriyle genişler: annual_inc (max 7.5e+06, 99. yüzdelik 244000); revol_bal (max
+  2.569e+06, 99. yüzdelik 77588.2); revol_util (max 892.3, 99. yüzdelik 97.6); total_rev_hi_lim (max 1e+07,
+  99. yüzdelik 136300); tot_cur_bal (max 8.00008e+06, 99. yüzdelik 637232); tot_coll_amt (max 9.15254e+06,
+  99. yüzdelik 3621.89); total_bal_ex_mort (max 2.68892e+06, 99. yüzdelik 208694); total_bc_limit (max
+  760000, 99. yüzdelik 94100); delinq_2yrs (max 29, 99. yüzdelik 4); pub_rec (max 63, 99. yüzdelik 2);
+  pub_rec_bankruptcies (max 12, 99. yüzdelik 1); tax_liens (max 63, 99. yüzdelik 1); tot_hi_cred_lim (max
+  1e+07, 99. yüzdelik 723227). Bu uç değerler ''destek içi'' sayılır, yüzdelik kırpma bilerek yok.'
+- Boş (None) değerler ihlal sayılmaz; model eksik değeri kendi işler.
+- Kontrol yalnızca aralık/küme üyeliğine bakar; özelliklerin birlikte görülmemişliği (çok boyutlu destek)
+  denetlenmez.
+- 'Denetlenmeyen: earliest_cr_line (tarih; türev credit_history_months başvuru tarihi gerektirir)'
+icerik_sha256: 0e33e7ddac53aa4dec71f5bc67803381ed8919ccacaf5c0248576d81b2f0e697
+kategorik:
+  application_type:
+  - Individual
+  emp_length:
+  - 1 year
+  - 10+ years
+  - 2 years
+  - 3 years
+  - 4 years
+  - 5 years
+  - 6 years
+  - 7 years
+  - 8 years
+  - 9 years
+  - < 1 year
+  home_ownership:
+  - ANY
+  - MORTGAGE
+  - NONE
+  - OTHER
+  - OWN
+  - RENT
+  purpose:
+  - car
+  - credit_card
+  - debt_consolidation
+  - home_improvement
+  - house
+  - major_purchase
+  - medical
+  - moving
+  - other
+  - renewable_energy
+  - small_business
+  - vacation
+  - wedding
+  term:
+  - ' 36 months'
+kaynak:
+  egitim_satir_sayisi: 306462
+  features_yaml_sha256: 85ea125e4ad39e45b6d32cda5d70a6d57db3bda7c37e95ce3f4baf8198c697bc
+  ham_veri_sha256: b66f5505936f05d5d52255ce31fd695313f2f74b9a674e153231ff58f4f95a10
+  split: train
+  split_yaml_sha256: 1b1679cbf5aed5747b7f44f881b8d7c72a3e05b2b5f8584de18d581eb557712c
+sayisal:
+  acc_now_delinq:
+    max: 5.0
+    min: 0.0
+  acc_open_past_24mths:
+    max: 53.0
+    min: 0.0
+  annual_inc:
+    max: 7500000.0
+    min: 3000.0
+  chargeoff_within_12_mths:
+    max: 7.0
+    min: 0.0
+  collections_12_mths_ex_med:
+    max: 20.0
+    min: 0.0
+  delinq_2yrs:
+    max: 29.0
+    min: 0.0
+  delinq_amnt:
+    max: 65000.0
+    min: 0.0
+  dti:
+    max: 39.99
+    min: 0.0
+  fico_range_high:
+    max: 850.0
+    min: 664.0
+  fico_range_low:
+    max: 845.0
+    min: 660.0
+  inq_last_6mths:
+    max: 8.0
+    min: 0.0
+  loan_amnt:
+    max: 35000.0
+    min: 1000.0
+  mort_acc:
+    max: 34.0
+    min: 0.0
+  open_acc:
+    max: 84.0
+    min: 0.0
+  pub_rec:
+    max: 63.0
+    min: 0.0
+  pub_rec_bankruptcies:
+    max: 12.0
+    min: 0.0
+  revol_bal:
+    max: 2568995.0
+    min: 0.0
+  revol_util:
+    max: 892.3
+    min: 0.0
+  tax_liens:
+    max: 63.0
+    min: 0.0
+  tot_coll_amt:
+    max: 9152545.0
+    min: 0.0
+  tot_cur_bal:
+    max: 8000078.0
+    min: 0.0
+  tot_hi_cred_lim:
+    max: 9999999.0
+    min: 0.0
+  total_acc:
+    max: 156.0
+    min: 2.0
+  total_bal_ex_mort:
+    max: 2688920.0
+    min: 0.0
+  total_bc_limit:
+    max: 760000.0
+    min: 0.0
+  total_rev_hi_lim:
+    max: 9999999.0
+    min: 0.0
+surum: 1
+tanim: Destek = yalnızca EĞİTİM diliminden sayısal min/max ve kategorik görülen değer kümesi. Dışındaki
+  değer için karar/plan üretilmez (DEĞERLENDİRİLEMEZ).

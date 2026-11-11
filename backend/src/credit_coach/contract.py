@@ -41,6 +41,7 @@ class ReasonCode(StrEnum):
     INTERVAL_STRADDLES_THRESHOLD = "INTERVAL_STRADDLES_THRESHOLD"
     WITHIN_BAND_OF_THRESHOLD = "WITHIN_BAND_OF_THRESHOLD"
     WEAK_SUPPORT_NEAR_THRESHOLD = "WEAK_SUPPORT_NEAR_THRESHOLD"
+    OUT_OF_SUPPORT = "OUT_OF_SUPPORT"  # appended: keeps the sort order of older codes
 
 
 class PublicReasonCode(StrEnum):
@@ -50,6 +51,7 @@ class PublicReasonCode(StrEnum):
     NO_PLAN_AVAILABLE = "NO_PLAN_AVAILABLE"
     REVIEW_REQUIRED = "REVIEW_REQUIRED"
     HARD_REJECT_THRESHOLD = "HARD_REJECT_THRESHOLD"
+    OUT_OF_SUPPORT = "OUT_OF_SUPPORT"
 
 
 class RuleId(StrEnum):
@@ -59,6 +61,7 @@ class RuleId(StrEnum):
     R4_APPROVE = "R4_APPROVE"
     R5_NOT_APPROVED_PLAN = "R5_NOT_APPROVED_PLAN"
     R6_NOT_APPROVED = "R6_NOT_APPROVED"
+    R0_SUPPORT_CHECK = "R0_SUPPORT_CHECK"  # outside training support: not evaluable
 
 
 class ConditionalType(StrEnum):
@@ -104,6 +107,13 @@ class InternalDecision(BaseModel):
     conditional_type: ConditionalType | None = None
     upgrade_condition: str | None = None
     politika_surumu: str
+
+
+class SupportDecision(InternalDecision):
+    """Out-of-support result (DEĞERLENDİRİLEMEZ). Older decisions keep the base type, so their
+    canonical bytes do not change."""
+
+    destek_ihlalleri: tuple[str, ...]
 
 
 class PublicDecision(BaseModel):

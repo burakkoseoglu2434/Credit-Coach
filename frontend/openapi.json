@@ -1,6 +1,507 @@
 {
   "components": {
     "schemas": {
+      "Basvuru": {
+        "additionalProperties": false,
+        "properties": {
+          "acc_now_delinq": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acc Now Delinq"
+          },
+          "acc_open_past_24mths": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acc Open Past 24Mths"
+          },
+          "annual_inc": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annual Inc"
+          },
+          "application_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Type"
+          },
+          "chargeoff_within_12_mths": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chargeoff Within 12 Mths"
+          },
+          "collections_12_mths_ex_med": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collections 12 Mths Ex Med"
+          },
+          "delinq_2yrs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delinq 2Yrs"
+          },
+          "delinq_amnt": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delinq Amnt"
+          },
+          "dti": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dti"
+          },
+          "earliest_cr_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earliest Cr Line"
+          },
+          "emp_length": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emp Length"
+          },
+          "fico_range_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fico Range High"
+          },
+          "fico_range_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fico Range Low"
+          },
+          "home_ownership": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Home Ownership"
+          },
+          "inq_last_6mths": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inq Last 6Mths"
+          },
+          "loan_amnt": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loan Amnt"
+          },
+          "mort_acc": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mort Acc"
+          },
+          "open_acc": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Acc"
+          },
+          "pub_rec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pub Rec"
+          },
+          "pub_rec_bankruptcies": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pub Rec Bankruptcies"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
+          },
+          "revol_bal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revol Bal"
+          },
+          "revol_util": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revol Util"
+          },
+          "tax_liens": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Liens"
+          },
+          "term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Term"
+          },
+          "tot_coll_amt": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tot Coll Amt"
+          },
+          "tot_cur_bal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tot Cur Bal"
+          },
+          "tot_hi_cred_lim": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tot Hi Cred Lim"
+          },
+          "total_acc": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Acc"
+          },
+          "total_bal_ex_mort": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Bal Ex Mort"
+          },
+          "total_bc_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Bc Limit"
+          },
+          "total_rev_hi_lim": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Rev Hi Lim"
+          }
+        },
+        "required": [
+          "loan_amnt",
+          "term",
+          "purpose",
+          "application_type",
+          "annual_inc",
+          "emp_length",
+          "home_ownership",
+          "dti",
+          "revol_bal",
+          "revol_util",
+          "fico_range_low",
+          "fico_range_high",
+          "earliest_cr_line",
+          "open_acc",
+          "total_acc",
+          "total_rev_hi_lim",
+          "tot_cur_bal",
+          "tot_coll_amt",
+          "mort_acc",
+          "total_bal_ex_mort",
+          "total_bc_limit",
+          "delinq_2yrs",
+          "inq_last_6mths",
+          "pub_rec",
+          "pub_rec_bankruptcies",
+          "acc_now_delinq",
+          "delinq_amnt",
+          "collections_12_mths_ex_med",
+          "chargeoff_within_12_mths",
+          "tax_liens",
+          "tot_hi_cred_lim",
+          "acc_open_past_24mths"
+        ],
+        "title": "Basvuru",
+        "type": "object"
+      },
+      "BatchResponse": {
+        "properties": {
+          "notlar": {
+            "$ref": "#/components/schemas/Notlar"
+          },
+          "ozet": {
+            "$ref": "#/components/schemas/PortfoyOzeti"
+          },
+          "satirlar": {
+            "items": {
+              "$ref": "#/components/schemas/SatirSonucu"
+            },
+            "title": "Satirlar",
+            "type": "array"
+          },
+          "surumler": {
+            "$ref": "#/components/schemas/Surumler"
+          }
+        },
+        "required": [
+          "satirlar",
+          "ozet",
+          "surumler",
+          "notlar"
+        ],
+        "title": "BatchResponse",
+        "type": "object"
+      },
+      "ConditionalType": {
+        "enum": [
+          "DATA_ISSUE",
+          "PLAN_BASED"
+        ],
+        "title": "ConditionalType",
+        "type": "string"
+      },
+      "EylemKaniti": {
+        "additionalProperties": false,
+        "description": "Evidence class of one action: K = accounting identity, M = model relation.",
+        "properties": {
+          "bakiye_kullanim_etkisi": {
+            "anyOf": [
+              {
+                "const": "K",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bakiye Kullanim Etkisi"
+          },
+          "eylem": {
+            "title": "Eylem",
+            "type": "string"
+          },
+          "eylem_turu": {
+            "enum": [
+              "musteri_eylemi",
+              "karsi_teklif"
+            ],
+            "title": "Eylem Turu",
+            "type": "string"
+          },
+          "risk_etkisi": {
+            "const": "M",
+            "title": "Risk Etkisi",
+            "type": "string"
+          }
+        },
+        "required": [
+          "eylem",
+          "eylem_turu",
+          "bakiye_kullanim_etkisi",
+          "risk_etkisi"
+        ],
+        "title": "EylemKaniti",
+        "type": "object"
+      },
+      "GirdiHatasiYaniti": {
+        "properties": {
+          "detail": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "GirdiHatasiYaniti",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
       "HealthResponse": {
         "properties": {
           "status": {
@@ -18,6 +519,679 @@
         ],
         "title": "HealthResponse",
         "type": "object"
+      },
+      "KovaSatiri": {
+        "properties": {
+          "gecerli_plan_orani": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gecerli Plan Orani"
+          },
+          "kova": {
+            "title": "Kova",
+            "type": "string"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kova",
+          "n",
+          "gecerli_plan_orani"
+        ],
+        "title": "KovaSatiri",
+        "type": "object"
+      },
+      "Notlar": {
+        "properties": {
+          "dayaniklilik_notu": {
+            "title": "Dayaniklilik Notu",
+            "type": "string"
+          },
+          "etiket": {
+            "title": "Etiket",
+            "type": "string"
+          },
+          "kanit_notu": {
+            "title": "Kanit Notu",
+            "type": "string"
+          },
+          "karar_notu": {
+            "title": "Karar Notu",
+            "type": "string"
+          },
+          "plan_notu": {
+            "title": "Plan Notu",
+            "type": "string"
+          },
+          "plan_yok_notu": {
+            "title": "Plan Yok Notu",
+            "type": "string"
+          },
+          "varsayim_notu": {
+            "title": "Varsayim Notu",
+            "type": "string"
+          }
+        },
+        "required": [
+          "etiket",
+          "varsayim_notu",
+          "plan_notu",
+          "plan_yok_notu",
+          "karar_notu",
+          "dayaniklilik_notu",
+          "kanit_notu"
+        ],
+        "title": "Notlar",
+        "type": "object"
+      },
+      "OuterStatus": {
+        "enum": [
+          "APPROVED",
+          "CONDITIONAL",
+          "REJECTED"
+        ],
+        "title": "OuterStatus",
+        "type": "string"
+      },
+      "PlanGereksiz": {
+        "additionalProperties": false,
+        "properties": {
+          "durum": {
+            "const": "PLAN_GEREKSIZ",
+            "default": "PLAN_GEREKSIZ",
+            "title": "Durum",
+            "type": "string"
+          }
+        },
+        "title": "PlanGereksiz",
+        "type": "object"
+      },
+      "PlanVar": {
+        "additionalProperties": false,
+        "properties": {
+          "durum": {
+            "const": "PLAN",
+            "default": "PLAN",
+            "title": "Durum",
+            "type": "string"
+          },
+          "yollar": {
+            "items": {
+              "$ref": "#/components/schemas/YolPlan"
+            },
+            "title": "Yollar",
+            "type": "array"
+          }
+        },
+        "required": [
+          "yollar"
+        ],
+        "title": "PlanVar",
+        "type": "object"
+      },
+      "PlanYok": {
+        "additionalProperties": false,
+        "description": "No plan. Carries NO plan, path, cost, duration or after-values: only closed-list\nbinding constraints and today's measured distance to the threshold.",
+        "properties": {
+          "bagli_kisitlar": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Bagli Kisitlar",
+            "type": "array"
+          },
+          "durum": {
+            "const": "PLAN_YOK",
+            "default": "PLAN_YOK",
+            "title": "Durum",
+            "type": "string"
+          },
+          "esige_uzaklik": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Esige Uzaklik"
+          }
+        },
+        "required": [
+          "bagli_kisitlar",
+          "esige_uzaklik"
+        ],
+        "title": "PlanYok",
+        "type": "object"
+      },
+      "PortfoyOzeti": {
+        "properties": {
+          "dayaniklilik_dagilimi": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Dayaniklilik Dagilimi",
+            "type": "object"
+          },
+          "destek_disi": {
+            "title": "Destek Disi",
+            "type": "integer"
+          },
+          "dis_durum_dagilimi": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Dis Durum Dagilimi",
+            "type": "object"
+          },
+          "gecerli_plan_orani": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gecerli Plan Orani"
+          },
+          "kovalar": {
+            "items": {
+              "$ref": "#/components/schemas/KovaSatiri"
+            },
+            "title": "Kovalar",
+            "type": "array"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "plan_arayan": {
+            "title": "Plan Arayan",
+            "type": "integer"
+          },
+          "plan_durumu_dagilimi": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Plan Durumu Dagilimi",
+            "type": "object"
+          },
+          "yol_dayaniklilik": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Yol Dayaniklilik",
+            "type": "object"
+          },
+          "yol_orani": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Yol Orani",
+            "type": "object"
+          }
+        },
+        "required": [
+          "n",
+          "dis_durum_dagilimi",
+          "plan_durumu_dagilimi",
+          "destek_disi",
+          "plan_arayan",
+          "gecerli_plan_orani",
+          "yol_orani",
+          "kovalar",
+          "dayaniklilik_dagilimi",
+          "yol_dayaniklilik"
+        ],
+        "title": "PortfoyOzeti",
+        "type": "object"
+      },
+      "PublicReasonCode": {
+        "enum": [
+          "PD_BELOW_THRESHOLD",
+          "PD_ABOVE_THRESHOLD",
+          "PLAN_AVAILABLE",
+          "NO_PLAN_AVAILABLE",
+          "REVIEW_REQUIRED",
+          "HARD_REJECT_THRESHOLD",
+          "OUT_OF_SUPPORT"
+        ],
+        "title": "PublicReasonCode",
+        "type": "string"
+      },
+      "SatirKarari": {
+        "description": "Decision, support check and recourse result for one record.",
+        "properties": {
+          "conditional_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConditionalType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "destek_ihlalleri": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Destek Ihlalleri",
+            "type": "array"
+          },
+          "dis_durum": {
+            "$ref": "#/components/schemas/OuterStatus"
+          },
+          "gerekce_kodlari": {
+            "items": {
+              "$ref": "#/components/schemas/PublicReasonCode"
+            },
+            "title": "Gerekce Kodlari",
+            "type": "array"
+          },
+          "plan": {
+            "discriminator": {
+              "mapping": {
+                "PLAN": "#/components/schemas/PlanVar",
+                "PLAN_GEREKSIZ": "#/components/schemas/PlanGereksiz",
+                "PLAN_YOK": "#/components/schemas/PlanYok"
+              },
+              "propertyName": "durum"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlanVar"
+              },
+              {
+                "$ref": "#/components/schemas/PlanYok"
+              },
+              {
+                "$ref": "#/components/schemas/PlanGereksiz"
+              }
+            ],
+            "title": "Plan"
+          },
+          "skor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Skor3"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "upgrade_condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upgrade Condition"
+          }
+        },
+        "required": [
+          "dis_durum",
+          "gerekce_kodlari",
+          "destek_ihlalleri",
+          "skor",
+          "plan"
+        ],
+        "title": "SatirKarari",
+        "type": "object"
+      },
+      "SatirSonucu": {
+        "properties": {
+          "karar": {
+            "$ref": "#/components/schemas/SatirKarari"
+          },
+          "kayit_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kayit Id"
+          },
+          "satir_no": {
+            "title": "Satir No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "satir_no",
+          "karar"
+        ],
+        "title": "SatirSonucu",
+        "type": "object"
+      },
+      "ScoreRequest": {
+        "additionalProperties": false,
+        "description": "One application. `basvuru_tarihi` is explicit: it enters the model (credit history in\nmonths) and the service never reads the clock, so the same request gives the same answer.",
+        "properties": {
+          "basvuru": {
+            "$ref": "#/components/schemas/Basvuru"
+          },
+          "basvuru_tarihi": {
+            "format": "date",
+            "title": "Basvuru Tarihi",
+            "type": "string"
+          }
+        },
+        "required": [
+          "basvuru",
+          "basvuru_tarihi"
+        ],
+        "title": "ScoreRequest",
+        "type": "object"
+      },
+      "ScoreResponse": {
+        "properties": {
+          "karar": {
+            "$ref": "#/components/schemas/SatirKarari"
+          },
+          "notlar": {
+            "$ref": "#/components/schemas/Notlar"
+          },
+          "surumler": {
+            "$ref": "#/components/schemas/Surumler"
+          }
+        },
+        "required": [
+          "karar",
+          "surumler",
+          "notlar"
+        ],
+        "title": "ScoreResponse",
+        "type": "object"
+      },
+      "Skor3": {
+        "properties": {
+          "p_high": {
+            "title": "P High",
+            "type": "number"
+          },
+          "p_low": {
+            "title": "P Low",
+            "type": "number"
+          },
+          "p_point": {
+            "title": "P Point",
+            "type": "number"
+          }
+        },
+        "required": [
+          "p_low",
+          "p_point",
+          "p_high"
+        ],
+        "title": "Skor3",
+        "type": "object"
+      },
+      "Surumler": {
+        "properties": {
+          "bundle_sha256": {
+            "title": "Bundle Sha256",
+            "type": "string"
+          },
+          "katalog_sha256": {
+            "title": "Katalog Sha256",
+            "type": "string"
+          },
+          "katalog_surumu": {
+            "title": "Katalog Surumu",
+            "type": "string"
+          },
+          "politika_sha256": {
+            "title": "Politika Sha256",
+            "type": "string"
+          },
+          "politika_surumu": {
+            "title": "Politika Surumu",
+            "type": "string"
+          },
+          "support_sha256": {
+            "title": "Support Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "politika_surumu",
+          "politika_sha256",
+          "katalog_surumu",
+          "katalog_sha256",
+          "bundle_sha256",
+          "support_sha256"
+        ],
+        "title": "Surumler",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "YolPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "dayaniklilik": {
+            "enum": [
+              "GUCLU",
+              "KOSULLU",
+              "ZAYIF"
+            ],
+            "title": "Dayaniklilik",
+            "type": "string"
+          },
+          "dayaniklilik_etiketi": {
+            "const": "varsay\u0131m",
+            "default": "varsay\u0131m",
+            "title": "Dayaniklilik Etiketi",
+            "type": "string"
+          },
+          "eylem_kanitlari": {
+            "items": {
+              "$ref": "#/components/schemas/EylemKaniti"
+            },
+            "title": "Eylem Kanitlari",
+            "type": "array"
+          },
+          "eylemler": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Eylemler",
+            "type": "array"
+          },
+          "gereken_etki_yuzdesi": {
+            "title": "Gereken Etki Yuzdesi",
+            "type": "integer"
+          },
+          "imza": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Imza",
+            "type": "array"
+          },
+          "kirpildi": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Kirpildi",
+            "type": "array"
+          },
+          "maliyet_etiketi": {
+            "const": "varsay\u0131m",
+            "default": "varsay\u0131m",
+            "title": "Maliyet Etiketi",
+            "type": "string"
+          },
+          "maliyet_usd": {
+            "title": "Maliyet Usd",
+            "type": "number"
+          },
+          "min_phi": {
+            "title": "Min Phi",
+            "type": "number"
+          },
+          "p_high": {
+            "title": "P High",
+            "type": "number"
+          },
+          "p_low": {
+            "title": "P Low",
+            "type": "number"
+          },
+          "p_point": {
+            "title": "P Point",
+            "type": "number"
+          },
+          "plan_id": {
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "sure_etiketi": {
+            "const": "varsay\u0131m",
+            "default": "varsay\u0131m",
+            "title": "Sure Etiketi",
+            "type": "string"
+          },
+          "sure_hafta": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Sure Hafta",
+            "type": "array"
+          },
+          "yol_tipi": {
+            "title": "Yol Tipi",
+            "type": "string"
+          }
+        },
+        "required": [
+          "yol_tipi",
+          "imza",
+          "plan_id",
+          "eylemler",
+          "eylem_kanitlari",
+          "maliyet_usd",
+          "min_phi",
+          "gereken_etki_yuzdesi",
+          "dayaniklilik",
+          "sure_hafta",
+          "p_low",
+          "p_point",
+          "p_high",
+          "kirpildi"
+        ],
+        "title": "YolPlan",
+        "type": "object"
       }
     }
   },
@@ -27,6 +1201,46 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/batch": {
+      "post": {
+        "description": "CSV (at most 10,000 rows): header = allowed features + basvuru_tarihi (+ kayit_id).",
+        "operationId": "postBatch",
+        "requestBody": {
+          "content": {
+            "text/csv": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GirdiHatasiYaniti"
+                }
+              }
+            },
+            "description": "Invalid CSV (no partial result)"
+          }
+        },
+        "summary": "Batch"
+      }
+    },
     "/health": {
       "get": {
         "operationId": "getHealth",
@@ -43,6 +1257,45 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/score": {
+      "post": {
+        "description": "Support check, model, calibrator, decision (policy v1), recourse. Invalid input is 422.",
+        "operationId": "postScore",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoreRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoreResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Score"
       }
     }
   }

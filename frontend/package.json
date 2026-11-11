@@ -7,13 +7,15 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "gen:types": "openapi-typescript openapi.json -o src/api/schema.d.ts"
+    "gen:types": "openapi-typescript openapi.json -o src/api/schema.d.ts",
+    "scan:forbidden": "node scripts/scan-forbidden.mjs"
   },
   "dependencies": {
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",

@@ -1,11 +1,13 @@
 # Özellik manifestosu: her ham sütun için sınıf ve izin. Tek doğruluk kaynağı.
 # sinif: APPLICATION_TIME | PRICING | POST_ORIGINATION | TARGET_SOURCE | ID_OR_META
 version: 1
+# birim (yalnızca izinli sayısal özellikler): yuzde (0-100 ölçeği, 0-1 değil) | oran (0-1) | adet | dolar | puan (skor puanı, fico_range_*).
 source: lending_club_48_features_20251026_114053.csv
 columns:
   - ad: loan_amnt
     sinif: APPLICATION_TIME
     tip: float
+    birim: dolar
     izin_verilen: true
     gerekce: "Talep edilen kredi tutarı, başvuruda bilinir."
   - ad: funded_amnt
@@ -51,6 +53,7 @@ columns:
   - ad: annual_inc
     sinif: APPLICATION_TIME
     tip: float
+    birim: dolar
     izin_verilen: true
     gerekce: "Başvuruda beyan edilen gelir."
   - ad: emp_title
@@ -86,26 +89,31 @@ columns:
   - ad: dti
     sinif: APPLICATION_TIME
     tip: float
+    birim: yuzde
     izin_verilen: true
     gerekce: "Başvuru anındaki borç/gelir oranı."
   - ad: revol_bal
     sinif: APPLICATION_TIME
     tip: float
+    birim: dolar
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: revol_util
     sinif: APPLICATION_TIME
     tip: float
+    birim: yuzde
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: fico_range_low
     sinif: APPLICATION_TIME
     tip: float
+    birim: puan
     izin_verilen: true
     gerekce: "Başvuru anında çekilen FICO."
   - ad: fico_range_high
     sinif: APPLICATION_TIME
     tip: float
+    birim: puan
     izin_verilen: true
     gerekce: "Başvuru anında çekilen FICO."
   - ad: last_fico_range_low
@@ -131,91 +139,109 @@ columns:
   - ad: open_acc
     sinif: APPLICATION_TIME
     tip: float
+    birim: adet
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: total_acc
     sinif: APPLICATION_TIME
     tip: float
+    birim: adet
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: total_rev_hi_lim
     sinif: APPLICATION_TIME
     tip: float
+    birim: dolar
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: tot_cur_bal
     sinif: APPLICATION_TIME
     tip: float
+    birim: dolar
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: tot_coll_amt
     sinif: APPLICATION_TIME
     tip: float
+    birim: dolar
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: mort_acc
     sinif: APPLICATION_TIME
     tip: float
+    birim: adet
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: total_bal_ex_mort
     sinif: APPLICATION_TIME
     tip: float
+    birim: dolar
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: total_bc_limit
     sinif: APPLICATION_TIME
     tip: float
+    birim: dolar
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: delinq_2yrs
     sinif: APPLICATION_TIME
     tip: float
+    birim: adet
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: inq_last_6mths
     sinif: APPLICATION_TIME
     tip: float
+    birim: adet
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: pub_rec
     sinif: APPLICATION_TIME
     tip: float
+    birim: adet
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: pub_rec_bankruptcies
     sinif: APPLICATION_TIME
     tip: float
+    birim: adet
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: acc_now_delinq
     sinif: APPLICATION_TIME
     tip: float
+    birim: adet
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: delinq_amnt
     sinif: APPLICATION_TIME
     tip: float
+    birim: dolar
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: collections_12_mths_ex_med
     sinif: APPLICATION_TIME
     tip: float
+    birim: adet
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: chargeoff_within_12_mths
     sinif: APPLICATION_TIME
     tip: float
+    birim: adet
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: tax_liens
     sinif: APPLICATION_TIME
     tip: float
+    birim: adet
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: tot_hi_cred_lim
     sinif: APPLICATION_TIME
     tip: float
+    birim: dolar
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: initial_list_status
@@ -226,6 +252,7 @@ columns:
   - ad: acc_open_past_24mths
     sinif: APPLICATION_TIME
     tip: float
+    birim: adet
     izin_verilen: true
     gerekce: "Başvuru anında kredi bürosundan."
   - ad: debt_settlement_flag

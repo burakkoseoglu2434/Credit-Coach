@@ -13,6 +13,15 @@ def sample_basvuru() -> dict:
     return {n: (1.0 if kinds[n] == "float" else "x") for n in allowed_features()}
 
 
+def in_support_basvuru(support) -> dict:
+    """A plausible record inside the training support (numeric min, categorical first value)."""
+    b = {n: (lo if lo > 0 else 0.0) for n, (lo, _hi) in support.sayisal.items()}
+    b.update({"fico_range_low": 700.0, "fico_range_high": 704.0, "dti": 15.0, "revol_util": 40.0})
+    b.update({n: sorted(v)[0] for n, v in support.kategorik.items()})
+    b["earliest_cr_line"] = "Jan-2000"
+    return {n: b.get(n) for n in sample_basvuru()}
+
+
 def policy_variant(**updates) -> Policy:
     base = load_policy("v1").model_dump()
     return Policy(**{**base, **updates})

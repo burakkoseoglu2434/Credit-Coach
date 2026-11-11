@@ -24,6 +24,7 @@ from credit_coach.decision import (
     decide,
     load_cost,
 )
+from credit_coach.labels import KURGUSAL_VEREN
 from credit_coach.modeling import dev_frame, split_xy
 from credit_coach.train_monotone import MODEL_PATH
 
@@ -83,6 +84,8 @@ def main() -> None:
         fmt[c] = fmt[c].map(lambda v: f"{v:.4f}")
     REPORT.write_text(
         "# Hafta 2.4: hurdle duyarlılığı (yalnızca kalibrasyon dilimi, test dilimi kullanılmadı)\n\n"
+        + KURGUSAL_VEREN
+        + "\n\n"
         f"Kalibrasyon dilimi {len(y)} kayıt, genel temerrüt oranı {y.mean():.4f}. Aralıklar "
         "leave-one-month-out. getiri/kayıp: eğitim dilimi ortalamaları "
         f"({gain:.4f} / {loss:.4f}). band {dec['band']['deger']:.4f}. Seçilen hurdle: 0.11 "

@@ -1,0 +1,44 @@
+# Demo v0 eylem kataloğu (ADR-006). ADR-005'in iki eylemlik daraltması.
+# "varsayım" etiketli her değer ölçülmedi. Kredi veren: tek fiyatlı kurgusal kredi veren.
+version: demo_v0
+kurgu_etiketi: "tek fiyatlı kurgusal kredi veren"
+kanit_sinifi: M
+max_eylem: 2
+delta:
+  deger: 0.02
+  etiket: 'varsayım: dönem kayması ve model belirsizliği payı; Venn-Abers aralığı değil'
+dti_guncelle: false     # varsayılan kapalı (muhafazakâr); açık varyant yalnızca duyarlılık raporunda
+dayaniklilik:           # plan etiketi: min_phi (gereken minimum etki payı) eşikleri
+  guclu_en_fazla: 0.50      # min_phi <= 0,50 -> GUCLU
+  kosullu_en_fazla: 0.75    # 0,50 < min_phi <= 0,75 -> KOSULLU; üstü ZAYIF
+  etiket: 'varsayım: eşikler ölçülmedi, insan kararıdır'
+min_odeme_orani: {deger: 0.02, etiket: 'varsayım: aylık asgari ödeme / bakiye'}
+min_kredi_tutari: {deger: 1000, etiket: 'varsayım: alt sınır (eğitimdeki en küçük tutar)'}
+
+eylemler:
+  - id: revolving_paydown
+    aile: REVOLVING_DEBT
+    sahip: customer
+    ozellikler: [revol_util, revol_bal, dti, total_bal_ex_mort, tot_cur_bal]
+    hedef_birimleri: {revol_util: yuzde}
+    kanit:                  # K = muhasebe özdeşliği, M = model ilişkisi
+      eylem_turu: musteri_eylemi
+      bakiye_kullanim_etkisi: K   # bakiye ve kullanım değişimi: muhasebe özdeşliği
+      risk_etkisi: M              # risk etkisi: model ilişkisi, doğrulanmadı
+    seviyeler:            # sığdan derine
+      - {id: util_70, revol_util_hedef: 70, sure_hafta: [4, 12]}
+      - {id: util_50, revol_util_hedef: 50, sure_hafta: [8, 20]}
+      - {id: util_30, revol_util_hedef: 30, sure_hafta: [12, 32]}
+  - id: loan_amount_reduction
+    aile: LOAN_AMOUNT
+    sahip: institution
+    ozellikler: [loan_amnt]
+    hedef_birimleri: {loan_amnt: dolar}
+    kanit:
+      eylem_turu: karsi_teklif    # kurum eylemi: karşı teklif
+      bakiye_kullanim_etkisi: null
+      risk_etkisi: M              # risk etkisi: model ilişkisi, doğrulanmadı
+    seviyeler:
+      - {id: amnt_90, loan_amnt_carpan: 0.90, sure_hafta: [0, 1]}
+      - {id: amnt_75, loan_amnt_carpan: 0.75, sure_hafta: [0, 1]}
+      - {id: amnt_50, loan_amnt_carpan: 0.50, sure_hafta: [0, 1]}

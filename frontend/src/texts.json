@@ -1,0 +1,559 @@
+{
+  "uygulama": {
+    "baslik": "Credit Coach",
+    "altbaslik": "Demo v0: model tabanlı başvuru değerlendirmesi ve değişiklik planı"
+  },
+  "sekmeler": {
+    "tek": "Tek başvuru",
+    "toplu": "Toplu mod"
+  },
+  "uyari": "Model 2012-15 ABD (LendingClub) verisiyle eğitildi; güncel başvurular için kalibre değil. Plan modele göre geçerlidir, gerçek etkisi doğrulanmadı.",
+  "kurgu": "Kredi veren: tek fiyatlı kurgusal kredi veren.",
+  "form": {
+    "baslik": "Başvuru bilgileri",
+    "ornekler_baslik": "Örnek vakalar",
+    "ornekler_not": "Vakalar, dondurulmuş gerçek kalibrasyon kayıtlarıdır; bir düğme formu doldurup değerlendirir.",
+    "tarih": "Başvuru tarihi",
+    "tarih_not": "Model kredi geçmişini aylarla kullanır; tarih isteğe bağlı değil, açıkça girilir.",
+    "hesapla": "Değerlendir",
+    "temizle": "Formu temizle",
+    "bos_birak": "Boş bırakılabilir",
+    "sayi_hatasi": "Geçerli bir sayı girin",
+    "tarih_hatasi": "Başvuru tarihi gerekli",
+    "hesaplaniyor": "Değerlendiriliyor",
+    "api_hatasi": "İstek reddedildi",
+    "sunucu_hatasi": "Sunucuya ulaşılamadı"
+  },
+  "bolumler": {
+    "talep": "Kredi talebi",
+    "gelir": "Gelir ve konut",
+    "kullanim": "Kredi kullanımı ve bakiyeler",
+    "hesaplar": "Hesaplar ve geçmiş",
+    "sicil": "Kredi sicili"
+  },
+  "bolum_alanlari": {
+    "talep": [
+      "loan_amnt",
+      "term",
+      "purpose",
+      "application_type"
+    ],
+    "gelir": [
+      "annual_inc",
+      "emp_length",
+      "home_ownership",
+      "dti"
+    ],
+    "kullanim": [
+      "revol_bal",
+      "revol_util",
+      "total_rev_hi_lim",
+      "total_bc_limit",
+      "tot_hi_cred_lim",
+      "tot_cur_bal",
+      "total_bal_ex_mort"
+    ],
+    "hesaplar": [
+      "open_acc",
+      "total_acc",
+      "mort_acc",
+      "acc_open_past_24mths",
+      "earliest_cr_line",
+      "inq_last_6mths"
+    ],
+    "sicil": [
+      "fico_range_low",
+      "fico_range_high",
+      "delinq_2yrs",
+      "pub_rec",
+      "pub_rec_bankruptcies",
+      "acc_now_delinq",
+      "delinq_amnt",
+      "collections_12_mths_ex_med",
+      "tot_coll_amt",
+      "chargeoff_within_12_mths",
+      "tax_liens"
+    ]
+  },
+  "alanlar": {
+    "loan_amnt": {
+      "etiket": "Talep edilen kredi tutarı",
+      "birim": "dolar"
+    },
+    "term": {
+      "etiket": "Vade",
+      "birim": "metin"
+    },
+    "purpose": {
+      "etiket": "Kredi amacı",
+      "birim": "metin"
+    },
+    "application_type": {
+      "etiket": "Başvuru türü",
+      "birim": "metin"
+    },
+    "annual_inc": {
+      "etiket": "Yıllık gelir",
+      "birim": "dolar"
+    },
+    "emp_length": {
+      "etiket": "Çalışma süresi",
+      "birim": "metin"
+    },
+    "home_ownership": {
+      "etiket": "Konut durumu",
+      "birim": "metin"
+    },
+    "dti": {
+      "etiket": "Borç/gelir oranı (DTI)",
+      "birim": "yüzde"
+    },
+    "revol_bal": {
+      "etiket": "Dönen kredi bakiyesi",
+      "birim": "dolar"
+    },
+    "revol_util": {
+      "etiket": "Dönen kredi kullanım oranı",
+      "birim": "yüzde"
+    },
+    "total_rev_hi_lim": {
+      "etiket": "Toplam dönen kredi limiti",
+      "birim": "dolar"
+    },
+    "total_bc_limit": {
+      "etiket": "Toplam kredi kartı limiti",
+      "birim": "dolar"
+    },
+    "tot_hi_cred_lim": {
+      "etiket": "Toplam en yüksek kredi limiti",
+      "birim": "dolar"
+    },
+    "tot_cur_bal": {
+      "etiket": "Toplam güncel bakiye",
+      "birim": "dolar"
+    },
+    "total_bal_ex_mort": {
+      "etiket": "İpotek hariç toplam bakiye",
+      "birim": "dolar"
+    },
+    "open_acc": {
+      "etiket": "Açık hesap sayısı",
+      "birim": "adet"
+    },
+    "total_acc": {
+      "etiket": "Toplam hesap sayısı",
+      "birim": "adet"
+    },
+    "mort_acc": {
+      "etiket": "İpotekli hesap sayısı",
+      "birim": "adet"
+    },
+    "acc_open_past_24mths": {
+      "etiket": "Son 24 ayda açılan hesap sayısı",
+      "birim": "adet"
+    },
+    "earliest_cr_line": {
+      "etiket": "İlk kredi hesabı tarihi (örn. Dec-1992)",
+      "birim": "metin"
+    },
+    "inq_last_6mths": {
+      "etiket": "Son 6 ayda kredi sorgusu sayısı",
+      "birim": "adet"
+    },
+    "fico_range_low": {
+      "etiket": "FICO skoru (alt sınır)",
+      "birim": "puan"
+    },
+    "fico_range_high": {
+      "etiket": "FICO skoru (üst sınır)",
+      "birim": "puan"
+    },
+    "delinq_2yrs": {
+      "etiket": "Son 2 yılda gecikme sayısı",
+      "birim": "adet"
+    },
+    "pub_rec": {
+      "etiket": "Olumsuz kamu kaydı sayısı",
+      "birim": "adet"
+    },
+    "pub_rec_bankruptcies": {
+      "etiket": "İflas kaydı sayısı",
+      "birim": "adet"
+    },
+    "acc_now_delinq": {
+      "etiket": "Şu an gecikmede olan hesap sayısı",
+      "birim": "adet"
+    },
+    "delinq_amnt": {
+      "etiket": "Gecikmiş tutar",
+      "birim": "dolar"
+    },
+    "collections_12_mths_ex_med": {
+      "etiket": "Son 12 ayda tahsilat sayısı (tıbbi hariç)",
+      "birim": "adet"
+    },
+    "tot_coll_amt": {
+      "etiket": "Toplam tahsilat tutarı",
+      "birim": "dolar"
+    },
+    "chargeoff_within_12_mths": {
+      "etiket": "Son 12 ayda zarar yazma sayısı",
+      "birim": "adet"
+    },
+    "tax_liens": {
+      "etiket": "Vergi haczi sayısı",
+      "birim": "adet"
+    }
+  },
+  "birimler": {
+    "dolar": "USD",
+    "yüzde": "yüzde (0-100)",
+    "adet": "adet",
+    "puan": "puan",
+    "metin": ""
+  },
+  "secenekler": {
+    "term": [
+      {
+        "deger": "36 months",
+        "etiket": "36 ay"
+      }
+    ],
+    "application_type": [
+      {
+        "deger": "Individual",
+        "etiket": "Bireysel"
+      },
+      {
+        "deger": "Joint App",
+        "etiket": "Ortak başvuru"
+      }
+    ],
+    "emp_length": [
+      {
+        "deger": "< 1 year",
+        "etiket": "1 yıldan az"
+      },
+      {
+        "deger": "1 year",
+        "etiket": "1 yıl"
+      },
+      {
+        "deger": "2 years",
+        "etiket": "2 yıl"
+      },
+      {
+        "deger": "3 years",
+        "etiket": "3 yıl"
+      },
+      {
+        "deger": "4 years",
+        "etiket": "4 yıl"
+      },
+      {
+        "deger": "5 years",
+        "etiket": "5 yıl"
+      },
+      {
+        "deger": "6 years",
+        "etiket": "6 yıl"
+      },
+      {
+        "deger": "7 years",
+        "etiket": "7 yıl"
+      },
+      {
+        "deger": "8 years",
+        "etiket": "8 yıl"
+      },
+      {
+        "deger": "9 years",
+        "etiket": "9 yıl"
+      },
+      {
+        "deger": "10+ years",
+        "etiket": "10 yıl ve üzeri"
+      }
+    ],
+    "home_ownership": [
+      {
+        "deger": "RENT",
+        "etiket": "Kiracı"
+      },
+      {
+        "deger": "OWN",
+        "etiket": "Ev sahibi"
+      },
+      {
+        "deger": "MORTGAGE",
+        "etiket": "İpotekli"
+      },
+      {
+        "deger": "ANY",
+        "etiket": "Belirtilmemiş (ANY)"
+      },
+      {
+        "deger": "NONE",
+        "etiket": "Yok (NONE)"
+      },
+      {
+        "deger": "OTHER",
+        "etiket": "Diğer"
+      }
+    ],
+    "purpose": [
+      {
+        "deger": "debt_consolidation",
+        "etiket": "Borç birleştirme"
+      },
+      {
+        "deger": "credit_card",
+        "etiket": "Kredi kartı kapatma"
+      },
+      {
+        "deger": "home_improvement",
+        "etiket": "Ev yenileme"
+      },
+      {
+        "deger": "house",
+        "etiket": "Konut"
+      },
+      {
+        "deger": "car",
+        "etiket": "Taşıt"
+      },
+      {
+        "deger": "major_purchase",
+        "etiket": "Büyük alım"
+      },
+      {
+        "deger": "medical",
+        "etiket": "Sağlık"
+      },
+      {
+        "deger": "moving",
+        "etiket": "Taşınma"
+      },
+      {
+        "deger": "vacation",
+        "etiket": "Tatil"
+      },
+      {
+        "deger": "wedding",
+        "etiket": "Düğün"
+      },
+      {
+        "deger": "small_business",
+        "etiket": "Küçük işletme"
+      },
+      {
+        "deger": "renewable_energy",
+        "etiket": "Yenilenebilir enerji"
+      },
+      {
+        "deger": "other",
+        "etiket": "Diğer"
+      }
+    ]
+  },
+  "ornek_vakalar": {
+    "onay": {
+      "ad": "Onay",
+      "aciklama": "Risk tahmini eşiğin altında"
+    },
+    "kosullu": {
+      "ad": "Koşullu",
+      "aciklama": "Eşiğe yakın, inceleme gerekir"
+    },
+    "ret_plan": {
+      "ad": "Ret + plan",
+      "aciklama": "Eşiğin üzerinde, plan bulundu"
+    },
+    "ret_plan_yok": {
+      "ad": "Ret + plan yok",
+      "aciklama": "Eşiğin üzerinde, plan bulunamadı"
+    },
+    "destek_disi": {
+      "ad": "Değerlendirilemez",
+      "aciklama": "Gerçek bir kaydın tek alanı değiştirilmiş varyantı (ortak başvuru)"
+    }
+  },
+  "sonuc": {
+    "baslik": "Sonuç",
+    "geri": "Forma dön",
+    "karar_baslik": "Karar",
+    "gerekce_baslik": "Gerekçe kodları",
+    "skor_baslik": "Modelin risk tahmini (kalibre)",
+    "skor_alt": "Alt sınır",
+    "skor_nokta": "Nokta tahmini",
+    "skor_ust": "Üst sınır",
+    "surumler_baslik": "Sürümler",
+    "surum_politika": "Politika",
+    "surum_katalog": "Eylem kataloğu",
+    "surum_bundle": "Model paketi",
+    "surum_destek": "Destek aralığı",
+    "karar_notu": "Karar politika sürümüyle verilir; plan karar sonucunu değiştirmez.",
+    "ham_veri": "Ayrıntılı yanıt (JSON)"
+  },
+  "karar": {
+    "APPROVED": {
+      "baslik": "Onay",
+      "aciklama": "Modele göre bu profilin risk tahmini, onay eşiğinin altında."
+    },
+    "CONDITIONAL": {
+      "baslik": "Koşullu",
+      "aciklama": "Bu başvuru için karar bir koşula bağlı."
+    },
+    "REJECTED": {
+      "baslik": "Ret",
+      "aciklama": "Modele göre bu profilin risk tahmini, onay eşiğinin üzerinde."
+    }
+  },
+  "kosul": {
+    "DATA_ISSUE": "Risk tahmini eşiğe çok yakın ya da belirsiz; karar için insan incelemesi gerekir.",
+    "HUMAN_REVIEW_COMPLETED": "Koşul: insan incelemesi tamamlanmalı.",
+    "PLAN_BASED": "Karar bir plana bağlı."
+  },
+  "gerekce": {
+    "PD_BELOW_THRESHOLD": "Modelin risk tahmini onay eşiğinin altında.",
+    "PD_ABOVE_THRESHOLD": "Modelin risk tahmini onay eşiğinin üzerinde.",
+    "PLAN_AVAILABLE": "Eşiğin altına inen bir plan bulundu.",
+    "NO_PLAN_AVAILABLE": "Eşiğin altına inen bir plan bulunamadı.",
+    "REVIEW_REQUIRED": "Karar için insan incelemesi gerekiyor.",
+    "HARD_REJECT_THRESHOLD": "Risk tahmini ret eşiğinin üzerinde.",
+    "OUT_OF_SUPPORT": "Başvuru değerleri modelin eğitim aralığının dışında."
+  },
+  "destek_disi": {
+    "baslik": "Değerlendirilemez",
+    "aciklama": "Başvurudaki bazı değerler, modelin eğitimde hiç görmediği aralıkta. Bu yüzden risk tahmini ve plan üretilmedi.",
+    "alanlar_baslik": "Aralık dışı alanlar",
+    "sonraki": "Bu kayıt insan incelemesine yönlendirilir."
+  },
+  "plan": {
+    "baslik": "Değişiklik planı",
+    "not": "Plan, modele göre bu profildeki benzer kişilerin riskinin daha düşük olduğu bir değişikliği gösterir. Bu bir ilişkidir, sonuç vaadi değildir.",
+    "yollar_not": "Yollar birbiriyle sıralanmaz; her yol için kendi içindeki en ucuz plan gösterilir.",
+    "eylemler": "Eylemler",
+    "maliyet": "Tahmini maliyet (varsayım)",
+    "sure": "Tahmini süre (varsayım)",
+    "hafta": "hafta",
+    "usd": "USD",
+    "sonrasi": "Plan sonrası modelin risk tahmini",
+    "kirpildi": "Alt sınıra çekilen alanlar",
+    "varsayim": "Maliyet ve süre değerleri varsayımdır, ölçülmedi.",
+    "gereksiz": "Başvuru zaten onay eşiğinin altında; plan gerekmiyor."
+  },
+  "yol": {
+    "customer": "Müşteri yolu",
+    "hybrid": "Karma yol (müşteri ve kurum)",
+    "institution": "Kurum yolu (karşı teklif)"
+  },
+  "eylem": {
+    "revolving_paydown": "Dönen kredi borcunu azalt",
+    "loan_amount_reduction": "Karşı teklif: daha düşük kredi tutarı"
+  },
+  "seviye": {
+    "util_70": "Kullanım oranı yüzde 70 olacak kadar öde",
+    "util_50": "Kullanım oranı yüzde 50 olacak kadar öde",
+    "util_30": "Kullanım oranı yüzde 30 olacak kadar öde",
+    "amnt_90": "Tutar yüzde 90'a düşer",
+    "amnt_75": "Tutar yüzde 75'e düşer",
+    "amnt_50": "Tutar yüzde 50'ye düşer"
+  },
+  "plan_yok": {
+    "baslik": "Plan bulunamadı",
+    "aciklama": "Modele göre, katalogdaki eylemlerle eşiğin güvenli payla altına inen bir değişiklik bulunamadı.",
+    "kisitlar_baslik": "Bağlayıcı kısıtlar",
+    "uzaklik_baslik": "Eşiğe uzaklık",
+    "uzaklik_aciklama": "Modelin bugünkü risk tahmini ile onay eşiği arasındaki fark.",
+    "sayisal_yok": "Bu sayfada plan, süre, maliyet ya da sonuç vaadi yoktur."
+  },
+  "kisit": {
+    "UYGULANAMAZ": "Bu profilde uygulanamıyor.",
+    "SEVIYE_GECERSIZ": "Modelde bu seviyede risk tahmini düşmüyor.",
+    "DESTEK_DISI": "Sonuç, modelin gördüğü değer aralığının dışında kalır.",
+    "ETKI_YETERSIZ": "Etkisi, eşiğin güvenli payla altına inmeye yetmiyor.",
+    "GECERLI": "Tek başına geçerli."
+  },
+  "toplu": {
+    "baslik": "Toplu mod",
+    "aciklama": "CSV dosyası yükleyin (en çok 10.000 satır). Başlık: izinli özellikler, basvuru_tarihi ve isteğe bağlı kayit_id.",
+    "dosya": "CSV dosyası",
+    "yukle": "Yükle ve değerlendir",
+    "ornek_indir": "Örnek CSV indir",
+    "sonuc_indir": "Sonuç CSV indir",
+    "bekle": "Değerlendiriliyor",
+    "ozet_baslik": "Portföy özeti",
+    "n": "Kayıt sayısı",
+    "dagilim_baslik": "Karar dağılımı",
+    "plan_dagilim_baslik": "Plan durumu dağılımı",
+    "destek_disi": "Destek dışı kayıt",
+    "plan_arayan": "Plan aranan kayıt",
+    "plan_orani": "Geçerli plan oranı",
+    "yol_orani_baslik": "Yol oranları (plan aranan kayıtlar içinde)",
+    "kova_baslik": "Kova kırılımı (modelin risk tahmini − eşik)",
+    "kova": "Kova",
+    "kova_n": "Kayıt",
+    "kova_oran": "Geçerli plan oranı",
+    "satirlar_baslik": "Satırlar",
+    "satir_no": "Satır",
+    "kayit_id": "Kayıt",
+    "karar": "Karar",
+    "plan_durumu": "Plan durumu",
+    "yollar": "Yollar",
+    "destek_ihlalleri": "Aralık dışı alanlar",
+    "hata_baslik": "Dosya reddedildi",
+    "hata_not": "Hiçbir satır için sonuç üretilmedi.",
+    "bos": "Henüz dosya yüklenmedi.",
+    "tumu": "Tüm satırlar sonuç CSV dosyasında yer alır.",
+    "daha_fazla": "Daha fazla satır göster"
+  },
+  "plan_durumu": {
+    "PLAN": "Plan var",
+    "PLAN_YOK": "Plan yok",
+    "PLAN_GEREKSIZ": "Plan gerekmiyor"
+  },
+  "dagilim": {
+    "APPROVED": "Onay",
+    "CONDITIONAL": "Koşullu",
+    "REJECTED": "Ret"
+  },
+  "yeterlilik": "Bu planın yeterli olması için modelin öngördüğü etkinin en az %{yuzde} kadarının gerçekleşmesi gerekir.",
+  "toplu_dayaniklilik": {
+    "baslik": "Dayanıklılık etiketi dağılımı (kayıt başına en güçlü yol)",
+    "yol_baslik": "Dayanıklılık etiketi, yol türüne göre",
+    "yol": "Yol",
+    "toplam": "Plan olan kayıt"
+  },
+  "dayaniklilik": {
+    "GUCLU": {
+      "ad": "Güçlü",
+      "aciklama": "Modelin öngördüğü etkinin yarısı ya da daha azı yeterli."
+    },
+    "KOSULLU": {
+      "ad": "Koşullu",
+      "aciklama": "Modelin öngördüğü etkinin yarısından fazlası, en çok dörtte üçü gerekli."
+    },
+    "ZAYIF": {
+      "ad": "Zayıf",
+      "aciklama": "Modelin öngördüğü etkinin dörtte üçünden fazlası gerekli."
+    }
+  },
+  "dayaniklilik_meta": {
+    "baslik": "Dayanıklılık",
+    "esik_notu": "Etiket eşikleri varsayımdır."
+  },
+  "kanit": {
+    "K": "muhasebe özdeşliği (K)",
+    "M": "model ilişkisi, nedensel etki doğrulanmadı (M)"
+  },
+  "kanit_meta": {
+    "baslik": "Kanıt sınıfı",
+    "bakiye_kullanim": "Bakiye ve kullanım değişimi",
+    "risk": "Risk etkisi"
+  },
+  "eylem_turu": {
+    "musteri_eylemi": "Müşteri eylemi",
+    "karsi_teklif": "Karşı teklif"
+  }
+}

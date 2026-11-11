@@ -58,3 +58,13 @@ katını aşanlar (2.3 raporundaki kural). Skor aralıkları `configs/decision.y
 `bundle.lock.json`: model, kalibratör verisi, `cost.yaml`, `decision.yaml`, özellik manifestosu,
 `split.yaml` ve `monotone.yaml` dosyalarının SHA-256 özetleri. Özet değişirse CI düşer; değişiklik
 bilinçliyse kilit yeniden yazılır ve commit'e girer.
+
+## Revizyon notu (2026-11-10)
+Bu ADR'nin ilk metni silinmedi; aşağıdaki iki değişiklik onun üstüne eklendi.
+- **Nedensel dil kaldırıldı.** Çıktı ve rapor metinlerinde "onaylanırsın", "riskin düşecek" gibi
+  sonuç vaatleri kullanılmaz. Yerine "bu profilde benzer kişilerin riski modele göre daha düşük"
+  dili gelir. Model bir ilişki ölçer, nedensel etki değil.
+- **Etiket eklendi: tek fiyatlı kurgusal kredi veren.** Burada türetilen onay eşiği, tek bir sabit
+  getiri, kayıp ve hurdle ile varsayılan kurgusal bir kredi verene aittir; gerçek bir kurumun
+  fiyatlama politikası değildir. Etiket ilgili raporlara ve katalogdaki `kurgu_etiketi` alanına yazıldı.
+  `configs/policy/v1.yaml` dondurulmuştur, dokunulmadı.
