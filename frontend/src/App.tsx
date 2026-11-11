@@ -8,6 +8,7 @@ import Form, {
 } from "./components/Form";
 import Ornekler, { type Ornek } from "./components/Ornekler";
 import Sonuc from "./components/Sonuc";
+import Toplu from "./components/Toplu";
 import texts from "./texts.json";
 import type { ScoreResponse } from "./types";
 
@@ -18,6 +19,7 @@ export default function App() {
   const [sonuc, setSonuc] = useState<ScoreResponse | null>(null);
   const [hatalar, setHatalar] = useState<string[]>([]);
   const [yukleniyor, setYukleniyor] = useState(false);
+  const [sekme, setSekme] = useState<"tek" | "toplu">("tek");
 
   async function degerlendir(f: FormDurumu) {
     const g = gonderiHazirla(f);
@@ -48,7 +50,24 @@ export default function App() {
         <h1>{texts.uygulama.baslik}</h1>
         <p>{texts.uygulama.altbaslik}</p>
       </header>
-      {sonuc ? (
+      <nav className="satir" role="tablist">
+        {(["tek", "toplu"] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            role="tab"
+            aria-selected={sekme === s}
+            data-sekme={s}
+            className={sekme === s ? "birincil" : ""}
+            onClick={() => setSekme(s)}
+          >
+            {texts.sekmeler[s]}
+          </button>
+        ))}
+      </nav>
+      {sekme === "toplu" ? (
+        <Toplu />
+      ) : sonuc ? (
         <section data-sayfa="sonuc">
           <h2>{texts.sonuc.baslik}</h2>
           <button type="button" onClick={() => setSonuc(null)}>
