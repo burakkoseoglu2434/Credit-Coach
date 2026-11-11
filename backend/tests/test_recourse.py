@@ -338,3 +338,45 @@ def test_delta_zero_plan_inside_the_review_band_is_rejected_by_decide():
     res = run(base(), _BandScorer(), delta=0.0)
     assert isinstance(res.sonuc, PlanYok)
     assert res.gecerli == ()
+
+
+class _ConstScorer:
+    """Baseline high risk; every candidate gets the same triple x (p_low = p_point = p_high = x)."""
+
+    def __init__(self, x: float) -> None:
+        self.x = x
+
+    def skorla_toplu(self, vektorler, tarih=None):
+        from credit_coach.recourse import Skor
+
+        return [Skor(0.30, 0.30, 0.30, 0.30)] + [
+            Skor(self.x, self.x, self.x, self.x) for _ in vektorler[1:]
+        ]
+
+
+BAND = POLICY.band
+
+
+@pytest.mark.parametrize("delta", [0.01, 0.02, 0.03])
+def test_validity_flips_exactly_at_threshold_minus_delta(delta):
+    cut = THR - delta
+    assert isinstance(run(base(), _ConstScorer(cut - 1e-9), delta=delta).sonuc, PlanVar)
+    assert isinstance(run(base(), _ConstScorer(cut), delta=delta).sonuc, PlanYok)  # strict <
+    assert isinstance(run(base(), _ConstScorer(cut + 1e-9), delta=delta).sonuc, PlanYok)
+
+
+def test_delta_zero_flips_at_threshold_minus_band_because_r2_dominates():
+    # With delta = 0 the stated rule would be p_high < threshold, but decide() sends anything
+    # within `band` of the threshold to NEEDS_REVIEW (R2), so the effective cut is thr - band.
+    cut = THR - BAND
+    assert isinstance(run(base(), _ConstScorer(cut - 1e-9), delta=0.0).sonuc, PlanVar)
+    assert isinstance(run(base(), _ConstScorer(cut + 1e-9), delta=0.0).sonuc, PlanYok)
+    assert isinstance(run(base(), _ConstScorer(THR - 1e-9), delta=0.0).sonuc, PlanYok)
+
+
+def test_effective_cut_is_thr_minus_max_delta_band():
+    # general statement: effective cut = thr - max(delta, band)
+    for d in (0.0, 0.001, 0.0027, 0.01, 0.02, 0.03):
+        cut = THR - max(d, BAND)
+        assert isinstance(run(base(), _ConstScorer(cut - 1e-7), delta=d).sonuc, PlanVar), d
+        assert isinstance(run(base(), _ConstScorer(cut + 1e-7), delta=d).sonuc, PlanYok), d
