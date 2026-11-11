@@ -404,6 +404,33 @@ def sec(
     return Sonuc(PlanVar(yollar=yollar), teshis, tuple(gecerli))
 
 
+def hazirla(b: Mapping[str, Any], k: Katalog) -> tuple[list[tuple[str, str, Aday]], list[Aday]]:
+    """Candidate set for one record: (single (action, level, Aday) list, all plans)."""
+    tek = [
+        (e.id, s.id, _combine([(e, s, et)], b))
+        for e, s, et in uygulanabilir_tekler(b, k)
+        if et is not None
+    ]
+    return tek, adaylar(b, k)  # all plans; ladder-invalid ones are filtered inside sec
+
+
+def sec_from_scores(
+    b: Mapping[str, Any],
+    hazir: tuple[list[tuple[str, str, Aday]], list[Aday]],
+    baz: Skor,
+    aday_skorlari: Sequence[Skor],
+    politika: Policy,
+    support: Support,
+    k: Katalog,
+    delta: float | None = None,
+) -> Sonuc:
+    """`aday_skorlari` is aligned with hazir[1]."""
+    tek, tum = hazir
+    cift = {a.plan_id: sk for a, sk in zip(tum, aday_skorlari, strict=True)}
+    tekler = {(e, s): cift[a.plan_id] for e, s, a in tek}
+    return sec(b, baz, tekler, cift, politika, support, k, delta)
+
+
 def plan_bul(
     b: Mapping[str, Any],
     tarih: Any,
@@ -414,14 +441,6 @@ def plan_bul(
     delta: float | None = None,
 ) -> Sonuc:
     """Score the baseline and every candidate (one batch), then select."""
-    tek_adaylar = [
-        (e.id, s.id, _combine([(e, s, et)], b))
-        for e, s, et in uygulanabilir_tekler(b, k)
-        if et is not None
-    ]
-    tum = adaylar(b, k)  # includes plans with ladder-invalid levels; those are filtered in sec
-    vektorler = [b] + [a.vektor for a in tum]
-    skorlar = scorer.skorla_toplu(vektorler, tarih)
-    baz, cift = skorlar[0], {a.plan_id: sk for a, sk in zip(tum, skorlar[1:], strict=True)}
-    tekler = {(e, s): cift[a.plan_id] for e, s, a in tek_adaylar}
-    return sec(b, baz, tekler, cift, politika, support, k, delta)
+    hazir = hazirla(b, k)
+    skorlar = scorer.skorla_toplu([b] + [a.vektor for a in hazir[1]], tarih)
+    return sec_from_scores(b, hazir, skorlar[0], skorlar[1:], politika, support, k, delta)
