@@ -43,6 +43,18 @@ varsayılan δ 0,012 oldu. Aynı kural (aynı 198 kayıt, dosya sırası) yeni v
 uygulandığında dağılım GUCLU 4, KOSULLU 27, ZAYIF 6 olur (161 kayıt reddedilen değil ya da planı
 yok); ilk GUCLU kayıt `cal-261695`, ilk KOSULLU kayıt `cal-219812`'dir.
 
+Yeniden çalıştırma (ADR-007 sonrası, `/score` varsayılan δ = 0,012, 198 gerçek kayıt, dosya sırası):
+
+| etiket (en güçlü yol) | kayıt sayısı | dosyadaki ilk kayıt |
+|---|---|---|
+| GUCLU | 4 | `cal-261695` |
+| KOSULLU | 27 | `cal-219812` |
+| ZAYIF | 6 | - |
+| reddedilen değil ya da planı yok | 161 | - |
+
+Mevcut `ret_kosullu` vakası `cal-257109`: tek yol (karma), etiket **KOSULLU**, `min_phi` **0,510**
+(δ = 0,02'de 0,718 idi; etiket aynı kaldı).
+
 Karar: GUCLU örnek vakası **eklenmez** ve `ret_kosullu` (`cal-257109`) olduğu gibi kalır; vakalar
 seçim anındaki δ ile belirlenmiştir. `ret_kosullu` kaydı yeni varsayılanda da KOSULLU etiketlidir
 (testle doğrulanır). Etiket dağılımı δ'ya plan oranından çok daha duyarlıdır (ADR-007).

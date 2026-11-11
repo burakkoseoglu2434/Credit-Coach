@@ -103,3 +103,15 @@ def test_example_case_rule_facts_at_the_current_default_delta_are_documented():
     assert missing == []
     # the frozen extra case is still KOSULLU at the current default (category test above)
     assert any(c["kaynak_id"] == "cal-257109" for c in CASES_DATA)
+
+
+def test_ret_kosullu_case_at_the_default_delta_label_and_min_phi(client):
+    """Documented in docs/demo_example_cases.md: KOSULLU, min_phi 0.510 (0.718 at delta 0.02)."""
+    case = next(c for c in CASES_DATA if c["anahtar"] == "ret_kosullu")
+    karar = client.post(
+        "/score", json={"basvuru": case["basvuru"], "basvuru_tarihi": case["basvuru_tarihi"]}
+    ).json()["karar"]
+    (yol,) = karar["plan"]["yollar"]
+    assert case["kaynak_id"] == "cal-257109"
+    assert yol["dayaniklilik"] == "KOSULLU"
+    assert yol["min_phi"] == pytest.approx(0.5104, abs=5e-4)
