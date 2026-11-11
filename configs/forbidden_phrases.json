@@ -1,0 +1,15 @@
+{
+  "aciklama": "Yasaklı ifadeler (küçük harf). Python testi ve frontend taraması aynı listeyi okur.",
+  "ifadeler": [
+    "onaylanırsın",
+    "onaylanacaksın",
+    "riskin düşecek",
+    "riskin azalacak",
+    "riskini düşürür",
+    "puanın artacak",
+    "garanti",
+    "kesin onay",
+    "kesinlikle onay",
+    "mutlaka onay"
+  ]
+}

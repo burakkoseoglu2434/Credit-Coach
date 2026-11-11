@@ -1,24 +1,14 @@
 """Customer-facing wording guard: no outcome promises or causal claims in ADR, report, catalog
 and template files. Quoted negations ("... denmez", "... yazılmaz") are allowed."""
 
+import json
 import re
 from pathlib import Path
 
 from credit_coach.features import MANIFEST_PATH
 
 ROOT = MANIFEST_PATH.parents[1]
-FORBIDDEN = [
-    "onaylanırsın",
-    "onaylanacaksın",
-    "riskin düşecek",
-    "riskin azalacak",
-    "riskini düşürür",
-    "puanın artacak",
-    "garanti",
-    "kesin onay",
-    "kesinlikle onay",
-    "mutlaka onay",
-]
+FORBIDDEN = json.loads((ROOT / "configs" / "forbidden_phrases.json").read_text())["ifadeler"]
 NEGATIONS = ("denmez", "yazılmaz", "kullanılmaz", "demez", "yasak", "savunulamaz", "kaldırıldı")
 
 
@@ -27,6 +17,7 @@ def scanned_files() -> list[Path]:
     files += sorted((ROOT / "docs").glob("week*.md"))
     files += sorted((ROOT / "configs" / "catalog").glob("*.yaml"))
     files += [ROOT / "backend" / "src" / "credit_coach" / "schemas.py"]  # API field text
+    files += [ROOT / "frontend" / "src" / "texts.json"]  # all UI texts
     files += (
         sorted((ROOT / "configs" / "templates").glob("*"))
         if (ROOT / "configs" / "templates").exists()
@@ -52,6 +43,7 @@ def test_scan_covers_the_expected_files():
         "v1.yaml",
         "api_v0.yaml",
         "schemas.py",
+        "texts.json",
     } <= names
 
 
