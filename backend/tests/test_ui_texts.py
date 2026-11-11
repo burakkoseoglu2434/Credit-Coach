@@ -123,3 +123,15 @@ def test_sufficiency_sentence_is_the_agreed_wording_with_one_placeholder():
         "Bu planın yeterli olması için modelin öngördüğü etkinin en az %{yuzde} "
         "kadarının gerçekleşmesi gerekir."
     )
+
+
+def test_safety_margin_texts_exist_and_do_not_hardcode_the_value():
+    from credit_coach.recourse import load_demo_catalog
+    from credit_coach.report_deltas import fmt
+
+    assert set(TEXTS["guvenlik_payi"]) == {"baslik", "aciklama", "kaynak", "turetme"}
+    assert "varsayımdır" in TEXTS["guvenlik_payi"]["turetme"]
+    delta = load_demo_catalog().delta
+    blob = json.dumps(TEXTS, ensure_ascii=False)
+    # the UI shows the API's value; the number must not be typed into the texts
+    assert fmt(delta) not in blob and f"{delta:g}" not in blob

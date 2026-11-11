@@ -53,3 +53,9 @@ def test_missing_raw_data_gives_a_clear_error(monkeypatch, tmp_path, capsys):
     assert "Ham veri bulunamadı" in capsys.readouterr().err
     assert not (tmp_path / "r.md").exists()
     assert json.loads((ROOT / "configs" / "forbidden_phrases.json").read_text())["ifadeler"]
+
+
+def test_facts_table_cells_do_not_contain_unescaped_pipes():
+    for row in delta_facts()[2:]:
+        # a markdown table row has exactly 3 unescaped pipes (2 columns)
+        assert len(row.replace("\\|", "").split("|")) == 4, row

@@ -124,7 +124,7 @@ def delta_facts() -> list[str]:
     return [
         "| öğe | değer / durum |",
         "|---|---|",
-        f"| Varsayılan δ | {kat.delta:g} (etiket: {kat.raw['delta']['etiket']}) |",
+        f"| Varsayılan δ | {kat.delta:g} (etiket: {str(kat.raw['delta']['etiket']).replace('|', chr(92) + '|')}) |",
         "| Tanımlandığı yer | `configs/catalog/demo_v0.yaml`, `delta.deger`; `bundle.lock.json` bu dosyanın hash'ini taşır; türetme kuralı `docs/adr/007-safety-margin.md` |",
         "| API'nin kullandığı değer | `/score` ve `/batch`, `sec_from_scores` çağrısına δ vermez; motor katalogdaki varsayılanı kullanır (`recourse.sec`, `delta=None`) |",
         f"| API yanıtında görünür mü | {api_gorunur}; ayrıca dolaylı iz: `surumler.katalog_sha256` |",

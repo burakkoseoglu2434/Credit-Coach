@@ -67,14 +67,14 @@ Kapsam: kalibrasyon dilimi (2015-03..06) ve boşluk ayları (2015-01, 02, 07, 08
 
 | öğe | değer / durum |
 |---|---|
-| Varsayılan δ | 0.012 (etiket: varsayım: ADR-007 kuralıyla türetildi (kalibrasyon ve boşluk aylarında en büyük aylık |kalibre ortalama PD − gözlenen oran| = 0,0118, 0,001'e yukarı yuvarlandı); dönem kayması ve model belirsizliği payı; Venn-Abers aralığı değil) |
-| Tanımlandığı yer | `configs/catalog/demo_v0.yaml`, `delta.deger`; `bundle.lock.json` bu dosyanın hash'ini taşır |
+| Varsayılan δ | 0.012 (etiket: varsayım: ADR-007 kuralıyla türetildi (kalibrasyon ve boşluk aylarında en büyük aylık \|kalibre ortalama PD − gözlenen oran\| = 0,0118, 0,001'e yukarı yuvarlandı); dönem kayması ve model belirsizliği payı; Venn-Abers aralığı değil) |
+| Tanımlandığı yer | `configs/catalog/demo_v0.yaml`, `delta.deger`; `bundle.lock.json` bu dosyanın hash'ini taşır; türetme kuralı `docs/adr/007-safety-margin.md` |
 | API'nin kullandığı değer | `/score` ve `/batch`, `sec_from_scores` çağrısına δ vermez; motor katalogdaki varsayılanı kullanır (`recourse.sec`, `delta=None`) |
-| API yanıtında görünür mü | hayır (yanıt ve istek şemasında δ alanı yok); dolaylı iz: `surumler.katalog_sha256` |
-| Arayüzde görünür mü | hayır (arayüz δ değerini göstermez; metinlerde yalnızca "güvenli payla" ifadesi geçer) |
+| API yanıtında görünür mü | evet: `guvenlik_payi` alanı (değer, "varsayım" etiketi, kaynak ADR-007); ayrıca dolaylı iz: `surumler.katalog_sha256` |
+| Arayüzde görünür mü | evet: sonuç sayfası ve toplu özet (API değeri olduğu gibi gösterilir, arayüz hesaplamaz) |
 | Bu raporun sütunları | δ = 0 (band içi: etkin kesim eşik − band), δ = 0,012 (demo varsayılanı), δ = 0,03 |
 
 > **Bu tablo ne demek:** API ve arayüzün plan ararken hangi δ'yı kullandığı ve bu değerin nerede görünür olduğu; değerler canlı dosyalardan okundu.
 
-> **Ne DEMEK DEĞİL:** δ ölçülmüş bir büyüklük değil, varsayımdır ve değiştirilmedi; varsayılan δ bu raporda ayrı bir sütun olarak yer alır.
+> **Ne DEMEK DEĞİL:** δ ölçülmüş bir kapsama değil, ADR-007 kuralıyla türetilen bir varsayımdır; varsayılan δ bu raporda ayrı bir sütun olarak yer alır.
 

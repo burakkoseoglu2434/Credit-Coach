@@ -4,6 +4,7 @@ import { sonucCsv } from "../csv";
 import { fmtTam, fmtYuzde } from "../format";
 import texts from "../texts.json";
 import type { BatchResponse } from "../types";
+import GuvenlikPayi from "./GuvenlikPayi";
 import UyariSeridi from "./UyariSeridi";
 
 const dagilim: Record<string, string> = texts.dagilim;
@@ -193,6 +194,7 @@ export default function Toplu() {
         <>
           <UyariSeridi />
           <Ozet o={sonuc.ozet} />
+          <GuvenlikPayi pay={sonuc.guvenlik_payi} />
           <section data-toplu="satirlar">
             <h2>{texts.toplu.satirlar_baslik}</h2>
             <div className="satir">

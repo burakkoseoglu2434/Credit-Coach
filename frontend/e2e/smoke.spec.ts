@@ -81,6 +81,34 @@ test("ret + koşullu etiket: en güçlü yolun etiketi KOSULLU, cümle ve kanıt
   await shot(page, "sonuc-ret_kosullu");
 });
 
+const fmtTr = (n: number) => new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 4 }).format(n);
+
+for (const key of ["ret_plan", "ret_plan_yok"]) {
+  test(`güvenlik payı (${key}): API değeri, 'varsayım' etiketi ve kaynak ADR-007 sonuç sayfasında`, async ({ page }) => {
+    await page.goto("/");
+    const [yanit] = await Promise.all([
+      page.waitForResponse((r) => r.url().endsWith("/score")),
+      page.locator(`[data-ornek="${key}"]`).click(),
+    ]);
+    const pay = (await yanit.json()).guvenlik_payi;
+    expect(pay.etiket).toBe("varsayım");
+    expect(pay.kaynak).toBe("ADR-007");
+    const kart = page.locator("[data-guvenlik-payi]");
+    await expect(kart).toBeVisible();
+    await expect(kart.locator("[data-guvenlik-payi-deger]")).toHaveText(fmtTr(pay.deger));
+    await expect(kart).toContainText("varsayım");
+    await expect(kart).toContainText("ADR-007");
+    await expect(kart).toContainText(texts.guvenlik_payi.baslik);
+  });
+}
+
+test("güvenlik payı: onay sayfasında (plan yok/gerekmiyor) gösterilmez", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-ornek="onay"]').click();
+  await expect(page.locator("[data-sonuc-turu]")).toBeVisible();
+  await expect(page.locator("[data-guvenlik-payi]")).toHaveCount(0);
+});
+
 test("ret + PLAN_YOK: bağlayıcı kısıtlar ve eşiğe uzaklık var, plan/maliyet/süre yok", async ({ page }) => {
   await page.goto("/");
   await page.locator('[data-ornek="ret_plan_yok"]').click();
@@ -110,6 +138,10 @@ test("10 satırlık CSV: portföy özeti, satır tablosu, sonuç CSV indirme, uy
   await expect(page.locator('[data-ozet="n"]')).toHaveText("10");
   await seritVar(page);
   await expect(page.locator('[data-toplu="ozet"]')).toContainText(texts.toplu.kova_baslik);
+  const pay = page.locator("[data-guvenlik-payi]");
+  await expect(pay).toBeVisible();
+  await expect(pay.locator("[data-guvenlik-payi-deger]")).toHaveText(/^\d+,\d+$/);
+  await expect(pay).toContainText("ADR-007");
   const et = page.locator('[data-toplu="dayaniklilik"]');
   await expect(et).toContainText(texts.toplu_dayaniklilik.baslik);
   await expect(et).toContainText(texts.toplu_dayaniklilik.yol_baslik);
