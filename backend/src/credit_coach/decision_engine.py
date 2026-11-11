@@ -111,6 +111,11 @@ def decide_with_support(
     bad = violations(girdi.basvuru.model_dump(), support)
     if not bad:
         return decide(girdi, politika)
+    return destek_disi_karar(politika, bad)
+
+
+def destek_disi_karar(politika: Policy, bad: tuple[str, ...]) -> SupportDecision:
+    """The out-of-support (DEĞERLENDİRİLEMEZ) decision. Needs no score."""
     return SupportDecision(
         dis_durum=OuterStatus.CONDITIONAL,
         ic_durum=InnerStatus.NEEDS_REVIEW,

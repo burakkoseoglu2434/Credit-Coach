@@ -89,6 +89,8 @@ class ModelScorer:
         }
 
     def skorla_toplu(self, vektorler: Sequence[Mapping[str, Any]], tarih: Any) -> list[Skor]:
+        if not vektorler:
+            return []
         import pandas as pd
 
         from credit_coach.calibration import predict_interval

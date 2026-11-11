@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Batch
+         * @description CSV (at most 10,000 rows): header = allowed features + basvuru_tarihi (+ kayit_id).
+         */
+        post: operations["postBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -21,16 +41,345 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Score
+         * @description Support check, model, calibrator, decision (policy v1), recourse. Invalid input is 422.
+         */
+        post: operations["postScore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Basvuru */
+        Basvuru: {
+            /** Acc Now Delinq */
+            acc_now_delinq: number | null;
+            /** Acc Open Past 24Mths */
+            acc_open_past_24mths: number | null;
+            /** Annual Inc */
+            annual_inc: number | null;
+            /** Application Type */
+            application_type: string | null;
+            /** Chargeoff Within 12 Mths */
+            chargeoff_within_12_mths: number | null;
+            /** Collections 12 Mths Ex Med */
+            collections_12_mths_ex_med: number | null;
+            /** Delinq 2Yrs */
+            delinq_2yrs: number | null;
+            /** Delinq Amnt */
+            delinq_amnt: number | null;
+            /** Dti */
+            dti: number | null;
+            /** Earliest Cr Line */
+            earliest_cr_line: string | null;
+            /** Emp Length */
+            emp_length: string | null;
+            /** Fico Range High */
+            fico_range_high: number | null;
+            /** Fico Range Low */
+            fico_range_low: number | null;
+            /** Home Ownership */
+            home_ownership: string | null;
+            /** Inq Last 6Mths */
+            inq_last_6mths: number | null;
+            /** Loan Amnt */
+            loan_amnt: number | null;
+            /** Mort Acc */
+            mort_acc: number | null;
+            /** Open Acc */
+            open_acc: number | null;
+            /** Pub Rec */
+            pub_rec: number | null;
+            /** Pub Rec Bankruptcies */
+            pub_rec_bankruptcies: number | null;
+            /** Purpose */
+            purpose: string | null;
+            /** Revol Bal */
+            revol_bal: number | null;
+            /** Revol Util */
+            revol_util: number | null;
+            /** Tax Liens */
+            tax_liens: number | null;
+            /** Term */
+            term: string | null;
+            /** Tot Coll Amt */
+            tot_coll_amt: number | null;
+            /** Tot Cur Bal */
+            tot_cur_bal: number | null;
+            /** Tot Hi Cred Lim */
+            tot_hi_cred_lim: number | null;
+            /** Total Acc */
+            total_acc: number | null;
+            /** Total Bal Ex Mort */
+            total_bal_ex_mort: number | null;
+            /** Total Bc Limit */
+            total_bc_limit: number | null;
+            /** Total Rev Hi Lim */
+            total_rev_hi_lim: number | null;
+        };
+        /** BatchResponse */
+        BatchResponse: {
+            notlar: components["schemas"]["Notlar"];
+            ozet: components["schemas"]["PortfoyOzeti"];
+            /** Satirlar */
+            satirlar: components["schemas"]["SatirSonucu"][];
+            surumler: components["schemas"]["Surumler"];
+        };
+        /**
+         * ConditionalType
+         * @enum {string}
+         */
+        ConditionalType: "DATA_ISSUE" | "PLAN_BASED";
+        /** GirdiHatasiYaniti */
+        GirdiHatasiYaniti: {
+            /** Detail */
+            detail: string[];
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** HealthResponse */
         HealthResponse: {
             /** Status */
             status: string;
             /** Version */
             version: string;
+        };
+        /** KovaSatiri */
+        KovaSatiri: {
+            /** Gecerli Plan Orani */
+            gecerli_plan_orani: number | null;
+            /** Kova */
+            kova: string;
+            /** N */
+            n: number;
+        };
+        /** Notlar */
+        Notlar: {
+            /** Etiket */
+            etiket: string;
+            /** Karar Notu */
+            karar_notu: string;
+            /** Plan Notu */
+            plan_notu: string;
+            /** Plan Yok Notu */
+            plan_yok_notu: string;
+            /** Varsayim Notu */
+            varsayim_notu: string;
+        };
+        /**
+         * OuterStatus
+         * @enum {string}
+         */
+        OuterStatus: "APPROVED" | "CONDITIONAL" | "REJECTED";
+        /** PlanGereksiz */
+        PlanGereksiz: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            durum: "PLAN_GEREKSIZ";
+        };
+        /** PlanVar */
+        PlanVar: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            durum: "PLAN";
+            /** Yollar */
+            yollar: components["schemas"]["YolPlan"][];
+        };
+        /**
+         * PlanYok
+         * @description No plan. Carries NO plan, path, cost, duration or after-values: only closed-list
+         *     binding constraints and today's measured distance to the threshold.
+         */
+        PlanYok: {
+            /** Bagli Kisitlar */
+            bagli_kisitlar: [
+                string,
+                string[]
+            ][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            durum: "PLAN_YOK";
+            /** Esige Uzaklik */
+            esige_uzaklik: number | null;
+        };
+        /** PortfoyOzeti */
+        PortfoyOzeti: {
+            /** Destek Disi */
+            destek_disi: number;
+            /** Dis Durum Dagilimi */
+            dis_durum_dagilimi: {
+                [key: string]: number;
+            };
+            /** Gecerli Plan Orani */
+            gecerli_plan_orani: number | null;
+            /** Kovalar */
+            kovalar: components["schemas"]["KovaSatiri"][];
+            /** N */
+            n: number;
+            /** Plan Arayan */
+            plan_arayan: number;
+            /** Plan Durumu Dagilimi */
+            plan_durumu_dagilimi: {
+                [key: string]: number;
+            };
+            /** Yol Orani */
+            yol_orani: {
+                [key: string]: number | null;
+            };
+        };
+        /**
+         * PublicReasonCode
+         * @enum {string}
+         */
+        PublicReasonCode: "PD_BELOW_THRESHOLD" | "PD_ABOVE_THRESHOLD" | "PLAN_AVAILABLE" | "NO_PLAN_AVAILABLE" | "REVIEW_REQUIRED" | "HARD_REJECT_THRESHOLD" | "OUT_OF_SUPPORT";
+        /**
+         * SatirKarari
+         * @description Decision, support check and recourse result for one record.
+         */
+        SatirKarari: {
+            conditional_type?: components["schemas"]["ConditionalType"] | null;
+            /** Destek Ihlalleri */
+            destek_ihlalleri: string[];
+            dis_durum: components["schemas"]["OuterStatus"];
+            /** Gerekce Kodlari */
+            gerekce_kodlari: components["schemas"]["PublicReasonCode"][];
+            /** Plan */
+            plan: components["schemas"]["PlanVar"] | components["schemas"]["PlanYok"] | components["schemas"]["PlanGereksiz"];
+            skor: components["schemas"]["Skor3"] | null;
+            /** Upgrade Condition */
+            upgrade_condition?: string | null;
+        };
+        /** SatirSonucu */
+        SatirSonucu: {
+            karar: components["schemas"]["SatirKarari"];
+            /** Kayit Id */
+            kayit_id?: string | null;
+            /** Satir No */
+            satir_no: number;
+        };
+        /**
+         * ScoreRequest
+         * @description One application. `basvuru_tarihi` is explicit: it enters the model (credit history in
+         *     months) and the service never reads the clock, so the same request gives the same answer.
+         */
+        ScoreRequest: {
+            basvuru: components["schemas"]["Basvuru"];
+            /**
+             * Basvuru Tarihi
+             * Format: date
+             */
+            basvuru_tarihi: string;
+        };
+        /** ScoreResponse */
+        ScoreResponse: {
+            karar: components["schemas"]["SatirKarari"];
+            notlar: components["schemas"]["Notlar"];
+            surumler: components["schemas"]["Surumler"];
+        };
+        /** Skor3 */
+        Skor3: {
+            /** P High */
+            p_high: number;
+            /** P Low */
+            p_low: number;
+            /** P Point */
+            p_point: number;
+        };
+        /** Surumler */
+        Surumler: {
+            /** Bundle Sha256 */
+            bundle_sha256: string;
+            /** Katalog Sha256 */
+            katalog_sha256: string;
+            /** Katalog Surumu */
+            katalog_surumu: string;
+            /** Politika Sha256 */
+            politika_sha256: string;
+            /** Politika Surumu */
+            politika_surumu: string;
+            /** Support Sha256 */
+            support_sha256: string;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+        };
+        /** YolPlan */
+        YolPlan: {
+            /** Eylemler */
+            eylemler: [
+                string,
+                string
+            ][];
+            /** Imza */
+            imza: [
+                string[],
+                string[]
+            ];
+            /** Kirpildi */
+            kirpildi: string[];
+            /**
+             * Maliyet Etiketi
+             * @default varsayım
+             * @constant
+             */
+            maliyet_etiketi: "varsayım";
+            /** Maliyet Usd */
+            maliyet_usd: number;
+            /** P High */
+            p_high: number;
+            /** P Low */
+            p_low: number;
+            /** P Point */
+            p_point: number;
+            /** Plan Id */
+            plan_id: string;
+            /**
+             * Sure Etiketi
+             * @default varsayım
+             * @constant
+             */
+            sure_etiketi: "varsayım";
+            /** Sure Hafta */
+            sure_hafta: [
+                number,
+                number
+            ];
+            /** Yol Tipi */
+            yol_tipi: string;
         };
     };
     responses: never;
@@ -41,6 +390,39 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    postBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "text/csv": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchResponse"];
+                };
+            };
+            /** @description Invalid CSV (no partial result) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GirdiHatasiYaniti"];
+                };
+            };
+        };
+    };
     getHealth: {
         parameters: {
             query?: never;
@@ -57,6 +439,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    postScore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoreResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -108,7 +108,8 @@ def violations(basvuru: dict, support: Support) -> tuple[str, ...]:
             out.append(name)
     for name, allowed in support.kategorik.items():
         v = basvuru.get(name)
-        if v is not None and v not in allowed:
+        # raw data carries padding (" 36 months"); compare on stripped values
+        if v is not None and str(v).strip() not in {a.strip() for a in allowed}:
             out.append(name)
     return tuple(sorted(out))
 

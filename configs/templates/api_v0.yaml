@@ -1,0 +1,7 @@
+# API yanıt metinleri (demo v0). Müşteriye dönük dil: ilişki dili, sonuç vaadi yok.
+# Yasaklı ifade testi bu dosyayı tarar.
+etiket: "tek fiyatlı kurgusal kredi veren"
+varsayim_notu: "Maliyet ve süre değerleri varsayımdır, ölçülmedi."
+plan_notu: "Plan, modele göre bu profildeki benzer kişilerin riskinin daha düşük olduğu bir değişikliği gösterir. Bu bir ilişkidir, sonuç vaadi değildir."
+plan_yok_notu: "Modele göre bu profilde, katalogdaki eylemlerle eşiğin güvenli payla altına inen bir değişiklik bulunamadı."
+karar_notu: "Karar politika sürümüyle verilir; plan karar sonucunu değiştirmez."

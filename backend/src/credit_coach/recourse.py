@@ -17,7 +17,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, NamedTuple, Protocol
+from typing import Any, Literal, NamedTuple, Protocol
 
 import yaml
 from pydantic import BaseModel, ConfigDict
@@ -257,7 +257,9 @@ class YolPlan(BaseModel):
     plan_id: str
     eylemler: tuple[tuple[str, str], ...]
     maliyet_usd: float  # varsayım: nakit çıkışı veya karşılanmayan talep, 1 USD = 1 USD
+    maliyet_etiketi: Literal["varsayım"] = "varsayım"
     sure_hafta: tuple[int, int]  # varsayım
+    sure_etiketi: Literal["varsayım"] = "varsayım"
     p_low: float
     p_point: float
     p_high: float
@@ -267,7 +269,7 @@ class YolPlan(BaseModel):
 class PlanVar(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    durum: str = "PLAN"
+    durum: Literal["PLAN"] = "PLAN"
     yollar: tuple[YolPlan, ...]  # display order only; paths are not ranked
 
 
@@ -277,7 +279,7 @@ class PlanYok(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    durum: str = "PLAN_YOK"
+    durum: Literal["PLAN_YOK"] = "PLAN_YOK"
     bagli_kisitlar: tuple[tuple[str, tuple[str, ...]], ...]  # (action id | BASVURU, reasons)
     esige_uzaklik: float | None  # current p_point - threshold; None when not scored
 
@@ -285,7 +287,7 @@ class PlanYok(BaseModel):
 class PlanGereksiz(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    durum: str = "PLAN_GEREKSIZ"
+    durum: Literal["PLAN_GEREKSIZ"] = "PLAN_GEREKSIZ"
 
 
 @dataclass(frozen=True)
