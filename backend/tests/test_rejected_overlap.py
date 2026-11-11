@@ -85,3 +85,12 @@ def test_real_file_has_the_recorded_columns():
         ).fetchall()
     ]
     assert cols == load_sources()["lc_reddedilen"]["sutunlar"]
+
+
+def test_report_doc_is_locked_to_the_recorded_source_and_has_the_required_lines():
+    from credit_coach.rejected_overlap import REPORT
+
+    text = REPORT.read_text()
+    assert load_sources()["lc_reddedilen"]["sha256"] in text
+    assert "## Ne demek" in text and "## Ne DEMEK DEĞİL" in text
+    assert "## Alan eşlemesi" in text and "2012-2015" in text
