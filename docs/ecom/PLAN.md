@@ -103,6 +103,7 @@ bolme:
 ### 2.1 Gösterim
 
 - $T_i \in \{0,1\}$ tedavi, $Y_i$ sonuç, $X_i$ özellikler; $p = P(T=1)$ deney tasarımından bilinir (Hillstrom: 0,5 seçilen iki kol içinde; Criteo: eğitim kümesinde ölçülen oran, E0'da sabitlenir).
+  *Sonradan (2026-11-12, Karar Q2):* Hillstrom'da birincil karşılaştırma iki e-posta kolu birleşik ile e-posta yok olduğu için $p \approx 2/3$; kesin değer E0'da eğitim kümesinde ölçülür ve sabitlenir.
 - $\hat\tau(x)$: modelin tahmin ettiği koşullu fark, $\hat\tau(x) = \hat\mu_1(x) - \hat\mu_0(x)$.
 - Gözlenen fark (bir küme $S$ için): $\tau^{obs}_S = \bar Y_{S,T=1} - \bar Y_{S,T=0}$.
 - Tüm metrikler **test kümesinde**, test satırları $\hat\tau$'ya göre azalan sıralanarak hesaplanır; eşitlikler satır kimliğine göre bozulur (deterministik).
@@ -165,6 +166,7 @@ Not: $\pi_{mod}$ zaten $\hat\tau$'ya göre seçildiği için $\overline{\hat\tau
 ### 3.1 Kümeler ve bölme
 
 - **Hillstrom birincil karşılaştırma:** Womens E-Mail (T=1) ve No E-Mail (T=0) satırları (≈ 42.700). Mens E-Mail kolu ikincil karşılaştırmadır ve kapı ölçütüne girmez (bölüm 9, soru 2).
+  *Sonradan (2026-11-12, Karar Q2):* Birincil karşılaştırma iki e-posta kolu birleşik (T=1) ile No E-Mail (T=0); tüm 64.000 satır kullanılır, $p \approx 2/3$. Mens ve Womens kollarının her biri No E-Mail ile ayrı ayrı ikincil karşılaştırmadır ve kapı ölçütüne girmez.
 - **Criteo:** `treatment` rastgele atanan değişkendir; analiz atamaya göre yapılır (intention-to-treat). `exposure` model girdisi ya da tedavi tanımı olarak **kullanılmaz** (atamadan sonra oluşur, sızıntı olur).
 - **Birincil sonuç:** her iki sette `visit` (Hillstrom'da değer hesabı için `spend` ayrıca kullanılır; Criteo'da değer hesabı `conversion` üzerinden). Bkz. bölüm 9, soru 3.
 - **Bölme:** eğitim / doğrulama / test = 0,6 / 0,2 / 0,2; tabaka = (tedavi × birincil sonuç), böylece her kümede tedavi oranı ve sonuç oranı korunur. Seed 20261111. Bölme satır kimliğinin sabit bir karmasıyla atanır ve kimlik listesi (dosya değil, karması) `configs/ecom_data_source.yaml`'a yazılır.
@@ -277,6 +279,7 @@ Toplam süre hedefi: **9 iş günü** (1–2 hafta). Her kapı ayrı PR; bir kap
   2. Kalibrasyon eğimi $\hat\beta \in [0{,}5;\ 1{,}5]$ ve bootstrap alt sınırı > 0.
   3. Genel düzey: $\overline{\hat\tau} - \tau^{obs}_{test}$ farkının %95 aralığı 0'ı içerir.
 - **Güç notu:** Test ≈ 8.500 satır, desil başına kol başına ≈ 425 kişi; desil aralıkları geniş olacak. Bu yüzden desil bazında tek tek ölçüt yok; ölçüt eğim ve genel düzeydir.
+  *Sonradan (2026-11-12, Karar Q2):* Birleşik kollarla test ≈ 12.800 satır; desil başına ≈ 1.280 kişi (≈ 853 tedavi, ≈ 427 kontrol). Kontrol tarafı desil başına yine ≈ 425 kişi olduğu için aralıklar geniş kalır; ölçütler değişmedi.
 - **Durdurma kuralı:** Ölçüt 1 kalırsa E2 yine yapılabilir (büyük örneklem), ancak yalnızca kullanıcı onayıyla; test yeniden çalıştırılmaz, model değiştirilmez.
 
 ### E2 — Criteo'da yeniden üretim (3 gün)
@@ -364,3 +367,26 @@ Toplam süre hedefi: **9 iş günü** (1–2 hafta). Her kapı ayrı PR; bir kap
 > **Bu bölüm ne demek:** Plan dondurulmadan önce kullanıcının karar vermesi gereken noktalar.
 >
 > **Ne DEMEK DEĞİL:** Önerilen varsayılanlar karar yerine geçmez; onay gelmeden E0 başlamaz.
+
+---
+
+## 10. Kararlar (2026-11-11)
+
+Bölüm 9'daki sorulara kullanıcı yanıtları. Bu bölüm eklendikten sonra bölüm 6'daki eşikler **DONDURULDU**; hiçbir sonuç görülmeden.
+
+| Soru | Karar |
+|---|---|
+| Q1 Rastgele bölme | Evet. İstisna [ADR-008](../adr/008-ecom-rct-random-split.md) ile kayıtlı: yalnızca rastgele atamalı deney verisinde (RCT) tabakalı rastgele bölme; zaman kayması ölçülmez. Kredi verisinde zamana göre bölme kuralı aynen geçerli |
+| Q2 Hillstrom birincil kolu | İki e-posta kolu birleşik (Mens + Womens) ile e-posta yok; $p \approx 2/3$, E0'da ölçülür. Mens ve Womens kolları ayrı ayrı ikincil, kapı dışı. Bölüm 2.1, 3.1 ve E1'deki $p$ ve test boyutu ifadeleri "sonradan" notuyla düzeltildi |
+| Q3 Birincil sonuç | `visit` (her iki set). Değer hesabı: Hillstrom `spend`, Criteo `conversion` (bölüm 2.3, 4) |
+| Q4 Birincil maliyet hücresi | Hillstrom $g = 0{,}30$, $c = 0{,}10$ $; Criteo $k = 0{,}001$ (ızgaranın ortası). Kapı E3 bu hücrede değerlendirilir; ızgaradaki tüm hücreler raporlanır |
+| Q5 Lisans | Çalışma **ticari olmayan iç doğrulamadır**. Hillstrom için kaynakta lisans ya da kullanım şartı bulunamadı; bu belirsizlik E0 notunda ve her raporda yazılır |
+| Q6 Dondurulan nokta | `demo-v0.3`. Not: demo-v0.3 etiketi PR #20 birleşip main CI yeşil olunca atılacak; dondurulan nokta o merge commit'idir |
+| Q7 Kod yeri | `backend/src/credit_coach/ecom/` alt paketi. Alt paketin kredi modüllerini içe aktarmadığını denetleyen bir test, kodla birlikte (E0) yazılır |
+| Q8 Criteo boyutu | Tamamı. Alt örneğe (bölüm 6/E2'deki deterministik %25) geçiş koşulu: tek model eğitimi 60 dakikayı aşarsa ya da bellek kullanımı %80'i aşarsa. Geçiş raporda yazılır |
+| Q9 Kapı eşikleri | Bölüm 6'daki eşikler **DONDURULDU**. Ek kural: Criteo E0'da SMD ölçütünü (E0 ölçüt 4) geçemezse Criteo çıkarılır ve çalışma Hillstrom'la devam eder |
+
+> **Bu bölüm ne demek:** Plandaki açık soruların yanıtları ve eşiklerin sonuç görülmeden dondurulduğu an.
+>
+> **Ne DEMEK DEĞİL:** Kararlar bir sonucun çıkacağını göstermez; dondurulan eşikler bu çalışmaya özgü karar kurallarıdır ve E0 başlamadı.
+
