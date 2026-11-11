@@ -24,6 +24,7 @@ def scanned_files() -> list[Path]:
         for p in [
             ROOT / "docs" / "demo_portfolio_report.md",
             ROOT / "docs" / "demo_effect_share.md",
+            ROOT / "docs" / "demo_resilience_labels.md",
         ]
         if p.exists()
     ]
@@ -56,6 +57,7 @@ def test_scan_covers_the_expected_files():
         "CLAIMS.md",
         "README.md",
         "demo_effect_share.md",
+        "demo_resilience_labels.md",
     } <= names
 
 
