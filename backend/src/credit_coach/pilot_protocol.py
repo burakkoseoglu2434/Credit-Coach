@@ -55,6 +55,7 @@ SEGMENTS = {
 }
 REF = ("(ii) GUCLU+KOSULLU", 0.012, 0.50, 0.8)  # segment, δ, φ, power for the reference pilot size
 START, CUT, CUT_FALLBACK = "## Tasarım", "## Sonuçlar", "## Hukuk ve uyum"
+REV_START = "## Revizyon 1 (sonradan)"
 MISSING = (
     "Ham veri bulunamadı: {path}\n"
     "Bu rapor ham LendingClub CSV dosyasına ihtiyaç duyar (başvuru özellikleri ve skorlama)."
@@ -354,6 +355,9 @@ def main(argv: list[str] | None = None) -> int:
         print(MISSING.format(path=baseline.CSV), file=sys.stderr)
         return 2
     text, ref = build(baseline.CSV)
+    old = REPORT.read_text(encoding="utf-8")
+    if REV_START in old:  # keep the post-hoc revision section untouched
+        text = text.rstrip() + "\n\n" + old[old.index(REV_START) :]
     REPORT.write_text(text, encoding="utf-8")
     CONFIG.write_text(
         "# Pilot varsayımları (öneri; etiket: varsayım). docs/pilot_protocol_v0.md kurallarıyla üretildi.\n"

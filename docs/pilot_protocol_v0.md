@@ -238,3 +238,161 @@ Bu liste hukuki görüş değildir; karar verilmemiştir. Kredi verenin yargı a
 - **Seçilim ve kabul farkı.** Teklifi kabul edenlerin teklif edilenlerden farklı olması (örneğin daha düşük risk ya da daha yüksek ihtiyaç) güç hesabına ve sonuca yansır; kabul oranı yalnızca teklif sayısını ölçekler, kabul edenlerin temerrüt oranını değiştirmez varsayılmıştır.
 - **2012-15 ABD verisi.** Havuz ve olasılıklar bu dönemin kredilerinden gelir; bugünkü bir kredi veren için geçerliliği doğrulanmadı.
 - **Varsayımlar.** getiri, temerrüt kaybı ve hurdle `configs/cost.yaml`'daki varsayımlardır; φ ölçülmüş bir etki değil, bir senaryo parametresidir; normal yaklaşım küçük N ve çarpık R için yaklaşıktır.
+
+## Revizyon 1 (sonradan)
+
+Bu bölüm, yukarıdaki sonuçlar görüldükten SONRA, ayrı bir değişiklikle eklenen sonradan revizyondur. Yukarıdaki Tasarım, Hesap yöntemi, Sonuçlar, Hukuk ve uyum ve Sınırlar bölümlerinin metni değiştirilmemiştir. Bu bölümün "Revizyon tanımı" kısmı, sayılar hesaplanmadan önce yazılmış ve commit'lenmiştir; "Revizyon sonuçları" kısmı bu tanımdan üretilir.
+
+Yukarıdaki Tablo 6 ve Tablo 7'deki "bütçe tavanı" ve "en kötü durum" ifadelerinin yerini bu bölümdeki nominal anapara ve zarar kuyruğu alır; Tablo 4'teki "varsayılan φ için gereken N" yerine, uygulanabilir N için en küçük saptanabilir etki verilir. Eski metin silinmedi ve değiştirilmedi.
+
+### Revizyon tanımı
+
+**Kapsam.** Test dilimi kullanılmaz; havuz yukarıdaki gibi kalibrasyon dilimi (2015-03..06) ve boşluk aylarıdır (2015-01, 02, 07, 08). Motor, politika, katalog ve `configs/cost.yaml` değişmez. Segmentler: (ii) GUCLU+KOSULLU ve (iii) planı geçerli olan hepsi. δ ∈ {0,012; 0,03}. Aday havuzu, kredi başına değer ve p_point senaryosu yukarıdaki "Hesap yöntemi" bölümündeki gibidir.
+
+**Açık varsayımlar.**
+1. getiri ve temerrüt kaybı, `configs/cost.yaml` ortalamalarıdır (getiri `saglam_kredi_getirisi.mean`, temerrüt kaybı `temerrut_kaybi.mean`); hurdle `decision.total_hurdle`'dır.
+2. Ürün ya da risk bazlı fiyat farkı yoktur: her kredi için aynı getiri kullanılır.
+3. Bir kredinin sonucu, p = p_point_önce − φ·Δ_point olasılıklı bağımsız bir Bernoulli olayıdır; seçilen krediler havuzdan yerine koymayla çekilir (sonlu havuz düzeltmesi yok).
+4. Normal yaklaşım ve Monte Carlo sonuçları yaklaşıktır.
+
+**a) En küçük saptanabilir etki (MDE).** N ∈ {250; 500; 1.000; 2.000} fonlanan kredi, güç %80, α = 0,05 tek yönlü. Her (δ, segment, N) için:
+- μ_min(N) = (z_(0,95) + z_(0,80)) · σ₀ / √N. σ₀, "Hesap yöntemi"ndeki σ'nın φ = 0 senaryosundaki değeridir (L' ağırlıklı Bernoulli).
+- μ_min(N) USD olarak ve havuzdaki ort. L'nin yüzdesi olarak verilir.
+- Karşılık gelen φ: μ(φ), φ'ye göre doğrusaldır (p, φ'de doğrusal olduğundan); μ_min(N), φ ∈ {0; 0,25; 0,50; 0,75; 1,00} noktalarındaki μ(φ) değerleri arasında doğrusal enterpolasyonla φ'ye çevrilir. μ_min(N) > μ(1,00) ise ">1,00" yazılır; μ_min(N) ≤ μ(0) ise "≤ 0,00" yazılır.
+- Referans olarak μ(1,00) de tabloya yazılır.
+
+**b) Nominal anapara ve zarar kuyruğu.** "Bütçe tavanı" iki büyüklüğe ayrılır:
+- Nominal anapara = N × havuzdaki ort. L' (USD). Kayıp ya da kayıp üst sınırı değildir.
+- Zarar kuyruğu: φ = 0 senaryosunda (p = p_point_önce) N kredilik portföyün toplam sonucunun alt %5 ve alt %1 yüzdelikleri. Toplam, iki biçimde hesaplanır: hurdle üstü (R = L'·[(1−Y)·getiri − Y·temerrüt kaybı − hurdle]) ve hurdle öncesi net (R = L'·[(1−Y)·getiri − Y·temerrüt kaybı]); Y ∈ {0, 1} Bernoulli(p_point_önce) sonuçtur.
+- Yöntem: Monte Carlo. Her (δ, segment, N) için 20.000 tekrar; her tekrarda havuzdan yerine koymayla N kayıt çekilir ve her birinin Y sonucu bağımsız olarak üretilir. Tohum 7 (`numpy.random.default_rng(7)`, her (δ, segment, N) için yeniden başlatılır). Yüzdelik, `numpy.percentile` (doğrusal enterpolasyon) ile alınır.
+- Beklenen toplam (N × μ, φ = 0) yanına yazılır. Hurdle üstü değer nakit kayıp değildir; hurdle öncesi net sonuç nakit görünüme yaklaşık bir ölçüdür (zamanlama, iskonto ve erken ödeme hesaba katılmaz).
+- "Hepsi temerrüt" en kötü durumu bu yüzdeliklerle değiştirilir.
+
+**c) Aday akışı.** Kalibrasyon ve boşluk aylarının her birinde (8 ay) (δ, segment) için aday sayısı sayılır; aylık ortalama = toplam aday / 8. Müşteri ölçeği s ∈ {%100, %10, %1}: %100 = bu verideki aylık aday akışı olduğu gibi; %10 ve %1 bunun doğrusal ölçeğidir. Kabul oranı a ∈ {1,00; 0,70; 0,50; 0,30} (1,00: her aday teklif alır ve kabul eder). N krediyi doldurmak için gereken ay = N / (aylık ortalama aday × s × a), N ∈ {250; 500; 1.000; 2.000}, bir ondalıkla. Akışın sabit olduğu, mevsimsellik olmadığı varsayılır; 36 aylık sonuç gecikmesi bu süreye eklenmez.
+
+**d) `configs/pilot.yaml`.** Eski mekanik çıktılar (`pilot_kredi_sayisi`, `kredi_basina_tavan_usd`, `butce_tavani_usd`) "varsayım, kural çıktısı, uygulanabilir değil" etiketiyle kalır; değerleri değişmez. Revizyon değerleri ayrı `revizyon_1` bölümünde yer alır ve "varsayım" etiketi taşır.
+
+### Revizyon sonuçları
+
+Test dilimi kullanılmadı. Havuz: kalibrasyon dilimi ve boşluk ayları birleşik (2015-01, 2015-02, 2015-03, 2015-04, 2015-05, 2015-06, 2015-07, 2015-08). Hurdle üstü değer ile hurdle öncesi net sonuç ayrı büyüklüklerdir; hurdle üstü değer nakit kayıp değildir. Monte Carlo: 20,000 tekrar, tohum 7.
+
+## R1. En küçük saptanabilir etki (MDE)
+
+| δ | segment | kayıt | N | σ₀ (USD) | μ_min (USD) | μ_min / ort. L' | μ(1,00) (USD) | karşılık gelen φ |
+|---|---|---|---|---|---|---|---|---|
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | 7167 | 250 | 2,013.2 | 316.6 | 3.5% | 120.3 | >1,00 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | 7167 | 500 | 2,013.2 | 223.9 | 2.4% | 120.3 | >1,00 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | 7167 | 1,000 | 2,013.2 | 158.3 | 1.7% | 120.3 | >1,00 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | 7167 | 2,000 | 2,013.2 | 111.9 | 1.2% | 120.3 | 0,95 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | 9506 | 250 | 2,089.8 | 328.6 | 3.5% | 120.7 | >1,00 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | 9506 | 500 | 2,089.8 | 232.4 | 2.5% | 120.7 | >1,00 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | 9506 | 1,000 | 2,089.8 | 164.3 | 1.7% | 120.7 | >1,00 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | 9506 | 2,000 | 2,089.8 | 116.2 | 1.2% | 120.7 | 0,98 |
+| 0.03 | (ii) GUCLU+KOSULLU | 280 | 250 | 1,750.4 | 275.3 | 3.7% | 182.3 | >1,00 |
+| 0.03 | (ii) GUCLU+KOSULLU | 280 | 500 | 1,750.4 | 194.6 | 2.6% | 182.3 | >1,00 |
+| 0.03 | (ii) GUCLU+KOSULLU | 280 | 1,000 | 1,750.4 | 137.6 | 1.9% | 182.3 | 0,80 |
+| 0.03 | (ii) GUCLU+KOSULLU | 280 | 2,000 | 1,750.4 | 97.3 | 1.3% | 182.3 | 0,62 |
+| 0.03 | (iii) planı geçerli olan hepsi | 2904 | 250 | 2,166.1 | 340.6 | 3.4% | 181.2 | >1,00 |
+| 0.03 | (iii) planı geçerli olan hepsi | 2904 | 500 | 2,166.1 | 240.9 | 2.4% | 181.2 | >1,00 |
+| 0.03 | (iii) planı geçerli olan hepsi | 2904 | 1,000 | 2,166.1 | 170.3 | 1.7% | 181.2 | 0,96 |
+| 0.03 | (iii) planı geçerli olan hepsi | 2904 | 2,000 | 2,166.1 | 120.4 | 1.2% | 181.2 | 0,78 |
+
+> **Bu tablo ne demek:** Tek kollu pilotta, H0: E[R] ≤ 0'ı tek yönlü α = 0,05 ve %80 güçle reddetmek için N fonlanan kredide gereken en küçük kredi başına ortalama hurdle üstü getiri (μ_min) ve bunun φ senaryosundaki karşılığı.
+
+> **Ne DEMEK DEĞİL:** μ_min ölçülmüş bir etki değil, N'ye bağlı bir eşiktir; φ bilinmeyen bir etki payıdır ve ">1,00" modelin öngördüğü payın tamamının bile eşiği geçmediği anlamına gelir; σ₀, φ = 0 senaryosundan alındı.
+
+## R2. Nominal anapara ve zarar kuyruğu (φ = 0)
+
+| δ | segment | N | nominal anapara (USD) | beklenen hurdle üstü toplam, φ = 0 (USD) | hurdle üstü alt %5 (USD) | hurdle üstü alt %1 (USD) | beklenen hurdle öncesi net, φ = 0 (USD) | hurdle öncesi net alt %5 (USD) | hurdle öncesi net alt %1 (USD) | hurdle öncesi net alt %1 / nominal anapara |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | 250 | 2,292,772 | -14,914 | -69,590 | -93,508 | 237,291 | 180,239 | 154,580 | 6.7% |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | 500 | 4,585,545 | -29,828 | -106,146 | -139,840 | 474,581 | 393,592 | 358,943 | 7.8% |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | 1,000 | 9,171,090 | -59,657 | -166,753 | -213,801 | 949,163 | 835,448 | 787,461 | 8.6% |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | 2,000 | 18,342,179 | -119,314 | -269,547 | -332,323 | 1,898,326 | 1,739,179 | 1,672,234 | 9.1% |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | 250 | 2,349,132 | -23,763 | -80,816 | -106,247 | 234,641 | 176,046 | 149,579 | 6.4% |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | 500 | 4,698,264 | -47,527 | -126,078 | -162,826 | 469,282 | 386,586 | 349,728 | 7.4% |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | 1,000 | 9,396,529 | -95,053 | -206,274 | -253,216 | 938,565 | 819,487 | 771,405 | 8.2% |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | 2,000 | 18,793,057 | -190,106 | -347,831 | -412,379 | 1,877,130 | 1,712,006 | 1,642,527 | 8.7% |
+| 0.03 | (ii) GUCLU+KOSULLU | 250 | 1,852,946 | -9,815 | -58,368 | -79,144 | 194,009 | 142,575 | 121,400 | 6.6% |
+| 0.03 | (ii) GUCLU+KOSULLU | 500 | 3,705,893 | -19,631 | -86,514 | -115,637 | 388,017 | 316,430 | 286,489 | 7.7% |
+| 0.03 | (ii) GUCLU+KOSULLU | 1,000 | 7,411,786 | -39,262 | -132,832 | -172,528 | 776,035 | 675,760 | 633,884 | 8.6% |
+| 0.03 | (ii) GUCLU+KOSULLU | 2,000 | 14,823,571 | -78,523 | -210,390 | -266,495 | 1,552,069 | 1,410,904 | 1,348,970 | 9.1% |
+| 0.03 | (iii) planı geçerli olan hepsi | 250 | 2,488,464 | -22,819 | -81,868 | -108,056 | 250,912 | 189,369 | 164,090 | 6.6% |
+| 0.03 | (iii) planı geçerli olan hepsi | 500 | 4,976,928 | -45,638 | -128,878 | -165,861 | 501,824 | 415,027 | 376,564 | 7.6% |
+| 0.03 | (iii) planı geçerli olan hepsi | 1,000 | 9,953,857 | -91,275 | -204,737 | -255,038 | 1,003,649 | 883,897 | 831,508 | 8.4% |
+| 0.03 | (iii) planı geçerli olan hepsi | 2,000 | 19,907,713 | -182,551 | -344,354 | -412,653 | 2,007,298 | 1,837,356 | 1,764,834 | 8.9% |
+
+> **Bu tablo ne demek:** N kredilik portföy için nominal anapara (N × ort. L') ve φ = 0 senaryosunda toplam sonucun alt %5 ve alt %1 yüzdelikleri (hurdle üstü ve hurdle öncesi net).
+
+> **Ne DEMEK DEĞİL:** Nominal anapara kayıp değildir; yüzdelikler Monte Carlo ve cost.yaml ortalamalarına dayanır, gerçek bir kayıp tahmini ya da üst sınırı değildir; hurdle üstü değer nakit kayıp değildir.
+
+## R3. Aylık aday akışı
+
+| δ | segment | aday, toplam | ay sayısı | aylık ortalama aday | aylık min | aylık maks |
+|---|---|---|---|---|---|---|
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | 7,167 | 8 | 895.9 | 648 | 1262 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | 9,506 | 8 | 1,188.2 | 848 | 1662 |
+| 0.03 | (ii) GUCLU+KOSULLU | 280 | 8 | 35.0 | 19 | 61 |
+| 0.03 | (iii) planı geçerli olan hepsi | 2,904 | 8 | 363.0 | 256 | 569 |
+
+> **Bu tablo ne demek:** Kalibrasyon ve boşluk aylarında, segment ve δ başına aylık aday sayısı (toplam, ortalama, en küçük ve en büyük ay).
+
+> **Ne DEMEK DEĞİL:** Bu sayılar bu verideki aylık akıştır; bir kredi verenin gerçek başvuru akışı ya da teklifi kabul edecek kişi sayısı değildir.
+
+## R4. N krediyi doldurmak için gereken ay
+
+| δ | segment | ölçek | kabul | N = 250: gereken ay | N = 500: gereken ay | N = 1,000: gereken ay | N = 2,000: gereken ay |
+|---|---|---|---|---|---|---|---|
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | %100 | 1.00 | 0.3 | 0.6 | 1.1 | 2.2 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | %100 | 0.70 | 0.4 | 0.8 | 1.6 | 3.2 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | %100 | 0.50 | 0.6 | 1.1 | 2.2 | 4.5 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | %100 | 0.30 | 0.9 | 1.9 | 3.7 | 7.4 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | %10 | 1.00 | 2.8 | 5.6 | 11.2 | 22.3 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | %10 | 0.70 | 4.0 | 8.0 | 15.9 | 31.9 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | %10 | 0.50 | 5.6 | 11.2 | 22.3 | 44.6 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | %10 | 0.30 | 9.3 | 18.6 | 37.2 | 74.4 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | %1 | 1.00 | 27.9 | 55.8 | 111.6 | 223.2 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | %1 | 0.70 | 39.9 | 79.7 | 159.5 | 318.9 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | %1 | 0.50 | 55.8 | 111.6 | 223.2 | 446.5 |
+| 0.012 (varsayılan) | (ii) GUCLU+KOSULLU | %1 | 0.30 | 93.0 | 186.0 | 372.1 | 744.2 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | %100 | 1.00 | 0.2 | 0.4 | 0.8 | 1.7 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | %100 | 0.70 | 0.3 | 0.6 | 1.2 | 2.4 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | %100 | 0.50 | 0.4 | 0.8 | 1.7 | 3.4 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | %100 | 0.30 | 0.7 | 1.4 | 2.8 | 5.6 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | %10 | 1.00 | 2.1 | 4.2 | 8.4 | 16.8 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | %10 | 0.70 | 3.0 | 6.0 | 12.0 | 24.0 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | %10 | 0.50 | 4.2 | 8.4 | 16.8 | 33.7 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | %10 | 0.30 | 7.0 | 14.0 | 28.1 | 56.1 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | %1 | 1.00 | 21.0 | 42.1 | 84.2 | 168.3 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | %1 | 0.70 | 30.1 | 60.1 | 120.2 | 240.4 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | %1 | 0.50 | 42.1 | 84.2 | 168.3 | 336.6 |
+| 0.012 (varsayılan) | (iii) planı geçerli olan hepsi | %1 | 0.30 | 70.1 | 140.3 | 280.5 | 561.0 |
+| 0.03 | (ii) GUCLU+KOSULLU | %100 | 1.00 | 7.1 | 14.3 | 28.6 | 57.1 |
+| 0.03 | (ii) GUCLU+KOSULLU | %100 | 0.70 | 10.2 | 20.4 | 40.8 | 81.6 |
+| 0.03 | (ii) GUCLU+KOSULLU | %100 | 0.50 | 14.3 | 28.6 | 57.1 | 114.3 |
+| 0.03 | (ii) GUCLU+KOSULLU | %100 | 0.30 | 23.8 | 47.6 | 95.2 | 190.5 |
+| 0.03 | (ii) GUCLU+KOSULLU | %10 | 1.00 | 71.4 | 142.9 | 285.7 | 571.4 |
+| 0.03 | (ii) GUCLU+KOSULLU | %10 | 0.70 | 102.0 | 204.1 | 408.2 | 816.3 |
+| 0.03 | (ii) GUCLU+KOSULLU | %10 | 0.50 | 142.9 | 285.7 | 571.4 | 1,142.9 |
+| 0.03 | (ii) GUCLU+KOSULLU | %10 | 0.30 | 238.1 | 476.2 | 952.4 | 1,904.8 |
+| 0.03 | (ii) GUCLU+KOSULLU | %1 | 1.00 | 714.3 | 1,428.6 | 2,857.1 | 5,714.3 |
+| 0.03 | (ii) GUCLU+KOSULLU | %1 | 0.70 | 1,020.4 | 2,040.8 | 4,081.6 | 8,163.3 |
+| 0.03 | (ii) GUCLU+KOSULLU | %1 | 0.50 | 1,428.6 | 2,857.1 | 5,714.3 | 11,428.6 |
+| 0.03 | (ii) GUCLU+KOSULLU | %1 | 0.30 | 2,381.0 | 4,761.9 | 9,523.8 | 19,047.6 |
+| 0.03 | (iii) planı geçerli olan hepsi | %100 | 1.00 | 0.7 | 1.4 | 2.8 | 5.5 |
+| 0.03 | (iii) planı geçerli olan hepsi | %100 | 0.70 | 1.0 | 2.0 | 3.9 | 7.9 |
+| 0.03 | (iii) planı geçerli olan hepsi | %100 | 0.50 | 1.4 | 2.8 | 5.5 | 11.0 |
+| 0.03 | (iii) planı geçerli olan hepsi | %100 | 0.30 | 2.3 | 4.6 | 9.2 | 18.4 |
+| 0.03 | (iii) planı geçerli olan hepsi | %10 | 1.00 | 6.9 | 13.8 | 27.5 | 55.1 |
+| 0.03 | (iii) planı geçerli olan hepsi | %10 | 0.70 | 9.8 | 19.7 | 39.4 | 78.7 |
+| 0.03 | (iii) planı geçerli olan hepsi | %10 | 0.50 | 13.8 | 27.5 | 55.1 | 110.2 |
+| 0.03 | (iii) planı geçerli olan hepsi | %10 | 0.30 | 23.0 | 45.9 | 91.8 | 183.7 |
+| 0.03 | (iii) planı geçerli olan hepsi | %1 | 1.00 | 68.9 | 137.7 | 275.5 | 551.0 |
+| 0.03 | (iii) planı geçerli olan hepsi | %1 | 0.70 | 98.4 | 196.8 | 393.5 | 787.1 |
+| 0.03 | (iii) planı geçerli olan hepsi | %1 | 0.50 | 137.7 | 275.5 | 551.0 | 1,101.9 |
+| 0.03 | (iii) planı geçerli olan hepsi | %1 | 0.30 | 229.6 | 459.1 | 918.3 | 1,836.5 |
+
+> **Bu tablo ne demek:** Aylık ortalama aday × müşteri ölçeği × kabul oranına göre, N fonlanan krediye ulaşmak için gereken ay (ölçek %100 = bu verideki akış).
+
+> **Ne DEMEK DEĞİL:** Akış sabit varsayıldı (mevsimsellik yok); 36 aylık sonuç gecikmesi bu süreye eklenmemiştir; kabul oranı bilinmiyor.
+
