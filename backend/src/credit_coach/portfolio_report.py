@@ -24,11 +24,10 @@ from credit_coach.recourse_gap_report import gap_frame
 from credit_coach.recourse_report import _pct, run
 from credit_coach.recourse_scorers import ModelScorer
 from credit_coach.recourse_worstcase import evaluate
+from credit_coach.report_deltas import delta_etiketi, delta_notu, report_deltas, varsayilan_delta
 from credit_coach.support import load_support
 
 REPORT = ROOT / "docs" / "demo_portfolio_report.md"
-DELTAS = (0.0, 0.03)
-DELTA_LABEL = {0.0: "δ = 0 (band içi: etkin kesim eşik − band)", 0.03: "δ = 0,03"}
 PERIODS = ("kalibrasyon", "boşluk")
 MISSING = (
     "Ham veri bulunamadı: {path}\n"
@@ -50,8 +49,9 @@ def build(csv_path=None) -> str:
         "boşluk": gap_frame(),
     }
     assert all("test" not in set(f["split"]) for f in frames.values())
-    run_res = {p: run(f) for p, f in frames.items()}
-    wc_res = {p: evaluate(f, sc, pol, support, kat) for p, f in frames.items()}
+    ds = report_deltas(kat)
+    run_res = {p: run(f, deltas=ds) for p, f in frames.items()}
+    wc_res = {p: evaluate(f, sc, pol, support, kat, ds) for p, f in frames.items()}
 
     def tablo(baslik: str, anlami: str, anlam_degil: str, govde: list[str]) -> list[str]:
         return [
@@ -66,9 +66,11 @@ def build(csv_path=None) -> str:
         ]
 
     L = [
-        "# Demo v0: portföy raporu",
+        f"# Demo v0: portföy raporu ({varsayilan_delta(kat)})",
         "",
         KURGUSAL_VEREN,
+        "",
+        delta_notu(kat),
         "",
         "Kapsam: kalibrasyon dilimi (2015-03..06) ve boşluk ayları (2015-01, 02, 07, 08). "
         f"Onay eşiği (PD) {pol.onay_esigi:.4f}, band {pol.band:.4f}. dti güncellemesi kapalı. "
@@ -109,10 +111,10 @@ def build(csv_path=None) -> str:
     ]
     for p in PERIODS:
         n = run_res[p]["counts"]["rejected"]
-        for d in DELTAS:
+        for d in ds:
             pl = run_res[p]["plan_n"][(d, False)]
             g.append(
-                f"| {p} | {DELTA_LABEL[d]} | {n} | {_pct(pl['any'], n)} "
+                f"| {p} | {delta_etiketi(d, kat)} | {n} | {_pct(pl['any'], n)} "
                 + " ".join(f"| {_pct(pl[('path', t)], n)}" for t in PATH_ORDER)
                 + f" | {_pct(n - pl['any'], n)} |"
             )
@@ -139,10 +141,10 @@ def build(csv_path=None) -> str:
     ]
     for p in PERIODS:
         n = run_res[p]["counts"]["rejected"]
-        for d in DELTAS:
+        for d in ds:
             pl = run_res[p]["plan_n"][(d, False)]
             g.append(
-                f"| {p} | {DELTA_LABEL[d]} | {_pct(n - pl['any'], n)} "
+                f"| {p} | {delta_etiketi(d, kat)} | {_pct(n - pl['any'], n)} "
                 + " ".join(f"| {_pct(pl[('set', s)], n)}" for s in sets)
                 + " |"
             )
@@ -156,12 +158,12 @@ def build(csv_path=None) -> str:
     # 4. median cost
     g = ["| dilim | δ | müşteri | karma | kurum |", "|---|---|---|---|---|"]
     for p in PERIODS:
-        for d in DELTAS:
+        for d in ds:
             cells = []
             for t in PATH_ORDER:
                 v = run_res[p]["costs"].get(((d, False), t), [])
                 cells.append(f"{statistics.median(v):,.0f} USD (n={len(v)})" if v else "-")
-            g.append(f"| {p} | {DELTA_LABEL[d]} | " + " | ".join(cells) + " |")
+            g.append(f"| {p} | {delta_etiketi(d, kat)} | " + " | ".join(cells) + " |")
     L += tablo(
         "4. Yol başına medyan USD maliyeti (varsayım)",
         "Yolun en ucuz geçerli planının USD tutarının medyanı; tutar nakit çıkışı ya da karşılanmayan talep olarak varsayıldı.",
@@ -176,12 +178,12 @@ def build(csv_path=None) -> str:
     ]
     for p in PERIODS:
         rb = wc_res[p]["rej_bucket"]
-        for d in DELTAS:
+        for d in ds:
             for lab in LABELS:
                 if rb.get(lab):
                     n_valid = wc_res[p]["cells"][d].get(lab, [0, 0])[0]
                     g.append(
-                        f"| {p} | {DELTA_LABEL[d]} | {lab} | {rb[lab]} | {_pct(n_valid, rb[lab])} |"
+                        f"| {p} | {delta_etiketi(d, kat)} | {lab} | {rb[lab]} | {_pct(n_valid, rb[lab])} |"
                     )
     L += tablo(
         "5. Geçerli plan oranı, p_point − eşik kovalarına göre",
@@ -193,11 +195,11 @@ def build(csv_path=None) -> str:
     # 6. worst case
     g = ["| dilim | δ | kova | plan'lı reddedilen | gözlenen temerrüt |", "|---|---|---|---|---|"]
     for p in PERIODS:
-        for d in DELTAS:
+        for d in ds:
             for key in [*LABELS, "tümü"]:
                 n, bad = wc_res[p]["cells"][d].get(key, [0, 0])
                 if n:
-                    g.append(f"| {p} | {DELTA_LABEL[d]} | {key} | {n} | {_rate(bad, n)} |")
+                    g.append(f"| {p} | {delta_etiketi(d, kat)} | {key} | {n} | {_rate(bad, n)} |")
     g += [
         "",
         "Karşılaştırma: onaylananların gözlenen temerrüt oranı.",

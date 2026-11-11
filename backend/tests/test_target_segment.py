@@ -16,7 +16,7 @@ def test_render_breaks_labels_down_by_bucket_with_notes():
         ("[0,10, 0,20)", {}),
     ]
     data = {p: {d: recs for d in DELTAS} for p in PERIODS}
-    text = render(data, POLICY)
+    text = render(data, load_demo_catalog(), POLICY)
     assert text.count("Bu tablo ne demek") == 2 and text.count("Ne DEMEK DEĞİL") == 2
     assert "| 2 | 50.0% | 50.0% | 0.0% | 0.0% |" in text  # first bucket: half PLAN_YOK, half GUCLU
     assert "| 2 | 50.0% | 0.0% | 50.0% | 0.0% |" in text  # second bucket: KOSULLU is the strongest

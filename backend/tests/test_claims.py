@@ -33,3 +33,14 @@ def test_claims_mentions_min_phi_labels_and_evidence_classes():
     ):
         assert must in CLAIMS, must
     assert "gerçekte işe yarayacağını" in CLAIMS  # listed under what we do not claim
+
+
+def test_claims_states_the_missing_guclu_example_and_the_note_stays():
+    sentence = "198 örnek kayıtta varsayılan δ'da GUCLU etiketli reddedilen kayıt çıkmadı."
+    assert sentence in CLAIMS
+    cases = (ROOT / "docs" / "demo_example_cases.md").read_text()
+    assert "**Bulunamadı:**" in cases  # the 'not found' note in demo_example_cases.md stays
+    assert not any(
+        c["anahtar"] == "ret_guclu"
+        for c in __import__("json").loads((ROOT / "frontend" / "src" / "ornekler.json").read_text())
+    )

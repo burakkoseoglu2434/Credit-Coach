@@ -35,7 +35,9 @@ def _rate(bad: int, n: int) -> str:
     return f"{100 * bad / n:.2f}%" if n else "-"
 
 
-def evaluate(frame: pd.DataFrame, sc: ModelScorer, pol, support, kat) -> dict:
+def evaluate(
+    frame: pd.DataFrame, sc: ModelScorer, pol, support, kat, deltas: tuple[float, ...] = DELTAS
+) -> dict:
     thr = pol.onay_esigi
     approved = {"n": 0, "bad": 0}
     rej_bucket: dict[str, int] = defaultdict(int)  # all rejected records per bucket
@@ -75,7 +77,7 @@ def evaluate(frame: pd.DataFrame, sc: ModelScorer, pol, support, kat) -> dict:
             n = len(h[1])
             cs = sk[pos : pos + n]
             pos += n
-            for d in DELTAS:
+            for d in deltas:
                 res = sec_from_scores(b, h, bs, cs, pol, support, kat, d)
                 if isinstance(res.sonuc, PlanVar):
                     for key in (bucket(bs.p_point - thr), "tümü"):

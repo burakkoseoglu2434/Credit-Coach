@@ -24,11 +24,11 @@ from credit_coach.recourse import sec_from_scores as sec
 from credit_coach.recourse_gap_report import gap_frame
 from credit_coach.recourse_report import _pct, vektorler
 from credit_coach.recourse_scorers import ModelScorer
+from credit_coach.report_deltas import delta_etiketi, delta_notu, report_deltas, varsayilan_delta
 from credit_coach.support import load_support, violations
 
 REPORT = ROOT / "docs" / "demo_resilience_labels.md"
-DELTAS = (0.0, 0.03)
-DELTA_LABEL = {0.0: "δ = 0 (band içi: etkin kesim eşik − band)", 0.03: "δ = 0,03"}
+DELTAS = report_deltas(load_demo_catalog())  # 0, the catalog default, 0.03
 PERIODS = ("kalibrasyon", "boşluk")
 LABELS = ("GUCLU", "KOSULLU", "ZAYIF")
 MISSING = (
@@ -111,12 +111,12 @@ def render(data: dict[str, dict[float, list[Rec]]], kat: Katalog, pol) -> str:
         "|---|---|---|---|---|---|---|",
     ]
     for p in PERIODS:
-        for d in DELTAS:
+        for d in sorted(data[p]):
             recs = data[p][d]
             c = Counter(strongest(r) for r in recs)
             n = len(recs)
             g1.append(
-                f"| {p} | {DELTA_LABEL[d]} | {n} | {c['PLAN_YOK']} ({_pct(c['PLAN_YOK'], n)}) "
+                f"| {p} | {delta_etiketi(d, kat)} | {n} | {c['PLAN_YOK']} ({_pct(c['PLAN_YOK'], n)}) "
                 + " ".join(f"| {c[k]} ({_pct(c[k], n)})" for k in LABELS)
                 + " |"
             )
@@ -124,7 +124,7 @@ def render(data: dict[str, dict[float, list[Rec]]], kat: Katalog, pol) -> str:
                 lab = Counter(r[t] for r in recs if t in r)
                 m = sum(lab.values())
                 g2.append(
-                    f"| {p} | {DELTA_LABEL[d]} | {t} | {m} "
+                    f"| {p} | {delta_etiketi(d, kat)} | {t} | {m} "
                     + " ".join(f"| {lab[k]} ({_pct(lab[k], m)})" for k in LABELS)
                     + " |"
                 )
@@ -136,9 +136,11 @@ def render(data: dict[str, dict[float, list[Rec]]], kat: Katalog, pol) -> str:
         f"| ZAYIF | > {kat.kosullu_en_fazla:.2f} | varsayım |",
     ]
     L = [
-        "# Demo v0: dayanıklılık etiketi dağılımı",
+        f"# Demo v0: dayanıklılık etiketi dağılımı ({varsayilan_delta(kat)})",
         "",
         KURGUSAL_VEREN,
+        "",
+        delta_notu(kat),
         "",
         "Kapsam: kalibrasyon dilimi (2015-03..06) ve boşluk ayları (2015-01, 02, 07, 08); test "
         "dilimi kullanılmadı. Reddedilen = v1 REJECTED (destek içi). dti güncellemesi kapalı. "

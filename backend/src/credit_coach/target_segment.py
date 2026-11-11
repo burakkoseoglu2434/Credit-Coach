@@ -25,7 +25,8 @@ from credit_coach.recourse import sec_from_scores as sec
 from credit_coach.recourse_gap_report import gap_frame
 from credit_coach.recourse_report import _pct, vektorler
 from credit_coach.recourse_scorers import ModelScorer
-from credit_coach.resilience_report import DELTA_LABEL, DELTAS, LABELS, PERIODS, strongest
+from credit_coach.report_deltas import delta_etiketi, delta_notu, report_deltas, varsayilan_delta
+from credit_coach.resilience_report import DELTAS, LABELS, PERIODS, strongest
 from credit_coach.scoring_service import LABELS as BUCKETS
 from credit_coach.scoring_service import bucket
 from credit_coach.support import load_support, violations
@@ -123,17 +124,19 @@ def delta_facts() -> list[str]:
         "| API'nin kullandığı değer | `/score` ve `/batch`, `sec_from_scores` çağrısına δ vermez; motor katalogdaki varsayılanı kullanır (`recourse.sec`, `delta=None`) |",
         f"| API yanıtında görünür mü | {api_gorunur}; dolaylı iz: `surumler.katalog_sha256` |",
         f"| Arayüzde görünür mü | {ui_gorunur} |",
-        "| Bu raporun sütunları | δ = 0 (etkin kesim eşik − band) ve δ = 0,03; varsayılan 0,02 ayrı sütun değildir |",
+        "| Bu raporun sütunları | "
+        + ", ".join(delta_etiketi(d, kat) for d in report_deltas(kat))
+        + " |",
     ]
 
 
-def render(data: dict[str, dict[float, list[Rec]]], pol) -> str:
+def render(data: dict[str, dict[float, list[Rec]]], kat, pol) -> str:
     g = [
         "| dilim | δ | kova (p_point − eşik) | reddedilen | PLAN_YOK | GUCLU | KOSULLU | ZAYIF |",
         "|---|---|---|---|---|---|---|---|",
     ]
     for p in PERIODS:
-        for d in DELTAS:
+        for d in sorted(data[p]):
             recs = data[p][d]
             for kova in [*BUCKETS, "tümü"]:
                 sub = [r for r in recs if kova == "tümü" or r[0] == kova]
@@ -142,14 +145,16 @@ def render(data: dict[str, dict[float, list[Rec]]], pol) -> str:
                 c = Counter(strongest(lab) for _k, lab in sub)
                 n = len(sub)
                 g.append(
-                    f"| {p} | {DELTA_LABEL[d]} | {kova} | {n} "
+                    f"| {p} | {delta_etiketi(d, kat)} | {kova} | {n} "
                     + " ".join(f"| {_pct(c[k], n)}" for k in COLS)
                     + " |"
                 )
     L = [
-        "# Demo v0: hedef segment (p_point − eşik kovasına göre en güçlü yol etiketi)",
+        f"# Demo v0: hedef segment (p_point − eşik kovasına göre en güçlü yol etiketi; {varsayilan_delta(kat)})",
         "",
         KURGUSAL_VEREN,
+        "",
+        delta_notu(kat),
         "",
         "Kapsam: kalibrasyon dilimi (2015-03..06) ve boşluk ayları (2015-01, 02, 07, 08); test dilimi "
         f"kullanılmadı. Reddedilen = v1 REJECTED (destek içi). dti güncellemesi kapalı. Eşik {pol.onay_esigi:.4f}, "
@@ -164,7 +169,7 @@ def render(data: dict[str, dict[float, list[Rec]]], pol) -> str:
         *tablo(
             "2. Varsayılan δ: API ve arayüz",
             "API ve arayüzün plan ararken hangi δ'yı kullandığı ve bu değerin nerede görünür olduğu; değerler canlı dosyalardan okundu.",
-            "Varsayılan δ bu raporun sütunlarından biri değildir; δ ölçülmüş bir büyüklük değil, varsayımdır ve değiştirilmedi.",
+            "δ ölçülmüş bir büyüklük değil, varsayımdır ve değiştirilmedi; varsayılan δ bu raporda ayrı bir sütun olarak yer alır.",
             delta_facts(),
         ),
     ]
@@ -178,7 +183,7 @@ def build(csv_path=None) -> str:
     frames = {"kalibrasyon": dev[dev["split"] == "calibration"], "boşluk": gap_frame()}
     assert all("test" not in set(f["split"]) for f in frames.values())
     data = {p: collect(f, sc, pol, support, kat) for p, f in frames.items()}
-    return render(data, pol)
+    return render(data, kat, pol)
 
 
 def main(argv: list[str] | None = None) -> int:
