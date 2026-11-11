@@ -1,4 +1,4 @@
-.PHONY: openapi types lint test check
+.PHONY: openapi types lint test check demo report
 
 openapi:
 	cd backend && PYTHONPATH=src uv run python -m credit_coach.export_openapi ../frontend/openapi.json
@@ -14,3 +14,9 @@ test:
 
 check: lint test types
 	cd frontend && npm run typecheck
+
+demo:
+	./scripts/demo.sh
+
+report:
+	cd backend && uv run python -m credit_coach.portfolio_report
