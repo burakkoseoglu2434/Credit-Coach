@@ -21,6 +21,8 @@ const CASES = [
   { key: "ret_plan", tur: "ret_plan", baslik: texts.karar.REJECTED.baslik },
   { key: "ret_plan_yok", tur: "ret_plan_yok", baslik: texts.karar.REJECTED.baslik },
   { key: "destek_disi", tur: "destek_disi", baslik: texts.destek_disi.baslik },
+  // added later by the written rule (docs/demo_example_cases.md): REJECTED + plan, KOSULLU strongest
+  { key: "ret_kosullu", tur: "ret_plan", baslik: texts.karar.REJECTED.baslik },
 ];
 
 for (const c of CASES) {
@@ -64,6 +66,19 @@ test("ret + plan: yollar, USD maliyet ve süre 'varsayım' etiketli, kurum eylem
   if ((await kurumlu.count()) > 0) {
     await expect(kurumlu.first()).toContainText("Karşı teklif");
   }
+});
+
+test("ret + koşullu etiket: en güçlü yolun etiketi KOSULLU, cümle ve kanıt rozetleri görünür", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-ornek="ret_kosullu"]').click();
+  const plan = page.locator('[data-plan="PLAN"]');
+  await expect(plan).toBeVisible();
+  await expect(plan.locator('[data-dayaniklilik="KOSULLU"]').first()).toBeVisible();
+  await expect(plan.locator("[data-yeterlilik]").first()).toHaveText(
+    /^Bu planın yeterli olması için modelin öngördüğü etkinin en az %\d+ kadarının gerçekleşmesi gerekir\.$/,
+  );
+  await expect(plan.locator("[data-kanit]").first()).toContainText(texts.kanit.M);
+  await shot(page, "sonuc-ret_kosullu");
 });
 
 test("ret + PLAN_YOK: bağlayıcı kısıtlar ve eşiğe uzaklık var, plan/maliyet/süre yok", async ({ page }) => {

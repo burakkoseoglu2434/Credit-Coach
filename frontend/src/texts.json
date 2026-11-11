@@ -376,6 +376,10 @@
     "destek_disi": {
       "ad": "Değerlendirilemez",
       "aciklama": "Gerçek bir kaydın tek alanı değiştirilmiş varyantı (ortak başvuru)"
+    },
+    "ret_kosullu": {
+      "ad": "Ret + koşullu etiket",
+      "aciklama": "Eşiğin üzerinde, en güçlü yolun etiketi KOSULLU"
     }
   },
   "sonuc": {

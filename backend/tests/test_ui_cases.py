@@ -8,7 +8,15 @@ from fastapi.testclient import TestClient
 
 from credit_coach.app import app
 from credit_coach.bundle import ROOT
-from credit_coach.ui_cases import CASES, CSV_OUT, GOLDEN, ORDER, category
+from credit_coach.ui_cases import (
+    CASES,
+    CSV_OUT,
+    EK_ORDER,
+    GOLDEN,
+    ORDER,
+    category,
+    category_ek,
+)
 
 CASES_DATA = json.loads(CASES.read_text())
 GOLDEN_BY_ID = {
@@ -22,8 +30,11 @@ def client():
         yield c
 
 
-def test_five_cases_in_the_agreed_order():
-    assert [c["anahtar"] for c in CASES_DATA] == list(ORDER)
+def test_first_five_cases_are_unchanged_and_in_the_agreed_order():
+    assert [c["anahtar"] for c in CASES_DATA[:5]] == list(ORDER)
+    # the extras follow, only from the written rule's categories, in the rule's order
+    extra = [c["anahtar"] for c in CASES_DATA[5:]]
+    assert extra == [c for c in EK_ORDER if c in extra]
 
 
 @pytest.mark.parametrize("case", CASES_DATA, ids=[c["anahtar"] for c in CASES_DATA])
@@ -32,7 +43,11 @@ def test_case_falls_into_its_category_through_the_api(client, case):
         "/score", json={"basvuru": case["basvuru"], "basvuru_tarihi": case["basvuru_tarihi"]}
     )
     karar = r.json()["karar"]
-    assert category(karar) == case["anahtar"]
+    if case["anahtar"] in EK_ORDER:  # rule: docs/demo_example_cases.md
+        assert category_ek(karar) == case["anahtar"]
+        assert not case["varyant"] and karar["dis_durum"] == "REJECTED"
+    else:
+        assert category(karar) == case["anahtar"]
     assert {
         "dis_durum": karar["dis_durum"],
         "plan_durumu": karar["plan"]["durum"],
@@ -66,3 +81,16 @@ def test_sample_csv_has_ten_rows_and_runs_through_batch(client):
 
 def test_repo_root_is_consistent():
     assert (ROOT / "frontend" / "src" / "ornekler.json").exists()
+
+
+def test_extra_case_is_the_first_match_in_file_order_per_the_written_rule():
+    from credit_coach.baseline import CSV
+
+    if not CSV.exists():
+        pytest.skip("raw data not available locally (issue months of the earlier records)")
+    from credit_coach.ui_cases import build_ek
+
+    found, missing = build_ek()
+    assert [c["anahtar"] for c in found] == [c["anahtar"] for c in CASES_DATA[5:]]
+    assert [c["kaynak_id"] for c in found] == [c["kaynak_id"] for c in CASES_DATA[5:]]
+    assert missing == [c for c in EK_ORDER if c not in {x["anahtar"] for x in CASES_DATA}]
