@@ -71,7 +71,7 @@ def _pct(n: int, d: int) -> str:
     return f"{100 * n / d:.1f}%" if d else "-"
 
 
-def run(frame: pd.DataFrame | None = None) -> dict:
+def run(frame: pd.DataFrame | None = None, deltas: tuple[float, ...] | None = None) -> dict:
     policy, support, kat = load_policy("v1"), load_support(), load_demo_catalog()
     scorer = ModelScorer()
     if frame is None:
@@ -127,7 +127,7 @@ def run(frame: pd.DataFrame | None = None) -> dict:
                 n = len(hz[1])
                 per_record.append((b, bs, hz, sk[pos : pos + n]))
                 pos += n
-            for d in DELTAS:
+            for d in deltas or DELTAS:
                 key = (d, dti_on)
                 for b, bs, hz, cs in per_record:
                     res = sec_from_scores(b, hz, bs, cs, policy, support, k, d)
