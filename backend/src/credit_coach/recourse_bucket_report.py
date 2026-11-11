@@ -16,12 +16,11 @@ from credit_coach.baseline import CSV
 from credit_coach.bundle import ROOT
 from credit_coach.contract import OuterStatus, parse_input
 from credit_coach.decision_engine import decide_with_support
-from credit_coach.features import allowed_features, load_manifest
 from credit_coach.labels import KURGUSAL_VEREN
 from credit_coach.modeling import dev_frame
 from credit_coach.policy import load_policy
 from credit_coach.recourse import PATH_ORDER, PlanVar, hazirla, load_demo_catalog, sec_from_scores
-from credit_coach.recourse_report import _pct, _vektor
+from credit_coach.recourse_report import _pct, vektorler
 from credit_coach.recourse_scorers import ModelScorer
 from credit_coach.support import load_support, violations
 
@@ -50,8 +49,6 @@ def bucket(x: float) -> str:
 def main() -> int:
     pol, support, kat = load_policy("v1"), load_support(), load_demo_catalog()
     sc = ModelScorer()
-    kinds = {c.ad: c.tip for c in load_manifest()}
-    names = allowed_features()
     ca = dev_frame(pd.read_csv(CSV))
     ca = ca[ca["split"] == "calibration"]
     assert set(ca["split"]) == {"calibration"}
@@ -60,7 +57,7 @@ def main() -> int:
     by_month: dict[str, dict] = defaultdict(lambda: defaultdict(int))
     for month, grp in ca.groupby(ca["issue_date"].dt.to_period("M"), sort=True):
         tarih = grp["issue_date"].iloc[0]
-        recs = [_vektor(r, kinds, names) for r in grp[names].to_dict("records")]
+        recs = vektorler(grp)
         base = sc.skorla_toplu(recs, tarih)
         rej = []
         for b, s in zip(recs, base, strict=True):

@@ -19,12 +19,11 @@ import pandas as pd
 from credit_coach.baseline import CSV
 from credit_coach.bundle import ROOT
 from credit_coach.calibration import predict_interval
-from credit_coach.features import allowed_features, load_manifest
 from credit_coach.labels import KURGUSAL_VEREN
 from credit_coach.modeling import dev_frame
 from credit_coach.policy import load_policy
 from credit_coach.recourse import hazirla, load_demo_catalog
-from credit_coach.recourse_report import _vektor
+from credit_coach.recourse_report import vektorler
 from credit_coach.recourse_scorers import ModelScorer
 from credit_coach.support import load_support, violations
 
@@ -39,8 +38,6 @@ def main() -> int:
     _lo, hi_all, _pt = predict_interval(sc.va, cal["scores"])
     vals = Counter(round(float(v), 10) for v in hi_all)
 
-    kinds = {c.ad: c.tip for c in load_manifest()}
-    names = allowed_features()
     dev = dev_frame(pd.read_csv(CSV))
     ca = dev[dev["split"] == "calibration"]
     cand_hi: list[float] = []
@@ -48,7 +45,7 @@ def main() -> int:
     n_rej = 0
     for _m, grp in ca.groupby(ca["issue_date"].dt.to_period("M"), sort=True):
         tarih = grp["issue_date"].iloc[0]
-        recs = [_vektor(r, kinds, names) for r in grp[names].to_dict("records")]
+        recs = vektorler(grp)
         base = sc.skorla_toplu(recs, tarih)
         rej = [
             b

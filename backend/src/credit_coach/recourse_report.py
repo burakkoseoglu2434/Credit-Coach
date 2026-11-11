@@ -60,6 +60,13 @@ def _vektor(row, kinds: dict[str, str], names: list[str]) -> dict:
     return out
 
 
+def vektorler(frame: pd.DataFrame) -> list[dict]:
+    """Rows -> feature dicts. The manifest is read ONCE per call, never per row."""
+    kinds = {c.ad: c.tip for c in load_manifest()}
+    names = allowed_features()
+    return [_vektor(r, kinds, names) for r in frame[names].to_dict("records")]
+
+
 def _pct(n: int, d: int) -> str:
     return f"{100 * n / d:.1f}%" if d else "-"
 
@@ -67,8 +74,6 @@ def _pct(n: int, d: int) -> str:
 def run(frame: pd.DataFrame | None = None) -> dict:
     policy, support, kat = load_policy("v1"), load_support(), load_demo_catalog()
     scorer = ModelScorer()
-    kinds = {c.ad: c.tip for c in load_manifest()}
-    names = allowed_features()
     if frame is None:
         dev = dev_frame(pd.read_csv(CSV))
         ca = dev[dev["split"] == "calibration"]
@@ -86,7 +91,7 @@ def run(frame: pd.DataFrame | None = None) -> dict:
     for _month, grp in ca.groupby(ca["issue_date"].dt.to_period("M"), sort=True):
         tarih = grp["issue_date"].iloc[0]
         t0 = time.time()
-        recs = [_vektor(r, kinds, names) for r in grp[names].to_dict("records")]
+        recs = vektorler(grp)
         base_scores = scorer.skorla_toplu(recs, tarih)
         rejected = []
         for b, s in zip(recs, base_scores, strict=True):
