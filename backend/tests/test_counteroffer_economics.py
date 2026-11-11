@@ -97,3 +97,24 @@ def test_definition_section_is_kept_verbatim():
     assert DEF_END not in d
     assert "p_high" in d and "p_point" in d and "kabul oranı 1" in d
     assert definition_text(doc + "\n" + DEF_END + "\nx") == d
+
+
+def test_empty_segment_has_no_break_even():
+    assert "boş" in break_even_text([0.0] * 5, 0)
+
+
+def test_report_break_even_matches_its_own_grid_rows():
+    doc = (ROOT / "docs" / "demo_counteroffer_economics.md").read_text(encoding="utf-8")
+    grid: dict[tuple[str, str, str], list[float]] = {}
+    for ln in doc.split("## 3. ", 1)[1].split("\n## 4. ", 1)[0].splitlines():
+        c = [x.strip() for x in ln.strip("|").split("|")]
+        if len(c) == 8 and c[3] in {f"{p:.2f}" for p in PHIS}:
+            grid.setdefault((c[0], c[1], c[2]), []).append(float(c[6].replace(",", "")))
+    assert len(grid) == 12
+    for ln in doc.split("## 4. ", 1)[1].split("\n## 5. ", 1)[0].splitlines():
+        c = [x.strip() for x in ln.strip("|").split("|")]
+        if len(c) == 5 and (c[0], c[1], c[2]) in grid:
+            if c[3] == "0":
+                assert "boş" in c[4]
+            else:
+                assert float(c[4]) == pytest.approx(break_even(grid[(c[0], c[1], c[2])]), abs=0.002)
