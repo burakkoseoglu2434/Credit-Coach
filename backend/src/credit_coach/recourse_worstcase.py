@@ -38,6 +38,7 @@ def _rate(bad: int, n: int) -> str:
 def evaluate(frame: pd.DataFrame, sc: ModelScorer, pol, support, kat) -> dict:
     thr = pol.onay_esigi
     approved = {"n": 0, "bad": 0}
+    rej_bucket: dict[str, int] = defaultdict(int)  # all rejected records per bucket
     cells: dict = defaultdict(lambda: defaultdict(lambda: [0, 0]))  # (delta) -> bucket -> [n, bad]
     for _m, grp in frame.groupby(frame["issue_date"].dt.to_period("M"), sort=True):
         tarih = grp["issue_date"].iloc[0]
@@ -65,6 +66,8 @@ def evaluate(frame: pd.DataFrame, sc: ModelScorer, pol, support, kat) -> dict:
                 approved["bad"] += yy
             elif d is OuterStatus.REJECTED:
                 rej.append((b, s, yy))
+        for _b, s_, _y in rej:
+            rej_bucket[bucket(s_.p_point - thr)] += 1
         hz = [hazirla(b, kat) for b, _s, _y in rej]
         sk = sc.skorla_toplu([a.vektor for _t, tum in hz for a in tum], tarih)
         pos = 0
@@ -78,7 +81,7 @@ def evaluate(frame: pd.DataFrame, sc: ModelScorer, pol, support, kat) -> dict:
                     for key in (bucket(bs.p_point - thr), "tümü"):
                         cells[d][key][0] += 1
                         cells[d][key][1] += yy
-    return {"approved": approved, "cells": cells}
+    return {"approved": approved, "cells": cells, "rej_bucket": dict(rej_bucket)}
 
 
 def main() -> int:
