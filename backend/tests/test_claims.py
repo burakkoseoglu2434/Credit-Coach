@@ -77,3 +77,19 @@ def test_claims_rejected_overlap_sentence_is_locked_to_the_overlap_report():
         "| dti | 2014-2015 | 4,793,079 | 0 | 4,793,079 | 3,481,664 | 1,311,415 | 27.4% |" in report
     )
     assert "2013-11" in report  # first month with a maximum above 850 in the scale check
+
+
+def test_claims_states_label_sensitivity_to_delta_locked_to_the_comparison():
+    assert "- **Dayanıklılık etiketleri δ'ya duyarlıdır.**" in CLAIMS
+    line = next(ln for ln in CLAIMS.splitlines() if ln.startswith("- **Dayanıklılık etiketleri"))
+    assert "ADR-007" in line and "varsayım" in line
+    doc = (ROOT / "docs" / "demo_delta_comparison.md").read_text()
+    cal = doc.split("## kalibrasyon\n", 1)[1].split("\n## ", 1)[0]
+    row = next(ln for ln in cal.splitlines() if ln.startswith("| tümü"))
+    pcts = [c.split("(")[1].rstrip(") ").replace(".", ",") for c in row.split("|")[4:11] if "(" in c]
+    # GUCLU/KOSULLU/ZAYIF old -> default, as written in the sentence
+    old = [pcts[i] for i in (1, 3, 5)]
+    new = [pcts[i] for i in (2, 4, 6)]
+    for o, n in zip(old, new, strict=True):
+        assert f"%{o[:-1]}'" in line or f"%{o[:-1]}" in line
+        assert f"%{n[:-1]}" in line
