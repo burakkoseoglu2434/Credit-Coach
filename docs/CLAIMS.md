@@ -25,6 +25,7 @@
 - **Zaman kayması.** Kalibrasyon ve gözlenen oranlar dönemden döneme kayar; sonuçlar bu aylar için ölçüldü.
 - **Destek kontrolü.** Eğitim diliminin en küçük/en büyük değeri (kategorikte görülen değer kümesi) kullanılır; eğitimdeki uç değerler aralığı genişletir (ör. `revol_util` 892). Çok boyutlu destek denetlenmez.
 - **Plan oranı düşüktür.** Katalog iki eylemden oluşur; reddedilenlerin çoğunda plan çıkmaz (`docs/demo_portfolio_report.md`). Eylem eklenmedi.
+- **Örnek vakalar.** 198 örnek kayıtta varsayılan δ'da GUCLU etiketli reddedilen kayıt çıkmadı.
 - **Etiket eşikleri varsayımdır.** GUCLU için gereken etki payı en çok 0,50, KOSULLU için en çok 0,75'tir; eşikler ölçülmedi ve yapılandırmadadır.
 - **Model sınırı.** `loan_amnt` modelde kısıtsızdır; etkisinin yönü bilinmez ve yalnızca yeniden skorlamayla kabul edilir. `dti` güncellemesi kapalıdır; FICO değişmez kabul edilir.
 - **Denetim izi bu sürümde yok.** `/score` ve `/batch` kayıt yazmaz; karar logu kapalıdır ve açılması reddedilir. Hafta 3'teki replay yalnızca karar katmanını kapsar, skor katmanını kapsamaz.
