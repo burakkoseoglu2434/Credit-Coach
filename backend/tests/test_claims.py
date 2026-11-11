@@ -58,3 +58,22 @@ def test_claims_states_how_delta_is_derived_and_that_it_is_an_assumption():
         "ölçülmüş bir kapsama değildir."
     )
     assert sentence in CLAIMS  # the catalog value changes -> this fails until CLAIMS is updated
+
+
+def test_claims_rejected_overlap_sentence_is_locked_to_the_overlap_report():
+    sentence = (
+        "LendingClub'ın reddedilen başvurularında DTI bakımından eğitim aralığının dışında "
+        "kalanların oranı 2012-13'te %16,7, 2014-15'te %27,4'tür (iki dosyadaki DTI "
+        "tanımlarının uyumu doğrulanmadı); risk skoru ölçeği 2013-11'den itibaren tutarlı "
+        "olmadığı için karşılaştırılamadı, bu nedenle reddedilen müşterilere uygulanabilirlik "
+        "doğrulanmamıştır"
+    )
+    assert sentence in CLAIMS
+    section = CLAIMS[CLAIMS.index("## Bilinen sınırlar") :]
+    assert sentence in section
+    report = (ROOT / "docs" / "rejected_overlap.md").read_text()
+    assert "| dti | 2012-2013 | 1,098,219 | 0 | 1,098,219 | 915,145 | 183,074 | 16.7% |" in report
+    assert (
+        "| dti | 2014-2015 | 4,793,079 | 0 | 4,793,079 | 3,481,664 | 1,311,415 | 27.4% |" in report
+    )
+    assert "2013-11" in report  # first month with a maximum above 850 in the scale check

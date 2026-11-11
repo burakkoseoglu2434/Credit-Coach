@@ -24,6 +24,7 @@
 - **Veri kapsamı.** Yalnızca LendingClub, 36 aylık krediler, 2012-01..2015-12 ABD. Reddedilenlerin sonucu gözlenmediği için seçilim yanlılığı vardır.
 - **Zaman kayması.** Kalibrasyon ve gözlenen oranlar dönemden döneme kayar; sonuçlar bu aylar için ölçüldü.
 - **Destek kontrolü.** Eğitim diliminin en küçük/en büyük değeri (kategorikte görülen değer kümesi) kullanılır; eğitimdeki uç değerler aralığı genişletir (ör. `revol_util` 892). Çok boyutlu destek denetlenmez.
+- **Reddedilen başvurulara uygulanabilirlik doğrulanmadı.** LendingClub'ın reddedilen başvurularında DTI bakımından eğitim aralığının dışında kalanların oranı 2012-13'te %16,7, 2014-15'te %27,4'tür (iki dosyadaki DTI tanımlarının uyumu doğrulanmadı); risk skoru ölçeği 2013-11'den itibaren tutarlı olmadığı için karşılaştırılamadı, bu nedenle reddedilen müşterilere uygulanabilirlik doğrulanmamıştır (`docs/rejected_overlap.md`).
 - **Plan oranı düşüktür.** Katalog iki eylemden oluşur; reddedilenlerin çoğunda plan çıkmaz (`docs/demo_portfolio_report.md`). Eylem eklenmedi.
 - **Örnek vakalar.** Varsayılan δ = 0,012'de (ADR-007) 198 örnek kayıttan 4'ü GUCLU, 27'si KOSULLU, 6'sı ZAYIF etiketlidir; GUCLU ve KOSULLU örnek vakaları arayüzde vardır. Etiket dağılımı δ'ya duyarlıdır.
 - **Güvenlik payı δ bir varsayımdır.** δ = 0,012, kalibrasyon ve boşluk aylarındaki en büyük aylık |kalibre ortalama PD − gözlenen oran| değerinin 0,001'e yukarı yuvarlanmasıyla türetilir (ADR-007); ölçülmüş bir kapsama değildir.
