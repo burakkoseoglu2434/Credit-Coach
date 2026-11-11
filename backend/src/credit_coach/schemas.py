@@ -70,6 +70,8 @@ class Notlar(BaseModel):
     plan_notu: str
     plan_yok_notu: str
     karar_notu: str
+    dayaniklilik_notu: str
+    kanit_notu: str
 
 
 class ScoreResponse(BaseModel):
@@ -99,6 +101,9 @@ class PortfoyOzeti(BaseModel):
     gecerli_plan_orani: float | None  # plans found / plan_arayan
     yol_orani: dict[str, float | None]  # per path type, share of plan_arayan
     kovalar: list[KovaSatiri]
+    # resilience labels of records that have a plan: strongest path per record, and per path type
+    dayaniklilik_dagilimi: dict[str, int]
+    yol_dayaniklilik: dict[str, dict[str, int]]
 
 
 class BatchResponse(BaseModel):

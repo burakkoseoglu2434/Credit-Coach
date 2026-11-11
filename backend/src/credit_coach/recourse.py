@@ -13,6 +13,7 @@ never ranked against each other.
 from __future__ import annotations
 
 import itertools
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -284,6 +285,7 @@ class YolPlan(BaseModel):
     maliyet_usd: float  # varsayım: nakit çıkışı veya karşılanmayan talep, 1 USD = 1 USD
     maliyet_etiketi: Literal["varsayım"] = "varsayım"
     min_phi: float  # share of the predicted drop needed, in [0, 1] ((p_before - cut) / Delta)
+    gereken_etki_yuzdesi: int  # ceil(100 * min_phi): shown as is, the UI never computes it
     dayaniklilik: Dayaniklilik
     dayaniklilik_etiketi: Literal["varsayım"] = "varsayım"  # the thresholds are assumptions
     sure_hafta: tuple[int, int]  # varsayım
@@ -467,6 +469,7 @@ def sec(
             eylem_kanitlari=tuple(_kanit(e, k) for e, _ in best[t][0].eylemler),
             maliyet_usd=best[t][0].maliyet_usd,
             min_phi=mphi[best[t][0].plan_id],
+            gereken_etki_yuzdesi=math.ceil(100 * mphi[best[t][0].plan_id]),
             dayaniklilik=dayaniklilik_etiketi(mphi[best[t][0].plan_id], k),
             sure_hafta=best[t][0].sure,
             p_low=best[t][1].p_low,

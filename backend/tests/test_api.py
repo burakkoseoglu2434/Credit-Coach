@@ -324,3 +324,50 @@ def test_padded_strings_give_the_same_decision_as_trimmed_ones(client):
     ra = client.post("/score", json={"basvuru": a, "basvuru_tarihi": "2015-04-10"}).json()
     rb = client.post("/score", json={"basvuru": b, "basvuru_tarihi": "2015-04-10"}).json()
     assert ra["karar"]["destek_ihlalleri"] == [] and ra == rb
+
+
+def test_plans_expose_min_phi_label_percent_and_evidence(client):
+    import math
+
+    plans = [
+        client.post(
+            "/score", json={"basvuru": r["basvuru"], "basvuru_tarihi": r["basvuru_tarihi"]}
+        ).json()["karar"]["plan"]
+        for r in records(40)
+    ]
+    found = [y for p in plans if p["durum"] == "PLAN" for y in p["yollar"]]
+    assert found
+    for y in found:
+        assert 0.0 <= y["min_phi"] <= 1.0
+        assert y["gereken_etki_yuzdesi"] == math.ceil(100 * y["min_phi"])
+        assert y["dayaniklilik"] in {"GUCLU", "KOSULLU", "ZAYIF"}
+        assert y["dayaniklilik_etiketi"] == "varsayım"
+        assert [k["eylem"] for k in y["eylem_kanitlari"]] == [e for e, _ in y["eylemler"]]
+        assert all(k["risk_etkisi"] == "M" for k in y["eylem_kanitlari"])
+
+
+def test_batch_summary_has_the_label_distribution_and_it_adds_up(client):
+    out = post_csv(client, to_csv(records(80))).json()
+    o = out["ozet"]
+    with_plan = o["plan_durumu_dagilimi"].get("PLAN", 0)
+    assert sum(o["dayaniklilik_dagilimi"].values()) == with_plan
+    per_row = [
+        min(
+            (y["dayaniklilik"] for y in r["karar"]["plan"]["yollar"]),
+            key=["GUCLU", "KOSULLU", "ZAYIF"].index,
+        )
+        for r in out["satirlar"]
+        if r["karar"]["plan"]["durum"] == "PLAN"
+    ]
+    for k, v in o["dayaniklilik_dagilimi"].items():
+        assert per_row.count(k) == v
+    for tip, dist in o["yol_dayaniklilik"].items():
+        n = sum(
+            1
+            for r in out["satirlar"]
+            if r["karar"]["plan"]["durum"] == "PLAN"
+            for y in r["karar"]["plan"]["yollar"]
+            if y["yol_tipi"] == tip
+        )
+        assert sum(dist.values()) == n
+    assert "dayaniklilik_notu" in out["notlar"] and "kanit_notu" in out["notlar"]

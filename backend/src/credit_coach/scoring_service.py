@@ -229,6 +229,9 @@ class Servis:
         var = 0
         yol: dict[str, int] = defaultdict(int)
         kova: dict[str, list[int]] = {lab: [0, 0] for lab in LABELS}
+        sira = {"GUCLU": 0, "KOSULLU": 1, "ZAYIF": 2}
+        guclu: dict[str, int] = defaultdict(int)
+        yol_et: dict[str, dict[str, int]] = {t: defaultdict(int) for t in PATH_ORDER}
         for d in kararlar:
             durum[d.dis_durum.value] += 1
             plan[d.plan.durum] += 1
@@ -245,6 +248,8 @@ class Servis:
                 k[1] += 1
                 for y in d.plan.yollar:
                     yol[y.yol_tipi] += 1
+                    yol_et[y.yol_tipi][y.dayaniklilik] += 1
+                guclu[min((y.dayaniklilik for y in d.plan.yollar), key=sira.__getitem__)] += 1
         return PortfoyOzeti(
             n=len(kararlar),
             dis_durum_dagilimi=dict(sorted(durum.items())),
@@ -253,6 +258,10 @@ class Servis:
             plan_arayan=arayan,
             gecerli_plan_orani=(var / arayan) if arayan else None,
             yol_orani={t: (yol[t] / arayan) if arayan else None for t in PATH_ORDER},
+            dayaniklilik_dagilimi={k: guclu[k] for k in sira if guclu[k]},
+            yol_dayaniklilik={
+                t: {k: yol_et[t][k] for k in sira if yol_et[t][k]} for t in PATH_ORDER
+            },
             kovalar=[
                 KovaSatiri(kova=lab, n=n, gecerli_plan_orani=(v / n) if n else None)
                 for lab, (n, v) in kova.items()

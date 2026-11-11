@@ -552,8 +552,16 @@
       },
       "Notlar": {
         "properties": {
+          "dayaniklilik_notu": {
+            "title": "Dayaniklilik Notu",
+            "type": "string"
+          },
           "etiket": {
             "title": "Etiket",
+            "type": "string"
+          },
+          "kanit_notu": {
+            "title": "Kanit Notu",
             "type": "string"
           },
           "karar_notu": {
@@ -578,7 +586,9 @@
           "varsayim_notu",
           "plan_notu",
           "plan_yok_notu",
-          "karar_notu"
+          "karar_notu",
+          "dayaniklilik_notu",
+          "kanit_notu"
         ],
         "title": "Notlar",
         "type": "object"
@@ -679,6 +689,13 @@
       },
       "PortfoyOzeti": {
         "properties": {
+          "dayaniklilik_dagilimi": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Dayaniklilik Dagilimi",
+            "type": "object"
+          },
           "destek_disi": {
             "title": "Destek Disi",
             "type": "integer"
@@ -723,6 +740,16 @@
             "title": "Plan Durumu Dagilimi",
             "type": "object"
           },
+          "yol_dayaniklilik": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Yol Dayaniklilik",
+            "type": "object"
+          },
           "yol_orani": {
             "additionalProperties": {
               "anyOf": [
@@ -746,7 +773,9 @@
           "plan_arayan",
           "gecerli_plan_orani",
           "yol_orani",
-          "kovalar"
+          "kovalar",
+          "dayaniklilik_dagilimi",
+          "yol_dayaniklilik"
         ],
         "title": "PortfoyOzeti",
         "type": "object"
@@ -1059,6 +1088,10 @@
             "title": "Eylemler",
             "type": "array"
           },
+          "gereken_etki_yuzdesi": {
+            "title": "Gereken Etki Yuzdesi",
+            "type": "integer"
+          },
           "imza": {
             "maxItems": 2,
             "minItems": 2,
@@ -1149,6 +1182,7 @@
           "eylem_kanitlari",
           "maliyet_usd",
           "min_phi",
+          "gereken_etki_yuzdesi",
           "dayaniklilik",
           "sure_hafta",
           "p_low",

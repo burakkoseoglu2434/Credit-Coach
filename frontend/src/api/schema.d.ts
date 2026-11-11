@@ -193,8 +193,12 @@ export interface components {
         };
         /** Notlar */
         Notlar: {
+            /** Dayaniklilik Notu */
+            dayaniklilik_notu: string;
             /** Etiket */
             etiket: string;
+            /** Kanit Notu */
+            kanit_notu: string;
             /** Karar Notu */
             karar_notu: string;
             /** Plan Notu */
@@ -248,6 +252,10 @@ export interface components {
         };
         /** PortfoyOzeti */
         PortfoyOzeti: {
+            /** Dayaniklilik Dagilimi */
+            dayaniklilik_dagilimi: {
+                [key: string]: number;
+            };
             /** Destek Disi */
             destek_disi: number;
             /** Dis Durum Dagilimi */
@@ -265,6 +273,12 @@ export interface components {
             /** Plan Durumu Dagilimi */
             plan_durumu_dagilimi: {
                 [key: string]: number;
+            };
+            /** Yol Dayaniklilik */
+            yol_dayaniklilik: {
+                [key: string]: {
+                    [key: string]: number;
+                };
             };
             /** Yol Orani */
             yol_orani: {
@@ -377,6 +391,8 @@ export interface components {
                 string,
                 string
             ][];
+            /** Gereken Etki Yuzdesi */
+            gereken_etki_yuzdesi: number;
             /** Imza */
             imza: [
                 string[],
