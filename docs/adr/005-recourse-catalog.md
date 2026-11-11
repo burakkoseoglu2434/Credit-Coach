@@ -1,6 +1,6 @@
 # ADR-005: Eylem kataloğu (recourse) v1
 
-Durum: **TASLAK, onay bekliyor.** Kod yok; yalnızca `configs/catalog/v1.yaml` ve bu not.
+Durum: **TASLAK, onay bekliyor.** Kod yok; yalnızca `configs/catalog/v1.yaml` ve bu not. Demo kataloğu için ADR-006 geçerlidir.
 
 ## Amaç
 Reddedilen ya da incelemeye düşen bir müşteri için "ne yaparsan model ilişkisine göre onay eşiğine
