@@ -35,18 +35,16 @@ def test_claims_mentions_min_phi_labels_and_evidence_classes():
     assert "gerçekte işe yarayacağını" in CLAIMS  # listed under what we do not claim
 
 
-def test_claims_states_the_missing_guclu_example_and_the_note_stays():
-    sentence = (
-        "198 örnek kayıtta δ = 0,02 iken GUCLU etiketli reddedilen kayıt çıkmadı; "
-        "δ = 0,012'de (ADR-007) 4 kayıt çıkar. GUCLU örnek vakası eklenmedi (karar)."
-    )
-    assert sentence in CLAIMS
+def test_claims_no_longer_says_guclu_was_not_found_and_the_case_exists():
+    import json
+
+    assert "GUCLU etiketli reddedilen kayıt çıkmadı" not in CLAIMS
+    assert "GUCLU örnek vakası eklenmedi" not in CLAIMS
+    assert "Varsayılan δ = 0,012'de (ADR-007) 198 örnek kayıttan 4'ü GUCLU" in CLAIMS
     cases = (ROOT / "docs" / "demo_example_cases.md").read_text()
-    assert "**Bulunamadı:**" in cases  # the 'not found' note in demo_example_cases.md stays
-    assert not any(
-        c["anahtar"] == "ret_guclu"
-        for c in __import__("json").loads((ROOT / "frontend" / "src" / "ornekler.json").read_text())
-    )
+    assert "**Bulunamadı (δ = 0,02):**" in cases  # the historical result stays, with its delta
+    data = json.loads((ROOT / "frontend" / "src" / "ornekler.json").read_text())
+    assert [c["kaynak_id"] for c in data if c["anahtar"] == "ret_guclu"] == ["cal-261695"]
 
 
 def test_claims_states_how_delta_is_derived_and_that_it_is_an_assumption():

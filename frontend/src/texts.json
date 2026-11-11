@@ -377,6 +377,10 @@
       "ad": "Değerlendirilemez",
       "aciklama": "Gerçek bir kaydın tek alanı değiştirilmiş varyantı (ortak başvuru)"
     },
+    "ret_guclu": {
+      "ad": "Ret + güçlü etiket",
+      "aciklama": "Eşiğin üzerinde, en güçlü yolun etiketi GUCLU"
+    },
     "ret_kosullu": {
       "ad": "Ret + koşullu etiket",
       "aciklama": "Eşiğin üzerinde, en güçlü yolun etiketi KOSULLU"

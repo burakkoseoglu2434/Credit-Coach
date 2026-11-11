@@ -34,7 +34,7 @@ planı olmayan kayıtlar: 161.
 
 | anahtar | kayıt | durum |
 |---|---|---|
-| `ret_guclu` | yok | **Bulunamadı:** 198 gerçek kayıtta en güçlü etiketi GUCLU olan reddedilen kayıt yok. Kural gevşetilmedi, vaka eklenmedi. |
+| `ret_guclu` | yok | **Bulunamadı (δ = 0,02):** 198 gerçek kayıtta en güçlü etiketi GUCLU olan reddedilen kayıt yok. Kural gevşetilmedi. δ = 0,012 için aşağıdaki Ek'e bak. |
 | `ret_kosullu` | `cal-257109` (ihraç ayı 2015-05) | Eklendi. Karma yol, `min_phi` 0,718, etiket KOSULLU. |
 
 ## Ek (δ varsayılanı değişti)
@@ -55,6 +55,9 @@ Yeniden çalıştırma (ADR-007 sonrası, `/score` varsayılan δ = 0,012, 198 g
 Mevcut `ret_kosullu` vakası `cal-257109`: tek yol (karma), etiket **KOSULLU**, `min_phi` **0,510**
 (δ = 0,02'de 0,718 idi; etiket aynı kaldı).
 
-Karar: GUCLU örnek vakası **eklenmez** ve `ret_kosullu` (`cal-257109`) olduğu gibi kalır; vakalar
-seçim anındaki δ ile belirlenmiştir. `ret_kosullu` kaydı yeni varsayılanda da KOSULLU etiketlidir
-(testle doğrulanır). Etiket dağılımı δ'ya plan oranından çok daha duyarlıdır (ADR-007).
+Karar (δ = 0,012 sonucu): kural dosya sırasındaki ilk GUCLU kaydı bulur; `ret_guclu` vakası olarak
+**eklendi**: `cal-261695` (ihraç ayı 2015-05, karma ve kurum yolları, ikisi de GUCLU, `min_phi` 0,424).
+Kural gevşetilmedi. `ret_kosullu` (`cal-257109`) seçim anında eklendiği gibi dondurulmuş kalır
+(etiketi KOSULLU, `min_phi` 0,510; testle doğrulanır); kuralın yeni δ'daki ilk KOSULLU kaydı
+(`cal-219812`) zaten `ret_plan` vakasıdır. Etiket dağılımı δ'ya plan oranından çok daha duyarlıdır
+(ADR-007). Vaka sırası: mevcut beş vaka, `ret_guclu`, `ret_kosullu`.

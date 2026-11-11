@@ -142,6 +142,12 @@ def expected(karar: dict) -> dict:
 def main() -> int:
     cases, others = build()
     ek, missing = build_ek()
+    # An extra case already frozen in ornekler.json keeps its record (chosen when it was added);
+    # only categories not frozen yet are taken from the rule's current result.
+    frozen = {c["anahtar"]: c for c in json.loads(CASES.read_text())} if CASES.exists() else {}
+    by = {c["anahtar"]: c for c in ek}
+    ek = [frozen.get(k) or by[k] for k in EK_ORDER if k in frozen or k in by]
+    missing = [k for k in EK_ORDER if k not in frozen and k not in by]
     CASES.write_text(json.dumps([*cases, *ek], indent=2, ensure_ascii=False, sort_keys=True) + "\n")
     for c in missing:
         print(f"NOT FOUND by the written rule: {c}")

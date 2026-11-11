@@ -25,7 +25,7 @@
 - **Zaman kayması.** Kalibrasyon ve gözlenen oranlar dönemden döneme kayar; sonuçlar bu aylar için ölçüldü.
 - **Destek kontrolü.** Eğitim diliminin en küçük/en büyük değeri (kategorikte görülen değer kümesi) kullanılır; eğitimdeki uç değerler aralığı genişletir (ör. `revol_util` 892). Çok boyutlu destek denetlenmez.
 - **Plan oranı düşüktür.** Katalog iki eylemden oluşur; reddedilenlerin çoğunda plan çıkmaz (`docs/demo_portfolio_report.md`). Eylem eklenmedi.
-- **Örnek vakalar.** 198 örnek kayıtta δ = 0,02 iken GUCLU etiketli reddedilen kayıt çıkmadı; δ = 0,012'de (ADR-007) 4 kayıt çıkar. GUCLU örnek vakası eklenmedi (karar).
+- **Örnek vakalar.** Varsayılan δ = 0,012'de (ADR-007) 198 örnek kayıttan 4'ü GUCLU, 27'si KOSULLU, 6'sı ZAYIF etiketlidir; GUCLU ve KOSULLU örnek vakaları arayüzde vardır. Etiket dağılımı δ'ya duyarlıdır.
 - **Güvenlik payı δ bir varsayımdır.** δ = 0,012, kalibrasyon ve boşluk aylarındaki en büyük aylık |kalibre ortalama PD − gözlenen oran| değerinin 0,001'e yukarı yuvarlanmasıyla türetilir (ADR-007); ölçülmüş bir kapsama değildir.
 - **Etiket eşikleri varsayımdır.** GUCLU için gereken etki payı en çok 0,50, KOSULLU için en çok 0,75'tir; eşikler ölçülmedi ve yapılandırmadadır.
 - **Model sınırı.** `loan_amnt` modelde kısıtsızdır; etkisinin yönü bilinmez ve yalnızca yeniden skorlamayla kabul edilir. `dti` güncellemesi kapalıdır; FICO değişmez kabul edilir.
