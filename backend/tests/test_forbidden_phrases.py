@@ -28,6 +28,7 @@ def scanned_files() -> list[Path]:
             ROOT / "docs" / "demo_target_segment.md",
             ROOT / "docs" / "demo_example_cases.md",
             ROOT / "docs" / "rejected_overlap.md",
+            ROOT / "docs" / "demo_delta_comparison.md",
         ]
         if p.exists()
     ]
@@ -64,6 +65,7 @@ def test_scan_covers_the_expected_files():
         "demo_target_segment.md",
         "demo_example_cases.md",
         "rejected_overlap.md",
+        "demo_delta_comparison.md",
     } <= names
 
 

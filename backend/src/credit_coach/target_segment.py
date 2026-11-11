@@ -42,9 +42,11 @@ COLS = ("PLAN_YOK", *LABELS)
 Rec = tuple[str, dict[str, str]]
 
 
-def collect(frame: pd.DataFrame, sc, pol, support, kat) -> dict[float, list[Rec]]:
+def collect(
+    frame: pd.DataFrame, sc, pol, support, kat, deltas: tuple[float, ...] = DELTAS
+) -> dict[float, list[Rec]]:
     thr = pol.onay_esigi
-    out: dict[float, list[Rec]] = {d: [] for d in DELTAS}
+    out: dict[float, list[Rec]] = {d: [] for d in deltas}
     for _m, grp in frame.groupby(frame["issue_date"].dt.to_period("M"), sort=True):
         tarih = grp["issue_date"].iloc[0]
         recs = vektorler(grp)
@@ -75,7 +77,7 @@ def collect(frame: pd.DataFrame, sc, pol, support, kat) -> dict[float, list[Rec]
             cs = sk[pos : pos + n]
             pos += n
             kova = bucket(bs.p_point - thr)
-            for d in DELTAS:
+            for d in deltas:
                 res = sec(b, h, bs, cs, pol, support, kat, d)
                 labels = (
                     {y.yol_tipi: y.dayaniklilik for y in res.sonuc.yollar}
