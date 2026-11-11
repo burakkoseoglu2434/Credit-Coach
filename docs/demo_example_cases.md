@@ -36,3 +36,13 @@ planı olmayan kayıtlar: 161.
 |---|---|---|
 | `ret_guclu` | yok | **Bulunamadı:** 198 gerçek kayıtta en güçlü etiketi GUCLU olan reddedilen kayıt yok. Kural gevşetilmedi, vaka eklenmedi. |
 | `ret_kosullu` | `cal-257109` (ihraç ayı 2015-05) | Eklendi. Karma yol, `min_phi` 0,718, etiket KOSULLU. |
+
+## Ek (δ varsayılanı değişti)
+Yukarıdaki sonuç, seçim sırasındaki varsayılan δ = 0,02 içindir ve olduğu gibi kalır. ADR-007 ile
+varsayılan δ 0,012 oldu. Aynı kural (aynı 198 kayıt, dosya sırası) yeni varsayılanla yeniden
+uygulandığında dağılım GUCLU 4, KOSULLU 27, ZAYIF 6 olur (161 kayıt reddedilen değil ya da planı
+yok); ilk GUCLU kayıt `cal-261695`, ilk KOSULLU kayıt `cal-219812`'dir.
+
+Karar: GUCLU örnek vakası **eklenmez** ve `ret_kosullu` (`cal-257109`) olduğu gibi kalır; vakalar
+seçim anındaki δ ile belirlenmiştir. `ret_kosullu` kaydı yeni varsayılanda da KOSULLU etiketlidir
+(testle doğrulanır). Etiket dağılımı δ'ya plan oranından çok daha duyarlıdır (ADR-007).

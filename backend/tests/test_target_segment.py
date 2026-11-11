@@ -27,19 +27,14 @@ def test_default_delta_facts_match_the_live_config_and_visibility():
     kat = load_demo_catalog()
     facts = "\n".join(delta_facts())
     assert f"{kat.delta:g}" in facts and "varsayım" in facts
-    assert "configs/catalog/demo_v0.yaml" in facts
-    # the claims about visibility are locked to the real files
-    assert "delta" not in (ROOT / "frontend" / "openapi.json").read_text().lower()
-    ui = "".join(
-        p.read_text().lower()
-        for p in [
-            *(ROOT / "frontend" / "src").rglob("*.ts*"),
-            ROOT / "frontend" / "src" / "texts.json",
-        ]
-        if p.name != "schema.d.ts"
-    )
-    assert "delta" not in ui and "δ" not in ui
-    assert "hayır" in facts
+    assert "configs/catalog/demo_v0.yaml" in facts and "007-safety-margin" in facts
+    # the visibility claims are locked to the real files
+    api = "guvenlik_payi" in (ROOT / "frontend" / "openapi.json").read_text()
+    assert api and "`guvenlik_payi` alanı" in facts
+    comp = ROOT / "frontend" / "src" / "components"
+    for yer, dosya in (("sonuç sayfası", "Sonuc.tsx"), ("toplu özet", "Toplu.tsx")):
+        uses = "guvenlik_payi" in (comp / dosya).read_text()
+        assert (yer in facts.split("Arayüzde görünür mü")[1]) == uses, yer
 
 
 def test_the_engine_default_is_what_the_service_uses():
@@ -58,3 +53,9 @@ def test_missing_raw_data_gives_a_clear_error(monkeypatch, tmp_path, capsys):
     assert "Ham veri bulunamadı" in capsys.readouterr().err
     assert not (tmp_path / "r.md").exists()
     assert json.loads((ROOT / "configs" / "forbidden_phrases.json").read_text())["ifadeler"]
+
+
+def test_facts_table_cells_do_not_contain_unescaped_pipes():
+    for row in delta_facts()[2:]:
+        # a markdown table row has exactly 3 unescaped pipes (2 columns)
+        assert len(row.replace("\\|", "").split("|")) == 4, row

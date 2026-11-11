@@ -5,8 +5,8 @@ kurgu_etiketi: "tek fiyatlı kurgusal kredi veren"
 kanit_sinifi: M
 max_eylem: 2
 delta:
-  deger: 0.02
-  etiket: 'varsayım: dönem kayması ve model belirsizliği payı; Venn-Abers aralığı değil'
+  deger: 0.012
+  etiket: "varsayım: ADR-007 kuralıyla türetildi (kalibrasyon ve boşluk aylarında en büyük aylık |kalibre ortalama PD − gözlenen oran| = 0,0118, 0,001'e yukarı yuvarlandı); dönem kayması ve model belirsizliği payı; Venn-Abers aralığı değil"
 dti_guncelle: false     # varsayılan kapalı (muhafazakâr); açık varyant yalnızca duyarlılık raporunda
 dayaniklilik:           # plan etiketi: min_phi (gereken minimum etki payı) eşikleri
   guclu_en_fazla: 0.50      # min_phi <= 0,50 -> GUCLU

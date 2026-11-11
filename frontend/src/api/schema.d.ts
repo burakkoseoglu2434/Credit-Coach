@@ -134,6 +134,7 @@ export interface components {
         };
         /** BatchResponse */
         BatchResponse: {
+            guvenlik_payi: components["schemas"]["GuvenlikPayi"];
             notlar: components["schemas"]["Notlar"];
             ozet: components["schemas"]["PortfoyOzeti"];
             /** Satirlar */
@@ -169,6 +170,27 @@ export interface components {
         GirdiHatasiYaniti: {
             /** Detail */
             detail: string[];
+        };
+        /**
+         * GuvenlikPayi
+         * @description Safety margin delta used for plan validity (plan after-risk must end this far below the
+         *     threshold). An assumption derived by the ADR-007 rule from monthly calibration drift.
+         */
+        GuvenlikPayi: {
+            /** Deger */
+            deger: number;
+            /**
+             * Etiket
+             * @default varsayım
+             * @constant
+             */
+            etiket: "varsayım";
+            /**
+             * Kaynak
+             * @default ADR-007
+             * @constant
+             */
+            kaynak: "ADR-007";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -330,6 +352,7 @@ export interface components {
         };
         /** ScoreResponse */
         ScoreResponse: {
+            guvenlik_payi: components["schemas"]["GuvenlikPayi"];
             karar: components["schemas"]["SatirKarari"];
             notlar: components["schemas"]["Notlar"];
             surumler: components["schemas"]["Surumler"];

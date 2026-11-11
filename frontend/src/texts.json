@@ -559,5 +559,11 @@
   "eylem_turu": {
     "musteri_eylemi": "Müşteri eylemi",
     "karsi_teklif": "Karşı teklif"
+  },
+  "guvenlik_payi": {
+    "baslik": "Güvenlik payı",
+    "aciklama": "Bir planın geçerli sayılması için modelin plan sonrası risk tahmininin onay eşiğinin en az bu pay kadar altına inmesi gerekir.",
+    "kaynak": "Kaynak",
+    "turetme": "Pay, kalibrasyon ve boşluk aylarındaki en büyük aylık kalibre ortalama PD sapmasından türetilir; bir varsayımdır."
   }
 }

@@ -91,3 +91,10 @@ def test_the_engine_uses_the_catalog_default_when_no_delta_is_passed():
     implicit = plan_bul(b, None, sc, pol, support, KAT)
     explicit = plan_bul(b, None, sc, pol, support, KAT, KAT.delta)
     assert implicit.sonuc == explicit.sonuc
+
+
+def test_adr_007_states_the_catalog_value_and_the_computed_delta():
+    adr = (ROOT / "docs" / "adr" / "007-safety-margin.md").read_text()
+    assert f"Katalog değeri: {fmt(float(KAT.delta))}." in adr  # catalog changes -> this fails
+    assert "δ = 0,012" in adr and "0,011832" in adr  # the measured result the value comes from
+    assert KAT.delta == 0.012

@@ -1,5 +1,6 @@
 import { fmtSayi, fmtTam } from "../format";
 import texts from "../texts.json";
+import GuvenlikPayi from "./GuvenlikPayi";
 import UyariSeridi from "./UyariSeridi";
 import type { Alan, OuterStatus, PlanVar, PlanYok, PublicReasonCode, ScoreResponse, YolPlan } from "../types";
 
@@ -235,6 +236,9 @@ export default function Sonuc({ r }: { r: ScoreResponse }) {
           <Gerekceler kodlar={k.gerekce_kodlari} />
           {k.plan.durum === "PLAN" && <PlanBolumu plan={k.plan as PlanVar} />}
           {k.plan.durum === "PLAN_YOK" && <PlanYokBolumu plan={k.plan as PlanYok} />}
+          {(k.plan.durum === "PLAN" || k.plan.durum === "PLAN_YOK") && (
+            <GuvenlikPayi pay={r.guvenlik_payi} />
+          )}
           {k.plan.durum === "PLAN_GEREKSIZ" && (
             <section data-plan="PLAN_GEREKSIZ">
               <p>{texts.plan.gereksiz}</p>

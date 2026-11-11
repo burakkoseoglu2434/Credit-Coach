@@ -396,6 +396,9 @@
       },
       "BatchResponse": {
         "properties": {
+          "guvenlik_payi": {
+            "$ref": "#/components/schemas/GuvenlikPayi"
+          },
           "notlar": {
             "$ref": "#/components/schemas/Notlar"
           },
@@ -417,6 +420,7 @@
           "satirlar",
           "ozet",
           "surumler",
+          "guvenlik_payi",
           "notlar"
         ],
         "title": "BatchResponse",
@@ -487,6 +491,32 @@
           "detail"
         ],
         "title": "GirdiHatasiYaniti",
+        "type": "object"
+      },
+      "GuvenlikPayi": {
+        "description": "Safety margin delta used for plan validity (plan after-risk must end this far below the\nthreshold). An assumption derived by the ADR-007 rule from monthly calibration drift.",
+        "properties": {
+          "deger": {
+            "title": "Deger",
+            "type": "number"
+          },
+          "etiket": {
+            "const": "varsay\u0131m",
+            "default": "varsay\u0131m",
+            "title": "Etiket",
+            "type": "string"
+          },
+          "kaynak": {
+            "const": "ADR-007",
+            "default": "ADR-007",
+            "title": "Kaynak",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deger"
+        ],
+        "title": "GuvenlikPayi",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -927,6 +957,9 @@
       },
       "ScoreResponse": {
         "properties": {
+          "guvenlik_payi": {
+            "$ref": "#/components/schemas/GuvenlikPayi"
+          },
           "karar": {
             "$ref": "#/components/schemas/SatirKarari"
           },
@@ -940,6 +973,7 @@
         "required": [
           "karar",
           "surumler",
+          "guvenlik_payi",
           "notlar"
         ],
         "title": "ScoreResponse",
