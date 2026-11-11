@@ -3,7 +3,10 @@
     "baslik": "Credit Coach",
     "altbaslik": "Demo v0: model tabanlı başvuru değerlendirmesi ve değişiklik planı"
   },
-  "sekmeler": { "tek": "Tek başvuru", "toplu": "Toplu mod" },
+  "sekmeler": {
+    "tek": "Tek başvuru",
+    "toplu": "Toplu mod"
+  },
   "uyari": "Model 2012-15 ABD (LendingClub) verisiyle eğitildi; güncel başvurular için kalibre değil. Plan modele göre geçerlidir, gerçek etkisi doğrulanmadı.",
   "kurgu": "Kredi veren: tek fiyatlı kurgusal kredi veren.",
   "form": {
@@ -29,8 +32,18 @@
     "sicil": "Kredi sicili"
   },
   "bolum_alanlari": {
-    "talep": ["loan_amnt", "term", "purpose", "application_type"],
-    "gelir": ["annual_inc", "emp_length", "home_ownership", "dti"],
+    "talep": [
+      "loan_amnt",
+      "term",
+      "purpose",
+      "application_type"
+    ],
+    "gelir": [
+      "annual_inc",
+      "emp_length",
+      "home_ownership",
+      "dti"
+    ],
     "kullanim": [
       "revol_bal",
       "revol_util",
@@ -63,41 +76,134 @@
     ]
   },
   "alanlar": {
-    "loan_amnt": { "etiket": "Talep edilen kredi tutarı", "birim": "dolar" },
-    "term": { "etiket": "Vade", "birim": "metin" },
-    "purpose": { "etiket": "Kredi amacı", "birim": "metin" },
-    "application_type": { "etiket": "Başvuru türü", "birim": "metin" },
-    "annual_inc": { "etiket": "Yıllık gelir", "birim": "dolar" },
-    "emp_length": { "etiket": "Çalışma süresi", "birim": "metin" },
-    "home_ownership": { "etiket": "Konut durumu", "birim": "metin" },
-    "dti": { "etiket": "Borç/gelir oranı (DTI)", "birim": "yüzde" },
-    "revol_bal": { "etiket": "Dönen kredi bakiyesi", "birim": "dolar" },
-    "revol_util": { "etiket": "Dönen kredi kullanım oranı", "birim": "yüzde" },
-    "total_rev_hi_lim": { "etiket": "Toplam dönen kredi limiti", "birim": "dolar" },
-    "total_bc_limit": { "etiket": "Toplam kredi kartı limiti", "birim": "dolar" },
-    "tot_hi_cred_lim": { "etiket": "Toplam en yüksek kredi limiti", "birim": "dolar" },
-    "tot_cur_bal": { "etiket": "Toplam güncel bakiye", "birim": "dolar" },
-    "total_bal_ex_mort": { "etiket": "İpotek hariç toplam bakiye", "birim": "dolar" },
-    "open_acc": { "etiket": "Açık hesap sayısı", "birim": "adet" },
-    "total_acc": { "etiket": "Toplam hesap sayısı", "birim": "adet" },
-    "mort_acc": { "etiket": "İpotekli hesap sayısı", "birim": "adet" },
-    "acc_open_past_24mths": { "etiket": "Son 24 ayda açılan hesap sayısı", "birim": "adet" },
-    "earliest_cr_line": { "etiket": "İlk kredi hesabı tarihi (örn. Dec-1992)", "birim": "metin" },
-    "inq_last_6mths": { "etiket": "Son 6 ayda kredi sorgusu sayısı", "birim": "adet" },
-    "fico_range_low": { "etiket": "FICO skoru (alt sınır)", "birim": "puan" },
-    "fico_range_high": { "etiket": "FICO skoru (üst sınır)", "birim": "puan" },
-    "delinq_2yrs": { "etiket": "Son 2 yılda gecikme sayısı", "birim": "adet" },
-    "pub_rec": { "etiket": "Olumsuz kamu kaydı sayısı", "birim": "adet" },
-    "pub_rec_bankruptcies": { "etiket": "İflas kaydı sayısı", "birim": "adet" },
-    "acc_now_delinq": { "etiket": "Şu an gecikmede olan hesap sayısı", "birim": "adet" },
-    "delinq_amnt": { "etiket": "Gecikmiş tutar", "birim": "dolar" },
+    "loan_amnt": {
+      "etiket": "Talep edilen kredi tutarı",
+      "birim": "dolar"
+    },
+    "term": {
+      "etiket": "Vade",
+      "birim": "metin"
+    },
+    "purpose": {
+      "etiket": "Kredi amacı",
+      "birim": "metin"
+    },
+    "application_type": {
+      "etiket": "Başvuru türü",
+      "birim": "metin"
+    },
+    "annual_inc": {
+      "etiket": "Yıllık gelir",
+      "birim": "dolar"
+    },
+    "emp_length": {
+      "etiket": "Çalışma süresi",
+      "birim": "metin"
+    },
+    "home_ownership": {
+      "etiket": "Konut durumu",
+      "birim": "metin"
+    },
+    "dti": {
+      "etiket": "Borç/gelir oranı (DTI)",
+      "birim": "yüzde"
+    },
+    "revol_bal": {
+      "etiket": "Dönen kredi bakiyesi",
+      "birim": "dolar"
+    },
+    "revol_util": {
+      "etiket": "Dönen kredi kullanım oranı",
+      "birim": "yüzde"
+    },
+    "total_rev_hi_lim": {
+      "etiket": "Toplam dönen kredi limiti",
+      "birim": "dolar"
+    },
+    "total_bc_limit": {
+      "etiket": "Toplam kredi kartı limiti",
+      "birim": "dolar"
+    },
+    "tot_hi_cred_lim": {
+      "etiket": "Toplam en yüksek kredi limiti",
+      "birim": "dolar"
+    },
+    "tot_cur_bal": {
+      "etiket": "Toplam güncel bakiye",
+      "birim": "dolar"
+    },
+    "total_bal_ex_mort": {
+      "etiket": "İpotek hariç toplam bakiye",
+      "birim": "dolar"
+    },
+    "open_acc": {
+      "etiket": "Açık hesap sayısı",
+      "birim": "adet"
+    },
+    "total_acc": {
+      "etiket": "Toplam hesap sayısı",
+      "birim": "adet"
+    },
+    "mort_acc": {
+      "etiket": "İpotekli hesap sayısı",
+      "birim": "adet"
+    },
+    "acc_open_past_24mths": {
+      "etiket": "Son 24 ayda açılan hesap sayısı",
+      "birim": "adet"
+    },
+    "earliest_cr_line": {
+      "etiket": "İlk kredi hesabı tarihi (örn. Dec-1992)",
+      "birim": "metin"
+    },
+    "inq_last_6mths": {
+      "etiket": "Son 6 ayda kredi sorgusu sayısı",
+      "birim": "adet"
+    },
+    "fico_range_low": {
+      "etiket": "FICO skoru (alt sınır)",
+      "birim": "puan"
+    },
+    "fico_range_high": {
+      "etiket": "FICO skoru (üst sınır)",
+      "birim": "puan"
+    },
+    "delinq_2yrs": {
+      "etiket": "Son 2 yılda gecikme sayısı",
+      "birim": "adet"
+    },
+    "pub_rec": {
+      "etiket": "Olumsuz kamu kaydı sayısı",
+      "birim": "adet"
+    },
+    "pub_rec_bankruptcies": {
+      "etiket": "İflas kaydı sayısı",
+      "birim": "adet"
+    },
+    "acc_now_delinq": {
+      "etiket": "Şu an gecikmede olan hesap sayısı",
+      "birim": "adet"
+    },
+    "delinq_amnt": {
+      "etiket": "Gecikmiş tutar",
+      "birim": "dolar"
+    },
     "collections_12_mths_ex_med": {
       "etiket": "Son 12 ayda tahsilat sayısı (tıbbi hariç)",
       "birim": "adet"
     },
-    "tot_coll_amt": { "etiket": "Toplam tahsilat tutarı", "birim": "dolar" },
-    "chargeoff_within_12_mths": { "etiket": "Son 12 ayda zarar yazma sayısı", "birim": "adet" },
-    "tax_liens": { "etiket": "Vergi haczi sayısı", "birim": "adet" }
+    "tot_coll_amt": {
+      "etiket": "Toplam tahsilat tutarı",
+      "birim": "dolar"
+    },
+    "chargeoff_within_12_mths": {
+      "etiket": "Son 12 ayda zarar yazma sayısı",
+      "birim": "adet"
+    },
+    "tax_liens": {
+      "etiket": "Vergi haczi sayısı",
+      "birim": "adet"
+    }
   },
   "birimler": {
     "dolar": "USD",
@@ -107,46 +213,147 @@
     "metin": ""
   },
   "secenekler": {
-    "term": [{ "deger": "36 months", "etiket": "36 ay" }],
+    "term": [
+      {
+        "deger": "36 months",
+        "etiket": "36 ay"
+      }
+    ],
     "application_type": [
-      { "deger": "Individual", "etiket": "Bireysel" },
-      { "deger": "Joint App", "etiket": "Ortak başvuru" }
+      {
+        "deger": "Individual",
+        "etiket": "Bireysel"
+      },
+      {
+        "deger": "Joint App",
+        "etiket": "Ortak başvuru"
+      }
     ],
     "emp_length": [
-      { "deger": "< 1 year", "etiket": "1 yıldan az" },
-      { "deger": "1 year", "etiket": "1 yıl" },
-      { "deger": "2 years", "etiket": "2 yıl" },
-      { "deger": "3 years", "etiket": "3 yıl" },
-      { "deger": "4 years", "etiket": "4 yıl" },
-      { "deger": "5 years", "etiket": "5 yıl" },
-      { "deger": "6 years", "etiket": "6 yıl" },
-      { "deger": "7 years", "etiket": "7 yıl" },
-      { "deger": "8 years", "etiket": "8 yıl" },
-      { "deger": "9 years", "etiket": "9 yıl" },
-      { "deger": "10+ years", "etiket": "10 yıl ve üzeri" }
+      {
+        "deger": "< 1 year",
+        "etiket": "1 yıldan az"
+      },
+      {
+        "deger": "1 year",
+        "etiket": "1 yıl"
+      },
+      {
+        "deger": "2 years",
+        "etiket": "2 yıl"
+      },
+      {
+        "deger": "3 years",
+        "etiket": "3 yıl"
+      },
+      {
+        "deger": "4 years",
+        "etiket": "4 yıl"
+      },
+      {
+        "deger": "5 years",
+        "etiket": "5 yıl"
+      },
+      {
+        "deger": "6 years",
+        "etiket": "6 yıl"
+      },
+      {
+        "deger": "7 years",
+        "etiket": "7 yıl"
+      },
+      {
+        "deger": "8 years",
+        "etiket": "8 yıl"
+      },
+      {
+        "deger": "9 years",
+        "etiket": "9 yıl"
+      },
+      {
+        "deger": "10+ years",
+        "etiket": "10 yıl ve üzeri"
+      }
     ],
     "home_ownership": [
-      { "deger": "RENT", "etiket": "Kiracı" },
-      { "deger": "OWN", "etiket": "Ev sahibi" },
-      { "deger": "MORTGAGE", "etiket": "İpotekli" },
-      { "deger": "ANY", "etiket": "Belirtilmemiş (ANY)" },
-      { "deger": "NONE", "etiket": "Yok (NONE)" },
-      { "deger": "OTHER", "etiket": "Diğer" }
+      {
+        "deger": "RENT",
+        "etiket": "Kiracı"
+      },
+      {
+        "deger": "OWN",
+        "etiket": "Ev sahibi"
+      },
+      {
+        "deger": "MORTGAGE",
+        "etiket": "İpotekli"
+      },
+      {
+        "deger": "ANY",
+        "etiket": "Belirtilmemiş (ANY)"
+      },
+      {
+        "deger": "NONE",
+        "etiket": "Yok (NONE)"
+      },
+      {
+        "deger": "OTHER",
+        "etiket": "Diğer"
+      }
     ],
     "purpose": [
-      { "deger": "debt_consolidation", "etiket": "Borç birleştirme" },
-      { "deger": "credit_card", "etiket": "Kredi kartı kapatma" },
-      { "deger": "home_improvement", "etiket": "Ev yenileme" },
-      { "deger": "house", "etiket": "Konut" },
-      { "deger": "car", "etiket": "Taşıt" },
-      { "deger": "major_purchase", "etiket": "Büyük alım" },
-      { "deger": "medical", "etiket": "Sağlık" },
-      { "deger": "moving", "etiket": "Taşınma" },
-      { "deger": "vacation", "etiket": "Tatil" },
-      { "deger": "wedding", "etiket": "Düğün" },
-      { "deger": "small_business", "etiket": "Küçük işletme" },
-      { "deger": "renewable_energy", "etiket": "Yenilenebilir enerji" },
-      { "deger": "other", "etiket": "Diğer" }
+      {
+        "deger": "debt_consolidation",
+        "etiket": "Borç birleştirme"
+      },
+      {
+        "deger": "credit_card",
+        "etiket": "Kredi kartı kapatma"
+      },
+      {
+        "deger": "home_improvement",
+        "etiket": "Ev yenileme"
+      },
+      {
+        "deger": "house",
+        "etiket": "Konut"
+      },
+      {
+        "deger": "car",
+        "etiket": "Taşıt"
+      },
+      {
+        "deger": "major_purchase",
+        "etiket": "Büyük alım"
+      },
+      {
+        "deger": "medical",
+        "etiket": "Sağlık"
+      },
+      {
+        "deger": "moving",
+        "etiket": "Taşınma"
+      },
+      {
+        "deger": "vacation",
+        "etiket": "Tatil"
+      },
+      {
+        "deger": "wedding",
+        "etiket": "Düğün"
+      },
+      {
+        "deger": "small_business",
+        "etiket": "Küçük işletme"
+      },
+      {
+        "deger": "renewable_energy",
+        "etiket": "Yenilenebilir enerji"
+      },
+      {
+        "deger": "other",
+        "etiket": "Diğer"
+      }
     ]
   },
   "ornek_vakalar": {
@@ -310,5 +517,43 @@
     "APPROVED": "Onay",
     "CONDITIONAL": "Koşullu",
     "REJECTED": "Ret"
+  },
+  "yeterlilik": "Bu planın yeterli olması için modelin öngördüğü etkinin en az %{yuzde} kadarının gerçekleşmesi gerekir.",
+  "toplu_dayaniklilik": {
+    "baslik": "Dayanıklılık etiketi dağılımı (kayıt başına en güçlü yol)",
+    "yol_baslik": "Dayanıklılık etiketi, yol türüne göre",
+    "yol": "Yol",
+    "toplam": "Plan olan kayıt"
+  },
+  "dayaniklilik": {
+    "GUCLU": {
+      "ad": "Güçlü",
+      "aciklama": "Modelin öngördüğü etkinin yarısı ya da daha azı yeterli."
+    },
+    "KOSULLU": {
+      "ad": "Koşullu",
+      "aciklama": "Modelin öngördüğü etkinin yarısından fazlası, en çok dörtte üçü gerekli."
+    },
+    "ZAYIF": {
+      "ad": "Zayıf",
+      "aciklama": "Modelin öngördüğü etkinin dörtte üçünden fazlası gerekli."
+    }
+  },
+  "dayaniklilik_meta": {
+    "baslik": "Dayanıklılık",
+    "esik_notu": "Etiket eşikleri varsayımdır."
+  },
+  "kanit": {
+    "K": "muhasebe özdeşliği (K)",
+    "M": "model ilişkisi, nedensel etki doğrulanmadı (M)"
+  },
+  "kanit_meta": {
+    "baslik": "Kanıt sınıfı",
+    "bakiye_kullanim": "Bakiye ve kullanım değişimi",
+    "risk": "Risk etkisi"
+  },
+  "eylem_turu": {
+    "musteri_eylemi": "Müşteri eylemi",
+    "karsi_teklif": "Karşı teklif"
   }
 }

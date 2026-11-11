@@ -45,8 +45,21 @@ test("ret + plan: yollar, USD maliyet ve süre 'varsayım' etiketli, kurum eylem
   for (const y of await yollar.all()) {
     await expect(y).toContainText(texts.plan.maliyet);
     await expect(y).toContainText(texts.plan.usd);
-    await expect(y.locator(".etiket")).toHaveText(["varsayım", "varsayım"]);
+    await expect(y.locator("dl .etiket")).toHaveText(["varsayım", "varsayım"]);
   }
+  for (const y of await yollar.all()) {
+    // resilience label, the agreed sufficiency sentence (percent comes from the API), evidence
+    await expect(y.locator("[data-dayaniklilik]")).toHaveAttribute(
+      "data-dayaniklilik",
+      /^(GUCLU|KOSULLU|ZAYIF)$/,
+    );
+    await expect(y.locator("[data-yeterlilik]")).toHaveText(
+      /^Bu planın yeterli olması için modelin öngördüğü etkinin en az %\d+ kadarının gerçekleşmesi gerekir\.$/,
+    );
+    await expect(y.locator("[data-kanit]")).toContainText(texts.kanit.M);
+  }
+  await expect(plan.locator("[data-kanit]").first()).toContainText(texts.kanit_meta.risk);
+  await expect(plan).toContainText(texts.dayaniklilik_meta.esik_notu);
   const kurumlu = plan.locator('[data-yol="institution"], [data-yol="hybrid"]');
   if ((await kurumlu.count()) > 0) {
     await expect(kurumlu.first()).toContainText("Karşı teklif");
@@ -61,6 +74,7 @@ test("ret + PLAN_YOK: bağlayıcı kısıtlar ve eşiğe uzaklık var, plan/mali
   await expect(bolum).toContainText(texts.plan_yok.kisitlar_baslik);
   await expect(bolum).toContainText(texts.plan_yok.uzaklik_baslik);
   await expect(page.locator("[data-yol]")).toHaveCount(0);
+  await expect(page.locator("[data-dayaniklilik]")).toHaveCount(0);
   await expect(page.getByText(texts.plan.maliyet)).toHaveCount(0);
   await expect(page.getByText(texts.plan.sure)).toHaveCount(0);
 });
@@ -81,6 +95,9 @@ test("10 satırlık CSV: portföy özeti, satır tablosu, sonuç CSV indirme, uy
   await expect(page.locator('[data-ozet="n"]')).toHaveText("10");
   await seritVar(page);
   await expect(page.locator('[data-toplu="ozet"]')).toContainText(texts.toplu.kova_baslik);
+  const et = page.locator('[data-toplu="dayaniklilik"]');
+  await expect(et).toContainText(texts.toplu_dayaniklilik.baslik);
+  await expect(et).toContainText(texts.toplu_dayaniklilik.yol_baslik);
   await expect(page.locator('[data-toplu="satirlar"] tbody tr')).toHaveCount(10);
   await shot(page, "toplu-ozet");
 
@@ -92,6 +109,8 @@ test("10 satırlık CSV: portföy özeti, satır tablosu, sonuç CSV indirme, uy
   const satirlar = readFileSync(path, "utf8").trim().split("\n");
   expect(satirlar).toHaveLength(11);
   expect(satirlar[0].startsWith("satir_no,kayit_id,dis_durum")).toBe(true);
+  expect(satirlar[0]).toContain("customer_min_phi");
+  expect(satirlar[0]).toContain("institution_dayaniklilik");
 });
 
 test("hatalı CSV reddedilir, kısmi sonuç gösterilmez", async ({ page }) => {

@@ -17,7 +17,13 @@ export const SONUC_BASLIK: string[] = [
   "p_high",
   "plan_durumu",
   "esige_uzaklik",
-  ...YOLLAR.flatMap((y) => [`${y}_plan_id`, `${y}_maliyet_usd`, `${y}_sure_hafta`]),
+  ...YOLLAR.flatMap((y) => [
+    `${y}_plan_id`,
+    `${y}_maliyet_usd`,
+    `${y}_sure_hafta`,
+    `${y}_min_phi`,
+    `${y}_dayaniklilik`,
+  ]),
 ];
 
 /** Result rows -> CSV text. Strings are copied from the API answer; nothing is computed. */
@@ -42,8 +48,14 @@ export function sonucCsv(satirlar: Satir[]): string {
       ...YOLLAR.flatMap((t) => {
         const y = yol(t);
         return y
-          ? [y.plan_id, String(y.maliyet_usd), `${y.sure_hafta[0]}-${y.sure_hafta[1]}`]
-          : ["", "", ""];
+          ? [
+              y.plan_id,
+              String(y.maliyet_usd),
+              `${y.sure_hafta[0]}-${y.sure_hafta[1]}`,
+              String(y.min_phi),
+              y.dayaniklilik,
+            ]
+          : ["", "", "", "", ""];
       }),
     ];
     out.push(hucreler.map(kacis).join(","));

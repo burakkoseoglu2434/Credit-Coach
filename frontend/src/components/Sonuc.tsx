@@ -11,6 +11,9 @@ const yolAd: Record<string, string> = texts.yol;
 const eylemAd: Record<string, string> = texts.eylem;
 const seviyeAd: Record<string, string> = texts.seviye;
 const kosul: Record<string, string> = texts.kosul;
+const dayaniklilik: Record<string, { ad: string; aciklama: string }> = texts.dayaniklilik;
+const kanitSinifi: Record<string, string> = texts.kanit;
+const eylemTuru: Record<string, string> = texts.eylem_turu;
 
 export type SonucTuru = "onay" | "kosullu" | "ret_plan" | "ret_plan_yok" | "destek_disi";
 
@@ -87,11 +90,36 @@ function YolKarti({ y }: { y: YolPlan }) {
   return (
     <article className="karti" data-yol={y.yol_tipi}>
       <h4>{yolAd[y.yol_tipi] ?? y.yol_tipi}</h4>
+      <p data-dayaniklilik={y.dayaniklilik}>
+        <strong>{texts.dayaniklilik_meta.baslik}: {dayaniklilik[y.dayaniklilik]?.ad ?? y.dayaniklilik}</strong>{" "}
+        <span className="etiket">{y.dayaniklilik_etiketi}</span>
+        <br />
+        <span className="not">{dayaniklilik[y.dayaniklilik]?.aciklama}</span>
+      </p>
+      <p data-yeterlilik>{texts.yeterlilik.replace("{yuzde}", String(y.gereken_etki_yuzdesi))}</p>
       <h5>{texts.plan.eylemler}</h5>
       <ul>
         {y.eylemler.map(([e, s]) => (
           <li key={`${e}-${s}`}>
             <strong>{eylemAd[e] ?? e}</strong>: {seviyeAd[s] ?? s}
+          </li>
+        ))}
+      </ul>
+      <h5>{texts.kanit_meta.baslik}</h5>
+      <ul data-kanit>
+        {y.eylem_kanitlari.map((k) => (
+          <li key={k.eylem}>
+            <strong>{eylemAd[k.eylem] ?? k.eylem}</strong> <span className="etiket">{eylemTuru[k.eylem_turu]}</span>
+            <ul>
+              {k.bakiye_kullanim_etkisi && (
+                <li>
+                  {texts.kanit_meta.bakiye_kullanim}: {kanitSinifi[k.bakiye_kullanim_etkisi]}
+                </li>
+              )}
+              <li>
+                {texts.kanit_meta.risk}: {kanitSinifi[k.risk_etkisi]}
+              </li>
+            </ul>
           </li>
         ))}
       </ul>
@@ -131,7 +159,7 @@ function PlanBolumu({ plan }: { plan: PlanVar }) {
           <YolKarti key={y.yol_tipi} y={y} />
         ))}
       </div>
-      <p className="not">{texts.plan.varsayim}</p>
+      <p className="not">{texts.plan.varsayim} {texts.dayaniklilik_meta.esik_notu}</p>
     </section>
   );
 }

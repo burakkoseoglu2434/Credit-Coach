@@ -9,6 +9,7 @@ import UyariSeridi from "./UyariSeridi";
 const dagilim: Record<string, string> = texts.dagilim;
 const planDurumu: Record<string, string> = texts.plan_durumu;
 const yolAd: Record<string, string> = texts.yol;
+const dayaniklilik: Record<string, { ad: string }> = texts.dayaniklilik;
 const ADIM = 100;
 
 function indir(ad: string, metin: string) {
@@ -74,6 +75,40 @@ function Ozet({ o }: { o: BatchResponse["ozet"] }) {
             </tbody>
           </table>
         </div>
+      </div>
+      <div className="karti" data-toplu="dayaniklilik">
+        <h3>{texts.toplu_dayaniklilik.baslik}</h3>
+        <table>
+          <tbody>
+            {Object.entries(o.dayaniklilik_dagilimi).map(([k, v]) => (
+              <tr key={k}>
+                <td>{dayaniklilik[k]?.ad ?? k}</td>
+                <td>{fmtTam(v)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <h3>{texts.toplu_dayaniklilik.yol_baslik}</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>{texts.toplu_dayaniklilik.yol}</th>
+              {Object.keys(dayaniklilik).map((k) => (
+                <th key={k}>{dayaniklilik[k].ad}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(o.yol_dayaniklilik).map(([yol, dist]) => (
+              <tr key={yol}>
+                <td>{yolAd[yol] ?? yol}</td>
+                {["GUCLU", "KOSULLU", "ZAYIF"].map((k) => (
+                  <td key={k}>{fmtTam(dist[k] ?? 0)}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
       <div className="karti">
         <h3>{texts.toplu.kova_baslik}</h3>

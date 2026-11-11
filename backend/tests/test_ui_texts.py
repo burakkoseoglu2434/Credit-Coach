@@ -99,3 +99,27 @@ def test_example_cases_all_have_texts():
 def test_support_file_is_the_source_of_the_options():
     raw = yaml.safe_load((ROOT / "configs" / "support.yaml").read_text())
     assert set(raw["kategorik"]) == set(load_support().kategorik)
+
+
+def test_resilience_and_evidence_texts_cover_the_contract():
+    from credit_coach.recourse import load_demo_catalog
+
+    assert set(TEXTS["dayaniklilik"]) == {"GUCLU", "KOSULLU", "ZAYIF"}
+    assert set(TEXTS["kanit"]) == {"K", "M"}
+    assert set(TEXTS["eylem_turu"]) == {"musteri_eylemi", "karsi_teklif"}
+    kat = load_demo_catalog()
+    # the label descriptions state the config thresholds (0,50 -> half, 0,75 -> three quarters)
+    assert (kat.guclu_en_fazla, kat.kosullu_en_fazla) == (0.50, 0.75)
+    assert "yarısı" in TEXTS["dayaniklilik"]["GUCLU"]["aciklama"]
+    assert "dörtte üçü" in TEXTS["dayaniklilik"]["KOSULLU"]["aciklama"]
+    assert "dörtte üçünden" in TEXTS["dayaniklilik"]["ZAYIF"]["aciklama"]
+    assert "varsayım" in TEXTS["dayaniklilik_meta"]["esik_notu"]
+
+
+def test_sufficiency_sentence_is_the_agreed_wording_with_one_placeholder():
+    s = TEXTS["yeterlilik"]
+    assert s.count("{yuzde}") == 1
+    assert s == (
+        "Bu planın yeterli olması için modelin öngördüğü etkinin en az %{yuzde} "
+        "kadarının gerçekleşmesi gerekir."
+    )
