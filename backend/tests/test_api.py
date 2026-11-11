@@ -371,3 +371,28 @@ def test_batch_summary_has_the_label_distribution_and_it_adds_up(client):
         )
         assert sum(dist.values()) == n
     assert "dayaniklilik_notu" in out["notlar"] and "kanit_notu" in out["notlar"]
+
+
+def test_responses_carry_the_safety_margin_with_label_and_source(client):
+    from credit_coach.recourse import load_demo_catalog
+
+    delta = load_demo_catalog().delta
+    one = client.post("/score", json={"basvuru": good(), "basvuru_tarihi": "2015-04-10"}).json()
+    many = post_csv(client, to_csv(records(6))).json()
+    for body in (one, many):
+        assert body["guvenlik_payi"] == {"deger": delta, "etiket": "varsayım", "kaynak": "ADR-007"}
+    # the response value is the one the engine used (catalog), not a separate number
+    from credit_coach.app import get_servis
+
+    assert get_servis().katalog.delta == delta
+
+
+def test_safety_margin_is_in_the_openapi_contract():
+    from credit_coach.app import app
+
+    schemas = app.openapi()["components"]["schemas"]
+    gp = schemas["GuvenlikPayi"]["properties"]
+    assert set(gp) == {"deger", "etiket", "kaynak"}
+    assert gp["etiket"]["const"] == "varsayım" and gp["kaynak"]["const"] == "ADR-007"
+    assert "guvenlik_payi" in schemas["ScoreResponse"]["properties"]
+    assert "guvenlik_payi" in schemas["BatchResponse"]["properties"]

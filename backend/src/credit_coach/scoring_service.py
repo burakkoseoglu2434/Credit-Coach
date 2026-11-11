@@ -42,6 +42,7 @@ from credit_coach.recourse import (
 from credit_coach.recourse_scorers import ModelScorer
 from credit_coach.schemas import (
     BatchResponse,
+    GuvenlikPayi,
     KovaSatiri,
     Notlar,
     PortfoyOzeti,
@@ -205,7 +206,12 @@ class Servis:
 
     def score(self, kayit: Kayit) -> ScoreResponse:
         (karar,) = self.degerlendir([kayit])
-        return ScoreResponse(karar=karar, surumler=self.surumler, notlar=self.notlar)
+        return ScoreResponse(
+            karar=karar,
+            surumler=self.surumler,
+            guvenlik_payi=self.guvenlik_payi(),
+            notlar=self.notlar,
+        )
 
     def batch(self, kayitlar: Sequence[Kayit]) -> BatchResponse:
         kararlar = self.degerlendir(kayitlar)
@@ -217,8 +223,13 @@ class Servis:
             satirlar=satirlar,
             ozet=self.ozet(kararlar),
             surumler=self.surumler,
+            guvenlik_payi=self.guvenlik_payi(),
             notlar=self.notlar,
         )
+
+    def guvenlik_payi(self) -> GuvenlikPayi:
+        """The catalog's delta (ADR-007), exposed as is; nothing is computed here."""
+        return GuvenlikPayi(deger=self.katalog.delta)
 
     def ozet(self, kararlar: Sequence[SatirKarari]) -> PortfoyOzeti:
         thr = self.policy.onay_esigi

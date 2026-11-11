@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -74,9 +74,21 @@ class Notlar(BaseModel):
     kanit_notu: str
 
 
+class GuvenlikPayi(BaseModel):
+    """Safety margin delta used for plan validity (plan after-risk must end this far below the
+    threshold). An assumption derived by the ADR-007 rule from monthly calibration drift."""
+
+    model_config = ConfigDict(frozen=True)
+
+    deger: float
+    etiket: Literal["varsayım"] = "varsayım"
+    kaynak: Literal["ADR-007"] = "ADR-007"
+
+
 class ScoreResponse(BaseModel):
     karar: SatirKarari
     surumler: Surumler
+    guvenlik_payi: GuvenlikPayi
     notlar: Notlar
 
 
@@ -110,4 +122,5 @@ class BatchResponse(BaseModel):
     satirlar: list[SatirSonucu]
     ozet: PortfoyOzeti
     surumler: Surumler
+    guvenlik_payi: GuvenlikPayi
     notlar: Notlar

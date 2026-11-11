@@ -102,27 +102,32 @@ def tablo(baslik: str, anlami: str, anlam_degil: str, govde: list[str]) -> list[
 def delta_facts() -> list[str]:
     """Where the default delta lives and where it is (not) visible; read from the live files."""
     kat = load_demo_catalog()
-    openapi = (ROOT / "frontend" / "openapi.json").read_text().lower()
-    ui = ""
-    for p in [
-        *(ROOT / "frontend" / "src").rglob("*.ts*"),
-        ROOT / "frontend" / "src" / "texts.json",
-    ]:
-        if p.name != "schema.d.ts":
-            ui += p.read_text().lower()
-    api_gorunur = "evet" if "delta" in openapi else "hayır (yanıt ve istek şemasında δ alanı yok)"
+    openapi = (ROOT / "frontend" / "openapi.json").read_text()
+    src = ROOT / "frontend" / "src" / "components"
+    ui_yerleri = [
+        yer
+        for yer, dosya in (("sonuç sayfası", "Sonuc.tsx"), ("toplu özet", "Toplu.tsx"))
+        if (src / dosya).exists() and "guvenlik_payi" in (src / dosya).read_text()
+    ]
+    api_gorunur = (
+        'evet: `guvenlik_payi` alanı (değer, "varsayım" etiketi, kaynak ADR-007)'
+        if "guvenlik_payi" in openapi
+        else "hayır (yanıt şemasında δ alanı yok)"
+    )
     ui_gorunur = (
-        "evet"
-        if ("delta" in ui or "δ" in ui)
+        "evet: "
+        + " ve ".join(ui_yerleri)
+        + " (API değeri olduğu gibi gösterilir, arayüz hesaplamaz)"
+        if ui_yerleri
         else 'hayır (arayüz δ değerini göstermez; metinlerde yalnızca "güvenli payla" ifadesi geçer)'
     )
     return [
         "| öğe | değer / durum |",
         "|---|---|",
         f"| Varsayılan δ | {kat.delta:g} (etiket: {kat.raw['delta']['etiket']}) |",
-        "| Tanımlandığı yer | `configs/catalog/demo_v0.yaml`, `delta.deger`; `bundle.lock.json` bu dosyanın hash'ini taşır |",
+        "| Tanımlandığı yer | `configs/catalog/demo_v0.yaml`, `delta.deger`; `bundle.lock.json` bu dosyanın hash'ini taşır; türetme kuralı `docs/adr/007-safety-margin.md` |",
         "| API'nin kullandığı değer | `/score` ve `/batch`, `sec_from_scores` çağrısına δ vermez; motor katalogdaki varsayılanı kullanır (`recourse.sec`, `delta=None`) |",
-        f"| API yanıtında görünür mü | {api_gorunur}; dolaylı iz: `surumler.katalog_sha256` |",
+        f"| API yanıtında görünür mü | {api_gorunur}; ayrıca dolaylı iz: `surumler.katalog_sha256` |",
         f"| Arayüzde görünür mü | {ui_gorunur} |",
         "| Bu raporun sütunları | "
         + ", ".join(delta_etiketi(d, kat) for d in report_deltas(kat))
@@ -169,7 +174,7 @@ def render(data: dict[str, dict[float, list[Rec]]], kat, pol) -> str:
         *tablo(
             "2. Varsayılan δ: API ve arayüz",
             "API ve arayüzün plan ararken hangi δ'yı kullandığı ve bu değerin nerede görünür olduğu; değerler canlı dosyalardan okundu.",
-            "δ ölçülmüş bir büyüklük değil, varsayımdır ve değiştirilmedi; varsayılan δ bu raporda ayrı bir sütun olarak yer alır.",
+            "δ ölçülmüş bir kapsama değil, ADR-007 kuralıyla türetilen bir varsayımdır; varsayılan δ bu raporda ayrı bir sütun olarak yer alır.",
             delta_facts(),
         ),
     ]
