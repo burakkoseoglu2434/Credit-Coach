@@ -16,11 +16,14 @@ from pathlib import Path
 import duckdb
 
 from credit_coach.data_source import ROOT, load_sources, rejected_path
+from credit_coach.rejected_scale import archive_documents, monthly, observations
 from credit_coach.support import Support, load_support
 
 REPORT = ROOT / "docs" / "rejected_overlap.md"
 YEARS = (2012, 2013, 2014, 2015)
 POOLED = "2012-2015"
+HALVES = ("2012-2013", "2014-2015")
+PAIR = ("dti", "calisma_suresi")  # second joint count: these two fields only
 ALL = "tümü"
 
 
@@ -125,6 +128,7 @@ def aggregate(csv: Path, sup: Support) -> dict[str, dict]:
     any_eval = " or ".join(f"{c} is not null" for c in main)
     all_eval = " and ".join(f"{c} is not null" for c in main)
     any_out = " or ".join(f"{c} = 1" for c in main)
+    pair = [f"o_{a}" for a in PAIR]
     sel = ["yil", "count(*) as n"]
     for f in FIELDS:
         sel += [f"count(o_{f.alan}) as e_{f.alan}", f"coalesce(sum(o_{f.alan}), 0) as x_{f.alan}"]
@@ -133,6 +137,11 @@ def aggregate(csv: Path, sup: Support) -> dict[str, dict]:
         f"count(*) filter (where {any_out}) as x_any",
         f"count(*) filter (where {all_eval}) as e_all",
         f"count(*) filter (where ({all_eval}) and ({any_out})) as x_all",
+        f"count(*) filter (where {' or '.join(c + ' is not null' for c in pair)}) as e_any2",
+        f"count(*) filter (where {' or '.join(c + ' = 1' for c in pair)}) as x_any2",
+        f"count(*) filter (where {' and '.join(c + ' is not null' for c in pair)}) as e_all2",
+        f"count(*) filter (where ({' and '.join(c + ' is not null' for c in pair)}) "
+        f"and ({' or '.join(c + ' = 1' for c in pair)})) as x_all2",
     ]
     cur = con.execute(f"select {', '.join(sel)} from o group by yil order by yil")
     names = [d[0] for d in cur.description]
@@ -141,7 +150,13 @@ def aggregate(csv: Path, sup: Support) -> dict[str, dict]:
         for row in cur.fetchall()
     }
     res: dict[str, dict] = {str(y): by_year[y] for y in YEARS if y in by_year}
-    for key, years in ((POOLED, [y for y in YEARS if y in by_year]), (ALL, list(by_year))):
+    groups = (
+        (HALVES[0], [y for y in (2012, 2013) if y in by_year]),
+        (HALVES[1], [y for y in (2014, 2015) if y in by_year]),
+        (POOLED, [y for y in YEARS if y in by_year]),
+        (ALL, list(by_year)),
+    )
+    for key, years in groups:
         res[key] = {k: sum(by_year[y][k] for y in years) for k in names[1:]}
     return res
 
@@ -150,7 +165,7 @@ def _pct(a: int, b: int) -> str:
     return f"{100 * a / b:.1f}%" if b else "-"
 
 
-def render(res: dict[str, dict], sup: Support, src: dict) -> str:
+def render(res: dict[str, dict], sup: Support, src: dict, scores: dict | None = None) -> str:
     e = src["lc_reddedilen"]
     periods = [str(y) for y in YEARS] + [POOLED, ALL]
     L = [
@@ -232,14 +247,156 @@ def render(res: dict[str, dict], sup: Support, src: dict) -> str:
                 f"| {_pct(r['x_any'], r['e_any'])} "
                 f"| {r['e_all']:,} | {r['x_all']:,} | {_pct(r['x_all'], r['e_all'])} |"
             )
+    if scores is not None:
+        L += render_ek(res, scores)
     return "\n".join(L) + "\n"
+
+
+def _kutu(mean: str, not_mean: str) -> list[str]:
+    return ["", f"Ne demek: {mean}", "", f"Ne DEMEK DEĞİL: {not_mean}", ""]
+
+
+def _obs_line(label: str, o: dict) -> str:
+    def span(v):
+        return "yok" if v is None else f"ilk {v[0]}, son {v[1]}, {v[2]} ay"
+
+    return (
+        f"- {label}: {o['ay_sayisi']} ay; genel min {o['genel_min']:g}, genel maks "
+        f"{o['genel_maks']:g}; aylık maks 850'yi aşan: {span(o['maks_850_ustu'])}; "
+        f"aylık min 0 olan: {span(o['min_sifir'])}; "
+        f"boş oranı %50'yi aşan: {span(o['bos_50_ustu'])}."
+    )
+
+
+def render_ek(res: dict[str, dict], scores: dict) -> list[str]:
+    rj, ac = scores["aylar"]["reddedilen"], {r.ay: r for r in scores["aylar"]["kabul"]}
+    f = lambda v: "-" if v is None else f"{v:g}"  # noqa: E731
+    L = [
+        "",
+        "## Risk_Score ölçek kontrolü (aya göre)",
+        "",
+        "Reddedilen: Risk_Score, ay = 'Application Date' ayı. Kabul: fico_range_low, ay = "
+        "'issue_d' ayı (kabul dosyasında başvuru tarihi yok). Boş = değer yok.",
+        "",
+        "| Ay | Red başvuru | Red boş % | Red min | Red medyan | Red maks | Kabul kayıt "
+        "| Kabul boş % | Kabul min | Kabul medyan | Kabul maks |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for r in rj:
+        a = ac.get(r.ay)
+        acc = (
+            f"| {a.n:,} | {a.bos_yuzde:g} | {f(a.min)} | {f(a.medyan)} | {f(a.maks)} |"
+            if a
+            else "| - | - | - | - | - |"
+        )
+        L.append(
+            f"| {r.ay} | {r.n:,} | {r.bos_yuzde:g} | {f(r.min)} | {f(r.medyan)} | {f(r.maks)} "
+            + acc
+        )
+    L += _kutu(
+        "her satır, o ayın skor değerlerinin en küçüğü, ortancası, en büyüğü ve boş payıdır.",
+        "iki dosyanın skorlarının aynı ölçek olduğunun ya da olmadığının kanıtı değildir; "
+        "kabul tarafındaki ay, başvuru ayı değil kredinin açıldığı aydır.",
+    )
+    L += ["Dağılımda gözlenenler (eşikler satırda yazılı):", ""]
+    L += [_obs_line("Reddedilen Risk_Score", scores["gozlem"]["reddedilen"])]
+    L += [_obs_line("Kabul fico_range_low", scores["gozlem"]["kabul"])]
+    belge = scores["belgeler"]
+    L += [
+        "",
+        "Arşiv klasöründe veri dosyaları dışındaki girdiler: "
+        + (", ".join(belge) if belge else "yok")
+        + ("." if belge else ". Skor kaynağını ya da ölçeğini tanımlayan bir belge bulunmadı."),
+    ]
+    L += _kutu(
+        "satırlar yukarıdaki tablodan sayılan olgulardır.",
+        "bir ölçek kırılmasının nedeni, skor kaynağı ya da eşleme kararı değildir; eşleme "
+        "'işaretli' kalır.",
+    )
+
+    fields = [f_ for f_ in FIELDS if f_.ana]
+    L += [
+        "## Dönem bazında destek dışı oranı (2012-2013 ve 2014-2015)",
+        "",
+        "| Alan | Dönem | Başvuru | Boş | Değerlendirilen | Destek içi | Destek dışı "
+        "| Destek dışı oranı |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for fld in fields:
+        for k in HALVES:
+            r = res[k]
+            ev, out = r[f"e_{fld.alan}"], r[f"x_{fld.alan}"]
+            L.append(
+                f"| {fld.alan} | {k} | {r['n']:,} | {r['n'] - ev:,} | {ev:,} | {ev - out:,} "
+                f"| {out:,} | {_pct(out, ev)} |"
+            )
+    L += _kutu(
+        "her satır, o dönemde o alanın değeri olan reddedilen başvurular içinde destek dışı "
+        "olanların sayısı ve oranıdır.",
+        "dönemler arası fark için bir neden değildir; skor alanında dönemler arası boş payı "
+        "farklıdır, oran yalnızca değeri olan satırlar içindir.",
+    )
+
+    def joint(title, kind, note_mean, note_not):
+        rows = [
+            f"## {title}",
+            "",
+            "| Dönem | Başvuru | Değerlendirilen | Destek dışı | Oran |",
+            "|---|---|---|---|---|",
+        ]
+        for k in HALVES:
+            r = res[k]
+            e, x = r[f"e_{kind}"], r[f"x_{kind}"]
+            rows.append(f"| {k} | {r['n']:,} | {e:,} | {x:,} | {_pct(x, e)} |")
+        return rows + _kutu(note_mean, note_not)
+
+    L += joint(
+        "Ortak sayım: yalnızca dti ve emp_length, en az biri değerlendirilebilen",
+        "any2",
+        "paydada dti ya da emp_length alanlarından en az biri dolu olan başvurular; sayı "
+        "bunlardan en az birinde destek dışı olanlardır.",
+        "risk skoru ve talep tutarı bu sayıma girmez; çok boyutlu destek değildir.",
+    )
+    L += joint(
+        "Ortak sayım: yalnızca dti ve emp_length, ikisi de dolu",
+        "all2",
+        "paydada dti ve emp_length alanlarının ikisi de dolu olan başvurular; sayı bunlardan "
+        "en az birinde destek dışı olanlardır.",
+        "risk skoru ve talep tutarı bu sayıma girmez; çok boyutlu destek değildir.",
+    )
+    L += joint(
+        "Ortak sayım: tüm ana alanlar (dti, risk_skoru, calisma_suresi, talep_tutari), "
+        "en az biri değerlendirilebilen",
+        "any",
+        "paydada dört alandan en az biri dolu olan başvurular; sayı bunlardan en az birinde "
+        "destek dışı olanlardır.",
+        "risk skoru eşlemesi 'işaretli'dir; bu sayım o eşlemenin doğru olduğunu varsaymaz ya da "
+        "göstermez.",
+    )
+    L += joint(
+        "Ortak sayım: tüm ana alanlar, dördü de dolu",
+        "all",
+        "paydada dört alanın dördü de dolu olan başvurular; sayı bunlardan en az birinde destek "
+        "dışı olanlardır.",
+        "dolu olma koşulu, 2014-2015 için skor alanının boş payını dışarıda bırakır; temsil "
+        "ettiği başvuru kümesi 'en az biri' sayımından farklıdır.",
+    )
+    return L
 
 
 def main() -> int:
     src = load_sources()
     sup = load_support()
-    res = aggregate(rejected_path(src), sup)
-    text = render(res, sup, src)
+    rej = rejected_path(src)
+    res = aggregate(rej, sup)
+    acc = Path(src["lc_reddedilen"]["yan_dosya_accepted"]["yol"])
+    aylar = monthly(rej, acc)
+    scores = {
+        "aylar": aylar,
+        "gozlem": {k: observations(v) for k, v in aylar.items()},
+        "belgeler": archive_documents(acc.parents[1]),
+    }
+    text = render(res, sup, src, scores)
     REPORT.write_text(text)
     print(text)
     return 0
