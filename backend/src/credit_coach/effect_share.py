@@ -17,6 +17,7 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
 
 from credit_coach import baseline
@@ -203,6 +204,52 @@ def rate_tables(data: dict[str, dict[float, list[Kayit]]], pol: Policy) -> list[
     return L
 
 
+def min_phi_tables(data: dict[str, dict[float, list[Kayit]]], pol: Policy) -> list[str]:
+    g = [
+        "| dilim | δ | reddedilen | φ = 1,00'de plan var | φ = 1,00'de plan yok | "
+        + " | ".join(f"%{q}" for q in PERCENTILES)
+        + " | ortalama |",
+        "|---|---|---|---|---|" + "---|" * (len(PERCENTILES) + 1),
+    ]
+    for p in PERIODS:
+        for d in DELTAS:
+            ks, kesim = data[p][d], cut(pol.onay_esigi, d, pol.band)
+            vals = [v for k in ks if (v := min_phi(k, kesim)) is not None]
+            n = len(ks)
+            qs = np.percentile(vals, PERCENTILES) if vals else [float("nan")] * len(PERCENTILES)
+            g.append(
+                f"| {p} | {DELTA_LABEL[d]} | {n} | {len(vals)} ({_pct(len(vals), n)}) | "
+                f"{n - len(vals)} ({_pct(n - len(vals), n)}) | "
+                + " | ".join(_phi(float(q)) for q in qs)
+                + f" | {_phi(float(np.mean(vals))) if vals else '-'} |"
+            )
+    g += [
+        "",
+        "Yol türüne göre medyan gereken φ (yalnızca o yolda planı olan kayıtlar):",
+        "",
+        "| dilim | δ | müşteri | karma | kurum |",
+        "|---|---|---|---|---|",
+    ]
+    for p in PERIODS:
+        for d in DELTAS:
+            ks, kesim = data[p][d], cut(pol.onay_esigi, d, pol.band)
+            cells = []
+            for t in PATH_ORDER:
+                v = [x for k in ks if (x := min_phi(k, kesim, t)) is not None]
+                cells.append(f"{_phi(float(np.median(v)))} (n={len(v)})" if v else "-")
+            g.append(f"| {p} | {DELTA_LABEL[d]} | " + " | ".join(cells) + " |")
+    return tablo(
+        "3. Planın geçerli olması için gereken minimum etki payı φ",
+        "Her reddedilen kayıt için, en az bir planının eşiğin (δ ile) altına inmesi için modelin "
+        "öngördüğü düşüşün en az hangi kesrinin gerçekleşmesi gerektiği; dağılım bu kesirlerin "
+        "yüzdelikleridir. φ = 1,00'de bile planı olmayan kayıtlar ayrı sayılır.",
+        "Düşük bir değer, planın gerçekte işe yarayacağı anlamına gelmez; yalnızca eşiğe "
+        "uzaklığın modelin öngördüğü düşüşe oranıdır. Gereken φ'nin altında kalan gerçek etki "
+        "planı geçersiz kılar, ama gerçek etkinin ne olduğu bu raporda bilinmiyor.",
+        g,
+    )
+
+
 def build(csv_path=None) -> str:
     pol, support, kat = load_policy("v1"), load_support(), load_demo_catalog()
     sc = ModelScorer()
@@ -224,6 +271,7 @@ def build(csv_path=None) -> str:
         "eşik − band'dır (karar kuralı R2). φ = 1,00 motorun mevcut sonucuyla aynıdır.",
         "",
         *rate_tables(data, pol),
+        *min_phi_tables(data, pol),
     ]
     return "\n".join(L) + "\n"
 

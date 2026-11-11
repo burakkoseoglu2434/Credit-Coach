@@ -73,3 +73,26 @@ def test_phi_one_reproduces_the_engine_and_smaller_phi_only_removes_plans(b, sc,
 
 def test_phi_one_cut_matches_the_policy_object():
     assert load_policy("v1").onay_esigi == THR
+
+
+def test_min_phi_table_reports_percentiles_and_records_without_a_plan():
+    import numpy as np
+
+    from credit_coach import effect_share as es
+
+    kesim = THR - BAND
+    ks = [
+        Kayit("a", 0.20, (("customer", 0.15),)),
+        Kayit("b", 0.20, (("customer", 0.50), ("institution", 0.20))),
+        Kayit("c", 0.20, ()),  # no plan at phi = 1
+    ]
+    data = {p: {0.0: ks, 0.03: ks} for p in es.PERIODS}
+    text = "\n".join(es.min_phi_tables(data, POLICY))
+    assert "Bu tablo ne demek" in text and "Ne DEMEK DEĞİL" in text
+    assert "2 (66.7%)" in text and "1 (33.3%)" in text  # with a plan / without a plan
+    per_record = [min_phi(k, kesim) for k in ks[:2]]
+    assert per_record[1] == pytest.approx(
+        min(phi_min(0.20, 0.50, kesim), phi_min(0.20, 0.20, kesim))
+    )
+    median = f"{np.percentile(per_record, 50):.2f}".replace(".", ",")
+    assert f"| {median} |" in text
