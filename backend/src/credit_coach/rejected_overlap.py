@@ -21,6 +21,8 @@ from credit_coach.support import Support, load_support
 REPORT = ROOT / "docs" / "rejected_overlap.md"
 YEARS = (2012, 2013, 2014, 2015)
 POOLED = "2012-2015"
+HALVES = ("2012-2013", "2014-2015")
+PAIR = ("dti", "calisma_suresi")  # second joint count: these two fields only
 ALL = "tümü"
 
 
@@ -125,6 +127,7 @@ def aggregate(csv: Path, sup: Support) -> dict[str, dict]:
     any_eval = " or ".join(f"{c} is not null" for c in main)
     all_eval = " and ".join(f"{c} is not null" for c in main)
     any_out = " or ".join(f"{c} = 1" for c in main)
+    pair = [f"o_{a}" for a in PAIR]
     sel = ["yil", "count(*) as n"]
     for f in FIELDS:
         sel += [f"count(o_{f.alan}) as e_{f.alan}", f"coalesce(sum(o_{f.alan}), 0) as x_{f.alan}"]
@@ -133,6 +136,11 @@ def aggregate(csv: Path, sup: Support) -> dict[str, dict]:
         f"count(*) filter (where {any_out}) as x_any",
         f"count(*) filter (where {all_eval}) as e_all",
         f"count(*) filter (where ({all_eval}) and ({any_out})) as x_all",
+        f"count(*) filter (where {' or '.join(c + ' is not null' for c in pair)}) as e_any2",
+        f"count(*) filter (where {' or '.join(c + ' = 1' for c in pair)}) as x_any2",
+        f"count(*) filter (where {' and '.join(c + ' is not null' for c in pair)}) as e_all2",
+        f"count(*) filter (where ({' and '.join(c + ' is not null' for c in pair)}) "
+        f"and ({' or '.join(c + ' = 1' for c in pair)})) as x_all2",
     ]
     cur = con.execute(f"select {', '.join(sel)} from o group by yil order by yil")
     names = [d[0] for d in cur.description]
@@ -141,7 +149,13 @@ def aggregate(csv: Path, sup: Support) -> dict[str, dict]:
         for row in cur.fetchall()
     }
     res: dict[str, dict] = {str(y): by_year[y] for y in YEARS if y in by_year}
-    for key, years in ((POOLED, [y for y in YEARS if y in by_year]), (ALL, list(by_year))):
+    groups = (
+        (HALVES[0], [y for y in (2012, 2013) if y in by_year]),
+        (HALVES[1], [y for y in (2014, 2015) if y in by_year]),
+        (POOLED, [y for y in YEARS if y in by_year]),
+        (ALL, list(by_year)),
+    )
+    for key, years in groups:
         res[key] = {k: sum(by_year[y][k] for y in years) for k in names[1:]}
     return res
 

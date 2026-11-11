@@ -94,3 +94,13 @@ def test_report_doc_is_locked_to_the_recorded_source_and_has_the_required_lines(
     assert load_sources()["lc_reddedilen"]["sha256"] in text
     assert "## Ne demek" in text and "## Ne DEMEK DEĞİL" in text
     assert "## Alan eşlemesi" in text and "2012-2015" in text
+
+
+def test_half_periods_and_pair_joint(res):
+    h1, h2 = res["2012-2013"], res["2014-2015"]
+    assert h1["n"] == 2 and h2["n"] == 3  # 2013 x2 ; 2014 x1 + 2015 x2
+    assert h1["n"] + h2["n"] == res[POOLED]["n"]
+    # dti + emp_length only: 2013 rows (in, out) -> out 1 of 2 evaluable
+    assert (h1["e_any2"], h1["x_any2"], h1["e_all2"], h1["x_all2"]) == (2, 1, 2, 1)
+    # 2014: dti -1 (out). 2015: row with empties (not evaluable) and row 800/0%/2 years (emp out)
+    assert (h2["e_any2"], h2["x_any2"], h2["e_all2"], h2["x_all2"]) == (2, 2, 2, 2)
