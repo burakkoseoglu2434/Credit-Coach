@@ -26,6 +26,7 @@ def scanned_files() -> list[Path]:
     files = sorted((ROOT / "docs" / "adr").glob("*.md"))
     files += sorted((ROOT / "docs").glob("week*.md"))
     files += sorted((ROOT / "configs" / "catalog").glob("*.yaml"))
+    files += [ROOT / "backend" / "src" / "credit_coach" / "schemas.py"]  # API field text
     files += (
         sorted((ROOT / "configs" / "templates").glob("*"))
         if (ROOT / "configs" / "templates").exists()
@@ -45,7 +46,13 @@ def offending_lines(text: str) -> list[str]:
 
 def test_scan_covers_the_expected_files():
     names = {p.name for p in scanned_files()}
-    assert {"003-approval-rule-and-hurdle.md", "005-recourse-catalog.md", "v1.yaml"} <= names
+    assert {
+        "003-approval-rule-and-hurdle.md",
+        "005-recourse-catalog.md",
+        "v1.yaml",
+        "api_v0.yaml",
+        "schemas.py",
+    } <= names
 
 
 def test_detector_catches_forbidden_phrases():

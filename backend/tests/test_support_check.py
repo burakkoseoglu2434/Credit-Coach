@@ -172,3 +172,9 @@ def test_no_training_record_triggers_the_check():
     train = train.astype(object).where(train.notna(), None)
     bad = [i for i, r in enumerate(train.to_dict("records")) if violations(r, SUPPORT)]
     assert bad == []
+
+
+def test_padding_in_categorical_values_does_not_matter():
+    assert violations({**in_support_basvuru(SUPPORT), "term": "36 months"}, SUPPORT) == ()
+    assert violations({**in_support_basvuru(SUPPORT), "term": " 36 months "}, SUPPORT) == ()
+    assert violations({**in_support_basvuru(SUPPORT), "term": "60 months"}, SUPPORT) == ("term",)
