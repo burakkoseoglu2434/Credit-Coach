@@ -123,3 +123,19 @@ def test_definition_names_the_preregistered_rules():
         "−T_gözlenen / S",
     ):
         assert token in doc
+
+
+def test_report_break_even_follows_from_its_own_totals():
+    doc = (ROOT / "docs" / "demo_counteroffer_calibration_check.md").read_text(encoding="utf-8")
+    sec = doc.split("## 3. ", 1)[1]
+    rows = 0
+    for ln in sec.splitlines():
+        c = [x.strip() for x in ln.strip("|").split("|")]
+        if len(c) != 8 or not c[3].isdigit() or c[3] == "0":
+            continue
+        t0, t1 = (float(c[i].replace(",", "")) for i in (4, 5))
+        v = -t0 / (t1 - t0)
+        expect = "≤ 0,00" if t0 >= 0 else (">1,00" if v > 1 else f"{v:.2f}".replace(".", ","))
+        assert c[6] == expect, (ln, expect)
+        rows += 1
+    assert rows == 10
