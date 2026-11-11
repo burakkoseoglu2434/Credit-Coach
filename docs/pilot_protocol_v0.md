@@ -238,3 +238,36 @@ Bu liste hukuki görüş değildir; karar verilmemiştir. Kredi verenin yargı a
 - **Seçilim ve kabul farkı.** Teklifi kabul edenlerin teklif edilenlerden farklı olması (örneğin daha düşük risk ya da daha yüksek ihtiyaç) güç hesabına ve sonuca yansır; kabul oranı yalnızca teklif sayısını ölçekler, kabul edenlerin temerrüt oranını değiştirmez varsayılmıştır.
 - **2012-15 ABD verisi.** Havuz ve olasılıklar bu dönemin kredilerinden gelir; bugünkü bir kredi veren için geçerliliği doğrulanmadı.
 - **Varsayımlar.** getiri, temerrüt kaybı ve hurdle `configs/cost.yaml`'daki varsayımlardır; φ ölçülmüş bir etki değil, bir senaryo parametresidir; normal yaklaşım küçük N ve çarpık R için yaklaşıktır.
+
+## Revizyon 1 (sonradan)
+
+Bu bölüm, yukarıdaki sonuçlar görüldükten SONRA, ayrı bir değişiklikle eklenen sonradan revizyondur. Yukarıdaki Tasarım, Hesap yöntemi, Sonuçlar, Hukuk ve uyum ve Sınırlar bölümlerinin metni değiştirilmemiştir. Bu bölümün "Revizyon tanımı" kısmı, sayılar hesaplanmadan önce yazılmış ve commit'lenmiştir; "Revizyon sonuçları" kısmı bu tanımdan üretilir.
+
+Yukarıdaki Tablo 6 ve Tablo 7'deki "bütçe tavanı" ve "en kötü durum" ifadelerinin yerini bu bölümdeki nominal anapara ve zarar kuyruğu alır; Tablo 4'teki "varsayılan φ için gereken N" yerine, uygulanabilir N için en küçük saptanabilir etki verilir. Eski metin silinmedi ve değiştirilmedi.
+
+### Revizyon tanımı
+
+**Kapsam.** Test dilimi kullanılmaz; havuz yukarıdaki gibi kalibrasyon dilimi (2015-03..06) ve boşluk aylarıdır (2015-01, 02, 07, 08). Motor, politika, katalog ve `configs/cost.yaml` değişmez. Segmentler: (ii) GUCLU+KOSULLU ve (iii) planı geçerli olan hepsi. δ ∈ {0,012; 0,03}. Aday havuzu, kredi başına değer ve p_point senaryosu yukarıdaki "Hesap yöntemi" bölümündeki gibidir.
+
+**Açık varsayımlar.**
+1. getiri ve temerrüt kaybı, `configs/cost.yaml` ortalamalarıdır (getiri `saglam_kredi_getirisi.mean`, temerrüt kaybı `temerrut_kaybi.mean`); hurdle `decision.total_hurdle`'dır.
+2. Ürün ya da risk bazlı fiyat farkı yoktur: her kredi için aynı getiri kullanılır.
+3. Bir kredinin sonucu, p = p_point_önce − φ·Δ_point olasılıklı bağımsız bir Bernoulli olayıdır; seçilen krediler havuzdan yerine koymayla çekilir (sonlu havuz düzeltmesi yok).
+4. Normal yaklaşım ve Monte Carlo sonuçları yaklaşıktır.
+
+**a) En küçük saptanabilir etki (MDE).** N ∈ {250; 500; 1.000; 2.000} fonlanan kredi, güç %80, α = 0,05 tek yönlü. Her (δ, segment, N) için:
+- μ_min(N) = (z_(0,95) + z_(0,80)) · σ₀ / √N. σ₀, "Hesap yöntemi"ndeki σ'nın φ = 0 senaryosundaki değeridir (L' ağırlıklı Bernoulli).
+- μ_min(N) USD olarak ve havuzdaki ort. L'nin yüzdesi olarak verilir.
+- Karşılık gelen φ: μ(φ), φ'ye göre doğrusaldır (p, φ'de doğrusal olduğundan); μ_min(N), φ ∈ {0; 0,25; 0,50; 0,75; 1,00} noktalarındaki μ(φ) değerleri arasında doğrusal enterpolasyonla φ'ye çevrilir. μ_min(N) > μ(1,00) ise ">1,00" yazılır; μ_min(N) ≤ μ(0) ise "≤ 0,00" yazılır.
+- Referans olarak μ(1,00) de tabloya yazılır.
+
+**b) Nominal anapara ve zarar kuyruğu.** "Bütçe tavanı" iki büyüklüğe ayrılır:
+- Nominal anapara = N × havuzdaki ort. L' (USD). Kayıp ya da kayıp üst sınırı değildir.
+- Zarar kuyruğu: φ = 0 senaryosunda (p = p_point_önce) N kredilik portföyün toplam sonucunun alt %5 ve alt %1 yüzdelikleri. Toplam, iki biçimde hesaplanır: hurdle üstü (R = L'·[(1−Y)·getiri − Y·temerrüt kaybı − hurdle]) ve hurdle öncesi net (R = L'·[(1−Y)·getiri − Y·temerrüt kaybı]); Y ∈ {0, 1} Bernoulli(p_point_önce) sonuçtur.
+- Yöntem: Monte Carlo. Her (δ, segment, N) için 20.000 tekrar; her tekrarda havuzdan yerine koymayla N kayıt çekilir ve her birinin Y sonucu bağımsız olarak üretilir. Tohum 7 (`numpy.random.default_rng(7)`, her (δ, segment, N) için yeniden başlatılır). Yüzdelik, `numpy.percentile` (doğrusal enterpolasyon) ile alınır.
+- Beklenen toplam (N × μ, φ = 0) yanına yazılır. Hurdle üstü değer nakit kayıp değildir; hurdle öncesi net sonuç nakit görünüme yaklaşık bir ölçüdür (zamanlama, iskonto ve erken ödeme hesaba katılmaz).
+- "Hepsi temerrüt" en kötü durumu bu yüzdeliklerle değiştirilir.
+
+**c) Aday akışı.** Kalibrasyon ve boşluk aylarının her birinde (8 ay) (δ, segment) için aday sayısı sayılır; aylık ortalama = toplam aday / 8. Müşteri ölçeği s ∈ {%100, %10, %1}: %100 = bu verideki aylık aday akışı olduğu gibi; %10 ve %1 bunun doğrusal ölçeğidir. Kabul oranı a ∈ {1,00; 0,70; 0,50; 0,30} (1,00: her aday teklif alır ve kabul eder). N krediyi doldurmak için gereken ay = N / (aylık ortalama aday × s × a), N ∈ {250; 500; 1.000; 2.000}, bir ondalıkla. Akışın sabit olduğu, mevsimsellik olmadığı varsayılır; 36 aylık sonuç gecikmesi bu süreye eklenmez.
+
+**d) `configs/pilot.yaml`.** Eski mekanik çıktılar (`pilot_kredi_sayisi`, `kredi_basina_tavan_usd`, `butce_tavani_usd`) "varsayım, kural çıktısı, uygulanabilir değil" etiketiyle kalır; değerleri değişmez. Revizyon değerleri ayrı `revizyon_1` bölümünde yer alır ve "varsayım" etiketi taşır.
