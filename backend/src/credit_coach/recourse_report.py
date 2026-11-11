@@ -64,14 +64,18 @@ def _pct(n: int, d: int) -> str:
     return f"{100 * n / d:.1f}%" if d else "-"
 
 
-def run() -> dict:
+def run(frame: pd.DataFrame | None = None) -> dict:
     policy, support, kat = load_policy("v1"), load_support(), load_demo_catalog()
     scorer = ModelScorer()
     kinds = {c.ad: c.tip for c in load_manifest()}
     names = allowed_features()
-    dev = dev_frame(pd.read_csv(CSV))
-    ca = dev[dev["split"] == "calibration"]
-    assert set(ca["split"]) == {"calibration"}
+    if frame is None:
+        dev = dev_frame(pd.read_csv(CSV))
+        ca = dev[dev["split"] == "calibration"]
+        assert set(ca["split"]) == {"calibration"}
+    else:
+        ca = frame
+        assert "test" not in set(ca["split"]), "test split must never be loaded"
 
     counts: Counter = Counter(n_calibration=len(ca))
     # key (delta, dti) -> accumulators
