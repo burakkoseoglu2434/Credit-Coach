@@ -1,6 +1,6 @@
 # ADR-007: Güvenlik payı δ
 
-Durum: **Kural kabul edildi; ölçüm henüz yapılmadı.** Bu bölüm ölçümden ÖNCE yazıldı ve commit'lendi.
+Durum: **Kural kabul edildi; ölçüm yapıldı (aşağıda).** Kural bölümü ölçümden ÖNCE yazıldı ve commit'lendi (`af1ac10`).
 
 > Kredi veren: tek fiyatlı kurgusal kredi veren.
 
@@ -33,5 +33,29 @@ Bir plan, modelin plan sonrası riskinin (`p_high`) onay eşiğinin `δ` kadar a
   değerden farklıysa değer güncellenir.
 - Katalogdaki değer (`delta.deger`) bu kuralın sonucudur ve API, arayüz ve raporlar onu kullanır.
 
-## Sonuç
-Ölçüm henüz yapılmadı.
+## Ölçüm sonucu
+<!-- OLCUM-BASLANGIC -->
+Ölçüm (`python -m credit_coach.safety_margin`; ham veri gerekir; test dilimi yok). Fark = kalibre ortalama PD − gözlenen oran:
+
+| ay | dilim | kayıt | kalibre ortalama PD | gözlenen oran | fark | aylık kayma |
+|---|---|---|---|---|---|---|
+| 2015-01 | boşluk | 23631 | 0.1545 | 0.1488 | +0.0057 | 0.0057 |
+| 2015-02 | boşluk | 16023 | 0.1535 | 0.1417 | +0.0118 | 0.0118 |
+| 2015-03 | kalibrasyon | 16914 | 0.1555 | 0.1540 | +0.0015 | 0.0015 |
+| 2015-04 | kalibrasyon | 23619 | 0.1549 | 0.1554 | -0.0005 | 0.0005 |
+| 2015-05 | kalibrasyon | 21539 | 0.1544 | 0.1523 | +0.0021 | 0.0021 |
+| 2015-06 | kalibrasyon | 19064 | 0.1528 | 0.1536 | -0.0008 | 0.0008 |
+| 2015-07 | boşluk | 30864 | 0.1508 | 0.1462 | +0.0046 | 0.0046 |
+| 2015-08 | boşluk | 23938 | 0.1474 | 0.1425 | +0.0050 | 0.0050 |
+
+En büyük aylık kayma: **0.011832** (2015-02, boşluk). Kural: δ = ceil(1000 × 0.011832) / 1000 = **0.012**.
+<!-- OLCUM-BITIS -->
+
+## Plato notu
+Venn-Abers kalibratörü basamaklıdır (ölçüm: `docs/demo_recourse_delta_diag.md`): aday planların
+`p_after` değerleri eşik civarında birkaç platoda toplanır (örneğin 0,0861; 0,0997; 0,1009).
+Eşik − 0,02 ile eşik − 0,01 arasında yalnızca **14 aday** vardır (eşik − 0,03 ile eşik − 0,02
+arasında 24.527, eşik − 0,01 ile eşik − band arasında 35.003). Sonuç: δ'nın 0,01-0,02 arasındaki
+değerleri plan oranını neredeyse değiştirmez; δ = 0,01 ve δ = 0,02 aynı plan oranı tablosunu verdi
+(yol başına kayıt sayıları en çok bir kayıtla farklı). Bu yüzden δ seçimi küçük aralıklarda duyarlı
+değildir, 0,03'e doğru ya da band'a doğru gidildiğinde duyarlıdır.
