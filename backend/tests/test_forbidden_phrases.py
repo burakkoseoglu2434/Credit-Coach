@@ -32,6 +32,7 @@ def scanned_files() -> list[Path]:
             ROOT / "docs" / "demo_counteroffer_economics.md",
             ROOT / "docs" / "demo_counteroffer_calibration_check.md",
             ROOT / "docs" / "pilot_protocol_v0.md",
+            ROOT / "docs" / "ecom" / "PLAN.md",
         ]
         if p.exists()
     ]
@@ -72,6 +73,7 @@ def test_scan_covers_the_expected_files():
         "demo_counteroffer_economics.md",
         "demo_counteroffer_calibration_check.md",
         "pilot_protocol_v0.md",
+        "PLAN.md",
     } <= names
 
 
