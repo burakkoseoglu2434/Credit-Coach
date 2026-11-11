@@ -1,0 +1,40 @@
+# Pilot varsayımları (öneri; etiket: varsayım). docs/pilot_protocol_v0.md kurallarıyla üretildi.
+version: 1
+etiket: varsayım
+kaynak: docs/pilot_protocol_v0.md (kurallar), counteroffer_economics aday havuzu
+pilot_kredi_sayisi:
+  deger: 23600
+  etiket: varsayım
+kredi_basina_tavan_usd:
+  deger: 21500
+  etiket: varsayım
+butce_tavani_usd:
+  deger: 507400000
+  etiket: varsayım
+durdurma_esigi:
+  deger: -0.05
+  etiket: varsayım
+  tanim: gerçekleşen kümülatif hurdle öncesi net sonuç / fonlanan toplam anapara;
+    altına düşerse yeni fonlama durur
+alfa:
+  deger: 0.05
+  etiket: varsayım
+guc:
+  deger:
+  - 0.8
+  - 0.9
+  etiket: varsayım
+phi_izgarasi:
+  deger:
+  - 0.0
+  - 0.25
+  - 0.5
+  - 0.75
+  - 1.0
+  etiket: varsayım
+kabul_orani_izgarasi:
+  deger:
+  - 0.3
+  - 0.5
+  - 0.7
+  etiket: varsayım
