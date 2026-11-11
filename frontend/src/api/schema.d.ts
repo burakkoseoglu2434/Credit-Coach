@@ -339,6 +339,17 @@ export interface components {
         };
         /** YolPlan */
         YolPlan: {
+            /**
+             * Dayaniklilik
+             * @enum {string}
+             */
+            dayaniklilik: "GUCLU" | "KOSULLU" | "ZAYIF";
+            /**
+             * Dayaniklilik Etiketi
+             * @default varsayım
+             * @constant
+             */
+            dayaniklilik_etiketi: "varsayım";
             /** Eylemler */
             eylemler: [
                 string,

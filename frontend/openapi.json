@@ -977,6 +977,21 @@
       "YolPlan": {
         "additionalProperties": false,
         "properties": {
+          "dayaniklilik": {
+            "enum": [
+              "GUCLU",
+              "KOSULLU",
+              "ZAYIF"
+            ],
+            "title": "Dayaniklilik",
+            "type": "string"
+          },
+          "dayaniklilik_etiketi": {
+            "const": "varsay\u0131m",
+            "default": "varsay\u0131m",
+            "title": "Dayaniklilik Etiketi",
+            "type": "string"
+          },
           "eylemler": {
             "items": {
               "maxItems": 2,
@@ -1083,6 +1098,7 @@
           "eylemler",
           "maliyet_usd",
           "min_phi",
+          "dayaniklilik",
           "sure_hafta",
           "p_low",
           "p_point",

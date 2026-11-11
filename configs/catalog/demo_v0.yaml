@@ -8,6 +8,10 @@ delta:
   deger: 0.02
   etiket: 'varsayım: dönem kayması ve model belirsizliği payı; Venn-Abers aralığı değil'
 dti_guncelle: false     # varsayılan kapalı (muhafazakâr); açık varyant yalnızca duyarlılık raporunda
+dayaniklilik:           # plan etiketi: min_phi (gereken minimum etki payı) eşikleri
+  guclu_en_fazla: 0.50      # min_phi <= 0,50 -> GUCLU
+  kosullu_en_fazla: 0.75    # 0,50 < min_phi <= 0,75 -> KOSULLU; üstü ZAYIF
+  etiket: 'varsayım: eşikler ölçülmedi, insan kararıdır'
 min_odeme_orani: {deger: 0.02, etiket: 'varsayım: aylık asgari ödeme / bakiye'}
 min_kredi_tutari: {deger: 1000, etiket: 'varsayım: alt sınır (eğitimdeki en küçük tutar)'}
 

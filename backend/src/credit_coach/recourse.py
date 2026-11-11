@@ -45,6 +45,9 @@ class Scorer(Protocol):
     def skorla_toplu(self, vektorler: Sequence[Mapping[str, Any]], tarih: Any) -> list[Skor]: ...
 
 
+Dayaniklilik = Literal["GUCLU", "KOSULLU", "ZAYIF"]  # closed set of resilience labels
+
+
 class LevelStatus(StrEnum):
     UYGULANAMAZ = "UYGULANAMAZ"
     SEVIYE_GECERSIZ = "SEVIYE_GECERSIZ"
@@ -80,6 +83,8 @@ class Katalog:
     delta: float
     dti_guncelle: bool
     raw: Mapping[str, Any]
+    guclu_en_fazla: float = 0.50  # varsayım: min_phi <= this -> GUCLU
+    kosullu_en_fazla: float = 0.75  # varsayım: min_phi <= this -> KOSULLU, above -> ZAYIF
 
 
 def load_demo_catalog(path: Path = DEMO_CATALOG_PATH) -> Katalog:
@@ -105,6 +110,8 @@ def load_demo_catalog(path: Path = DEMO_CATALOG_PATH) -> Katalog:
         delta=float(raw["delta"]["deger"]),
         dti_guncelle=bool(raw["dti_guncelle"]),
         raw=raw,
+        guclu_en_fazla=float(raw["dayaniklilik"]["guclu_en_fazla"]),
+        kosullu_en_fazla=float(raw["dayaniklilik"]["kosullu_en_fazla"]),
     )
 
 
@@ -259,6 +266,8 @@ class YolPlan(BaseModel):
     maliyet_usd: float  # varsayım: nakit çıkışı veya karşılanmayan talep, 1 USD = 1 USD
     maliyet_etiketi: Literal["varsayım"] = "varsayım"
     min_phi: float  # share of the predicted drop needed, in [0, 1] ((p_before - cut) / Delta)
+    dayaniklilik: Dayaniklilik
+    dayaniklilik_etiketi: Literal["varsayım"] = "varsayım"  # the thresholds are assumptions
     sure_hafta: tuple[int, int]  # varsayım
     sure_etiketi: Literal["varsayım"] = "varsayım"
     p_low: float
@@ -296,6 +305,18 @@ class Sonuc:
     sonuc: PlanVar | PlanYok | PlanGereksiz
     teshis: Mapping[tuple[str, str], LevelStatus]  # per single (action, level)
     gecerli: tuple[tuple[Aday, Skor], ...]  # every valid plan (all paths), for audits
+
+
+def dayaniklilik_etiketi(min_phi: float, k: Katalog) -> Dayaniklilik:
+    """GUCLU if min_phi <= guclu_en_fazla, KOSULLU if <= kosullu_en_fazla, else ZAYIF.
+    Thresholds come from the catalog config and are assumptions."""
+    if not 0.0 < k.guclu_en_fazla < k.kosullu_en_fazla <= 1.0:
+        raise ValueError("dayaniklilik thresholds must satisfy 0 < guclu < kosullu <= 1")
+    if min_phi <= k.guclu_en_fazla:
+        return "GUCLU"
+    if min_phi <= k.kosullu_en_fazla:
+        return "KOSULLU"
+    return "ZAYIF"
 
 
 def kesim_noktasi(thr: float, delta: float, band: float) -> float:
@@ -417,6 +438,7 @@ def sec(
             eylemler=best[t][0].eylemler,
             maliyet_usd=best[t][0].maliyet_usd,
             min_phi=mphi[best[t][0].plan_id],
+            dayaniklilik=dayaniklilik_etiketi(mphi[best[t][0].plan_id], k),
             sure_hafta=best[t][0].sure,
             p_low=best[t][1].p_low,
             p_point=best[t][1].p_point,
