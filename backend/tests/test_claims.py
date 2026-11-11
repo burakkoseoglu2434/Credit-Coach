@@ -47,3 +47,15 @@ def test_claims_states_the_missing_guclu_example_and_the_note_stays():
         c["anahtar"] == "ret_guclu"
         for c in __import__("json").loads((ROOT / "frontend" / "src" / "ornekler.json").read_text())
     )
+
+
+def test_claims_states_how_delta_is_derived_and_that_it_is_an_assumption():
+    from credit_coach.recourse import load_demo_catalog
+    from credit_coach.report_deltas import fmt
+
+    sentence = (
+        f"- **Güvenlik payı δ bir varsayımdır.** δ = {fmt(load_demo_catalog().delta)}, "
+        "kalibrasyon ve boşluk aylarındaki en büyük aylık |kalibre ortalama PD − gözlenen oran| "
+        "değerinin 0,001'e yukarı yuvarlanmasıyla türetilir (ADR-007); ölçülmüş bir kapsama değildir."
+    )
+    assert sentence in CLAIMS  # the catalog value changes -> this fails until CLAIMS is updated
