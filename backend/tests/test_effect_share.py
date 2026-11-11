@@ -96,3 +96,95 @@ def test_min_phi_table_reports_percentiles_and_records_without_a_plan():
     )
     median = f"{np.percentile(per_record, 50):.2f}".replace(".", ",")
     assert f"| {median} |" in text
+
+
+def test_min_phi_formula_guards():
+    from credit_coach.recourse import min_phi_formul
+
+    assert min_phi_formul(0.20, 0.20, 0.10) is None  # no predicted drop
+    assert min_phi_formul(0.20, 0.25, 0.10) is None  # predicted increase
+    assert min_phi_formul(0.20, 0.05, 0.10) == pytest.approx(0.10 / 0.15)
+
+
+@SETTINGS
+@given(records(), scorers, deltas)
+def test_engine_min_phi_equals_the_effect_share_report_value(b, sc, d):
+    from credit_coach.recourse import PlanVar
+
+    base_s = sc.skorla_toplu([b])[0]
+    if base_s.p_high < THR:
+        return
+    res = plan_bul(b, None, sc, POLICY, SUPPORT, KAT, d)
+    kesim = cut(THR, d, BAND)
+    planlar = tuple(
+        (yol_tipi(imza([e for e, _ in a.eylemler], KAT)), base_s.p_high - s.p_high)
+        for a, s in res.gecerli
+    )
+    k = Kayit(bucket(base_s.p_point - THR), base_s.p_high, planlar)
+    if not isinstance(res.sonuc, PlanVar):
+        assert planlar == ()
+        return
+    for y in res.sonuc.yollar:
+        assert 0.0 <= y.min_phi <= 1.0
+        same_record_value = phi_min(base_s.p_high, base_s.p_high - y.p_high, kesim)
+        assert y.min_phi == pytest.approx(same_record_value, abs=1e-12)
+        # the report's per-path minimum over all valid plans cannot exceed the cheapest plan's
+        assert min_phi(k, kesim, y.yol_tipi) <= y.min_phi + 1e-12
+
+
+def test_engine_min_phi_matches_the_report_on_real_calibration_records():
+    from credit_coach.baseline import CSV
+
+    if not CSV.exists():
+        pytest.skip("raw data not available locally")
+    import pandas as pd
+
+    from credit_coach.contract import OuterStatus, parse_input
+    from credit_coach.decision_engine import decide_with_support
+    from credit_coach.effect_share import collect
+    from credit_coach.modeling import dev_frame
+    from credit_coach.recourse import PlanVar
+    from credit_coach.recourse_report import vektorler
+    from credit_coach.recourse_scorers import ModelScorer
+    from credit_coach.support import violations
+
+    dev = dev_frame(pd.read_csv(CSV))
+    ca = dev[dev["split"] == "calibration"]
+    month = ca[ca["issue_date"] == ca["issue_date"].iloc[0]].head(600)
+    tarih = month["issue_date"].iloc[0]
+    sc = ModelScorer()
+    kayitlar = collect(month, sc, POLICY, SUPPORT, KAT)[0.0]
+    recs = vektorler(month)
+    rejected = []
+    for b, s in zip(recs, sc.skorla_toplu(recs, tarih), strict=True):
+        if violations(b, SUPPORT):
+            continue
+        g = parse_input(
+            {
+                "basvuru": b,
+                "p_low": s.p_low,
+                "p_point": s.p_point,
+                "p_high": s.p_high,
+                "ham_skor": s.ham_skor,
+                "politika_surumu": "v1",
+                "plan_available": None,
+            }
+        )
+        if decide_with_support(g, POLICY, SUPPORT).dis_durum is OuterStatus.REJECTED:
+            rejected.append((b, s))
+    assert len(rejected) == len(kayitlar) > 0
+    kesim = cut(THR, 0.0, BAND)
+    compared = 0
+    for (b, s), k in zip(rejected, kayitlar, strict=True):
+        res = plan_bul(b, tarih, sc, POLICY, SUPPORT, KAT, 0.0)
+        assert k.p_before == s.p_high
+        if not isinstance(res.sonuc, PlanVar):
+            assert k.planlar == ()
+            continue
+        for y in res.sonuc.yollar:
+            assert y.min_phi == pytest.approx(
+                phi_min(s.p_high, s.p_high - y.p_high, kesim), abs=1e-12
+            )
+            assert min_phi(k, kesim, y.yol_tipi) <= y.min_phi + 1e-12
+            compared += 1
+    assert compared > 0

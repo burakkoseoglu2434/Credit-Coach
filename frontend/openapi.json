@@ -1031,6 +1031,10 @@
             "title": "Maliyet Usd",
             "type": "number"
           },
+          "min_phi": {
+            "title": "Min Phi",
+            "type": "number"
+          },
           "p_high": {
             "title": "P High",
             "type": "number"
@@ -1078,6 +1082,7 @@
           "plan_id",
           "eylemler",
           "maliyet_usd",
+          "min_phi",
           "sure_hafta",
           "p_low",
           "p_point",

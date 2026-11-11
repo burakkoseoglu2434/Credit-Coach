@@ -258,6 +258,7 @@ class YolPlan(BaseModel):
     eylemler: tuple[tuple[str, str], ...]
     maliyet_usd: float  # varsayım: nakit çıkışı veya karşılanmayan talep, 1 USD = 1 USD
     maliyet_etiketi: Literal["varsayım"] = "varsayım"
+    min_phi: float  # share of the predicted drop needed, in [0, 1] ((p_before - cut) / Delta)
     sure_hafta: tuple[int, int]  # varsayım
     sure_etiketi: Literal["varsayım"] = "varsayım"
     p_low: float
@@ -295,6 +296,21 @@ class Sonuc:
     sonuc: PlanVar | PlanYok | PlanGereksiz
     teshis: Mapping[tuple[str, str], LevelStatus]  # per single (action, level)
     gecerli: tuple[tuple[Aday, Skor], ...]  # every valid plan (all paths), for audits
+
+
+def kesim_noktasi(thr: float, delta: float, band: float) -> float:
+    """Validity cut: a plan must end below threshold - max(delta, band) (R2 covers the band)."""
+    return thr - max(delta, band)
+
+
+def min_phi_formul(p_before: float, p_after: float, kesim: float) -> float | None:
+    """Smallest share of the model-predicted risk drop that must materialise for the plan to
+    reach the cut: (p_before - cut) / Delta, Delta = p_before - p_after (all p_high). None when
+    the plan predicts no drop. Single source: the effect-share report uses the same formula."""
+    dp = p_before - p_after
+    if dp <= 0:
+        return None
+    return (p_before - kesim) / dp
 
 
 def _plan_key(a: Aday) -> tuple:
@@ -364,6 +380,8 @@ def sec(
             else:
                 teshis[key] = LevelStatus.GECERLI
 
+    kesim = kesim_noktasi(thr, d, politika.band)
+    mphi: dict[str, float] = {}
     gecerli: list[tuple[Aday, Skor]] = []
     for a in adaylar(b, k, frozenset(gecersiz)):
         sk = cift_skorlari[a.plan_id]
@@ -373,6 +391,10 @@ def sec(
             continue
         if not _approved(a.vektor, sk, politika, support):
             continue
+        mp = min_phi_formul(baz.p_high, sk.p_high, kesim)
+        if mp is None or not 0.0 <= mp <= 1.0:  # outside [0, 1]: the plan is invalid
+            continue
+        mphi[a.plan_id] = mp
         gecerli.append((a, sk))
 
     if not gecerli:
@@ -394,6 +416,7 @@ def sec(
             plan_id=best[t][0].plan_id,
             eylemler=best[t][0].eylemler,
             maliyet_usd=best[t][0].maliyet_usd,
+            min_phi=mphi[best[t][0].plan_id],
             sure_hafta=best[t][0].sure,
             p_low=best[t][1].p_low,
             p_point=best[t][1].p_point,

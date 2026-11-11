@@ -359,6 +359,8 @@ export interface components {
             maliyet_etiketi: "varsayım";
             /** Maliyet Usd */
             maliyet_usd: number;
+            /** Min Phi */
+            min_phi: number;
             /** P High */
             p_high: number;
             /** P Low */

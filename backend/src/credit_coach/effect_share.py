@@ -31,7 +31,9 @@ from credit_coach.recourse import (
     PATH_ORDER,
     hazirla,
     imza,
+    kesim_noktasi,
     load_demo_catalog,
+    min_phi_formul,
     sec_from_scores,
     yol_tipi,
 )
@@ -54,7 +56,7 @@ PERCENTILES = (5, 25, 50, 75, 95)
 
 def cut(thr: float, delta: float, band: float) -> float:
     """Validity cut: p_after < thr - max(delta, band) (R2 already rules out the band)."""
-    return thr - max(delta, band)
+    return kesim_noktasi(thr, delta, band)
 
 
 def p_after_real(p_before: float, dp: float, phi: float) -> float:
@@ -62,8 +64,9 @@ def p_after_real(p_before: float, dp: float, phi: float) -> float:
 
 
 def phi_min(p_before: float, dp: float, kesim: float) -> float:
-    """Smallest effect share at which the plan reaches the cut (infimum: valid for phi > this)."""
-    return (p_before - kesim) / dp
+    """Smallest effect share at which the plan reaches the cut (infimum: valid for phi > this).
+    Same formula as the engine's per-plan min_phi (recourse.min_phi_formul)."""
+    return min_phi_formul(p_before, p_before - dp, kesim)  # type: ignore[return-value]
 
 
 @dataclass(frozen=True)
