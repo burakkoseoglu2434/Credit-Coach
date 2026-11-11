@@ -75,7 +75,7 @@ def main() -> int:
         "",
         "## 1. Kalibratörün eşik civarındaki ayrık p_high değerleri",
         "",
-        f"Dondurulmuş kalibratörün kalibrasyon skorlarında ürettiği benzersiz p_high sayısı: {len(vals)}.",
+        f"Kalibratörün kalibrasyon skorlarında ürettiği benzersiz p_high sayısı: {len(vals)}.",
         "",
         "| p_high | eşik − p_high | kalibrasyon kaydı sayısı |",
         "|---|---|---|",

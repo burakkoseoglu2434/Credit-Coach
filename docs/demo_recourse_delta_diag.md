@@ -6,7 +6,7 @@ Eşik 0.109168, band 0.002720. Reddedilen (p_high ≥ eşik, destek içi): 52245
 
 ## 1. Kalibratörün eşik civarındaki ayrık p_high değerleri
 
-Dondurulmuş kalibratörün kalibrasyon skorlarında ürettiği benzersiz p_high sayısı: 816.
+Kalibratörün kalibrasyon skorlarında ürettiği benzersiz p_high sayısı: 816.
 
 | p_high | eşik − p_high | kalibrasyon kaydı sayısı |
 |---|---|---|
