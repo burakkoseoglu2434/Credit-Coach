@@ -4,13 +4,15 @@ etiket: varsayım
 kaynak: docs/pilot_protocol_v0.md (kurallar), counteroffer_economics aday havuzu
 pilot_kredi_sayisi:
   deger: 23600
-  etiket: varsayım
+  etiket: varsayım, kural çıktısı, uygulanabilir değil
 kredi_basina_tavan_usd:
   deger: 21500
-  etiket: varsayım
+  etiket: varsayım, kural çıktısı, uygulanabilir değil
 butce_tavani_usd:
   deger: 507400000
-  etiket: varsayım
+  etiket: varsayım, kural çıktısı, uygulanabilir değil
+  not: N × tavan nominal anaparadır; kayıp ya da kayıp üst sınırı değildir. Yerine
+    revizyon_1 bölümü.
 durdurma_esigi:
   deger: -0.05
   etiket: varsayım
@@ -38,3 +40,73 @@ kabul_orani_izgarasi:
   - 0.5
   - 0.7
   etiket: varsayım
+revizyon_1:
+  etiket: varsayım
+  kaynak: docs/pilot_protocol_v0.md, Revizyon 1 (sonradan)
+  n_izgarasi:
+    deger:
+    - 250
+    - 500
+    - 1000
+    - 2000
+    etiket: varsayım
+  guc:
+    deger: 0.8
+    etiket: varsayım
+  alfa:
+    deger: 0.05
+    etiket: varsayım
+  zarar_kuyrugu_yuzdelikleri:
+    deger:
+    - 5
+    - 1
+    etiket: varsayım
+  monte_carlo:
+    deger:
+      tekrar: 20000
+      tohum: 7
+    etiket: varsayım
+  musteri_olcegi_izgarasi:
+    deger:
+    - 1.0
+    - 0.1
+    - 0.01
+    etiket: varsayım
+  kabul_orani_izgarasi:
+    deger:
+    - 1.0
+    - 0.7
+    - 0.5
+    - 0.3
+    etiket: varsayım
+  referans:
+    segment: (ii) GUCLU+KOSULLU
+    delta: 0.012
+    n_basina:
+    - n: 250
+      nominal_anapara_usd: 2292772
+      hurdle_ustu_alt_yuzde5_usd: -69590
+      hurdle_ustu_alt_yuzde1_usd: -93508
+      hurdle_oncesi_alt_yuzde5_usd: 180239
+      hurdle_oncesi_alt_yuzde1_usd: 154580
+    - n: 500
+      nominal_anapara_usd: 4585545
+      hurdle_ustu_alt_yuzde5_usd: -106146
+      hurdle_ustu_alt_yuzde1_usd: -139840
+      hurdle_oncesi_alt_yuzde5_usd: 393592
+      hurdle_oncesi_alt_yuzde1_usd: 358943
+    - n: 1000
+      nominal_anapara_usd: 9171090
+      hurdle_ustu_alt_yuzde5_usd: -166753
+      hurdle_ustu_alt_yuzde1_usd: -213801
+      hurdle_oncesi_alt_yuzde5_usd: 835448
+      hurdle_oncesi_alt_yuzde1_usd: 787461
+    - n: 2000
+      nominal_anapara_usd: 18342179
+      hurdle_ustu_alt_yuzde5_usd: -269547
+      hurdle_ustu_alt_yuzde1_usd: -332323
+      hurdle_oncesi_alt_yuzde5_usd: 1739179
+      hurdle_oncesi_alt_yuzde1_usd: 1672234
+    etiket: varsayım
+    not: nominal anapara kayıp değildir; zarar kuyruğu φ = 0 senaryosunda Monte Carlo
+      yüzdeliğidir (USD, negatif = kayıp)
