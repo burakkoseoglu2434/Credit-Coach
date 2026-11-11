@@ -1,0 +1,14 @@
+# Dış veri kaynakları: yol ve içerik hash'i. Dosyalar depoya KOPYALANMAZ (data/ git'e girmez).
+# Yol bu makineye aittir; ortam değişkeni CREDIT_COACH_REJECTED_LC aynı dosyayı gösterebilir.
+# Hash tam dosyanın SHA-256 değeridir ve CSV içeriğine bağlıdır (gz değil).
+lc_reddedilen:
+  ad: LendingClub reddedilen başvurular 2007-2018Q4
+  yol: /Users/bkoseoglu/Desktop/ytü/4. Sınıf Bahar/Bitirme/20122025/OLD/archive/rejected_2007_to_2018q4.csv/rejected_2007_to_2018Q4.csv
+  sha256: 07eb8468d55340d8ca4145c3e3c2e2d3e25ff83c44e432a825729ee6c99c4d45
+  boyut_bayt: 1782281620
+  gz_sha256: c1f9f2a4ec5537ef0af44b24b2fb2f41f58fcaec45363ef32c6a2fb27347f6c5  # aynı klasördeki .csv.gz; açılmış içeriği yukarıdaki hash ile aynı
+  yan_dosya_accepted:
+    yol: /Users/bkoseoglu/Desktop/ytü/4. Sınıf Bahar/Bitirme/20122025/OLD/archive/accepted_2007_to_2018q4.csv/accepted_2007_to_2018Q4.csv
+    sha256: 3eae03c28fd9d2e8a076ebeb73507e8d4d0f44d90500decdb0936e0933d1f36a
+    boyut_bayt: 1675133810
+  sutunlar: [Amount Requested, Application Date, Loan Title, Risk_Score, Debt-To-Income Ratio, Zip Code, State, Employment Length, Policy Code]
