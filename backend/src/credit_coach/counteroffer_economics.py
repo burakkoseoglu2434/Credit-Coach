@@ -115,7 +115,9 @@ def break_even(totals: list[float], phis: tuple[float, ...] = PHIS) -> float | N
     return None
 
 
-def break_even_text(totals: list[float]) -> str:
+def break_even_text(totals: list[float], n: int = 1) -> str:
+    if n == 0:
+        return "- (segment boş)"
     be = break_even(totals)
     if be is not None:
         return f"{be:.3f}"
@@ -245,11 +247,13 @@ def render(
                     t = total(sub, phi, c)
                     tots.append(t)
                     grid.append(
-                        f"| {per} | {d_label(d, kat)} | {seg} | {phi:.2f} | {n} | {usd(mean_l)} | {usd(t)} | "
+                        f"| {per} | {d_label(d, kat)} | {seg} | {phi:.2f} | {n} | {usd(mean_l) if n else '-'} | {usd(t)} | "
                         + (f"{t / n:,.1f}" if n else "-")
                         + " |"
                     )
-                be.append(f"| {per} | {d_label(d, kat)} | {seg} | {n} | {break_even_text(tots)} |")
+                be.append(
+                    f"| {per} | {d_label(d, kat)} | {seg} | {n} | {break_even_text(tots, n)} |"
+                )
                 t_obs = sum(observed_value(r, c) for r in sub)
                 ck.append(
                     f"| {per} | {d_label(d, kat)} | {seg} | {n} | "
