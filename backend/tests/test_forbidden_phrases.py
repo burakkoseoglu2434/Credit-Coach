@@ -18,6 +18,8 @@ def scanned_files() -> list[Path]:
     files += sorted((ROOT / "configs" / "catalog").glob("*.yaml"))
     files += [ROOT / "backend" / "src" / "credit_coach" / "schemas.py"]  # API field text
     files += [ROOT / "frontend" / "src" / "texts.json"]  # all UI texts
+    files += [ROOT / "docs" / "CLAIMS.md", ROOT / "README.md"]
+    files += [p for p in [ROOT / "docs" / "demo_portfolio_report.md"] if p.exists()]
     files += (
         sorted((ROOT / "configs" / "templates").glob("*"))
         if (ROOT / "configs" / "templates").exists()
@@ -44,6 +46,8 @@ def test_scan_covers_the_expected_files():
         "api_v0.yaml",
         "schemas.py",
         "texts.json",
+        "CLAIMS.md",
+        "README.md",
     } <= names
 
 
