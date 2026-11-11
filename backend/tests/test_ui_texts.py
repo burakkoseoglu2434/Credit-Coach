@@ -71,7 +71,7 @@ def test_enums_are_fully_covered_by_texts():
     assert set(TEXTS["yol"]) == set(PATH_ORDER)
     assert {s.value for s in LevelStatus} <= set(TEXTS["kisit"])
     assert set(TEXTS["plan_durumu"]) == {"PLAN", "PLAN_YOK", "PLAN_GEREKSIZ"}
-    assert set(TEXTS["ornek_vakalar"]) == {
+    assert set(TEXTS["ornek_vakalar"]) >= {
         "onay",
         "kosullu",
         "ret_plan",

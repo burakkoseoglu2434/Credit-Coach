@@ -26,6 +26,7 @@ def scanned_files() -> list[Path]:
             ROOT / "docs" / "demo_effect_share.md",
             ROOT / "docs" / "demo_resilience_labels.md",
             ROOT / "docs" / "demo_target_segment.md",
+            ROOT / "docs" / "demo_example_cases.md",
         ]
         if p.exists()
     ]
@@ -60,6 +61,7 @@ def test_scan_covers_the_expected_files():
         "demo_effect_share.md",
         "demo_resilience_labels.md",
         "demo_target_segment.md",
+        "demo_example_cases.md",
     } <= names
 
 

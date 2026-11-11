@@ -26,6 +26,12 @@ GOLDEN = ROOT / "tests" / "golden" / "inputs_v1.jsonl"
 CASES = ROOT / "frontend" / "src" / "ornekler.json"
 CSV_OUT = ROOT / "frontend" / "public" / "ornek_toplu.csv"
 ORDER = ("onay", "kosullu", "ret_plan", "ret_plan_yok", "destek_disi")
+# Added later (rule: docs/demo_example_cases.md, written before the search):
+# the first real record in file order that is REJECTED with a plan whose strongest path label is
+# GUCLU / KOSULLU, at the API's default delta. Never relaxed: a missing record is reported.
+EK_ORDER = ("ret_guclu", "ret_kosullu")
+_LABEL_TO_EK = {"GUCLU": "ret_guclu", "KOSULLU": "ret_kosullu"}
+_STRENGTH = {"GUCLU": 0, "KOSULLU": 1, "ZAYIF": 2}
 
 
 def category(karar: dict) -> str | None:
@@ -38,6 +44,17 @@ def category(karar: dict) -> str | None:
     if karar["dis_durum"] == "REJECTED":
         return "ret_plan" if karar["plan"]["durum"] == "PLAN" else "ret_plan_yok"
     return None
+
+
+def category_ek(karar: dict) -> str | None:
+    """ret_guclu / ret_kosullu: REJECTED, in support, with a plan whose strongest path label is
+    GUCLU / KOSULLU (None otherwise)."""
+    if karar["destek_ihlalleri"] or karar["dis_durum"] != "REJECTED":
+        return None
+    if karar["plan"]["durum"] != "PLAN":
+        return None
+    strongest = min((y["dayaniklilik"] for y in karar["plan"]["yollar"]), key=_STRENGTH.__getitem__)
+    return _LABEL_TO_EK.get(strongest)
 
 
 def real_records() -> list[dict]:
@@ -90,6 +107,30 @@ def build() -> tuple[list[dict], list[dict]]:
     return [found[c] for c in ORDER], others
 
 
+def build_ek() -> tuple[list[dict], list[str]]:
+    """Apply the written rule: first matching real record per extra category, in file order.
+    Returns (cases found, categories not found)."""
+    recs = real_records()
+    dates = issue_months([r["id"] for r in recs])
+    found: dict[str, dict] = {}
+    with TestClient(app) as client:
+        for r in recs:
+            b, d = r["girdi"]["basvuru"], dates[r["id"]]
+            body = client.post("/score", json={"basvuru": b, "basvuru_tarihi": d}).json()["karar"]
+            cat = category_ek(body)
+            if cat and cat not in found:
+                assert abs(body["skor"]["p_point"] - r["girdi"]["p_point"]) < 1e-9, r["id"]
+                found[cat] = {
+                    "anahtar": cat,
+                    "kaynak_id": r["id"],
+                    "varyant": False,
+                    "basvuru": b,
+                    "basvuru_tarihi": d,
+                    "beklenen": expected(body),
+                }
+    return [found[c] for c in EK_ORDER if c in found], [c for c in EK_ORDER if c not in found]
+
+
 def expected(karar: dict) -> dict:
     return {
         "dis_durum": karar["dis_durum"],
@@ -100,7 +141,10 @@ def expected(karar: dict) -> dict:
 
 def main() -> int:
     cases, others = build()
-    CASES.write_text(json.dumps(cases, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
+    ek, missing = build_ek()
+    CASES.write_text(json.dumps([*cases, *ek], indent=2, ensure_ascii=False, sort_keys=True) + "\n")
+    for c in missing:
+        print(f"NOT FOUND by the written rule: {c}")
     rows = [
         {**c["basvuru"], "basvuru_tarihi": c["basvuru_tarihi"], "kayit_id": c["kaynak_id"]}
         for c in (cases + others)[:10]

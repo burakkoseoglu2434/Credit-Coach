@@ -27,5 +27,12 @@ beş kayıt ve `frontend/public/ornek_toplu.csv` aynen kalır.
 - **Tarih:** `basvuru_tarihi` mevcut vakalarla aynı yolla, ham veriden kaydın ihraç ayı (ay başı).
 - **Sıra:** yeni vakalar mevcut beş vakadan sonra gelir; anahtarlar `ret_guclu` ve `ret_kosullu`.
 
-## Sonuç
-Kayıtlar henüz aranmadı.
+## Sonuç (kural uygulandı, kural değiştirilmedi)
+198 gerçek kayıt dosya sırasıyla `/score`'dan geçirildi (δ varsayılan). Reddedilen, planı olan
+kayıtların en güçlü yol etiketi dağılımı: GUCLU 0, KOSULLU 6, ZAYIF 31. Reddedilen olmayan ya da
+planı olmayan kayıtlar: 161.
+
+| anahtar | kayıt | durum |
+|---|---|---|
+| `ret_guclu` | yok | **Bulunamadı:** 198 gerçek kayıtta en güçlü etiketi GUCLU olan reddedilen kayıt yok. Kural gevşetilmedi, vaka eklenmedi. |
+| `ret_kosullu` | `cal-257109` (ihraç ayı 2015-05) | Eklendi. Karma yol, `min_phi` 0,718, etiket KOSULLU. |
