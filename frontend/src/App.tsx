@@ -7,6 +7,7 @@ import Form, {
   gonderiHazirla,
 } from "./components/Form";
 import Ornekler, { type Ornek } from "./components/Ornekler";
+import Sonuc from "./components/Sonuc";
 import texts from "./texts.json";
 import type { ScoreResponse } from "./types";
 
@@ -50,10 +51,10 @@ export default function App() {
       {sonuc ? (
         <section data-sayfa="sonuc">
           <h2>{texts.sonuc.baslik}</h2>
-          <p data-karar={sonuc.karar.dis_durum}>{sonuc.karar.dis_durum}</p>
           <button type="button" onClick={() => setSonuc(null)}>
             {texts.sonuc.geri}
           </button>
+          <Sonuc r={sonuc} />
         </section>
       ) : (
         <>
