@@ -21,6 +21,10 @@ eylemler:
     sahip: customer
     ozellikler: [revol_util, revol_bal, dti, total_bal_ex_mort, tot_cur_bal]
     hedef_birimleri: {revol_util: yuzde}
+    kanit:                  # K = muhasebe özdeşliği, M = model ilişkisi
+      eylem_turu: musteri_eylemi
+      bakiye_kullanim_etkisi: K   # bakiye ve kullanım değişimi: muhasebe özdeşliği
+      risk_etkisi: M              # risk etkisi: model ilişkisi, doğrulanmadı
     seviyeler:            # sığdan derine
       - {id: util_70, revol_util_hedef: 70, sure_hafta: [4, 12]}
       - {id: util_50, revol_util_hedef: 50, sure_hafta: [8, 20]}
@@ -30,6 +34,10 @@ eylemler:
     sahip: institution
     ozellikler: [loan_amnt]
     hedef_birimleri: {loan_amnt: dolar}
+    kanit:
+      eylem_turu: karsi_teklif    # kurum eylemi: karşı teklif
+      bakiye_kullanim_etkisi: null
+      risk_etkisi: M              # risk etkisi: model ilişkisi, doğrulanmadı
     seviyeler:
       - {id: amnt_90, loan_amnt_carpan: 0.90, sure_hafta: [0, 1]}
       - {id: amnt_75, loan_amnt_carpan: 0.75, sure_hafta: [0, 1]}

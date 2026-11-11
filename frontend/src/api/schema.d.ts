@@ -145,6 +145,26 @@ export interface components {
          * @enum {string}
          */
         ConditionalType: "DATA_ISSUE" | "PLAN_BASED";
+        /**
+         * EylemKaniti
+         * @description Evidence class of one action: K = accounting identity, M = model relation.
+         */
+        EylemKaniti: {
+            /** Bakiye Kullanim Etkisi */
+            bakiye_kullanim_etkisi: "K" | null;
+            /** Eylem */
+            eylem: string;
+            /**
+             * Eylem Turu
+             * @enum {string}
+             */
+            eylem_turu: "musteri_eylemi" | "karsi_teklif";
+            /**
+             * Risk Etkisi
+             * @constant
+             */
+            risk_etkisi: "M";
+        };
         /** GirdiHatasiYaniti */
         GirdiHatasiYaniti: {
             /** Detail */
@@ -350,6 +370,8 @@ export interface components {
              * @constant
              */
             dayaniklilik_etiketi: "varsayım";
+            /** Eylem Kanitlari */
+            eylem_kanitlari: components["schemas"]["EylemKaniti"][];
             /** Eylemler */
             eylemler: [
                 string,

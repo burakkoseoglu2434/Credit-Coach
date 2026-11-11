@@ -72,6 +72,9 @@ class Eylem:
     aile: str
     sahip: str
     seviyeler: tuple[Seviye, ...]  # shallow -> deep
+    eylem_turu: str = "musteri_eylemi"  # or "karsi_teklif" (institution action)
+    bakiye_kullanim_etkisi: str | None = None  # "K": accounting identity, None: no such effect
+    risk_etkisi: str = "M"  # "M": model relation (not validated as causal)
 
 
 @dataclass(frozen=True)
@@ -100,6 +103,9 @@ def load_demo_catalog(path: Path = DEMO_CATALOG_PATH) -> Katalog:
                 tuple(
                     Seviye(s["id"], float(s[key]), tuple(s["sure_hafta"])) for s in e["seviyeler"]
                 ),
+                eylem_turu=e["kanit"]["eylem_turu"],
+                bakiye_kullanim_etkisi=e["kanit"]["bakiye_kullanim_etkisi"],
+                risk_etkisi=e["kanit"]["risk_etkisi"],
             )
         )
     return Katalog(
@@ -256,6 +262,17 @@ def adaylar(
 # ---- result types ----------------------------------------------------------------------
 
 
+class EylemKaniti(BaseModel):
+    """Evidence class of one action: K = accounting identity, M = model relation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    eylem: str
+    eylem_turu: Literal["musteri_eylemi", "karsi_teklif"]
+    bakiye_kullanim_etkisi: Literal["K"] | None  # balance/utilisation change (identity) or none
+    risk_etkisi: Literal["M"]  # risk effect: model relation, causal effect not validated
+
+
 class YolPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -263,6 +280,7 @@ class YolPlan(BaseModel):
     imza: tuple[tuple[str, ...], tuple[str, ...]]
     plan_id: str
     eylemler: tuple[tuple[str, str], ...]
+    eylem_kanitlari: tuple[EylemKaniti, ...]  # same order as eylemler
     maliyet_usd: float  # varsayım: nakit çıkışı veya karşılanmayan talep, 1 USD = 1 USD
     maliyet_etiketi: Literal["varsayım"] = "varsayım"
     min_phi: float  # share of the predicted drop needed, in [0, 1] ((p_before - cut) / Delta)
@@ -317,6 +335,16 @@ def dayaniklilik_etiketi(min_phi: float, k: Katalog) -> Dayaniklilik:
     if min_phi <= k.kosullu_en_fazla:
         return "KOSULLU"
     return "ZAYIF"
+
+
+def _kanit(eylem_id: str, k: Katalog) -> EylemKaniti:
+    e = next(x for x in k.eylemler if x.id == eylem_id)
+    return EylemKaniti(
+        eylem=e.id,
+        eylem_turu=e.eylem_turu,  # type: ignore[arg-type]
+        bakiye_kullanim_etkisi=e.bakiye_kullanim_etkisi,  # type: ignore[arg-type]
+        risk_etkisi=e.risk_etkisi,  # type: ignore[arg-type]
+    )
 
 
 def kesim_noktasi(thr: float, delta: float, band: float) -> float:
@@ -436,6 +464,7 @@ def sec(
             imza=imza([e for e, _ in best[t][0].eylemler], k),
             plan_id=best[t][0].plan_id,
             eylemler=best[t][0].eylemler,
+            eylem_kanitlari=tuple(_kanit(e, k) for e, _ in best[t][0].eylemler),
             maliyet_usd=best[t][0].maliyet_usd,
             min_phi=mphi[best[t][0].plan_id],
             dayaniklilik=dayaniklilik_etiketi(mphi[best[t][0].plan_id], k),

@@ -430,6 +430,49 @@
         "title": "ConditionalType",
         "type": "string"
       },
+      "EylemKaniti": {
+        "additionalProperties": false,
+        "description": "Evidence class of one action: K = accounting identity, M = model relation.",
+        "properties": {
+          "bakiye_kullanim_etkisi": {
+            "anyOf": [
+              {
+                "const": "K",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bakiye Kullanim Etkisi"
+          },
+          "eylem": {
+            "title": "Eylem",
+            "type": "string"
+          },
+          "eylem_turu": {
+            "enum": [
+              "musteri_eylemi",
+              "karsi_teklif"
+            ],
+            "title": "Eylem Turu",
+            "type": "string"
+          },
+          "risk_etkisi": {
+            "const": "M",
+            "title": "Risk Etkisi",
+            "type": "string"
+          }
+        },
+        "required": [
+          "eylem",
+          "eylem_turu",
+          "bakiye_kullanim_etkisi",
+          "risk_etkisi"
+        ],
+        "title": "EylemKaniti",
+        "type": "object"
+      },
       "GirdiHatasiYaniti": {
         "properties": {
           "detail": {
@@ -992,6 +1035,13 @@
             "title": "Dayaniklilik Etiketi",
             "type": "string"
           },
+          "eylem_kanitlari": {
+            "items": {
+              "$ref": "#/components/schemas/EylemKaniti"
+            },
+            "title": "Eylem Kanitlari",
+            "type": "array"
+          },
           "eylemler": {
             "items": {
               "maxItems": 2,
@@ -1096,6 +1146,7 @@
           "imza",
           "plan_id",
           "eylemler",
+          "eylem_kanitlari",
           "maliyet_usd",
           "min_phi",
           "dayaniklilik",
