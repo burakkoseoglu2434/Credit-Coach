@@ -18,3 +18,18 @@ def test_claims_has_the_three_sections_and_the_required_limits():
 
 def test_claims_fits_one_page():
     assert len(CLAIMS.splitlines()) <= 60
+
+
+def test_claims_mentions_min_phi_labels_and_evidence_classes():
+    for must in (
+        "min_phi",
+        "GUCLU",
+        "KOSULLU",
+        "ZAYIF",
+        "(K)",
+        "(M)",
+        "karşı teklif",
+        "varsayımdır",
+    ):
+        assert must in CLAIMS, must
+    assert "gerçekte işe yarayacağını" in CLAIMS  # listed under what we do not claim
