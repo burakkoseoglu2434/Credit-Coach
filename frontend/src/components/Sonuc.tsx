@@ -1,5 +1,6 @@
 import { fmtSayi, fmtTam } from "../format";
 import texts from "../texts.json";
+import UyariSeridi from "./UyariSeridi";
 import type { Alan, OuterStatus, PlanVar, PlanYok, PublicReasonCode, ScoreResponse, YolPlan } from "../types";
 
 const kararMeta: Record<OuterStatus, { baslik: string; aciklama: string }> = texts.karar;
@@ -189,6 +190,7 @@ export default function Sonuc({ r }: { r: ScoreResponse }) {
   const k = r.karar;
   return (
     <div data-sonuc-turu={tur}>
+      <UyariSeridi />
       {tur === "destek_disi" ? (
         <DestekDisi r={r} />
       ) : (

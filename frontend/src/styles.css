@@ -89,3 +89,5 @@ dt { color: var(--muted); }
 dd { margin: 0; }
 pre { overflow: auto; background: var(--bg); padding: 8px; border-radius: 6px; font-size: 0.8rem; }
 @media (max-width: 600px) { main { padding: 10px; } }
+
+.serit .kurgu { font-weight: 400; font-size: 0.85rem; margin-top: 2px; }
