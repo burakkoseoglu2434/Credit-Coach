@@ -104,3 +104,15 @@ def test_half_periods_and_pair_joint(res):
     assert (h1["e_any2"], h1["x_any2"], h1["e_all2"], h1["x_all2"]) == (2, 1, 2, 1)
     # 2014: dti -1 (out). 2015: row with empties (not evaluable) and row 800/0%/2 years (emp out)
     assert (h2["e_any2"], h2["x_any2"], h2["e_all2"], h2["x_all2"]) == (2, 2, 2, 2)
+
+
+def test_every_new_section_ends_with_the_meaning_lines():
+    from credit_coach.rejected_overlap import REPORT
+
+    text = REPORT.read_text()
+    ek = text[text.index("## Risk_Score ölçek kontrolü") :]
+    sections = ek.split("\n## ")
+    assert len(sections) == 6
+    for s in sections:
+        assert "Ne demek:" in s and "Ne DEMEK DEĞİL:" in s, s.splitlines()[0]
+    assert "Skor kaynağını ya da ölçeğini tanımlayan bir belge bulunmadı" in ek
