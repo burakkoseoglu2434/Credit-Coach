@@ -1,8 +1,8 @@
-# Demo v0: hedef segment (p_point − eşik kovasına göre en güçlü yol etiketi; demo varsayılan δ = 0,02)
+# Demo v0: hedef segment (p_point − eşik kovasına göre en güçlü yol etiketi; demo varsayılan δ = 0,012)
 
 > Etiket: tek fiyatlı kurgusal kredi veren. Bu çalışmadaki kredi veren tek bir sabit getiri, kayıp ve hurdle ile varsayılmıştır; gerçek bir kurumun fiyatlama politikası değildir.
 
-Demo varsayılan δ = 0,02 (`configs/catalog/demo_v0.yaml`, `delta.deger`, varsayım); API ve arayüz bu değerle plan arar. Rapor sütunları: δ = 0 (band içi: etkin kesim eşik − band), δ = 0,02 (demo varsayılanı), δ = 0,03.
+Demo varsayılan δ = 0,012 (`configs/catalog/demo_v0.yaml`, `delta.deger`, varsayım); API ve arayüz bu değerle plan arar. Rapor sütunları: δ = 0 (band içi: etkin kesim eşik − band), δ = 0,012 (demo varsayılanı), δ = 0,03.
 
 Kapsam: kalibrasyon dilimi (2015-03..06) ve boşluk ayları (2015-01, 02, 07, 08); test dilimi kullanılmadı. Reddedilen = v1 REJECTED (destek içi). dti güncellemesi kapalı. Eşik 0.1092, band 0.0027. Etiket = kaydın planı olan yolları içinde en güçlü olanı.
 
@@ -18,14 +18,14 @@ Kapsam: kalibrasyon dilimi (2015-03..06) ve boşluk ayları (2015-01, 02, 07, 08
 | kalibrasyon | δ = 0 (band içi: etkin kesim eşik − band) | [0,10, 0,20) | 14143 | 97.0% | 0.0% | 0.0% | 3.0% |
 | kalibrasyon | δ = 0 (band içi: etkin kesim eşik − band) | >= 0,20 | 5831 | 99.8% | 0.0% | 0.0% | 0.2% |
 | kalibrasyon | δ = 0 (band içi: etkin kesim eşik − band) | tümü | 52229 | 70.3% | 4.8% | 8.8% | 16.2% |
-| kalibrasyon | δ = 0,02 (demo varsayılanı) | [0, 0,01) | 3943 | 23.6% | 1.4% | 13.0% | 62.0% |
-| kalibrasyon | δ = 0,02 (demo varsayılanı) | [0,01, 0,02) | 3855 | 41.9% | 0.0% | 3.7% | 54.4% |
-| kalibrasyon | δ = 0,02 (demo varsayılanı) | [0,02, 0,03) | 3529 | 58.8% | 0.0% | 2.5% | 38.7% |
-| kalibrasyon | δ = 0,02 (demo varsayılanı) | [0,03, 0,05) | 9757 | 77.6% | 0.0% | 0.6% | 21.8% |
-| kalibrasyon | δ = 0,02 (demo varsayılanı) | [0,05, 0,10) | 11171 | 92.0% | 0.0% | 0.0% | 8.0% |
-| kalibrasyon | δ = 0,02 (demo varsayılanı) | [0,10, 0,20) | 14143 | 98.7% | 0.0% | 0.0% | 1.3% |
-| kalibrasyon | δ = 0,02 (demo varsayılanı) | >= 0,20 | 5831 | 99.9% | 0.0% | 0.0% | 0.1% |
-| kalibrasyon | δ = 0,02 (demo varsayılanı) | tümü | 52229 | 80.9% | 0.1% | 1.5% | 17.5% |
+| kalibrasyon | δ = 0,012 (demo varsayılanı) | [0, 0,01) | 3943 | 23.6% | 13.4% | 63.0% | 0.0% |
+| kalibrasyon | δ = 0,012 (demo varsayılanı) | [0,01, 0,02) | 3855 | 41.9% | 1.0% | 57.1% | 0.0% |
+| kalibrasyon | δ = 0,012 (demo varsayılanı) | [0,02, 0,03) | 3529 | 58.8% | 0.0% | 7.3% | 33.9% |
+| kalibrasyon | δ = 0,012 (demo varsayılanı) | [0,03, 0,05) | 9757 | 77.6% | 0.0% | 3.0% | 19.4% |
+| kalibrasyon | δ = 0,012 (demo varsayılanı) | [0,05, 0,10) | 11171 | 92.0% | 0.0% | 0.1% | 7.9% |
+| kalibrasyon | δ = 0,012 (demo varsayılanı) | [0,10, 0,20) | 14143 | 98.7% | 0.0% | 0.0% | 1.3% |
+| kalibrasyon | δ = 0,012 (demo varsayılanı) | >= 0,20 | 5831 | 99.9% | 0.0% | 0.0% | 0.1% |
+| kalibrasyon | δ = 0,012 (demo varsayılanı) | tümü | 52229 | 80.9% | 1.1% | 10.0% | 8.0% |
 | kalibrasyon | δ = 0,03 | [0, 0,01) | 3943 | 60.8% | 0.0% | 3.9% | 35.3% |
 | kalibrasyon | δ = 0,03 | [0,01, 0,02) | 3855 | 74.1% | 0.0% | 2.0% | 24.0% |
 | kalibrasyon | δ = 0,03 | [0,02, 0,03) | 3529 | 81.3% | 0.0% | 0.0% | 18.7% |
@@ -42,14 +42,14 @@ Kapsam: kalibrasyon dilimi (2015-03..06) ve boşluk ayları (2015-01, 02, 07, 08
 | boşluk | δ = 0 (band içi: etkin kesim eşik − band) | [0,10, 0,20) | 15908 | 96.7% | 0.0% | 0.0% | 3.3% |
 | boşluk | δ = 0 (band içi: etkin kesim eşik − band) | >= 0,20 | 6458 | 99.8% | 0.0% | 0.0% | 0.2% |
 | boşluk | δ = 0 (band içi: etkin kesim eşik − band) | tümü | 59529 | 70.0% | 5.0% | 8.8% | 16.2% |
-| boşluk | δ = 0,02 (demo varsayılanı) | [0, 0,01) | 4714 | 23.4% | 1.5% | 13.4% | 61.6% |
-| boşluk | δ = 0,02 (demo varsayılanı) | [0,01, 0,02) | 4526 | 42.8% | 0.0% | 4.4% | 52.8% |
-| boşluk | δ = 0,02 (demo varsayılanı) | [0,02, 0,03) | 4047 | 58.9% | 0.0% | 2.8% | 38.3% |
-| boşluk | δ = 0,02 (demo varsayılanı) | [0,03, 0,05) | 11067 | 77.4% | 0.0% | 0.7% | 21.8% |
-| boşluk | δ = 0,02 (demo varsayılanı) | [0,05, 0,10) | 12809 | 92.5% | 0.0% | 0.0% | 7.5% |
-| boşluk | δ = 0,02 (demo varsayılanı) | [0,10, 0,20) | 15908 | 98.5% | 0.0% | 0.0% | 1.5% |
-| boşluk | δ = 0,02 (demo varsayılanı) | >= 0,20 | 6458 | 99.9% | 0.0% | 0.0% | 0.1% |
-| boşluk | δ = 0,02 (demo varsayılanı) | tümü | 59529 | 80.6% | 0.1% | 1.7% | 17.6% |
+| boşluk | δ = 0,012 (demo varsayılanı) | [0, 0,01) | 4714 | 23.4% | 13.7% | 62.9% | 0.0% |
+| boşluk | δ = 0,012 (demo varsayılanı) | [0,01, 0,02) | 4526 | 42.8% | 1.1% | 56.1% | 0.0% |
+| boşluk | δ = 0,012 (demo varsayılanı) | [0,02, 0,03) | 4047 | 58.9% | 0.0% | 7.6% | 33.5% |
+| boşluk | δ = 0,012 (demo varsayılanı) | [0,03, 0,05) | 11067 | 77.4% | 0.0% | 3.2% | 19.4% |
+| boşluk | δ = 0,012 (demo varsayılanı) | [0,05, 0,10) | 12809 | 92.5% | 0.0% | 0.2% | 7.3% |
+| boşluk | δ = 0,012 (demo varsayılanı) | [0,10, 0,20) | 15908 | 98.5% | 0.0% | 0.0% | 1.5% |
+| boşluk | δ = 0,012 (demo varsayılanı) | >= 0,20 | 6458 | 99.9% | 0.0% | 0.0% | 0.1% |
+| boşluk | δ = 0,012 (demo varsayılanı) | tümü | 59529 | 80.6% | 1.2% | 10.4% | 7.9% |
 | boşluk | δ = 0,03 | [0, 0,01) | 4714 | 59.4% | 0.0% | 4.1% | 36.5% |
 | boşluk | δ = 0,03 | [0,01, 0,02) | 4526 | 73.5% | 0.0% | 2.9% | 23.6% |
 | boşluk | δ = 0,03 | [0,02, 0,03) | 4047 | 82.2% | 0.0% | 0.0% | 17.8% |
@@ -67,12 +67,12 @@ Kapsam: kalibrasyon dilimi (2015-03..06) ve boşluk ayları (2015-01, 02, 07, 08
 
 | öğe | değer / durum |
 |---|---|
-| Varsayılan δ | 0.02 (etiket: varsayım: dönem kayması ve model belirsizliği payı; Venn-Abers aralığı değil) |
+| Varsayılan δ | 0.012 (etiket: varsayım: ADR-007 kuralıyla türetildi (kalibrasyon ve boşluk aylarında en büyük aylık |kalibre ortalama PD − gözlenen oran| = 0,0118, 0,001'e yukarı yuvarlandı); dönem kayması ve model belirsizliği payı; Venn-Abers aralığı değil) |
 | Tanımlandığı yer | `configs/catalog/demo_v0.yaml`, `delta.deger`; `bundle.lock.json` bu dosyanın hash'ini taşır |
 | API'nin kullandığı değer | `/score` ve `/batch`, `sec_from_scores` çağrısına δ vermez; motor katalogdaki varsayılanı kullanır (`recourse.sec`, `delta=None`) |
 | API yanıtında görünür mü | hayır (yanıt ve istek şemasında δ alanı yok); dolaylı iz: `surumler.katalog_sha256` |
 | Arayüzde görünür mü | hayır (arayüz δ değerini göstermez; metinlerde yalnızca "güvenli payla" ifadesi geçer) |
-| Bu raporun sütunları | δ = 0 (band içi: etkin kesim eşik − band), δ = 0,02 (demo varsayılanı), δ = 0,03 |
+| Bu raporun sütunları | δ = 0 (band içi: etkin kesim eşik − band), δ = 0,012 (demo varsayılanı), δ = 0,03 |
 
 > **Bu tablo ne demek:** API ve arayüzün plan ararken hangi δ'yı kullandığı ve bu değerin nerede görünür olduğu; değerler canlı dosyalardan okundu.
 

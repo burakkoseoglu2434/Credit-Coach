@@ -51,6 +51,30 @@ Bir plan, modelin plan sonrası riskinin (`p_high`) onay eşiğinin `δ` kadar a
 En büyük aylık kayma: **0.011832** (2015-02, boşluk). Kural: δ = ceil(1000 × 0.011832) / 1000 = **0.012**.
 <!-- OLCUM-BITIS -->
 
+## Karar ve etki
+Kuralın hesapladığı değer **δ = 0,012** (en büyük aylık kayma 0,011832, 2015-02, boşluk ayı), katalogdaki
+**0,02'den farklıdır**; bu yüzden `configs/catalog/demo_v0.yaml` içindeki `delta.deger` güncellendi
+(gerekçe aynı dosyadaki etiketle birlikte yazılı; etiket "varsayım" olarak kalır).
+Katalog değeri: 0,012.
+
+Önceki varsayılanla (δ = 0,02) yeni varsayılanın (δ = 0,012) karşılaştırması, reddedilenler içinde
+(kalibrasyon 52.229, boşluk 59.529; test dilimi yok; raporlar yeniden üretildi):
+
+| ölçü | dilim | δ = 0,02 | δ = 0,012 |
+|---|---|---|---|
+| en az bir yolda plan | kalibrasyon | 19,1% | 19,1% |
+| en az bir yolda plan | boşluk | 19,4% | 19,4% |
+| PLAN_YOK | kalibrasyon | 80,9% | 80,9% |
+| GUCLU | kalibrasyon | 0,1% | 1,1% |
+| KOSULLU | kalibrasyon | 1,5% | 10,0% |
+| ZAYIF | kalibrasyon | 17,5% | 8,0% |
+| GUCLU | boşluk | 0,1% | 1,2% |
+| KOSULLU | boşluk | 1,7% | 10,4% |
+| ZAYIF | boşluk | 17,6% | 7,9% |
+
+Plan oranı değişmedi (aşağıdaki plato nedeniyle); etiket dağılımı belirgin değişti, çünkü
+`min_phi = (p_önce − kesim) / Δ` ve kesim = eşik − δ doğrudan δ'ya bağlıdır.
+
 ## Plato notu
 Venn-Abers kalibratörü basamaklıdır (ölçüm: `docs/demo_recourse_delta_diag.md`): aday planların
 `p_after` değerleri eşik civarında birkaç platoda toplanır (örneğin 0,0861; 0,0997; 0,1009).
@@ -59,3 +83,6 @@ arasında 24.527, eşik − 0,01 ile eşik − band arasında 35.003). Sonuç: �
 değerleri plan oranını neredeyse değiştirmez; δ = 0,01 ve δ = 0,02 aynı plan oranı tablosunu verdi
 (yol başına kayıt sayıları en çok bir kayıtla farklı). Bu yüzden δ seçimi küçük aralıklarda duyarlı
 değildir, 0,03'e doğru ya da band'a doğru gidildiğinde duyarlıdır.
+Plan oranı platoya takıldığı için δ = 0,02 → 0,012 değişikliğinde değişmedi; ama **etiket dağılımı
+δ'ya plan oranından çok daha duyarlıdır** (yukarıdaki tablo): aynı planlar daha düşük gereken etki
+payı gösterir. Etiket eşikleri (0,50 / 0,75) da varsayımdır; δ ve eşikler birlikte yorumlanmalıdır.

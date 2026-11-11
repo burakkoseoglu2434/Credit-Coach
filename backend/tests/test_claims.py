@@ -36,7 +36,10 @@ def test_claims_mentions_min_phi_labels_and_evidence_classes():
 
 
 def test_claims_states_the_missing_guclu_example_and_the_note_stays():
-    sentence = "198 örnek kayıtta varsayılan δ'da GUCLU etiketli reddedilen kayıt çıkmadı."
+    sentence = (
+        "198 örnek kayıtta δ = 0,02 iken GUCLU etiketli reddedilen kayıt çıkmadı; "
+        "δ = 0,012'de (ADR-007) 4 kayıt çıkar. GUCLU örnek vakası eklenmedi (karar)."
+    )
     assert sentence in CLAIMS
     cases = (ROOT / "docs" / "demo_example_cases.md").read_text()
     assert "**Bulunamadı:**" in cases  # the 'not found' note in demo_example_cases.md stays

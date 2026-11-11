@@ -6,7 +6,7 @@
     },
     "catalog_demo_v0": {
       "path": "configs/catalog/demo_v0.yaml",
-      "sha256": "c32fe81cff493fbe7dd23bcf5f9c1441c96c5b897cbabfa7909acdb6b4fd5abb"
+      "sha256": "125018ea5e789b09964663501351dc5f378c5d767d0773098a780cc4ba48d27e"
     },
     "cost_and_thresholds": {
       "path": "configs/cost.yaml",

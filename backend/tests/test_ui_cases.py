@@ -83,14 +83,23 @@ def test_repo_root_is_consistent():
     assert (ROOT / "frontend" / "src" / "ornekler.json").exists()
 
 
-def test_extra_case_is_the_first_match_in_file_order_per_the_written_rule():
+def test_example_case_rule_facts_at_the_current_default_delta_are_documented():
+    """Local-only: re-applies the written rule at the CURRENT default delta and checks that
+    docs/demo_example_cases.md states the result (the cases were chosen at delta 0.02)."""
     from credit_coach.baseline import CSV
 
     if not CSV.exists():
         pytest.skip("raw data not available locally (issue months of the earlier records)")
+    from credit_coach.recourse import load_demo_catalog
     from credit_coach.ui_cases import build_ek
 
     found, missing = build_ek()
-    assert [c["anahtar"] for c in found] == [c["anahtar"] for c in CASES_DATA[5:]]
-    assert [c["kaynak_id"] for c in found] == [c["kaynak_id"] for c in CASES_DATA[5:]]
-    assert missing == [c for c in EK_ORDER if c not in {x["anahtar"] for x in CASES_DATA}]
+    doc = (ROOT / "docs" / "demo_example_cases.md").read_text()
+    delta = load_demo_catalog().delta
+    assert delta == 0.012  # the documented addendum is about this default
+    by = {c["anahtar"]: c["kaynak_id"] for c in found}
+    assert by.get("ret_guclu") == "cal-261695" and "cal-261695" in doc
+    assert by.get("ret_kosullu") == "cal-219812" and "cal-219812" in doc
+    assert missing == []
+    # the frozen extra case is still KOSULLU at the current default (category test above)
+    assert any(c["kaynak_id"] == "cal-257109" for c in CASES_DATA)
