@@ -157,7 +157,9 @@ def cmd_select() -> int:
     rows = []
     for cfg in U.grid():
         tau = _fit_tau(cfg, a, tr, va, p)
-        area, _ = U.qini(U.rank_order(tau, order_rows), a["visit"][va], a["t"][va], w)
+        area, _ = U.qini(
+            U.rank_order(tau, order_rows, tiebreak="row_id"), a["visit"][va], a["t"][va], w
+        )
         rows.append((cfg, area))
     best = {f: max((r for r in rows if r[0].aile == f), key=lambda r: r[1]) for f in ("T", "TO")}
     chosen = max(best.values(), key=lambda r: r[1])[0]  # eşitlikte ızgara sırası (T önce)
@@ -302,7 +304,7 @@ def support_mask(x_tr: np.ndarray, x_ev: np.ndarray) -> np.ndarray:
 
 
 def evaluate_model(tau, y, t, row_id):
-    order = U.rank_order(tau, row_id)
+    order = U.rank_order(tau, row_id, tiebreak="row_id")  # E1 dondurulmuş kuralı
     dec = U.decile_of(order)
     w1 = np.ones(len(y))
     area, curve = U.qini(order, y, t, w1)

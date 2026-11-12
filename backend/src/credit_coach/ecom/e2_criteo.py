@@ -223,6 +223,20 @@ def cmd_select() -> int:
         print("belirlenimcilik başarısız")
         return 1
 
+    # Desil dengesi (yalnızca tedavi ataması): yeni ve eski eşitlik kuralı, en büyük eşit blok.
+    balance = {}
+    for f in best:
+        tau = taus_va[best[f][0].ad]
+        balance[f] = {
+            "ayar": best[f][0].ad,
+            "en_buyuk_esit_blok": U.max_tie_share(tau),
+            "kontrol_payi_anahtar": U.decile_control_share(U.rank_order(tau, rid), t).tolist(),
+            "kontrol_payi_satir_kimligi": U.decile_control_share(
+                U.rank_order(tau, rid, tiebreak="row_id"), t
+            ).tolist(),
+        }
+    print(json.dumps(balance, indent=1), flush=True)
+
     # Bootstrap süre ölçümü (doğrulama kümesinde, aynı boyut ve aynı hesaplar).
     btaus = {f: taus_va[best[f][0].ad] for f in best}
     orders = {k: U.rank_order(v, rid) for k, v in btaus.items()}
@@ -252,6 +266,8 @@ def cmd_select() -> int:
         "p_egitim": p,
         "egitim_sureleri_s": {k: round(v, 1) for k, v in fit_times.items()},
         "tepe_bellek_gib": round(Watchdog.rss_peak() / 2**30, 2),
+        "desil_dengesi": balance,
+        "kontrol_payi_genel": float(1 - t.mean()),
         "bootstrap_adim_s": round(per_iter, 3),
         "bootstrap_ongorulen_s": round(per_iter * B, 0),
     }
@@ -300,6 +316,36 @@ def render_selection(rows, best, chosen, sel, runtime) -> str:
             "Her ayarın doğrulama kümesinde Qini alanı ve eğitim süresi; en yüksek Qini seçildi.",
             "Doğrulama Qini'si test sonucunu öngörmez; aynı küme hem ayar hem seçim için "
             "kullanıldığı için iyimser olabilir.",
+        )
+    )
+    L += [
+        "## Desil dengesi (doğrulama kümesi; yalnızca tedavi ataması)\n",
+        "Eşitlik kuralı PLAN 2.1 sonradan notuna göre: sıralama $(-\\hat\\tau,\\ "
+        "\\text{anahtar})$, anahtar = splitmix64(satır kimliği, seed 20261111). Karşılaştırma "
+        "için eski kural (satır kimliği) da gösterilir. Genel kontrol payı "
+        f"{_f(sel['kontrol_payi_genel'], 3)}.\n",
+        "| Model | Ayar | En büyük eşit blok | Kural | "
+        + " | ".join(f"D{d}" for d in range(1, 11))
+        + " |\n|---|---|---|---|"
+        + "---|" * 10,
+    ]
+    for f, bal in sel["desil_dengesi"].items():
+        for kural, key in (
+            ("anahtar (yeni)", "kontrol_payi_anahtar"),
+            ("satır kimliği (eski)", "kontrol_payi_satir_kimligi"),
+        ):
+            L.append(
+                f"| {f} | `{bal['ayar']}` | {_f(bal['en_buyuk_esit_blok'], 4)} | {kural} | "
+                + " | ".join(_f(v, 3) for v in bal[key])
+                + " |"
+            )
+    L.append(
+        _note(
+            "Doğrulama kümesinde tahmine göre sıralanmış desillerde kontrol grubunun payı; "
+            "rastgele atamada her desilde genel paya yakın olması beklenir.",
+            "Sonuç değişkeni kullanılmadı; bu tablo modelin isabeti hakkında bir şey söylemez, "
+            "yalnızca sıralama kuralının tedaviyi desillere dengeli dağıtıp "
+            "dağıtmadığını gösterir.",
         )
     )
     proj = sel["bootstrap_ongorulen_s"]

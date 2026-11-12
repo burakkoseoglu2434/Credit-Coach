@@ -100,9 +100,45 @@ def fit_predict_tau(
 # --- metrikler (ağırlıklı: bootstrap çokluk ağırlığı; ağırlık 1 = ham) -------------------------
 
 
-def rank_order(tau: np.ndarray, row_id: np.ndarray) -> np.ndarray:
-    """tau'ya göre azalan; eşitlik satır kimliğine göre artan."""
-    return np.lexsort((row_id, -tau))
+_M64 = np.uint64(0xFFFFFFFFFFFFFFFF)
+
+
+def tie_key(row_id: np.ndarray, seed: int = SEED) -> np.ndarray:
+    """Satır kimliği ve seed'den sabit 64-bit anahtar (splitmix64; satır başına bir kez).
+
+    splitmix64 birebirdir: farklı satır kimlikleri farklı anahtar alır. Anahtar dosya sırasından
+    bağımsızdır; bu yüzden tedaviye göre bloklu dosyalarda eşitlikler tedaviyle öbeklenmez.
+    """
+    with np.errstate(over="ignore"):
+        z = row_id.astype(np.uint64) + np.uint64(seed) * np.uint64(0x9E3779B97F4A7C15)
+        z = z + np.uint64(0x9E3779B97F4A7C15)
+        z = (z ^ (z >> np.uint64(30))) * np.uint64(0xBF58476D1CE4E5B9)
+        z = (z ^ (z >> np.uint64(27))) * np.uint64(0x94D049BB133111EB)
+        return z ^ (z >> np.uint64(31))
+
+
+def rank_order(tau: np.ndarray, row_id: np.ndarray, tiebreak: str = "key") -> np.ndarray:
+    """tau'ya göre azalan sıra; Qini ve desillerin tek sıralama yeri.
+
+    tiebreak="key" (Criteo ve sonrası, PLAN 2.1 sonradan notu): eşitlik tie_key(row_id) ile.
+    tiebreak="row_id": E1'in dondurulmuş eski kuralı (satır kimliğine göre artan); yalnızca E1.
+    """
+    if tiebreak == "key":
+        return np.lexsort((tie_key(row_id), -tau))
+    if tiebreak == "row_id":
+        return np.lexsort((row_id, -tau))
+    raise ValueError(tiebreak)
+
+
+def decile_control_share(order: np.ndarray, t: np.ndarray) -> np.ndarray:
+    """Desil başına kontrol payı (yalnızca tedavi ataması; sonuç değişkeni kullanılmaz)."""
+    dec = decile_of(order)
+    return np.bincount(dec, weights=1 - t, minlength=10) / np.bincount(dec, minlength=10)
+
+
+def max_tie_share(tau: np.ndarray) -> float:
+    """En büyük eşit tahmin bloğunun satır payı."""
+    return float(np.unique(tau, return_counts=True)[1].max() / len(tau))
 
 
 def qini(order, y, t, w) -> tuple[float, np.ndarray]:

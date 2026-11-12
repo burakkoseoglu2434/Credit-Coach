@@ -68,3 +68,41 @@ def test_test_run_refuses_when_lock_exists(tmp_path, monkeypatch):
     lock.write_text("{}")
     monkeypatch.setattr(e1, "LOCK_PATH", lock)
     assert e1.cmd_test() == 1
+
+
+# --- Criteo eşitlik kuralı (PLAN 2.1 sonradan notu) ----------------------------------------------
+
+
+def _blocked_ties(n=50_000):
+    """Tedaviye göre bloklu dosya (önce tüm tedavi, sonra tüm kontrol) ve çok eşitlikli tahmin."""
+    rng = np.random.default_rng(3)
+    t = np.zeros(n, dtype=np.int64)
+    t[: int(0.85 * n)] = 1
+    tau = rng.integers(0, 4, n).astype(float) / 10  # 4 farklı değer: dev eşit bloklar
+    return tau, t, np.arange(n)
+
+
+def _max_share_gap(order, t):
+    return float(np.max(np.abs(U.decile_control_share(order, t) - (1 - t.mean()))))
+
+
+def test_hash_key_balances_deciles_in_treatment_blocked_file():
+    tau, t, rid = _blocked_ties()
+    assert _max_share_gap(U.rank_order(tau, rid, tiebreak="row_id"), t) > 0.1  # eski kural bozuk
+    assert _max_share_gap(U.rank_order(tau, rid), t) <= 0.02  # yeni kural
+
+
+def test_tie_key_is_bit_identical_and_bijective():
+    rid = np.arange(100_000)
+    a, b = U.tie_key(rid), U.tie_key(rid)
+    assert np.array_equal(a, b) and a.dtype == np.uint64
+    assert len(np.unique(a)) == len(rid)
+    assert not np.array_equal(a, U.tie_key(rid, seed=1))
+    tau, t, r = _blocked_ties()
+    assert np.array_equal(U.rank_order(tau, r), U.rank_order(tau, r))
+
+
+def test_mutation_reverting_key_to_row_id_fails_balance_check(monkeypatch):
+    tau, t, rid = _blocked_ties()
+    monkeypatch.setattr(U, "tie_key", lambda row_id, seed=U.SEED: row_id.astype(np.uint64))
+    assert _max_share_gap(U.rank_order(tau, rid), t) > 0.02
