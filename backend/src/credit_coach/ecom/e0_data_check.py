@@ -270,6 +270,16 @@ class Olcut:
     gecti: bool | None  # None = karar bekliyor
 
 
+def _license_txt(ok: bool | None) -> str:
+    return {None: "kullanıcı onayı bekliyor", True: "kullanıcı onayladı", False: "onaylanmadı"}[ok]
+
+
+def license_approved(sources: dict) -> bool | None:
+    """configs/ecom_data_source.yaml `lisans_onayi.durum`: onaylandi / reddedildi / yok."""
+    durum = (sources.get("lisans_onayi") or {}).get("durum")
+    return {"onaylandi": True, "reddedildi": False}.get(durum)
+
+
 def max_abs_smd(rows: list[dict]) -> tuple[str, float]:
     r = max(rows, key=lambda x: abs(x["smd"]))
     return r["ozellik"], abs(r["smd"])
@@ -279,7 +289,7 @@ def _int_tr(n: int) -> str:
     return f"{n:,}".replace(",", ".")
 
 
-def evaluate(h: dict, c: dict) -> list[Olcut]:
+def evaluate(h: dict, c: dict, license_ok: bool | None = None) -> list[Olcut]:
     seg_ok = all(abs(v - SEGMENT_SHARE) <= SEGMENT_TOL for v in h["segment_pay"].values())
     seg_txt = ", ".join(f"{k}: {_fmt(v)}" for k, v in h["segment_pay"].items())
     h_name, h_smd = max_abs_smd(h["smd"]["birlesik_vs_yok"])
@@ -314,7 +324,7 @@ def evaluate(h: dict, c: dict) -> list[Olcut]:
             f"en büyük {_fmt(c_smd)} ({c_name})",
             c_smd < SMD_MAX,
         ),
-        Olcut("5", "Lisans notu kullanıcı onayı", "kullanıcı onayı bekliyor", None),
+        Olcut("5", "Lisans notu kullanıcı onayı", _license_txt(license_ok), license_ok),
     ]
 
 
@@ -322,6 +332,8 @@ def decision(criteria: list[Olcut]) -> str:
     """Planın durdurma kuralı (bölüm 6 E0 + Kararlar Q9). Ölçüt 5 ayrı karar bekler."""
     failed = {o.kod for o in criteria if o.gecti is False}
     if not failed:
+        if all(o.gecti for o in criteria):
+            return "E0 geçti (1–5). E1 ayrı bir adım; kullanıcı onayıyla başlar."
         return "1–4 geçti; ölçüt 5 (lisans) kullanıcı onayı bekliyor. E1 başlamaz, onay beklenir."
     if failed == {"4b"}:
         return (
@@ -531,16 +543,20 @@ def render(h: dict, c: dict, criteria: list[Olcut], sources: dict, runtime_s: fl
         a(f"| Criteo | `{k}` | {_fmt(v, 5)} | {r['eksik']} | {r['min']} | {r['max']} |")
     a(_note(*NOTES["sonuc"]))
 
+    lic = _license_txt(next(o.gecti for o in criteria if o.kod == "5"))
+    onay = sources.get("lisans_onayi") or {}
     a("## Lisans (ölçüt 5)\n")
+    if onay:
+        a(
+            "Onay kaydı (`configs/ecom_data_source.yaml`): "
+            f"{onay.get('durum')}, {onay.get('tarih')}, {onay.get('not')}.\n"
+        )
     a("| Set | Not | Durum |\n|---|---|---|")
     a(
         f"| Hillstrom | {hs['lisans']} (kaynak sayfada şart yok); kullanım: {hs['kullanim']} "
-        "| kullanıcı onayı bekliyor |"
+        f"| {lic} |"
     )
-    a(
-        f"| Criteo | {cs['lisans']}; kullanım: {cs['kullanim']}; atıf: {cs['atif']} "
-        "| kullanıcı onayı bekliyor |"
-    )
+    a(f"| Criteo | {cs['lisans']}; kullanım: {cs['kullanim']}; atıf: {cs['atif']} | {lic} |")
     a(_note(*NOTES["lisans"]))
     return "\n".join(L) + "\n"
 
@@ -550,7 +566,7 @@ def main() -> int:
     sources = yaml.safe_load(SOURCE_PATH.read_text())
     h = check_hillstrom(Path(sources["hillstrom"]["yol"]))
     c = check_criteo(Path(sources["criteo_uplift"]["yol"]))
-    criteria = evaluate(h, c)
+    criteria = evaluate(h, c, license_approved(sources))
     runtime = time.perf_counter() - t0
     REPORT_PATH.write_text(render(h, c, criteria, sources, runtime), encoding="utf-8")
     hn, hv = max_abs_smd(h["smd"]["birlesik_vs_yok"])

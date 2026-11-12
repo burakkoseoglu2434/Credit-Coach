@@ -42,6 +42,10 @@ criteo_uplift:
   kullanim: ticari olmayan iç doğrulama (PLAN Karar Q5)
   atif: "Diemert, Betlei, Renaudin, Amini (2018), A Large Scale Benchmark for Uplift Modeling, AdKDD & TargetAd @ KDD"
   sutunlar: [f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, treatment, conversion, visit, exposure]
+lisans_onayi:                    # E0 ölçüt 5
+  durum: onaylandi
+  tarih: 2026-11-12
+  not: "Kullanıcı sohbette onayladı (\"License approved\"): ticari olmayan iç doğrulama; Criteo CC BY-NC-SA 4.0 (HF etiketi), Hillstrom lisansı doğrulanamadı"
 bolme:
   seed: 20261111
   oranlar: {egitim: 0.6, dogrulama: 0.2, test: 0.2}

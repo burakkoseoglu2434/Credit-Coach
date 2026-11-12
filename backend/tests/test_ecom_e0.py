@@ -101,3 +101,11 @@ def test_decision_follows_stop_rule():
     assert "Criteo çıkarılır" in e0.decision(e0.evaluate(_h(), _c(smd=-0.2)))
     assert "modelleme yapılmaz" in e0.decision(e0.evaluate(_h(smd_birlesik=0.06), _c()))
     assert "modelleme yapılmaz" in e0.decision(e0.evaluate(_h(), _c(p=0.80)))
+
+
+def test_license_approval_closes_e0():
+    assert e0.license_approved({"lisans_onayi": {"durum": "onaylandi"}}) is True
+    assert e0.license_approved({}) is None
+    ok = e0.evaluate(_h(), _c(), license_ok=True)
+    assert "E0 geçti" in e0.decision(ok)
+    assert "modelleme yapılmaz" in e0.decision(e0.evaluate(_h(), _c(), license_ok=False))

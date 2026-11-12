@@ -4,7 +4,7 @@
 
 Disiplin: sonuç değişkenlerinin (visit, conversion, spend) tedavi/kontrol kırılımı **hesaplanmadı**; yalnızca genel ortalama, eksik değer ve aralık verildi (E1/E2'nin sorusu önceden etkilenmesin diye).
 
-Toplam çalışma süresi: 27,3 s (Criteo SQL geçişleri 17,0 s, Criteo Pandera 9,5 s).
+Toplam çalışma süresi: 23,0 s (Criteo SQL geçişleri 13,9 s, Criteo Pandera 8,1 s).
 
 ## Ölçüt tablosu (PLAN bölüm 6, E0; eşikler DONDURULDU)
 
@@ -18,9 +18,9 @@ Toplam çalışma süresi: 27,3 s (Criteo SQL geçişleri 17,0 s, Criteo Pandera
 | 3b | Criteo Pandera: satırların %100'ü geçer | kalan satır 0 | geçti |
 | 4a | Hillstrom \|SMD\| < 0,05 (birleşik iki kol vs e-posta yok) | en büyük 0,0153 (history_segment=2) $100 - $200) | geçti |
 | 4b | Criteo \|SMD\| < 0,05 (treatment 1 vs 0) | en büyük 0,0488 (f3) | geçti |
-| 5 | Lisans notu kullanıcı onayı | kullanıcı onayı bekliyor | kullanıcı onayı bekliyor |
+| 5 | Lisans notu kullanıcı onayı | kullanıcı onayladı | geçti |
 
-**Karar (durdurma kuralı):** 1–4 geçti; ölçüt 5 (lisans) kullanıcı onayı bekliyor. E1 başlamaz, onay beklenir.
+**Karar (durdurma kuralı):** E0 geçti (1–5). E1 ayrı bir adım; kullanıcı onayıyla başlar.
 
 
 > **Bu tablo ne demek:** Her E0 ölçütünün, sonuç görülmeden dondurulmuş eşiğe göre geçip geçmediği.
@@ -189,10 +189,12 @@ Tanım: $\text{SMD} = (\bar x_T - \bar x_C) / \sqrt{(s_T^2 + s_C^2)/2}$, örnekl
 
 ## Lisans (ölçüt 5)
 
+Onay kaydı (`configs/ecom_data_source.yaml`): onaylandi, 2026-11-12, Kullanıcı sohbette onayladı ("License approved"): ticari olmayan iç doğrulama; Criteo CC BY-NC-SA 4.0 (HF etiketi), Hillstrom lisansı doğrulanamadı.
+
 | Set | Not | Durum |
 |---|---|---|
-| Hillstrom | doğrulanamadı (kaynak sayfada şart yok); kullanım: ticari olmayan iç doğrulama (PLAN Karar Q5) | kullanıcı onayı bekliyor |
-| Criteo | CC-BY-NC-SA-4.0 (HF etiketi; birincil kaynakta doğrulanamadı); kullanım: ticari olmayan iç doğrulama (PLAN Karar Q5); atıf: Diemert, Betlei, Renaudin, Amini (2018), A Large Scale Benchmark for Uplift Modeling, AdKDD & TargetAd @ KDD | kullanıcı onayı bekliyor |
+| Hillstrom | doğrulanamadı (kaynak sayfada şart yok); kullanım: ticari olmayan iç doğrulama (PLAN Karar Q5) | kullanıcı onayladı |
+| Criteo | CC-BY-NC-SA-4.0 (HF etiketi; birincil kaynakta doğrulanamadı); kullanım: ticari olmayan iç doğrulama (PLAN Karar Q5); atıf: Diemert, Betlei, Renaudin, Amini (2018), A Large Scale Benchmark for Uplift Modeling, AdKDD & TargetAd @ KDD | kullanıcı onayladı |
 
 > **Bu tablo ne demek:** Lisans bilgisinin bulunduğu kaynak ve bu çalışmanın ticari olmayan iç doğrulama olarak sınırlandığı.
 >
