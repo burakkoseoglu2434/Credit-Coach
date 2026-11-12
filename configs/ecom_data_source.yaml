@@ -1,0 +1,36 @@
+# Dış veri kaynakları (e-ticaret uplift doğrulaması, docs/ecom/PLAN.md). Dosyalar depoya KOPYALANMAZ
+# (data/ git'e girmez). Yol bu makineye aittir. sha256 indirilen dosyanın kendisinin SHA-256 değeridir
+# (Criteo için .gz dosyası; açılmış içerik değil, gz açılmaz, DuckDB ile doğrudan okunur).
+# satir ve denge değerleri E0'da ölçülür; o zamana kadar null.
+hillstrom:
+  ad: MineThatData E-Mail Analytics and Data Mining Challenge (2008)
+  kaynak_url: https://blog.minethatdata.com/2008/03/minethatdata-e-mail-analytics-and-data.html
+  indirme_url: http://www.minethatdata.com/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv
+  indirme_tarihi: 2026-11-12
+  yol: /Users/bkoseoglu/dev/Credit-Coach/data/ecom/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv
+  sha256: 0e5893329d8b93cefecc571777672028290ab69865718020c78c7284f291aece
+  boyut_bayt: 3964977            # sunucu Content-Length 3964977 ile aynı
+  satir: null                    # beklenen 64000 (E0)
+  lisans: doğrulanamadı          # kaynak sayfada lisans ya da kullanım şartı yok
+  kullanim: ticari olmayan iç doğrulama (PLAN Karar Q5)
+  sutunlar: [recency, history_segment, history, mens, womens, zip_code, newbie, channel, segment, visit, conversion, spend]
+criteo_uplift:
+  ad: Criteo Uplift Prediction Dataset
+  kaynak_url: https://huggingface.co/datasets/criteo/criteo-uplift
+  indirme_url: https://huggingface.co/datasets/criteo/criteo-uplift/resolve/main/criteo-research-uplift-v2.1.csv.gz
+  hf_repo_commit: 2424920019e49d52d72c13ac1143ec5d53af276b
+  surum: doğrulanamadı           # dosya adında "v2.1"; kaynak kartta sürüm yazmıyor
+  indirme_tarihi: 2026-11-12
+  yol: /Users/bkoseoglu/dev/Credit-Coach/data/ecom/criteo-research-uplift-v2.1.csv.gz
+  gz_sha256: 2716e1bf0fd157a93b5bf86924d9088419dfbac2022c6cd90030220634f616dc  # HF LFS oid ile aynı
+  gz_boyut_bayt: 311422618       # sunucu Content-Length 311422618 ile aynı
+  acilmis_sha256: null           # gz açılmaz
+  satir: null                    # beklenen 13979592 (E0)
+  lisans: CC-BY-NC-SA-4.0 (HF etiketi; birincil kaynakta doğrulanamadı)
+  kullanim: ticari olmayan iç doğrulama (PLAN Karar Q5)
+  atif: "Diemert, Betlei, Renaudin, Amini (2018), A Large Scale Benchmark for Uplift Modeling, AdKDD & TargetAd @ KDD"
+  sutunlar: [f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, treatment, conversion, visit, exposure]
+bolme:
+  seed: 20261111
+  oranlar: {egitim: 0.6, dogrulama: 0.2, test: 0.2}
+  tabaka: [treatment, birincil_sonuc]   # birincil_sonuc = visit (Karar Q3); ADR-008
