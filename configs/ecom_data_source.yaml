@@ -62,3 +62,15 @@ bolme_hillstrom:
     test: 12802
   p_egitim: 0.667101
   tedavi: iki e-posta kolu birleşik vs No E-Mail (Karar Q2)
+# E2 bölmesi (python -m credit_coach.ecom.e2_criteo split)
+bolme_criteo:
+  karma: c5fa21e7aef3581fb4c76be0c55fe44e78148e9a3ae02eece3d24b9d0e43a1ef
+  yontem: tabaka (tedavi x visit) içinde seed'li permütasyon; satır kimliği = dosya
+    sırası
+  seed: 20261111
+  satir:
+    egitim: 8387755
+    dogrulama: 2795918
+    test: 2795919
+  p_egitim: 0.85
+  tedavi: treatment (atamaya göre; exposure kullanılmaz)
