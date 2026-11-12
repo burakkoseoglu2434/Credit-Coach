@@ -404,6 +404,8 @@ Bölüm 9'daki sorulara kullanıcı yanıtları. Bu bölüm eklendikten sonra b�
 
 *Sonradan (2026-11-12): E1 sonucu.* E1'de (Hillstrom, test kümesi tek sefer, kilit `docs/ecom/test_run_hillstrom.lock`) ölçüt 1 ve 3 geçti, **ölçüt 2 kaldı**: kalibrasyon eğimi 0,353 [−0,005; 0,688] (eşik [0,5; 1,5] ve alt sınır > 0). Bölüm 6'nın genel kuralı gereği (bir kapı kalırsa sonraki kapı kullanıcı onayı olmadan başlamaz) E2 kullanıcı onayıyla başlıyor (onay 2026-11-12). E1 sonuçları ve `docs/ecom/E1_hillstrom.md` **değişmez**; rapor yeniden üretilmez, test yeniden çalıştırılmaz. `E1_hillstrom.md`'deki Hillstrom politika değeri tablosu "E1 ölçüt 2 kalan model" etiketiyle okunur.
 
+*Sonradan (2026-11-12, E2 test kümesi çalışmadan ÖNCE yazıldı): E3 ön kaydı.* E2 ölçüt 1 ya da 2'den biri kalırsa E3 yapılmaz; sonuç "hedefleme değeri bu veriyle gösterilemedi" olarak raporlanır. E2 geçerse E3 ayrıca kullanıcı onayıyla başlar.
+
 > **Bu bölüm ne demek:** Kapı sonuçlarından sonra plana eklenen notlar ve bunların hangi kurala dayandığı.
 >
 > **Ne DEMEK DEĞİL:** E1'deki kalan ölçütün göz ardı edildiğini ya da eşiklerin değiştiğini söylemez; E2'nin başlaması E1 sonucunu düzeltmez.
