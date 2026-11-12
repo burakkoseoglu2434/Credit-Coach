@@ -50,6 +50,7 @@ E3 neden yapılmadı: E2 testinden önce yazılan ön kayıt (PLAN bölüm 11), 
 - Criteo kapı modelinde test satırlarının %40'ı aynı tahmini paylaşıyor (6–10. desiller); bu desillerde sıralama bilgi taşımıyor.
 - Hillstrom örneklemi küçük (test 12.802 satır, desil başına yaklaşık 430 kontrol); aralıklar geniş.
 - E1 eski eşitlik kuralıyla (satır kimliği), E2 sabit anahtarla üretildi (PLAN 2.1 sonradan notu); Hillstrom dosyası tedaviye göre sıralı olmadığı için E1 etkilenmedi.
+- ADR-008'de bölme yöntemi yanlış tarif edilmişti (satır kimliği karması; gerçekte seed'li tabakalı permütasyon); düzeltme 2026-11-13 sonradan notunda, kayıtlı karma koddan birebir yeniden üretildi (`SPLIT_CHECK.md`).
 - Sonuçlar kredi kararlarına aktarılamaz; sıralı zincir (reklam → indirim → …) test edilmedi.
 
 > **Bu bölüm ne demek:** Sonuçların hangi koşullarda geçerli olduğu.
