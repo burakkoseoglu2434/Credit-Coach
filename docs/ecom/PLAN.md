@@ -267,6 +267,7 @@ Toplam süre hedefi: **9 iş günü** (1–2 hafta). Her kapı ayrı PR; bir kap
   2. Criteo satır = 13.979.592 (ya da kullanıcı onaylı başka sürüm sayısı); tedavi oranı 0,846 ± 0,005.
   3. Pandera şeması satırların %100'ünde geçer (eksik değer, tür, değer aralığı).
   4. Denge: her özellik için T/C standartlaştırılmış ortalama farkı |SMD| < 0,05 (Hillstrom: Womens ve No E-Mail arasında; Criteo: tüm set).
+     *Sonradan (2026-11-12, Karar Q2):* Hillstrom'da kapıya giren SMD, birleşik iki e-posta kolu (Mens + Womens) ile No E-Mail arasında hesaplanır; Womens–No ve Mens–No çiftleri yalnızca bilgi olarak raporlanır. Kategorik özellikler (`zip_code`, `channel`, `history_segment`) one-hot kodlanır; SMD $= (\bar x_T - \bar x_C)/\sqrt{(s_T^2 + s_C^2)/2}$, örneklem varyansı. Eşik (0,05) değişmedi.
   5. Lisans notu yazıldı ve kullanıcı onayladı (Criteo NC şartı; Hillstrom için şart bulunamadıysa bu açıkça yazıldı).
 - **Durdurma kuralı:** 1–4'ten biri kalırsa modelleme yapılmaz; fark raporlanır, kullanıcıya sorulur. 5 onaylanmazsa ilgili set çıkarılır.
 

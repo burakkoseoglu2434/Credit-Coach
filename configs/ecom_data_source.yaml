@@ -1,7 +1,7 @@
 # Dış veri kaynakları (e-ticaret uplift doğrulaması, docs/ecom/PLAN.md). Dosyalar depoya KOPYALANMAZ
 # (data/ git'e girmez). Yol bu makineye aittir. sha256 indirilen dosyanın kendisinin SHA-256 değeridir
 # (Criteo için .gz dosyası; açılmış içerik değil, gz açılmaz, DuckDB ile doğrudan okunur).
-# satir ve denge değerleri E0'da ölçülür; o zamana kadar null.
+# satir ve denge değerleri E0'da ölçüldü (docs/ecom/E0_data_check.md).
 hillstrom:
   ad: MineThatData E-Mail Analytics and Data Mining Challenge (2008)
   kaynak_url: https://blog.minethatdata.com/2008/03/minethatdata-e-mail-analytics-and-data.html
@@ -10,7 +10,13 @@ hillstrom:
   yol: /Users/bkoseoglu/dev/Credit-Coach/data/ecom/Kevin_Hillstrom_MineThatData_E-MailAnalytics_DataMiningChallenge_2008.03.20.csv
   sha256: 0e5893329d8b93cefecc571777672028290ab69865718020c78c7284f291aece
   boyut_bayt: 3964977            # sunucu Content-Length 3964977 ile aynı
-  satir: null                    # beklenen 64000 (E0)
+  satir: 64000                   # E0 (docs/ecom/E0_data_check.md), 2026-11-12
+  p_birlesik_tum_dosya: 0.66709  # iki e-posta kolu / tüm satır; eğitim kümesindeki p E1'de sabitlenir
+  denge:                         # E0 ölçüt 4a; birleşik iki kol vs e-posta yok, one-hot kategorikler
+    max_abs_smd: 0.0153
+    ozellik: "history_segment=2) $100 - $200"
+    esik: 0.05
+    gecti: true
   lisans: doğrulanamadı          # kaynak sayfada lisans ya da kullanım şartı yok
   kullanim: ticari olmayan iç doğrulama (PLAN Karar Q5)
   sutunlar: [recency, history_segment, history, mens, womens, zip_code, newbie, channel, segment, visit, conversion, spend]
@@ -25,7 +31,13 @@ criteo_uplift:
   gz_sha256: 2716e1bf0fd157a93b5bf86924d9088419dfbac2022c6cd90030220634f616dc  # HF LFS oid ile aynı
   gz_boyut_bayt: 311422618       # sunucu Content-Length 311422618 ile aynı
   acilmis_sha256: null           # gz açılmaz
-  satir: null                    # beklenen 13979592 (E0)
+  satir: 13979592                # E0 (docs/ecom/E0_data_check.md), 2026-11-12
+  p_tedavi_tum_dosya: 0.85000    # eğitim kümesindeki p E2'de sabitlenir
+  denge:                         # E0 ölçüt 4b; treatment 1 vs 0, f0-f11
+    max_abs_smd: 0.0488
+    ozellik: f3
+    esik: 0.05
+    gecti: true                  # eşiğe yakın; rapordaki "Gözlem" notuna bakınız
   lisans: CC-BY-NC-SA-4.0 (HF etiketi; birincil kaynakta doğrulanamadı)
   kullanim: ticari olmayan iç doğrulama (PLAN Karar Q5)
   atif: "Diemert, Betlei, Renaudin, Amini (2018), A Large Scale Benchmark for Uplift Modeling, AdKDD & TargetAd @ KDD"
