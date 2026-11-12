@@ -54,3 +54,20 @@ def test_criteo_test_run_refuses_when_lock_exists(tmp_path, monkeypatch):
     lock.write_text("{}")
     monkeypatch.setattr(e2, "LOCK_PATH", lock)
     assert e2.cmd_test() == 1
+
+
+def test_tie_stats_reports_block_and_decile_spread():
+    tau = np.r_[np.full(500, 0.1), np.linspace(0.2, 1, 500)]
+    t = np.tile([1, 0], 500)
+    order = U.rank_order(tau, np.arange(1000))
+    st = e2.tie_stats(tau, U.decile_of(order), t)
+    assert st["blok_pay"] == 0.5
+    assert st["blok_desiller"] == [6, 7, 8, 9, 10]
+    assert st["n_t"].sum() + st["n_c"].sum() == 1000
+
+
+def test_decision_applies_e3_preregistration():
+    ok = ("x", "", "", True)
+    assert "gösterilemedi" in e2.decision([("1", "", "", False), ok, ok])
+    assert "gösterilemedi" in e2.decision([ok, ("2", "", "", False), ok])
+    assert "yalnızca Hillstrom" in e2.decision([ok, ok, ("3", "", "", False)])

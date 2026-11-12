@@ -581,6 +581,8 @@ def cmd_test() -> int:
 
     obs = float(y[t == 1].mean() - y[t == 0].mean())  # ölçülen genel fark (test)
     k = kres
+    ties = tie_stats(taus[sel["secilen_aile"]], kres["dec"], t)
+    ties["T_en_buyuk_blok"] = U.max_tie_share(taus["T"])
     lo_f, hi_f = k["fark_ci"]
     ok_dec = (np.abs(k["tab"]["fark"]) <= DECILE_TOL * abs(obs)) | ((lo_f <= 0) & (hi_f >= 0))
     crit = [
@@ -606,7 +608,21 @@ def cmd_test() -> int:
     runtime = time.perf_counter() - t0
     REPORT_PATH.write_text(
         render_report(
-            sel, res, policy, sec, crit, ok_dec, obs, support, lock, runtime, boot_s, wd, p, len(y)
+            sel,
+            res,
+            policy,
+            sec,
+            crit,
+            ok_dec,
+            obs,
+            support,
+            lock,
+            runtime,
+            boot_s,
+            wd,
+            p,
+            len(y),
+            ties,
         ),
         encoding="utf-8",
     )
@@ -624,10 +640,38 @@ def cmd_test() -> int:
     return 0 if all(c[3] for c in crit) else 2
 
 
+def tie_stats(tau: np.ndarray, dec: np.ndarray, t: np.ndarray) -> dict:
+    """Desil başına tedavi/kontrol sayısı, desil içi en büyük eşit grup payı ve test kümesindeki
+    en büyük eşit tahmin bloğunun payı ile desillere dağılımı (sonuç değişkeni kullanılmaz)."""
+    size = np.bincount(dec, minlength=10)
+    vals, counts = np.unique(tau, return_counts=True)
+    v_star = vals[np.argmax(counts)]
+    in_block = tau == v_star
+    within = [
+        float(np.unique(tau[dec == d], return_counts=True)[1].max() / size[d]) for d in range(10)
+    ]
+    return {
+        "n_t": np.bincount(dec, weights=t, minlength=10).astype(int),
+        "n_c": np.bincount(dec, weights=1 - t, minlength=10).astype(int),
+        "desil_ici_en_buyuk": within,
+        "blok_pay": float(counts.max() / len(tau)),
+        "blok_deger": float(v_star),
+        "blok_desil_payi": np.bincount(dec, weights=in_block, minlength=10) / size,
+        "blok_desiller": [int(d) + 1 for d in np.unique(dec[in_block])],
+    }
+
+
 def decision(crit) -> str:
-    if all(c[3] for c in crit):
+    failed_set = {c[0] for c in crit if not c[3]}
+    if not failed_set:
         return "E2 ölçütlerinin üçü de geçti. E3 ayrı bir adım; kullanıcı onayıyla başlar."
-    failed = ", ".join(c[0] for c in crit if not c[3])
+    failed = ", ".join(sorted(failed_set))
+    if failed_set & {"1", "2"}:
+        return (
+            f"Kalan ölçüt(ler): {failed}. Durdurma kuralı: test yeniden çalıştırılmaz, model "
+            "değiştirilmez. E3 ön kaydı gereği (PLAN bölüm 11) E3 yapılmaz; sonuç: hedefleme "
+            "değeri bu veriyle gösterilemedi."
+        )
     return (
         f"Kalan ölçüt(ler): {failed}. Durdurma kuralı (PLAN bölüm 6, E2): test yeniden "
         "çalıştırılmaz, model değiştirilmez; E3 yalnızca Hillstrom için, kullanıcı onayıyla "
@@ -636,7 +680,7 @@ def decision(crit) -> str:
 
 
 def render_report(
-    sel, res, policy, sec, crit, ok_dec, obs, support, lock, runtime, boot_s, wd, p, n_test
+    sel, res, policy, sec, crit, ok_dec, obs, support, lock, runtime, boot_s, wd, p, n_test, ties
 ) -> str:
     k = res[sel["secilen_aile"]]
     L: list[str] = []
@@ -717,13 +761,13 @@ def render_report(
         f"$0{{,}}25\\,|\\tau^{{obs}}_{{test}}|$ = {_f(DECILE_TOL * abs(obs), 5)}.\n"
     )
     a(
-        "| Desil | Satır | Tahmin edilen | Ölçülen | Fark | Fark %95 | Ölçüt 3 |"
-        "\n|---|---|---|---|---|---|---|"
+        "| Desil | Tedavi | Kontrol | Tahmin edilen | Ölçülen | Fark | Fark %95 | Ölçüt 3 |"
+        "\n|---|---|---|---|---|---|---|---|"
     )
     tab, fci = k["tab"], k["fark_ci"]
     for d in range(10):
         a(
-            f"| {d + 1} | {int(tab['boyut'][d])} | {_f(tab['tau_hat'][d], 5)} | "
+            f"| {d + 1} | {ties['n_t'][d]} | {ties['n_c'][d]} | {_f(tab['tau_hat'][d], 5)} | "
             f"{_f(tab['tau_obs'][d], 5)} | {_f(tab['fark'][d], 5)} | "
             f"[{_f(fci[0][d], 5)}; {_f(fci[1][d], 5)}] | {'uygun' if ok_dec[d] else 'değil'} |"
         )
@@ -738,6 +782,33 @@ def render_report(
             "ölçülen farkla karşılaştırması ve ölçüt 3'e uygunluğu.",
             "Ölçülen fark reklamın bu kişilerde ne yapacağını değil, bu test kümesinde ölçülen "
             "ortalama farkı verir; tek tek desiller karar dayanağı değildir.",
+        )
+    )
+
+    a("## Eşit tahminler (kapı modeli, test kümesi)\n")
+    a(
+        f"Test kümesinde en büyük eşit tahmin bloğu satırların **{_f(ties['blok_pay'], 4)}**'ü "
+        f"($\\hat\\tau$ = {_f(ties['blok_deger'], 6)}); yayıldığı desiller: "
+        f"{', '.join(str(d) for d in ties['blok_desiller'])}. T ailesinin en iyisinde en büyük "
+        f"blok {_f(ties['T_en_buyuk_blok'], 4)}. Eşitlikler PLAN 2.1 sonradan notundaki sabit "
+        "anahtarla sıralandı.\n"
+    )
+    a(
+        "| Desil | Satır | Kontrol payı | Desil içi en büyük eşit grup payı | "
+        "En büyük test bloğunun desildeki payı |\n|---|---|---|---|---|"
+    )
+    for d in range(10):
+        n_d = ties["n_t"][d] + ties["n_c"][d]
+        a(
+            f"| {d + 1} | {n_d} | {_f(ties['n_c'][d] / n_d, 3)} | "
+            f"{_f(ties['desil_ici_en_buyuk'][d], 4)} | {_f(ties['blok_desil_payi'][d], 4)} |"
+        )
+    a(
+        _note(
+            "Desillerin ne kadarının aynı tahmini paylaşan satırlardan oluştuğu ve kontrol "
+            "grubunun desillere dağılımı (sonuç değişkeni kullanılmadı).",
+            "Büyük bir eşit blok içindeki sıralama modelden değil sabit anahtardan gelir; bu "
+            "desillerde tahmin edilen fark sabittir ve sıralama bilgi taşımaz.",
         )
     )
 
