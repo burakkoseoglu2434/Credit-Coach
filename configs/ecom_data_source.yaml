@@ -50,3 +50,15 @@ bolme:
   seed: 20261111
   oranlar: {egitim: 0.6, dogrulama: 0.2, test: 0.2}
   tabaka: [treatment, birincil_sonuc]   # birincil_sonuc = visit (Karar Q3); ADR-008
+# E1 bölmesi (python -m credit_coach.ecom.e1_hillstrom split)
+bolme_hillstrom:
+  karma: 8bd4e53c0df90ae360feb93d94d880c3c91109f596cef48fc6fa8edb913e8437
+  yontem: tabaka (tedavi x visit) içinde seed'li permütasyon; satır kimliği = dosya
+    sırası
+  seed: 20261111
+  satir:
+    egitim: 38399
+    dogrulama: 12799
+    test: 12802
+  p_egitim: 0.667101
+  tedavi: iki e-posta kolu birleşik vs No E-Mail (Karar Q2)
