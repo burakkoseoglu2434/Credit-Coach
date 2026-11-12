@@ -37,6 +37,7 @@ def scanned_files() -> list[Path]:
             ROOT / "docs" / "ecom" / "E1_selection.md",
             ROOT / "docs" / "ecom" / "E1_hillstrom.md",
             ROOT / "docs" / "ecom" / "E2_selection.md",
+            ROOT / "docs" / "ecom" / "E2_criteo.md",
         ]
         if p.exists()
     ]
@@ -82,6 +83,7 @@ def test_scan_covers_the_expected_files():
         "E1_selection.md",
         "E1_hillstrom.md",
         "E2_selection.md",
+        "E2_criteo.md",
     } <= names
 
 
