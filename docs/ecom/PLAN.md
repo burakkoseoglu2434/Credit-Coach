@@ -107,6 +107,7 @@ bolme:
 - $\hat\tau(x)$: modelin tahmin ettiği koşullu fark, $\hat\tau(x) = \hat\mu_1(x) - \hat\mu_0(x)$.
 - Gözlenen fark (bir küme $S$ için): $\tau^{obs}_S = \bar Y_{S,T=1} - \bar Y_{S,T=0}$.
 - Tüm metrikler **test kümesinde**, test satırları $\hat\tau$'ya göre azalan sıralanarak hesaplanır; eşitlikler satır kimliğine göre bozulur (deterministik).
+  *Sonradan (2026-11-12, Criteo eşitlik kuralı):* Criteo'da eşit tahmin değerli satırlar artık dosya sırasına (satır kimliğine) göre değil, satır kimliği ve seed 20261111'in deterministik karmasından üretilen sabit 64-bit anahtara göre sıralanır: sıralama $(-\hat\tau,\ \text{anahtar})$. Anahtar satır başına bir kez hesaplanır; bootstrap'ta yeniden rastgele seçilmez, satırla birlikte taşınır. Gerekçe: Criteo dosyası tedaviye göre 12 blok hâlinde; doğrulama kümesinde TO modelinde en büyük eşit tahmin bloğu satırların %29,6'sı, 8. desilde kontrol payı 0,000, 9. desilde 0,333; seçilen T modelinde en büyük eşit blok %2,45. Bu doğrulama kümesinde gözlendi; test kümesi çalışmadı, kilit yok. Hillstrom'da tedavi komşu satırlarda 28.552/63.999 kez değişiyor (rastgele sırada beklenen ≈ 28.400): E1 etkilenmedi. E1 eski kuralla (satır kimliği) üretildi; sonuçları ve raporu **değişmez** ve yeniden çalışmaz.
 - Bootstrap: $B = 1000$, sabit seed, tedavi ve kontrol kendi içinde yeniden örneklenir (tabakalı); %95 aralık yüzdelik yöntemiyle (2,5 ve 97,5). Model yeniden eğitilmez; aralık test örneklemesinin belirsizliğini verir.
 
 ### 2.2 Soru 1 — Tahmin edilen fark ölçülen farkla uyuşuyor mu?
