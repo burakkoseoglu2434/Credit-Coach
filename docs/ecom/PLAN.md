@@ -189,6 +189,12 @@ Not: $\pi_{mod}$ zaten $\hat\tau$'ya göre seçildiği için $\overline{\hat\tau
 - Ayar ızgarası doğrulamada, en çok 12 kombinasyon (öğrenme hızı × yaprak sayısı × iterasyon), ölçüt doğrulama Qini'si. Seçilen ayar, test çalışmadan önce bu belgeye ek olarak yazılır.
 - Belirlenimcilik: aynı veri + seed iki kez çalıştırıldığında $\hat\tau$ bit düzeyinde aynı olmalı (E1'de test). LLM, DiCE, LIME, KernelSHAP kullanılmaz.
 
+*Sonradan (2026-11-12, E1 başlamadan ve hiçbir model sonucu görülmeden):* **Criteo için ikincil duyarlılık analizi (kapıya GİRMEZ).** E0'da Criteo özelliklerinde eşiğe yakın dengesizlik görüldü (en büyük \|SMD\| 0,0488, `f3`; `docs/ecom/E0_data_check.md`). Bu yüzden E2'de, birincil analize ek olarak:
+- Tedavi olasılığı $\hat p(x)$ eğitim kümesinde `HistGradientBoostingClassifier` ile (sabit `random_state`) tahmin edilir; birincil analizdeki sabit $p$ değişmez.
+- $\hat p(x) < 0{,}01$ ya da $> 0{,}99$ olan test satırları kırpılır (analizden çıkarılır); kırpılan oran raporlanır.
+- Test kümesinde ağırlıklı fark (tedavi $1/\hat p(x)$, kontrol $1/(1-\hat p(x))$ ağırlığıyla) ve ağırlıklı Qini, ham (birincil) sonuçla yan yana raporlanır.
+- Bu analiz E2 kapı kararını değiştirmez; yalnızca birincil sonucun özellik dengesizliğine duyarlılığını gösterir.
+
 > **Bu bölüm ne demek:** Hangi satırların hangi kümeye gideceği, modelin ne zaman ayarlanıp ne zaman bir kez sınanacağı ve hangi iki model ailesinin neden seçildiği.
 >
 > **Ne DEMEK DEĞİL:** Seçilen iki ailenin en iyi uplift yöntemleri olduğunu söylemez; amaç en yüksek skoru bulmak değil, tahmin edilen ve ölçülen farkın uyuşmasını sınamaktır.
