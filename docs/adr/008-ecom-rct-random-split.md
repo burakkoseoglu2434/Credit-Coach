@@ -15,6 +15,14 @@ uygulanamaz.
 1. Yalnızca rastgele atamalı deney verisinde (RCT) ve yalnızca `credit_coach.ecom` alt paketinde,
    **tabakalı rastgele bölme** kullanılır: eğitim / doğrulama / test = 0,6 / 0,2 / 0,2,
    tabaka = (tedavi × birincil sonuç), seed 20261111, atama satır kimliğinin sabit karmasıyla.
+
+   *Sonradan (2026-11-13, düzeltme):* Gerçekte kullanılan yöntem tabakalı, seed'li
+   permütasyondur: `e1_hillstrom.make_split` / `e2_criteo.make_split` →
+   `uplift.stratified_split` (seed 20261111, `numpy.random.default_rng`; her tabakada satır
+   kimlikleri karıştırılır, 0,6 / 0,2 / 0,2). Kayıtlı karmalar (Hillstrom `8bd4e53c…`, Criteo
+   `c5fa21e7…`) bu yöntemle birebir yeniden üretildi (`docs/ecom/SPLIT_CHECK.md`). Yukarıdaki
+   "satır kimliğinin sabit karmasıyla" ifadesi uygulamayı tarif etmiyordu. Test öncesi karma
+   commit'i ve kilit bağları (`docs/ecom/test_run_*.lock`) değişmedi.
 2. Test kümesi bir kez çalıştırılır; ayar yalnızca doğrulamada yapılır (PLAN bölüm 3.2).
 3. Kredi verisi için zamana göre bölme kuralı **aynen geçerlidir**; bu ADR onu değiştirmez ve
    kredi koduna uygulanmaz.
